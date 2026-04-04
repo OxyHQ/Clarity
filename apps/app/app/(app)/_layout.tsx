@@ -57,7 +57,7 @@ export default function AppLayout() {
           {/* main: isolate flex h-auto max-h-screen min-w-0 grow flex-col */}
           <View className="isolate flex h-auto max-h-screen min-w-0 grow flex-col">
             {/* content-area: relative isolate min-h-0 flex-1 overflow-hidden bg-background */}
-            <View className="relative min-h-0 flex-1 overflow-hidden bg-background">
+            <View className="relative isolate min-h-0 flex-1 overflow-hidden bg-background">
               <Drawer
                 drawerContent={renderDrawerContent}
                 screenOptions={screenOptions}

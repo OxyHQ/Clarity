@@ -85,7 +85,7 @@ const SearchHistoryItem = React.memo(function SearchHistoryItem({
           {/* Text content */}
           <View className="relative flex-row items-center gap-2 pl-1 py-1.5 px-2">
             <View className="w-full overflow-hidden">
-              <Text className="text-sm text-foreground" numberOfLines={1}>{title || "New search"}</Text>
+              <Text className="font-sans text-sm text-foreground" numberOfLines={1}>{title || "New search"}</Text>
             </View>
           </View>
         </Pressable>
@@ -193,14 +193,14 @@ const SearchSidebar = React.memo(function SearchSidebar() {
         className="flex-row items-center gap-2 w-full h-8 rounded-full bg-primary px-3 justify-center"
       >
         <Plus size={16} color="white" />
-        <Text className="text-sm font-medium text-primary-foreground">New Search</Text>
+        <Text className="flex-1 font-sans text-sm font-medium text-primary-foreground">New Search</Text>
       </Pressable>
     </View>
   );
 
   /* History section — matches: flex min-h-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto */
   const scrollableContent = (
-    <View className="min-h-0 w-full flex-1 flex-col">
+    <View className="flex min-h-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto">
       {isLoading ? <SidebarSkeleton /> : allConvs.length === 0 ? (
         <View className="items-center justify-center py-8">
           <Text className="text-xs text-muted-foreground">No searches yet</Text>

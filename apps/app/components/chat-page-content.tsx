@@ -6,7 +6,7 @@ import { KeyboardStickyView } from "@/lib/keyboard";
 import { LinearGradient } from "expo-linear-gradient";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
-import { Globe, X, Brain, Search } from "lucide-react-native";
+import { Globe, X, Brain, Search, Menu, Plus } from "lucide-react-native";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,10 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
 import { WelcomeMessage } from "@/components/welcome-message";
 import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
+import { useNavigation } from "expo-router";
+import { DrawerNavigationProp } from "@react-navigation/drawer";
+import { useWindowDimensions } from "react-native";
+import { ScrollView } from "react-native";
 
 type Mode = "search" | "deepResearch";
 
@@ -98,6 +102,9 @@ export const ChatPageContent = ({
   const thinkingMode = isThinkingModel(selectedModel);
   const baseModel = useModelStore((s) => s.baseModel);
   const setBaseModel = useModelStore((s) => s.setBaseModel);
+  const navigation = useNavigation<DrawerNavigationProp<never>>();
+  const dimensions = useWindowDimensions();
+  const isLargeScreen = dimensions.width >= 768;
 
   useEffect(() => {
     if (!isThinkingModel(selectedModel)) {
@@ -249,7 +256,42 @@ export const ChatPageContent = ({
     </>
   );
 
-  // ─── Conversation view: messages + sticky bottom input ───
+  // Landing-page-specific actions for the search box grid layout
+  const landingActionsLeft = (
+    <>
+      {/* Attach button */}
+      <Pressable
+        className="h-8 rounded-full aspect-square items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent"
+        onPress={() => toggleMode("search")}
+      >
+        <Plus size={16} className={activeModes.has("search") ? "text-primary" : "text-muted-foreground"} />
+      </Pressable>
+
+      {/* Focus chip */}
+      <Pressable
+        className="inline-flex select-none h-8 max-w-full flex-row items-center border text-sm transition-colors duration-150 cursor-pointer rounded-full gap-1 pl-2 pr-3 border-dashed bg-transparent border-border hover:bg-muted"
+        onPress={() => toggleMode("search")}
+      >
+        <Globe size={14} className={activeModes.has("search") ? "text-primary" : "text-muted-foreground"} />
+        <Text className="text-sm text-muted-foreground truncate">Focus</Text>
+      </Pressable>
+
+      {thinkingMode && (
+        <ModeChip icon={Brain} label={t("modes.thinkingLabel")} color="#a855f7" onDismiss={handleThinkingMode} />
+      )}
+
+      {activeModes.has("deepResearch") && (
+        <ModeChip
+          icon={MODE_CONFIG.deepResearch.icon}
+          label={t(MODE_CONFIG.deepResearch.label)}
+          color={MODE_CONFIG.deepResearch.color}
+          onDismiss={() => toggleMode("deepResearch")}
+        />
+      )}
+    </>
+  );
+
+  // ---- Conversation view: messages + sticky bottom input ----
   if (showConversationView) {
     return (
       <View className="relative flex h-full flex-col bg-background">
@@ -340,65 +382,91 @@ export const ChatPageContent = ({
     );
   }
 
-  // ─── Landing: centered search page ───
+  // ---- Landing: centered search page ----
   return (
-    <View className="relative flex h-full flex-col bg-background">
-      {/* Header row */}
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>
-        <ChatHeader
-          title="Clarity"
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
-          onClear={onClear}
-          isConversation={false}
-        />
-      </View>
+    <View className="isolate flex h-auto max-h-screen min-w-0 grow flex-col">
+      <View className="relative isolate min-h-0 flex-1 overflow-hidden bg-background">
+        <View className="mx-auto flex w-full flex-col h-full">
+          {/* Scrollable container */}
+          <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
+            <View className="mx-auto w-full max-w-screen-md px-4 md:px-6 h-full">
+              <View className="mx-auto w-full sm:max-w-screen-md h-full">
+                <View className="relative flex h-full flex-col">
 
-      {/* search-section: static w-full grow flex-col items-center pb-[10vh] md:mt-0 md:flex z-10 */}
-      <View className="w-full grow flex-col items-center pb-[10vh] md:mt-0 md:flex z-10">
-        {/* spacer: hidden shrink-0 md:block md:h-[40vh] */}
-        <View className="hidden shrink-0 md:flex md:h-[40vh]" />
+                  {/* Mobile header (hidden on desktop) */}
+                  {!isLargeScreen && (
+                    <View className="py-4 pr-4 pl-1 h-14 flex-row items-center justify-between border-b -mx-4 border-border/50">
+                      <View className="gap-x-1 flex-row items-center">
+                        <Pressable
+                          onPress={() => navigation.toggleDrawer()}
+                          className="h-9 w-9 items-center justify-center rounded-full"
+                        >
+                          <Menu size={20} className="text-muted-foreground" />
+                        </Pressable>
+                      </View>
+                    </View>
+                  )}
 
-        {/* search-wrapper: px-4 relative flex size-full flex-col justify-center md:h-auto md:px-0 */}
-        <View className="px-4 relative flex w-full flex-col justify-center md:h-auto md:px-0">
-          {/* content-max: mx-auto size-full max-w-screen-md px-4 md:px-6 */}
-          <View className="mx-auto w-full max-w-screen-md px-0 md:px-6">
+                  {/* Search section (vertically centered) */}
+                  <View className="w-full grow flex-col items-center pb-[10vh] md:mt-0 md:flex z-10">
+                    {/* Spacer pushes content to center on desktop */}
+                    <View className="hidden shrink-0 md:flex md:h-[40vh]" />
 
-            {/* logo-area: mb-6 bottom-0 flex w-full items-center justify-center pb-3 text-center */}
-            <View className="mb-6 flex w-full items-center justify-center pb-3 text-center">
-              <ClarityWordmark height={40} />
-            </View>
+                    {/* Search wrapper */}
+                    <View className="px-4 relative flex w-full flex-col justify-center md:h-auto md:px-0">
 
-            {/* Search box: outer > border-wrap > search-box */}
-            <View className="bg-background rounded-2xl">
-              <View className="relative rounded-2xl bg-background">
-                <View className="bg-card w-full outline-none flex items-center border rounded-2xl duration-75 transition-all border-border shadow-sm px-0 pt-3 pb-3">
-                  <PromptInput
-                    value={inputValue}
-                    onValueChange={setInputValue}
-                    onSubmit={handleSubmit}
-                    isLoading={isLoading}
-                    disabled={isLoading || disabled}
-                    disableKeyboardAvoidance
-                    attachments={attachments}
-                    onAddAttachment={addAttachment}
-                    onRemoveAttachment={removeAttachment}
-                    onImagePaste={handleImagePaste}
-                    autocomplete
-                    placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
-                    onStop={onStop}
-                    className="border-0 rounded-none bg-transparent shadow-none"
-                    actionsLeft={actionsLeftContent}
-                  />
+                      {/* Logo area (positioned above search box on desktop) */}
+                      <View className="mb-6 bottom-0 flex w-full items-center justify-center pb-3 text-center md:absolute">
+                        <ClarityWordmark height={40} />
+                      </View>
+
+                      {/* Search input box */}
+                      <View className="w-full relative">
+                        <View className="bg-background rounded-2xl">
+                          <View className="relative rounded-2xl bg-background">
+                            <View className="bg-card w-full border rounded-2xl duration-75 transition-all border-border shadow-sm px-0 pt-3 pb-3">
+                              <PromptInput
+                                value={inputValue}
+                                onValueChange={setInputValue}
+                                onSubmit={handleSubmit}
+                                isLoading={isLoading}
+                                disabled={isLoading || disabled}
+                                disableKeyboardAvoidance
+                                attachments={attachments}
+                                onAddAttachment={addAttachment}
+                                onRemoveAttachment={removeAttachment}
+                                onImagePaste={handleImagePaste}
+                                autocomplete
+                                placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
+                                onStop={onStop}
+                                className="border-0 rounded-none bg-transparent shadow-none"
+                                actionsLeft={landingActionsLeft}
+                              />
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Category tabs + suggestion cards below search */}
+                    <View className="mt-4 w-full hidden md:flex">
+                      <View className="mt-6 w-full">
+                        <WelcomeContent onSuggestionPress={handleSuggestionPress} />
+                      </View>
+                    </View>
+
+                    {/* Mobile: show welcome below search without absolute positioning */}
+                    {!isLargeScreen && (
+                      <View className="mt-4 w-full px-4 md:hidden">
+                        <WelcomeContent onSuggestionPress={handleSuggestionPress} />
+                      </View>
+                    )}
+
+                  </View>
                 </View>
               </View>
             </View>
-
-            {/* Welcome message: category tabs + suggestion cards */}
-            <View className="mt-2">
-              <WelcomeContent onSuggestionPress={handleSuggestionPress} />
-            </View>
-          </View>
+          </ScrollView>
         </View>
       </View>
     </View>
