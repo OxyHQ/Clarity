@@ -22,8 +22,6 @@ import { createResponseSSEEmitter } from '../../lib/sse-emitter.js';
 import { SystemPromptBuilder } from '../../lib/system-prompt-builder.js';
 import { convertToAISDKMessages, type ChatMessage } from '../../lib/message-converter.js';
 import { oxyClient } from '../../middleware/auth.js';
-import { UserMemory } from '../../models/user-memory.js';
-import { Skill } from '../../models/skill.js';
 import { estimateMessageTokens } from '../../lib/token-counter.js';
 import { runBeforeChatHooks } from '../../lib/hooks/index.js';
 import { wrapToolsWithTruncation, getToolResultBudget } from '../../lib/tools/result-truncation.js';

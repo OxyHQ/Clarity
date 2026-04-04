@@ -25,8 +25,6 @@ import { log } from '../lib/logger.js';
 import { loadPrompt } from '../lib/prompt-loader.js';
 import { wrapToolsWithTruncation, getToolResultBudget } from '../lib/tools/result-truncation.js';
 import { BILLING_RE, AUTH_RE } from '../lib/constants.js';
-import { Skill } from '../models/skill.js';
-import { Agent } from '../models/agent.js';
 
 // ── Inline type for recalled memory (previously from deleted lib/memory/recall.ts) ──
 export interface RecalledMemory {
