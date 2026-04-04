@@ -456,9 +456,9 @@ export const ChatPageContent = ({
                   )}
 
                   {/* Search section (vertically centered) */}
-                  <View className="w-full grow flex-col items-center pb-[10vh] md:mt-0 md:flex z-10">
+                  <View className="w-full grow flex-col items-center md:mt-0 md:flex z-10">
                     {/* Spacer pushes content to center on desktop */}
-                    <View className="hidden shrink-0 md:block md:h-[40vh]" />
+                    {isLargeScreen && <View style={{ height: '30vh' }} />}
 
                     {/* Search wrapper */}
                     <View className="px-4 relative flex w-full flex-col justify-center md:h-auto md:px-0">
@@ -519,7 +519,7 @@ export const ChatPageContent = ({
                                 {/* Add tools & modes (+) button */}
                                 <DropdownMenu.Root>
                                   <DropdownMenu.Trigger>
-                                    <Pressable className="h-8 rounded-full items-center justify-center active:bg-muted">
+                                    <Pressable className="h-8 w-8 rounded-full items-center justify-center active:bg-muted">
                                       <Plus size={18} className="text-muted-foreground" />
                                     </Pressable>
                                   </DropdownMenu.Trigger>
@@ -631,20 +631,9 @@ export const ChatPageContent = ({
                     </View>
 
                     {/* Category tabs + suggestion cards below search */}
-                    <View className="mt-4 absolute top-full inset-x-0 hidden md:block">
-                      <View className="relative w-full">
-                        <View className="mt-6 w-full">
-                          <WelcomeContent onSuggestionPress={handleSuggestionPress} />
-                        </View>
-                      </View>
+                    <View className="mt-6 w-full">
+                      <WelcomeContent onSuggestionPress={handleSuggestionPress} />
                     </View>
-
-                    {/* Mobile: show welcome below search without absolute positioning */}
-                    {!isLargeScreen && (
-                      <View className="mt-4 w-full px-4 md:hidden">
-                        <WelcomeContent onSuggestionPress={handleSuggestionPress} />
-                      </View>
-                    )}
 
                   </View>
                 </View>
