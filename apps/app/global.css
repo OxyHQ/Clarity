@@ -10,6 +10,8 @@
     /* Light mode colors (purple default) */
     --background: 0 0% 100%;
     --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
     --surface: 280 10% 97%;
     --surface-foreground: 0 0% 0%;
     --popover: 0 0% 100%;
@@ -50,6 +52,8 @@
   .dark {
     --background: 275 50% 5%;
     --foreground: 0 0% 100%;
+    --card: 275 30% 10%;
+    --card-foreground: 0 0% 100%;
     --surface: 275 20% 18%;
     --surface-foreground: 0 0% 100%;
     --popover: 275 20% 18%;

@@ -50,6 +50,7 @@ export function useColorScheme() {
     return {
       background: hslVarToCSS(vars['--background']),
       foreground: hslVarToCSS(vars['--foreground']),
+      card: hslVarToCSS(vars['--card']),
       sidebar: hslVarToCSS(vars['--sidebar']),
       surface: hslVarToCSS(vars['--surface']),
       muted: hslVarToCSS(vars['--muted']),

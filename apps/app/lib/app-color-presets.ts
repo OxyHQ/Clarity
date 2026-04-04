@@ -18,6 +18,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     light: {
       '--background': '0 0% 100%',
       '--foreground': '0 0% 0%',
+      '--card': '0 0% 100%',
+      '--card-foreground': '0 0% 0%',
       '--surface': '280 10% 97%',
       '--surface-foreground': '0 0% 0%',
       '--popover': '0 0% 100%',
@@ -52,6 +54,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     dark: {
       '--background': '275 50% 5%',
       '--foreground': '0 0% 100%',
+      '--card': '275 30% 10%',
+      '--card-foreground': '0 0% 100%',
       '--surface': '275 20% 18%',
       '--surface-foreground': '0 0% 100%',
       '--popover': '275 20% 18%',
@@ -91,6 +95,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     light: {
       '--background': '0 0% 100%',
       '--foreground': '0 0% 0%',
+      '--card': '0 0% 100%',
+      '--card-foreground': '0 0% 0%',
       '--surface': '150 10% 97%',
       '--surface-foreground': '0 0% 0%',
       '--popover': '0 0% 100%',
@@ -125,6 +131,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     dark: {
       '--background': '153 50% 5%',
       '--foreground': '0 0% 100%',
+      '--card': '153 30% 10%',
+      '--card-foreground': '0 0% 100%',
       '--surface': '155 20% 18%',
       '--surface-foreground': '0 0% 100%',
       '--popover': '155 20% 18%',
@@ -164,6 +172,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     light: {
       '--background': '0 0% 100%',
       '--foreground': '0 0% 0%',
+      '--card': '0 0% 100%',
+      '--card-foreground': '0 0% 0%',
       '--surface': '217 10% 97%',
       '--surface-foreground': '0 0% 0%',
       '--popover': '0 0% 100%',
@@ -198,6 +208,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     dark: {
       '--background': '217 50% 5%',
       '--foreground': '0 0% 100%',
+      '--card': '217 30% 10%',
+      '--card-foreground': '0 0% 100%',
       '--surface': '217 20% 18%',
       '--surface-foreground': '0 0% 100%',
       '--popover': '217 20% 18%',
@@ -236,6 +248,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     light: {
       '--background': '0 0% 100%',
       '--foreground': '0 0% 0%',
+      '--card': '0 0% 100%',
+      '--card-foreground': '0 0% 0%',
       '--surface': '46 10% 97%',
       '--surface-foreground': '0 0% 0%',
       '--popover': '0 0% 100%',
@@ -270,6 +284,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     dark: {
       '--background': '46 50% 5%',
       '--foreground': '0 0% 100%',
+      '--card': '46 30% 10%',
+      '--card-foreground': '0 0% 100%',
       '--surface': '46 20% 18%',
       '--surface-foreground': '0 0% 100%',
       '--popover': '46 20% 18%',
@@ -308,6 +324,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     light: {
       '--background': '0 0% 100%',
       '--foreground': '0 0% 0%',
+      '--card': '0 0% 100%',
+      '--card-foreground': '0 0% 0%',
       '--surface': '20 10% 97%',
       '--surface-foreground': '0 0% 0%',
       '--popover': '0 0% 100%',
@@ -342,6 +360,8 @@ export const APP_COLOR_PRESETS: Record<AppColorName, AppColorPreset> = {
     dark: {
       '--background': '20 50% 5%',
       '--foreground': '0 0% 100%',
+      '--card': '20 30% 10%',
+      '--card-foreground': '0 0% 100%',
       '--surface': '20 20% 18%',
       '--surface-foreground': '0 0% 100%',
       '--popover': '20 20% 18%',

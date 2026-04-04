@@ -6,8 +6,8 @@ module.exports = {
     "./components/**/*.{js,jsx,ts,tsx}",
     "./lib/**/*.{js,jsx,ts,tsx}",
     "./hooks/**/*.{js,jsx,ts,tsx}",
-    // SDK components using NativeWind classes
-    "../alia-chat/src/**/*.{ts,tsx}",
+    // Local SDK components
+    "./lib/sdk/**/*.{ts,tsx}",
   ],
   presets: [require("nativewind/preset")],
   theme: {
@@ -26,6 +26,10 @@ module.exports = {
         ring: "hsl(var(--ring) / <alpha-value>)",
         background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground) / <alpha-value>)",
+        card: {
+          DEFAULT: "hsl(var(--card) / <alpha-value>)",
+          foreground: "hsl(var(--card-foreground) / <alpha-value>)",
+        },
         primary: {
           DEFAULT: "hsl(var(--primary) / <alpha-value>)",
           foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
