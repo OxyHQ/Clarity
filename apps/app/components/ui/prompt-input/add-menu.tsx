@@ -61,9 +61,9 @@ export function PromptInputAddMenu({ className, iconSize = 16 }: PromptInputAddM
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
         <Button
-          variant="outline"
+          variant="ghost"
           size="icon"
-          className={cn("h-8 w-8 rounded-full border-0", className)}
+          className={cn("h-8 rounded-full items-center justify-center active:bg-muted", className)}
         >
           <Plus size={iconSize} className="text-muted-foreground" />
         </Button>

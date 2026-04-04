@@ -27,7 +27,8 @@
     "user": "Usuario",
     "done": "Listo",
     "authorize": "Autorizar",
-    "tryAgain": "Reintentar"
+    "tryAgain": "Reintentar",
+    "more": "Más"
   },
   "login": {
     "title": "Iniciar sesión o registrarse",

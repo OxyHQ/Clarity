@@ -456,24 +456,24 @@ export const ChatPageContent = ({
                   )}
 
                   {/* Search section (vertically centered) */}
-                  <View className="w-full grow flex-col items-center md:mt-0 md:flex z-10">
+                  <View className="w-full grow flex-col items-center pb-[10vh] md:mt-0 md:flex z-10">
                     {/* Spacer pushes content to center on desktop */}
-                    <View className="hidden shrink-0 md:flex md:h-[40vh]" />
+                    <View className="hidden shrink-0 md:block md:h-[40vh]" />
 
                     {/* Search wrapper */}
                     <View className="px-4 relative flex w-full flex-col justify-center md:h-auto md:px-0">
 
                       {/* Logo area */}
                       <View className="mb-6 flex w-full items-center justify-center pb-3">
-                        <View className="h-auto w-64">
-                          <ClarityWordmark width={256} />
+                        <View className="h-auto w-80">
+                          <ClarityWordmark width={320} />
                         </View>
                       </View>
 
                       {/* Search input box */}
                       <View className="w-full">
                         <Pressable onPress={() => landingInputRef.current?.focus()}>
-                          <View className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                          <View className="bg-card w-full border rounded-2xl duration-75 transition-all border-border shadow-sm px-0 pt-3 pb-3 overflow-hidden">
                             {/* Attachments preview */}
                             {attachments.length > 0 && (
                               <View className="px-3 pt-3 flex-row flex-wrap gap-2">
@@ -498,7 +498,7 @@ export const ChatPageContent = ({
                             )}
 
                             {/* Text input area */}
-                            <View className="px-3 pt-3 pb-1">
+                            <View className="overflow-hidden relative flex h-full pb-2 ml-2 mt-1">
                               <ChatTextInput
                                 ref={landingInputRef}
                                 value={inputValue}
@@ -509,18 +509,18 @@ export const ChatPageContent = ({
                                 placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
                                 multiline
                                 editable={!disabled}
-                                className="w-full border-0 bg-transparent text-foreground text-base min-h-[48px] py-2 px-1"
+                                className="overflow-auto outline-none font-sans resize-none caret-primary text-foreground bg-transparent w-full min-h-[48px] py-2 px-1"
                               />
                             </View>
 
                             {/* Action bar */}
-                            <View className="px-3 pb-2.5 flex-row items-center justify-between">
-                              <View className="flex-row items-center gap-1.5">
+                            <View className="px-3 flex-row items-center justify-between">
+                              <View className="flex-row items-center gap-2 overflow-hidden min-w-0">
                                 {/* Add tools & modes (+) button */}
                                 <DropdownMenu.Root>
                                   <DropdownMenu.Trigger>
-                                    <Pressable className="h-8 w-8 rounded-full items-center justify-center active:bg-muted">
-                                      <Plus size={16} className="text-muted-foreground" />
+                                    <Pressable className="h-8 rounded-full items-center justify-center active:bg-muted">
+                                      <Plus size={18} className="text-muted-foreground" />
                                     </Pressable>
                                   </DropdownMenu.Trigger>
                                   <DropdownMenu.Content side="bottom" align="start">
@@ -556,10 +556,10 @@ export const ChatPageContent = ({
                                 <Pressable
                                   onPress={() => toggleMode("search")}
                                   className={cn(
-                                    "flex-row items-center h-8 rounded-full border border-dashed px-3 gap-1.5",
+                                    "inline-flex select-none h-8 max-w-full flex-row items-center border text-sm transition-colors duration-150 cursor-pointer rounded-full gap-1 pl-2 pr-3",
                                     activeModes.has("search")
                                       ? "border-primary bg-primary/10"
-                                      : "border-border bg-transparent active:bg-muted"
+                                      : "border-dashed bg-transparent border-border hover:bg-muted"
                                   )}
                                 >
                                   <Globe size={14} className={activeModes.has("search") ? "text-primary" : "text-muted-foreground"} />
@@ -580,7 +580,7 @@ export const ChatPageContent = ({
                                 )}
                               </View>
 
-                              <View className="flex-row items-center gap-1.5">
+                              <View className="flex-row items-center gap-2">
                                 {/* Model selector */}
                                 <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
 
@@ -631,9 +631,11 @@ export const ChatPageContent = ({
                     </View>
 
                     {/* Category tabs + suggestion cards below search */}
-                    <View className="mt-4 w-full hidden md:flex">
-                      <View className="mt-6 w-full">
-                        <WelcomeContent onSuggestionPress={handleSuggestionPress} />
+                    <View className="mt-4 absolute top-full inset-x-0 hidden md:block">
+                      <View className="relative w-full">
+                        <View className="mt-6 w-full">
+                          <WelcomeContent onSuggestionPress={handleSuggestionPress} />
+                        </View>
                       </View>
                     </View>
 

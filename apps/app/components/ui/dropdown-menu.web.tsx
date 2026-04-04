@@ -118,7 +118,7 @@ const DropdownMenuSubTrigger = React.forwardRef<
   <DropdownMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center gap-1.5 rounded-md px-1.5 py-1 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[state=open]:bg-accent data-[state=open]:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground [&:focus_svg:not([class*='text-'])]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+      "flex w-full select-none items-center font-sans text-foreground hover:bg-muted cursor-pointer rounded-lg gap-2 text-sm p-2 outline-none data-[state=open]:bg-muted [&_svg:not([class*='text-'])]:text-muted-foreground [&:focus_svg:not([class*='text-'])]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
       inset && "pl-8",
       className
     )}
@@ -139,12 +139,11 @@ const DropdownMenuSubContent = React.forwardRef<
     <DropdownMenuPrimitive.SubContent
       ref={ref}
       className={cn(
-        "z-[9999] min-w-[96px] rounded-md bg-popover p-1 text-popover-foreground duration-100 origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        "z-[9999] min-w-[220px] rounded-xl bg-card p-1 text-foreground shadow-lg duration-100 origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         className
       )}
       style={{
-        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)',
-        border: '1px solid hsl(var(--border))',
+        border: '1px solid hsl(var(--border) / 0.5)',
         ...style as any,
       }}
       {...props}
@@ -164,13 +163,12 @@ const DropdownMenuContent = React.forwardRef<
       sideOffset={sideOffset}
       align={align}
       className={cn(
-        "z-[9999] min-w-[8rem] rounded-lg bg-popover p-1 text-popover-foreground duration-100 max-h-[var(--radix-dropdown-menu-content-available-height)] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-x-hidden overflow-y-auto data-[state=closed]:overflow-hidden",
+        "z-[9999] min-w-[220px] rounded-xl bg-card p-1 text-foreground shadow-lg duration-100 max-h-[var(--radix-dropdown-menu-content-available-height)] origin-[var(--radix-dropdown-menu-content-transform-origin)] overflow-x-hidden overflow-y-auto data-[state=closed]:overflow-hidden",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         className
       )}
       style={{
-        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)',
-        border: '1px solid hsl(var(--border))',
+        border: '1px solid hsl(var(--border) / 0.5)',
         ...style as any,
       }}
       {...props}
@@ -207,10 +205,10 @@ const DropdownMenuItem = React.forwardRef<
         }
       }}
       className={cn(
-        "relative flex flex-row cursor-default select-none items-center gap-1.5 rounded-md px-1.5 py-1 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg:not([class*='text-'])]:text-muted-foreground [&:focus_svg:not([class*='text-'])]:text-accent-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex w-full select-none items-center font-sans text-foreground hover:bg-muted cursor-pointer rounded-lg gap-2 text-sm p-2 outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg:not([class*='text-'])]:text-muted-foreground [&:focus_svg:not([class*='text-'])]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         inset && "pl-8",
         destructive &&
-          "text-destructive focus:text-destructive focus:bg-destructive/10 dark:focus:bg-destructive/20 [&_svg]:!text-destructive",
+          "text-destructive hover:text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20 [&_svg]:!text-destructive",
         className
       )}
       {...props}
@@ -256,7 +254,7 @@ const DropdownMenuCheckboxItem = React.forwardRef<
         }
       }}
       className={cn(
-        "relative flex cursor-default select-none items-center gap-1.5 rounded-md py-1 pr-8 pl-1.5 text-sm outline-none focus:bg-accent focus:text-accent-foreground [&:focus_svg:not([class*='text-'])]:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative flex w-full select-none items-center font-sans text-foreground hover:bg-muted cursor-pointer rounded-lg gap-2 text-sm p-2 pr-8 outline-none [&:focus_svg:not([class*='text-'])]:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         className
       )}
       checked={typeof value === "boolean" ? value : value !== "off"}
@@ -298,7 +296,7 @@ const DropdownMenuSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-border", className)}
+    className={cn("my-1 mx-2 border-t border-border/50", className)}
     {...props}
   />
 ));
@@ -311,7 +309,7 @@ export const ItemIcon = React.forwardRef<
 >(({ className, ios, androidIconName, children, ...props }, ref) => {
   const IconComponent = ios?.name ? SF_SYMBOL_MAP[ios.name] : null;
   return (
-    <span ref={ref} className={cn("inline-flex h-4 w-4 items-center justify-center shrink-0 text-muted-foreground", className)} {...props}>
+    <span ref={ref} className={cn("flex shrink-0 items-center mr-2 text-muted-foreground", className)} {...props}>
       {IconComponent ? <IconComponent size={16} /> : children}
     </span>
   );

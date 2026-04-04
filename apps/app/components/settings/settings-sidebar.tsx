@@ -1,8 +1,6 @@
 import React from "react";
 import { View, Pressable } from "react-native";
-import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
 import { BaseSidebar } from "@/components/base-sidebar";
 import { useRouter, usePathname } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -69,7 +67,7 @@ export const SettingsSidebar = React.memo(function SettingsSidebar() {
   }, [pathname]);
 
   const handleSelect = (section: SettingsSection) => {
-    router.push(section.route as any);
+    router.push(section.route as Parameters<typeof router.push>[0]);
   };
 
   const handleBack = () => {
@@ -77,65 +75,54 @@ export const SettingsSidebar = React.memo(function SettingsSidebar() {
   };
 
   const header = (
-    <Pressable onPress={() => router.replace("/(app)")} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
-      <ClarityWordmark height={48} />
-    </Pressable>
-  );
-
-  const topSection = (
-    <Button
-      onPress={handleBack}
-      variant="ghost"
-      className="h-9 md:h-8 flex-row items-center justify-start gap-2 rounded-full px-3 md:px-2 w-full"
-    >
-      <ArrowLeft size={16} className="text-muted-foreground" />
-      <Text className="text-sm md:text-xs font-medium">{t("common.back")}</Text>
-    </Button>
-  );
-
-  const navigation = (
-    <View className="gap-0.5">
-      <Text className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase px-2 mb-1">
-        {t("settings.title")}
-      </Text>
-      {SECTIONS.map((section) => {
-        const Icon = section.icon;
-        const isActive = activeId === section.id;
-
-        return (
-          <Pressable
-            key={section.id}
-            onPress={() => handleSelect(section)}
-            className={`flex-row items-center rounded-full px-3 md:px-2 h-9 md:h-8 ${
-              isActive ? "bg-muted" : "active:bg-muted/50"
-            }`}
-          >
-            <Icon
-              size={16}
-              className={isActive ? "text-foreground" : "text-muted-foreground"}
-            />
-            <Text
-              className={`ml-2 text-sm md:text-xs flex-1 ${
-                isActive ? "font-medium text-foreground" : "text-muted-foreground"
-              }`}
-            >
-              {t(section.labelKey)}
-            </Text>
-          </Pressable>
-        );
-      })}
+    <View className="px-3 pt-4 pb-2">
+      <Pressable
+        onPress={handleBack}
+        className="flex-row items-center gap-2 px-2 h-8 rounded-lg hover:bg-sidebar-accent"
+      >
+        <ArrowLeft size={16} className="text-muted-foreground" />
+        <Text className="text-sm font-medium text-foreground">{t("common.back")}</Text>
+      </Pressable>
     </View>
   );
 
   const footer = <View />;
 
   return (
-    <BaseSidebar
-      header={header}
-      topSection={topSection}
-      navigation={navigation}
-      footer={footer}
-      backgroundColor="bg-sidebar"
-    />
+    <BaseSidebar header={header} footer={footer}>
+      <View className="px-3 py-1">
+        <Text className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase px-2 mb-1">
+          {t("settings.title")}
+        </Text>
+        <View className="gap-0.5">
+          {SECTIONS.map((section) => {
+            const Icon = section.icon;
+            const isActive = activeId === section.id;
+
+            return (
+              <Pressable
+                key={section.id}
+                onPress={() => handleSelect(section)}
+                className={`flex-row items-center rounded-lg px-2 h-8 ${
+                  isActive ? "bg-sidebar-accent" : "hover:bg-sidebar-accent/50"
+                }`}
+              >
+                <Icon
+                  size={16}
+                  className={isActive ? "text-foreground" : "text-muted-foreground"}
+                />
+                <Text
+                  className={`ml-2 text-sm flex-1 ${
+                    isActive ? "font-medium text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {t(section.labelKey)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </BaseSidebar>
   );
 });

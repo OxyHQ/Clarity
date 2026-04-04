@@ -27,7 +27,8 @@
     "user": "User",
     "done": "Done",
     "authorize": "Authorize",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try Again",
+    "more": "More"
   },
   "login": {
     "title": "Sign in or sign up",

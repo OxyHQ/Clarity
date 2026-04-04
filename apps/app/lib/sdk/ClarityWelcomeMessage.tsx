@@ -30,11 +30,13 @@ function CategoryTab({
   isSelected,
   isNew,
   onPress,
+  icon,
 }: {
   label: string;
   isSelected: boolean;
   isNew?: boolean;
   onPress: () => void;
+  icon?: React.ReactNode;
 }) {
   return (
     <Pressable
@@ -43,22 +45,23 @@ function CategoryTab({
       accessibilityState={{ selected: isSelected }}
       className={
         isSelected
-          ? 'font-sans font-medium select-none transition-colors duration-300 relative flex-row gap-1.5 items-center text-sm whitespace-nowrap cursor-pointer rounded-lg px-3 h-8 bg-accent border border-transparent text-foreground'
-          : 'font-sans font-medium select-none transition-colors duration-300 relative flex-row gap-1.5 items-center text-sm whitespace-nowrap cursor-pointer rounded-lg px-3 h-8 opacity-80 border border-solid border-border text-foreground hover:bg-muted'
+          ? 'group font-sans font-medium select-none transition-colors duration-300 relative flex-row gap-1.5 items-center text-sm text-foreground whitespace-nowrap cursor-pointer rounded-lg px-3 h-8 bg-accent border border-transparent'
+          : 'group font-sans font-medium select-none transition-colors duration-300 relative flex-row gap-1.5 items-center text-sm whitespace-nowrap cursor-pointer rounded-lg px-3 h-8 opacity-80 text-foreground border border-solid border-border hover:bg-muted'
       }
     >
+      {icon}
       <Text
         className={
           isSelected
             ? 'text-sm font-medium text-foreground'
-            : 'text-sm font-medium text-foreground opacity-80'
+            : 'text-sm font-medium text-foreground'
         }
       >
         {label}
       </Text>
       {isNew && (
         <View className="inline-flex items-center rounded-full px-1.5">
-          <Text className="text-[11px] font-medium text-primary">New</Text>
+          <Text className="font-sans text-[11px] font-medium bg-primary/15 text-primary">New</Text>
         </View>
       )}
     </Pressable>
@@ -80,7 +83,7 @@ function SuggestionCard({
       <Text className="font-sans text-muted-foreground text-sm flex-1" numberOfLines={1}>
         {text}
       </Text>
-      <View className="inline-flex shrink-0 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+      <View className="inline-flex shrink-0 ml-auto text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
         <ArrowRight size={16} className="text-muted-foreground" />
       </View>
     </Pressable>
@@ -94,10 +97,10 @@ export function ClarityWelcomeMessage({
   onCategoryChange,
 }: ClarityWelcomeMessageProps) {
   return (
-    <View className="flex w-full flex-col rounded-xl border border-border/50">
-      {/* Tab header */}
+    <View className="flex w-full flex-col">
+      {/* Category tabs — floating pills, not in a bordered container */}
       {onCategoryChange && (
-        <View className="flex-row items-center gap-1 rounded-t-xl bg-muted p-2">
+        <View className="flex-row items-center gap-1">
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -119,10 +122,10 @@ export function ClarityWelcomeMessage({
         </View>
       )}
 
-      {/* Suggestion cards */}
+      {/* Suggestion cards — simple text rows, no container border */}
       {suggestions.length > 0 && (
-        <Animated.View entering={FadeIn.duration(400)} className="border-t border-border/50">
-          <View className="px-2 pb-2 pt-3">
+        <Animated.View entering={FadeIn.duration(400)}>
+          <View className="pt-3">
             <View className="flex-col gap-0.5">
               {suggestions.map((item) => (
                 <SuggestionCard

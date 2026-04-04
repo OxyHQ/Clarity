@@ -158,8 +158,8 @@ export function ModelSelector({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger>
-        <Pressable accessibilityLabel="Select model" accessibilityRole="button" className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted active:opacity-70">
-          <Text className="text-sm font-medium text-foreground">
+        <Pressable accessibilityLabel="Select model" accessibilityRole="button" className="font-medium transition-colors duration-300 font-sans text-center items-center justify-center whitespace-nowrap text-muted-foreground h-8 text-sm cursor-pointer rounded-full px-3 hover:text-foreground hover:bg-muted flex-row gap-1.5 active:opacity-70">
+          <Text className="text-sm font-medium text-muted-foreground">
             {currentModel?.name || "Clarity V1"}
           </Text>
           <ChevronDown size={14} className="text-muted-foreground" />
