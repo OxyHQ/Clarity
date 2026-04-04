@@ -617,7 +617,6 @@ export const ChatPageContent = ({
                               </View>
                             )}
                           </View>
-                        </Pressable>
                       </View>
                     </View>
 
