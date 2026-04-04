@@ -1,20 +1,20 @@
-import { useState, useCallback, useEffect } from "react";
-import { View, Pressable } from "react-native";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { View, Pressable, type TextInput } from "react-native";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardStickyView } from "@/lib/keyboard";
 import { LinearGradient } from "expo-linear-gradient";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
-import { Globe, X, Brain, Search, Menu, Plus } from "lucide-react-native";
+import { Globe, X, Brain, Search, Menu, Plus, ArrowUp } from "lucide-react-native";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { PromptInput, type Attachment } from "@/components/ui/prompt-input";
-import { PromptInputAddMenu } from "@/components/ui/prompt-input/add-menu";
 import { ScrollButton } from "@/components/ui/scroll-button";
 import { ChatInterface } from "@/components/chat-interface";
 import { ChatHeader } from "@/components/chat-header";
+import { ChatTextInput } from "@/components/ui/chat-text-input";
 import type { Message } from "@/types/chat";
 import { toast } from "@/components/sonner";
 import { AlertTriangle, Pencil } from "lucide-react-native";
@@ -30,6 +30,10 @@ import { useNavigation } from "expo-router";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { useWindowDimensions } from "react-native";
 import { ScrollView } from "react-native";
+import { useImagePicker } from "@/hooks/useImagePicker";
+import { useDocumentPicker } from "@/hooks/useDocumentPicker";
+import { cn } from "@/lib/utils";
+import { Image } from "react-native";
 
 type Mode = "search" | "deepResearch";
 
@@ -257,89 +261,41 @@ export const ChatPageContent = ({
     </>
   );
 
-  // Landing-page-specific actions for the search box grid layout
-  const landingActionsLeft = (
-    <>
-      {/* Attach button — opens file/photo picker */}
-      <PromptInputAddMenu className="h-8 w-8" />
+  const landingInputRef = useRef<TextInput>(null);
+  const { pickImage } = useImagePicker();
+  const { pickDocument } = useDocumentPicker();
 
-      {/* Focus chip — dropdown for focus modes */}
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          <View className="inline-flex select-none h-8 max-w-full flex-row items-center border text-sm transition-colors duration-150 cursor-pointer rounded-full gap-1 pl-2 pr-3 border-dashed bg-transparent border-border hover:bg-muted">
-            <Globe size={14} className="text-muted-foreground" />
-            <Text className="text-sm text-muted-foreground truncate">Focus</Text>
-            <Plus size={12} className="text-muted-foreground" />
-          </View>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content side="top" align="start" collisionPadding={8}>
-          <DropdownMenu.CheckboxItem
-            key="all"
-            value={!activeModes.has("search") ? "on" : "off"}
-            onValueChange={() => { if (activeModes.has("search")) toggleMode("search"); }}
-          >
-            <DropdownMenu.ItemIcon ios={{ name: "globe" }} />
-            <DropdownMenu.ItemTitle>All</DropdownMenu.ItemTitle>
-          </DropdownMenu.CheckboxItem>
-          <DropdownMenu.CheckboxItem
-            key="search"
-            value={activeModes.has("search") ? "on" : "off"}
-            onValueChange={() => toggleMode("search")}
-          >
-            <DropdownMenu.ItemIcon ios={{ name: "magnifyingglass" }} />
-            <DropdownMenu.ItemTitle>Web Search</DropdownMenu.ItemTitle>
-          </DropdownMenu.CheckboxItem>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+  const handleAddPhotos = useCallback(async () => {
+    const assets = await pickImage();
+    if (assets && assets.length > 0) {
+      assets.forEach((asset) => {
+        addAttachment({
+          id: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          uri: asset.uri,
+          type: "image",
+          name: asset.name,
+          size: asset.size,
+          mimeType: asset.mimeType,
+        });
+      });
+    }
+  }, [addAttachment, pickImage]);
 
-      {/* Mode chips */}
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          <View className="inline-flex select-none h-8 max-w-full flex-row items-center border text-sm transition-colors duration-150 cursor-pointer rounded-full gap-1 pl-2 pr-3 border-dashed bg-transparent border-border hover:bg-muted">
-            <Search size={14} className="text-muted-foreground" />
-            <Text className="text-sm text-muted-foreground truncate">Deep Research</Text>
-            <Plus size={12} className="text-muted-foreground" />
-          </View>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content side="top" align="start" collisionPadding={8}>
-          <DropdownMenu.CheckboxItem
-            key="deep-research"
-            value={activeModes.has("deepResearch") ? "on" : "off"}
-            onValueChange={() => toggleMode("deepResearch")}
-          >
-            <DropdownMenu.ItemIcon ios={{ name: "magnifyingglass" }} />
-            <DropdownMenu.ItemTitle>Deep Research</DropdownMenu.ItemTitle>
-          </DropdownMenu.CheckboxItem>
-          <DropdownMenu.CheckboxItem
-            key="thinking"
-            value={thinkingMode ? "on" : "off"}
-            onValueChange={handleThinkingMode}
-          >
-            <DropdownMenu.ItemIcon ios={{ name: "brain" }} />
-            <DropdownMenu.ItemTitle>Thinking Mode</DropdownMenu.ItemTitle>
-          </DropdownMenu.CheckboxItem>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
-
-      {thinkingMode && (
-        <ModeChip icon={Brain} label={t("modes.thinkingLabel")} color="#a855f7" onDismiss={handleThinkingMode} />
-      )}
-
-      {activeModes.has("deepResearch") && (
-        <ModeChip
-          icon={MODE_CONFIG.deepResearch.icon}
-          label={t(MODE_CONFIG.deepResearch.label)}
-          color={MODE_CONFIG.deepResearch.color}
-          onDismiss={() => toggleMode("deepResearch")}
-        />
-      )}
-    </>
-  );
-
-  // Landing-page model selector (compact, placed on right side of actions bar)
-  const landingActionsRight = (
-    <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
-  );
+  const handleAddDocument = useCallback(async () => {
+    const docs = await pickDocument();
+    if (docs && docs.length > 0) {
+      docs.forEach((doc) => {
+        addAttachment({
+          id: `doc-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          uri: doc.uri,
+          type: "document",
+          name: doc.name,
+          size: doc.size,
+          mimeType: doc.mimeType,
+        });
+      });
+    }
+  }, [addAttachment, pickDocument]);
 
   // ---- Conversation view: messages + sticky bottom input ----
   if (showConversationView) {
@@ -471,26 +427,132 @@ export const ChatPageContent = ({
                       </View>
 
                       {/* Search input box */}
-                      <View className="w-full relative">
-                        <PromptInput
-                          value={inputValue}
-                          onValueChange={setInputValue}
-                          onSubmit={handleSubmit}
-                          isLoading={isLoading}
-                          disabled={isLoading || disabled}
-                          disableKeyboardAvoidance
-                          attachments={attachments}
-                          onAddAttachment={addAttachment}
-                          onRemoveAttachment={removeAttachment}
-                          onImagePaste={handleImagePaste}
-                          autocomplete
-                          autocompletePosition="bottom"
-                          placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
-                          onStop={onStop}
-                          className="rounded-2xl border-border bg-card shadow-sm"
-                          actionsLeft={landingActionsLeft}
-                          actionsRight={landingActionsRight}
-                        />
+                      <View className="w-full">
+                        <Pressable onPress={() => landingInputRef.current?.focus()}>
+                          <View className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
+                            {/* Attachments preview */}
+                            {attachments.length > 0 && (
+                              <View className="px-3 pt-3 flex-row flex-wrap gap-2">
+                                {attachments.map((att) => (
+                                  <View key={att.id} className="relative">
+                                    {att.type === "image" ? (
+                                      <Image source={{ uri: att.uri }} className="h-16 w-16 rounded-lg" />
+                                    ) : (
+                                      <View className="h-16 w-16 rounded-lg bg-muted items-center justify-center">
+                                        <Text className="text-xs text-muted-foreground text-center px-1" numberOfLines={2}>{att.name}</Text>
+                                      </View>
+                                    )}
+                                    <Pressable
+                                      onPress={() => removeAttachment(att.id)}
+                                      className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive items-center justify-center"
+                                    >
+                                      <X size={10} className="text-destructive-foreground" />
+                                    </Pressable>
+                                  </View>
+                                ))}
+                              </View>
+                            )}
+
+                            {/* Text input area */}
+                            <View className="px-3 pt-3 pb-1">
+                              <ChatTextInput
+                                ref={landingInputRef}
+                                value={inputValue}
+                                onChangeText={setInputValue}
+                                onSubmitEditing={handleSubmit}
+                                onEnterPress={handleSubmit}
+                                onImagePaste={handleImagePaste}
+                                placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
+                                multiline
+                                editable={!disabled}
+                                className="w-full border-0 bg-transparent text-foreground text-base min-h-[48px] py-2 px-1"
+                              />
+                            </View>
+
+                            {/* Action bar */}
+                            <View className="px-3 pb-2.5 flex-row items-center justify-between">
+                              <View className="flex-row items-center gap-1.5">
+                                {/* Attach (+) button */}
+                                <DropdownMenu.Root>
+                                  <DropdownMenu.Trigger>
+                                    <Pressable className="h-8 w-8 rounded-full items-center justify-center bg-muted">
+                                      <Plus size={16} className="text-muted-foreground" />
+                                    </Pressable>
+                                  </DropdownMenu.Trigger>
+                                  <DropdownMenu.Content side="top" align="start">
+                                    <DropdownMenu.Item key="photos" onSelect={handleAddPhotos}>
+                                      <DropdownMenu.ItemIcon ios={{ name: "photo" }} />
+                                      <DropdownMenu.ItemTitle>Add photos</DropdownMenu.ItemTitle>
+                                    </DropdownMenu.Item>
+                                    <DropdownMenu.Item key="document" onSelect={handleAddDocument}>
+                                      <DropdownMenu.ItemIcon ios={{ name: "doc" }} />
+                                      <DropdownMenu.ItemTitle>Add document</DropdownMenu.ItemTitle>
+                                    </DropdownMenu.Item>
+                                  </DropdownMenu.Content>
+                                </DropdownMenu.Root>
+
+                                {/* Focus chip */}
+                                <DropdownMenu.Root>
+                                  <DropdownMenu.Trigger>
+                                    <Pressable className="flex-row items-center h-8 rounded-full border border-dashed border-border px-3 gap-1.5 bg-transparent active:bg-muted">
+                                      <Globe size={14} className="text-muted-foreground" />
+                                      <Text className="text-sm text-muted-foreground">Focus</Text>
+                                    </Pressable>
+                                  </DropdownMenu.Trigger>
+                                  <DropdownMenu.Content side="top" align="start" collisionPadding={8}>
+                                    <DropdownMenu.CheckboxItem
+                                      key="all"
+                                      value={!activeModes.has("search") ? "on" : "off"}
+                                      onValueChange={() => { if (activeModes.has("search")) toggleMode("search"); }}
+                                    >
+                                      <DropdownMenu.ItemIcon ios={{ name: "globe" }} />
+                                      <DropdownMenu.ItemTitle>All</DropdownMenu.ItemTitle>
+                                    </DropdownMenu.CheckboxItem>
+                                    <DropdownMenu.CheckboxItem
+                                      key="search"
+                                      value={activeModes.has("search") ? "on" : "off"}
+                                      onValueChange={() => toggleMode("search")}
+                                    >
+                                      <DropdownMenu.ItemIcon ios={{ name: "magnifyingglass" }} />
+                                      <DropdownMenu.ItemTitle>Web Search</DropdownMenu.ItemTitle>
+                                    </DropdownMenu.CheckboxItem>
+                                  </DropdownMenu.Content>
+                                </DropdownMenu.Root>
+
+                                {/* Research chip */}
+                                <Pressable
+                                  onPress={() => toggleMode("deepResearch")}
+                                  className={cn(
+                                    "flex-row items-center h-8 rounded-full border border-dashed px-3 gap-1.5",
+                                    activeModes.has("deepResearch")
+                                      ? "border-primary bg-primary/10"
+                                      : "border-border bg-transparent active:bg-muted"
+                                  )}
+                                >
+                                  <Search size={14} className={activeModes.has("deepResearch") ? "text-primary" : "text-muted-foreground"} />
+                                  <Text className={cn("text-sm", activeModes.has("deepResearch") ? "text-primary" : "text-muted-foreground")}>Research</Text>
+                                </Pressable>
+                              </View>
+
+                              <View className="flex-row items-center gap-1.5">
+                                {/* Model selector */}
+                                <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
+
+                                {/* Submit button */}
+                                <Pressable
+                                  onPress={handleSubmit}
+                                  disabled={!inputValue.trim()}
+                                  className={cn(
+                                    "h-8 w-8 rounded-full items-center justify-center",
+                                    inputValue.trim() ? "bg-primary" : "bg-muted"
+                                  )}
+                                >
+                                  <ArrowUp size={16} className={inputValue.trim() ? "text-primary-foreground" : "text-muted-foreground"} />
+                                </Pressable>
+                              </View>
+                            </View>
+                          </View>
+                        </Pressable>
                       </View>
                     </View>
 
