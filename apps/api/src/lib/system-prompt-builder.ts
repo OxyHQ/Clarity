@@ -8,7 +8,6 @@
 import { getClarityModel } from './gateway-client.js';
 import { buildSystemPrompt as loadBasePrompt } from './prompt-loader.js';
 import { log } from './logger.js';
-import type { IAgent } from '../models/agent.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,7 +44,7 @@ export interface SystemPromptOptions {
   /** Active skill document */
   skill?: { title?: string; systemPrompt?: string } | null;
   /** Linked agent (for archetype prompt injection) */
-  linkedAgent?: IAgent | null;
+  linkedAgent?: { name: string; systemPrompt?: string } | null;
   /** Whether agent mode is active */
   agentMode?: boolean;
 }

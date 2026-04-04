@@ -1,8 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import ApiKeyUsage from '../models/api-key-usage';
-import DeveloperApiKey, { IRateLimitConfig } from '../models/developer-api-key';
 import { Subscription } from '../models/subscription';
 import mongoose from 'mongoose';
+
+/** Rate limit configuration (previously from DeveloperApiKey model) */
+export interface IRateLimitConfig {
+  requestsPerMinute: number | null;
+  requestsPerDay: number | null;
+  tokensPerMinute: number | null;
+  tokensPerDay: number | null;
+}
 import { checkLimit } from '../lib/sliding-window-limiter.js';
 import { getRedisClient, withRedisTimeout as withTimeout } from '../lib/redis.js';
 import { log } from '../lib/logger.js';
@@ -170,34 +177,11 @@ export async function apiKeyRateLimit(
     return next();
   }
 
-  // Handle API key rate limiting
+  // API key rate limiting — developer API key models removed during Clarity pruning.
+  // authenticateApiKey now rejects all API key requests, so this branch is unreachable,
+  // but we keep the passthrough for safety.
   if (req.apiKey) {
-    try {
-      const apiKey = await DeveloperApiKey.findById(req.apiKey.id).select('rateLimit');
-
-      if (!apiKey) {
-        res.status(401).json({ error: 'API key not found' });
-        return;
-      }
-
-      const rateLimit: IRateLimitConfig = apiKey.rateLimit || {
-        requestsPerMinute: null,
-        requestsPerDay: 1000,
-        tokensPerMinute: null,
-        tokensPerDay: null,
-      };
-
-      const status = await checkApiKeyRateLimits(req.apiKey.id, rateLimit);
-
-      if (status.limited) {
-        return sendRateLimitResponse(res, status);
-      }
-
-      return next();
-    } catch (error) {
-      log.rateLimit.error({ err: error }, 'API key rate limit check error');
-      return next();
-    }
+    return next();
   }
 
   // Handle session-based user rate limiting (Redis-backed sliding window)

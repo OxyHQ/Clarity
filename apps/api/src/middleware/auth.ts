@@ -1,8 +1,6 @@
 import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { OxyServices } from '@oxyhq/core';
-import DeveloperApiKey from '../models/developer-api-key.js';
-import DeveloperApp from '../models/developer-app.js';
 import ApiKeyUsage from '../models/api-key-usage.js';
 import { log } from '../lib/logger.js';
 import { getClientIp } from '../lib/net-utils.js';
@@ -73,97 +71,16 @@ export function optionalAuth(
 }
 
 /**
- * Developer API Key authentication
+ * Developer API Key authentication.
+ * Developer API key models were removed during Clarity pruning.
+ * This stub rejects all API key requests.
  */
 export async function authenticateApiKey(
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): Promise<void> {
-  const startTime = Date.now();
-
-  try {
-    const authHeader = req.headers.authorization;
-    const apiKey = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring(7)
-      : null;
-
-    if (!apiKey) {
-      res.status(401).json({ error: 'API key required' });
-      return;
-    }
-
-    if (!apiKey.startsWith('clarity_sk_')) {
-      res.status(401).json({ error: 'Invalid API key format' });
-      return;
-    }
-
-    const keyHash = (DeveloperApiKey as any).hashKey(apiKey);
-    const developerApiKey = await DeveloperApiKey.findOne({ keyHash });
-
-    if (!developerApiKey) {
-      res.status(401).json({ error: 'Invalid API key' });
-      return;
-    }
-
-    if (!developerApiKey.isActive) {
-      res.status(401).json({ error: 'API key is inactive' });
-      return;
-    }
-
-    if (developerApiKey.expiresAt && developerApiKey.expiresAt < new Date()) {
-      res.status(401).json({ error: 'API key has expired' });
-      return;
-    }
-
-    const app = await DeveloperApp.findById(developerApiKey.appId);
-    if (!app || !app.isActive) {
-      res.status(401).json({ error: 'Associated app is inactive' });
-      return;
-    }
-
-    req.apiKey = {
-      id: developerApiKey._id.toString(),
-      appId: developerApiKey.appId.toString(),
-      userId: developerApiKey.oxyUserId.toString(),
-      scopes: developerApiKey.scopes,
-    };
-
-    req.userId = developerApiKey.oxyUserId.toString();
-    req.user = { id: developerApiKey.oxyUserId.toString() };
-
-    // Update last used (async)
-    DeveloperApiKey.findByIdAndUpdate(developerApiKey._id, {
-      lastUsedAt: new Date(),
-    }).catch((err) => log.auth.error({ err }, 'Failed to update lastUsedAt'));
-
-    // Log usage after response (skip if the route already recorded usage via recordUsage())
-    res.on('finish', async () => {
-      if ((req as any)._usageRecorded) return;
-      const responseTime = Date.now() - startTime;
-      try {
-        await ApiKeyUsage.create({
-          apiKeyId: developerApiKey._id,
-          oxyUserId: developerApiKey.oxyUserId,
-          appId: developerApiKey.appId,
-          endpoint: req.path,
-          method: req.method,
-          statusCode: res.statusCode,
-          responseTime,
-          userAgent: req.headers['user-agent'],
-          ipAddress: getClientIp(req),
-          authType: 'api_key',
-        });
-      } catch (err) {
-        log.auth.error({ err }, 'Failed to log API key usage');
-      }
-    });
-
-    next();
-  } catch (error) {
-    log.auth.error({ err: error, ip: getClientIp(req) }, 'API key authentication error');
-    res.status(500).json({ error: 'Authentication failed' });
-  }
+  res.status(401).json({ error: 'API key authentication is no longer supported' });
 }
 
 /**

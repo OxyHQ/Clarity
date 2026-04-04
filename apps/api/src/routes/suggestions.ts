@@ -2,7 +2,6 @@ import { Router, Request, Response } from 'express';
 import { generateText } from 'ai';
 import { z } from 'zod';
 import { Suggestion } from '../models/suggestion.js';
-import { UserMemory } from '../models/user-memory.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { resolveModel, getAIModel, getDefaultClarityModel } from '../lib/chat-core.js';
 import { log } from '../lib/logger.js';
@@ -56,18 +55,11 @@ setInterval(() => {
 }, 2 * 60 * 1000);
 
 /**
- * Helper: resolve user language from memory preferences, fallback to 'en-US'
+ * Helper: resolve user language. User memory was removed during Clarity pruning;
+ * always returns the default locale.
  */
-async function getUserLanguage(userId?: string): Promise<string> {
-  if (!userId) return 'en-US';
-  try {
-    const memory = await UserMemory.findOne({ oxyUserId: userId })
-      .select('preferences.language')
-      .lean();
-    return memory?.preferences?.language || 'en-US';
-  } catch {
-    return 'en-US';
-  }
+async function getUserLanguage(_userId?: string): Promise<string> {
+  return 'en-US';
 }
 
 /** Filter condition to exclude expired suggestions */
@@ -155,33 +147,9 @@ router.post('/welcome', optionalAuth, async (req: Request, res: Response) => {
         .lean();
     }
 
-    // If authenticated, try to personalize scoring
-    if (req.user?.id && pool.length > 0) {
-      try {
-        const memory = await UserMemory.findOne({ oxyUserId: req.user.id })
-          .select('preferences.interests context.occupation')
-          .lean();
-
-        if (memory) {
-          const userInterests = memory.preferences?.interests || [];
-          const userOccupation = memory.context?.occupation || '';
-
-          // Score by relevance to user profile
-          pool = pool.map(s => {
-            let score = (s.priority || 0) + Math.random() * 3;
-            for (const interest of userInterests) {
-              if (s.tags?.includes(interest) || s.interests?.includes(interest)) score += 5;
-            }
-            if (userOccupation && s.occupations?.includes(userOccupation)) score += 3;
-            return { ...s, _score: score };
-          })
-          .sort((a: any, b: any) => b._score - a._score)
-          .map(({ _score, ...rest }: any) => rest);
-        }
-      } catch {
-        // Personalization is best-effort
-      }
-    } else {
+    // User memory personalization removed during Clarity pruning.
+    // Shuffle the pool randomly for all users.
+    {
       // Unauthenticated: shuffle the pool randomly
       for (let i = pool.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -274,16 +242,12 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
 
     const { count = 6, types = ['welcome', 'autocomplete'] } = req.body;
 
-    // Fetch user context for personalization
-    const memory = await UserMemory.findOne({ oxyUserId: req.user.id })
-      .select('preferences context')
-      .lean();
-
-    const language = memory?.preferences?.language || 'en-US';
-    const interests = memory?.preferences?.interests || [];
-    const tone = memory?.preferences?.tone || 'friendly';
-    const occupation = memory?.context?.occupation || '';
-    const location = memory?.context?.location || '';
+    // User memory removed during Clarity pruning; use defaults.
+    const language = 'en-US';
+    const interests: string[] = [];
+    const tone = 'friendly';
+    const occupation = '';
+    const location = '';
 
     // Provider fallback retry loop
     const MAX_PROVIDER_RETRIES = 3;

@@ -6,7 +6,6 @@
  */
 
 import { oxyClient } from '../middleware/auth.js';
-import { UserMemory } from '../models/user-memory.js';
 import { log } from './logger.js';
 
 export interface UserContext {
@@ -16,13 +15,13 @@ export interface UserContext {
 }
 
 /**
- * Build user context string from Oxy profile and UserMemory.
- * Returns the user's name, language preference, and a combined context string
- * containing known facts, preferences, and context.
+ * Build user context string from Oxy profile.
+ * Returns the user's name and a context string.
+ * User memory was removed during Clarity pruning.
  */
 export async function buildUserContext(userId: string): Promise<UserContext> {
   let userName: string | null = null;
-  let language: string | null = null;
+  const language: string | null = null;
   let contextString = '';
 
   // Fetch user name from Oxy
@@ -33,35 +32,6 @@ export async function buildUserContext(userId: string): Promise<UserContext> {
       contextString += `\nThe user's name is ${userName}.`;
     }
   } catch { /* user lookup optional */ }
-
-  // Load user memory
-  try {
-    const userMemory = await UserMemory.findOne({ oxyUserId: userId });
-    if (userMemory) {
-      if (userMemory.memories?.length > 0) {
-        contextString += '\n\n## Known Facts:\n' + userMemory.memories.map((m: any) => `- ${m.key}: ${m.value}`).join('\n');
-      }
-      if (userMemory.preferences && Object.keys(userMemory.preferences).length > 0) {
-        const prefs = Object.entries(userMemory.preferences)
-          .filter(([k, v]) => v !== undefined && v !== null && k !== 'language')
-          .map(([k, v]) => `- ${k}: ${Array.isArray(v) ? v.join(', ') : v}`);
-        if (prefs.length > 0) {
-          contextString += '\n\n## Preferences:\n' + prefs.join('\n');
-        }
-      }
-      if (userMemory.context && Object.keys(userMemory.context).length > 0) {
-        const ctx = Object.entries(userMemory.context)
-          .filter(([_, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => `- ${k}: ${v}`);
-        if (ctx.length > 0) {
-          contextString += '\n\n## Context:\n' + ctx.join('\n');
-        }
-      }
-      language = userMemory.preferences?.language || null;
-    }
-  } catch (e) {
-    log.memory.error({ err: e }, 'Error loading user memory');
-  }
 
   return { userName, language, contextString };
 }

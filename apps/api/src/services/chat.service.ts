@@ -16,10 +16,8 @@ import { getCurrentDateTool, webSearchTool, browseTool, webScraperTool, generate
 import { oxyClient } from '../middleware/auth.js';
 import type { User as OxyUser } from '@oxyhq/core';
 import { getOrCreateUserCredits } from '../lib/user-credits-helpers.js';
-import type { IUserMemory } from '../models/user-memory.js';
 import { processMessagesForPlatform } from '../lib/message-processor.js';
 import { reserveCredits, finalizeCredits, safeRefund, type CreditReservation, type CreditUsage } from '../lib/credits-manager.js';
-import { UserMemory } from '../models/user-memory.js';
 import { estimateMessageTokens } from '../lib/token-counter.js';
 import { getUserTier } from '../middleware/api-key-rate-limit.js';
 import { runBeforeChatHooks } from '../lib/hooks/index.js';
@@ -51,7 +49,6 @@ export interface ChatRequestParams {
 
 export interface UserContext {
   oxyUser: OxyUser | null;
-  memory: IUserMemory | null;
   userTier?: string;
   creditReservation: CreditReservation | null;
 }
@@ -71,7 +68,6 @@ export interface ChatSetupResult {
 
 export async function buildChatSystemPrompt(
   oxyUser?: OxyUser | null,
-  memory?: IUserMemory | null,
   platform: 'app' | 'telegram' = 'app',
   skillPrompt?: string | null,
   recalledMemories?: RecalledMemory[],
@@ -102,31 +98,10 @@ export async function buildChatSystemPrompt(
     if (oxyUser.website) userContextParts.push(`The user's website: ${oxyUser.website}`);
   }
 
-  if (memory) {
-    if (memory.preferences?.language) {
-      userContextParts.push(`User's default language: ${memory.preferences.language} (ONLY use when the user's message language is ambiguous or undetectable — always match the language the user actually writes in).`);
-    }
-    if (memory.context?.occupation) userContextParts.push(`The user works as a ${memory.context.occupation}.`);
-    if (memory.context?.location && !oxyUser?.location) userContextParts.push(`The user is located in ${memory.context.location}.`);
-    if (memory.context?.bio && !oxyUser?.bio) userContextParts.push(`About the user: ${memory.context.bio}`);
-    if (memory.preferences?.tone) {
-      userContextParts.push(`The user prefers a ${memory.preferences.tone} tone in responses.`);
-    }
-    if (memory.preferences?.responseLength) userContextParts.push(`The user prefers ${memory.preferences.responseLength} responses.`);
-    if (memory.preferences?.interests?.length) {
-      userContextParts.push(`The user is interested in: ${memory.preferences.interests.join(', ')}.`);
-    }
-  }
-
   if (recalledMemories && recalledMemories.length > 0) {
     const memoryItems = recalledMemories.map(m => `- ${m.key}: ${m.value}`).join('\n');
     userContextParts.push(`\nRelevant things to remember about the user:\n${memoryItems}`);
-  } else if (memory?.memories?.length) {
-    const memoryItems = memory.memories.map(m => `- ${m.key}: ${m.value}`).join('\n');
-    userContextParts.push(`\nThings to remember about the user:\n${memoryItems}`);
   }
-
-  // Writing style analysis removed during Clarity pruning
 
   if (userContextParts.length > 0) {
     log.chat.info({ userContext: userContextParts }, 'Personalization applied');
@@ -140,18 +115,15 @@ export async function buildChatSystemPrompt(
 
 export async function loadUserContext(userId: string): Promise<UserContext> {
   let oxyUser: OxyUser | null = null;
-  let memory: IUserMemory | null = null;
   let userTier: string | undefined;
   let creditReservation: CreditReservation | null = null;
 
   try {
-    const [userCredits, mem, tier] = await Promise.all([
+    const [userCredits, tier] = await Promise.all([
       getOrCreateUserCredits(userId),
-      UserMemory.findOne({ oxyUserId: userId }),
       getUserTier(userId),
     ]);
 
-    memory = mem;
     userTier = tier;
 
     await userCredits.refreshCreditsIfNeeded();
@@ -166,37 +138,22 @@ export async function loadUserContext(userId: string): Promise<UserContext> {
     log.chat.error({ err: e }, 'Could not fetch Oxy user profile');
   }
 
-  return { oxyUser, memory, userTier, creditReservation };
+  return { oxyUser, userTier, creditReservation };
 }
 
 // ── Skill & Agent Prompt Loading ──
 
-export async function loadSkillPrompt(skillId: string): Promise<string | null> {
-  try {
-    const skill = await Skill.findOne({ skillId }).select('systemPrompt title').lean();
-    if (skill?.systemPrompt) {
-      log.chat.info({ skillTitle: skill.title }, 'Skill activated');
-      return `# ACTIVE SKILL: ${skill.title}\n\n${skill.systemPrompt}`;
-    }
-  } catch (e) {
-    log.chat.error({ err: e }, 'Error loading skill');
-  }
+/**
+ * Skill loading was removed during Clarity pruning (Skill model deleted).
+ */
+export async function loadSkillPrompt(_skillId: string): Promise<string | null> {
   return null;
 }
 
-export async function loadAgentPrompt(agentId: string): Promise<string | null> {
-  try {
-    const agent = await Agent.findById(agentId).select('name tagline description capabilities systemPrompt').lean();
-    if (agent) {
-      log.chat.info({ agentName: agent.name }, 'Agent context activated');
-      const prompt = agent.systemPrompt
-        || `You are "${agent.name}". ${agent.tagline}\n\n${agent.description}${agent.capabilities?.length ? `\n\nCapabilities: ${agent.capabilities.join(', ')}` : ''}`;
-
-      return prompt;
-    }
-  } catch (e) {
-    log.chat.error({ err: e }, 'Error loading agent');
-  }
+/**
+ * Agent prompt loading was removed during Clarity pruning (Agent model deleted).
+ */
+export async function loadAgentPrompt(_agentId: string): Promise<string | null> {
   return null;
 }
 

@@ -32,7 +32,7 @@ export function createMapping(
 }
 
 // Generate all tier mappings - ONLY REAL MODEL IDS
-export const GENERATED_TIER_MAPPINGS: Record<ClarityTier, ModelMapping[]> = {
+export const GENERATED_TIER_MAPPINGS: Partial<Record<ClarityTier, ModelMapping[]>> = {
   'lite': [
     createMapping('google', 'gemini-2.5-flash', 1, 75),
     createMapping('groq', 'llama-3.3-70b-versatile', 2, 65),

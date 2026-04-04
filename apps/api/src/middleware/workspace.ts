@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import { OrganizationMember } from '../models/organization-member.js';
 
 /**
  * Resolves the X-Workspace-Id header into req.workspace.
  * - 'personal' or missing → req.workspace = { id: null }
- * - '<orgId>' → verifies membership, sets req.workspace = { id, role }
+ * - '<orgId>' → sets req.workspace = { id }
+ *
+ * Organization membership verification was removed during Clarity pruning.
+ * The middleware now trusts the header value without a DB lookup.
  */
 export async function resolveWorkspace(
   req: Request,
@@ -24,16 +26,6 @@ export async function resolveWorkspace(
     return;
   }
 
-  const member = await OrganizationMember.findOne({
-    organizationId: workspaceId,
-    oxyUserId: userId,
-  });
-
-  if (!member) {
-    res.status(403).json({ error: 'Not a member of this workspace' });
-    return;
-  }
-
-  req.workspace = { id: workspaceId, role: member.role };
+  req.workspace = { id: workspaceId };
   next();
 }

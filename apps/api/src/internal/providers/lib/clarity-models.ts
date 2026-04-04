@@ -6,7 +6,11 @@
  * requests are routed to appropriate provider models.
  */
 
-export type ClarityTier = 'fast' | 'v1' | 'pro' | 'thinking' | 'pro-max';
+export type ClarityTier =
+  | 'lite' | 'fast' | 'v1' | 'pro' | 'thinking' | 'pro-max'
+  | 'v1-codea' | 'v1-cowork' | 'v1-browser' | 'v1-vision'
+  | 'v1-audio' | 'v1-tts' | 'v1-image' | 'v1-multimodal'
+  | 'v1-pro' | 'v1-pro-max' | 'v1-voice' | 'v1-voice-pro';
 
 export type ModelCategory = 'general' | 'coding';
 export type PricingTier = 'free' | 'freemium' | 'paid';

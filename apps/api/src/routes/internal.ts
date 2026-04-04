@@ -19,8 +19,6 @@ import {
 } from '../lib/tools/index.js';
 import { oxyServiceAuth, oxyClient } from '../middleware/auth.js';
 import type { User as OxyUser } from '@oxyhq/core';
-import { UserMemory } from '../models/user-memory.js';
-import type { IUserMemory } from '../models/user-memory.js';
 import { recordUsage } from '../middleware/api-key-rate-limit.js';
 import { log } from '../lib/logger.js';
 import { getSafeErrorMessage } from '../lib/errors/sanitize.js';
@@ -33,7 +31,6 @@ const router = Router();
  */
 function buildTriggerSystemPrompt(
   oxyUser?: OxyUser | null,
-  memory?: IUserMemory | null,
   appName?: string
 ): string {
   const userContext: string[] = [];
@@ -53,25 +50,6 @@ function buildTriggerSystemPrompt(
     }
     if (oxyUser.bio) {
       userContext.push(`About the user: ${oxyUser.bio}`);
-    }
-  }
-
-  if (memory) {
-    if (memory.preferences?.language) {
-      userContext.push(`User's preferred language: ${memory.preferences.language}.`);
-    }
-    if (memory.context?.occupation) {
-      userContext.push(`The user works as a ${memory.context.occupation}.`);
-    }
-    if (memory.context?.location && !oxyUser?.location) {
-      userContext.push(`The user is located in ${memory.context.location}.`);
-    }
-    if (memory.preferences?.tone) {
-      userContext.push(`The user prefers a ${memory.preferences.tone} tone.`);
-    }
-    if (memory.memories?.length) {
-      const memoryItems = memory.memories.map(m => `- ${m.key}: ${m.value}`).join('\n');
-      userContext.push(`\nThings to remember about the user:\n${memoryItems}`);
     }
   }
 
@@ -140,14 +118,6 @@ router.post('/trigger', oxyServiceAuth, async (req, res) => {
 
     log.general.info({ event, appName, userId }, 'Trigger received');
 
-    // Load user memory
-    let memory: IUserMemory | null = null;
-    try {
-      memory = await UserMemory.findOne({ oxyUserId: userId });
-    } catch (error: unknown) {
-      log.general.error({ err: error }, 'Error loading user memory');
-    }
-
     // Load Oxy user profile for personalization
     let oxyUser: OxyUser | null = null;
     try {
@@ -178,7 +148,7 @@ router.post('/trigger', oxyServiceAuth, async (req, res) => {
     // Build the user message from the event
     const eventDescription = `[Event: ${event}]${data ? `\n\nEvent data:\n${JSON.stringify(data, null, 2)}` : ''}${instructions ? `\n\nAdditional instructions: ${instructions}` : ''}`;
 
-    const systemPrompt = buildTriggerSystemPrompt(oxyUser, memory, appName);
+    const systemPrompt = buildTriggerSystemPrompt(oxyUser, appName);
 
     // Use generateText (non-streaming) for server-to-server
     const result = await generateText({

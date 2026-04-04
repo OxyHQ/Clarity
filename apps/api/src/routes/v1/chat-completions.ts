@@ -3,7 +3,6 @@ import { Router, Request, Response } from 'express';
 import { streamText, generateText, stepCountIs, type ToolSet } from 'ai';
 import { resolveModel, getAIModel, getDefaultClarityModel, reportModelUsage } from '../../lib/chat-core.js';
 import { getClarityModel, getModelMappingsForTier } from '../../lib/gateway-client.js';
-import { UserMemory } from '../../models/user-memory.js';
 import { getOrCreateUserCredits } from '../../lib/user-credits-helpers.js';
 import { Conversation } from '../../models/conversation.js';
 import { reserveCredits, refundReservation, type CreditReservation, type CreditUsage } from '../../lib/credits-manager.js';
@@ -23,6 +22,8 @@ import { createResponseSSEEmitter } from '../../lib/sse-emitter.js';
 import { SystemPromptBuilder } from '../../lib/system-prompt-builder.js';
 import { convertToAISDKMessages, type ChatMessage } from '../../lib/message-converter.js';
 import { oxyClient } from '../../middleware/auth.js';
+import { UserMemory } from '../../models/user-memory.js';
+import { Skill } from '../../models/skill.js';
 import { estimateMessageTokens } from '../../lib/token-counter.js';
 import { runBeforeChatHooks } from '../../lib/hooks/index.js';
 import { wrapToolsWithTruncation, getToolResultBudget } from '../../lib/tools/result-truncation.js';
@@ -180,7 +181,7 @@ export const handleChatCompletions = async (req: Request, res: Response) => {
     // Run independent operations concurrently to reduce time-to-first-token
     const preStreamStart = Date.now();
 
-    const [creditResult, resolvedResult, userMemory, oxyUser, skill, entitlements, linkedAgent] = await Promise.all([
+    const [creditResult, resolvedResult, oxyUser, entitlements] = await Promise.all([
       // Credits: sequential pair (getOrCreate → reserve), parallel with everything else
       // Skip for internal service requests (no credits charged)
       (req.user && !req.serviceApp) ? (async () => {
@@ -198,11 +199,6 @@ export const handleChatCompletions = async (req: Request, res: Response) => {
         return null;
       }),
 
-      // User memory
-      req.user
-        ? UserMemory.findOne({ oxyUserId: req.user.id }).catch(() => null)
-        : Promise.resolve(null),
-
       // User profile from Oxy (HTTP call - add 5s timeout to prevent hanging)
       isDirectUserSession
         ? Promise.race([
@@ -211,23 +207,9 @@ export const handleChatCompletions = async (req: Request, res: Response) => {
           ]).catch(() => null)
         : Promise.resolve(null),
 
-      // Skill loading
-      (body.skillId && isDirectUserSession)
-        ? Skill.findOne({ skillId: body.skillId }).select('systemPrompt title').lean().catch(() => null)
-        : Promise.resolve(null),
-
       // User entitlements (plan-based model access) — parallelized to avoid sequential delay
       (req.user && !req.apiKey)
         ? getUserEntitlements(req.user.id).catch(() => null)
-        : Promise.resolve(null),
-
-      // Linked agent (for archetype prompt injection — Q&A agents, etc.)
-      (conversationId && isDirectUserSession)
-        ? Conversation.findById(conversationId).select('agentId').lean()
-            .then(conv => conv?.agentId
-              ? AgentModel.findById(conv.agentId).select('name archetype archetypeConfig systemPrompt knowledge').lean()
-              : null)
-            .catch(() => null) as Promise<IAgent | null>
         : Promise.resolve(null),
     ]);
 
@@ -332,83 +314,12 @@ export const handleChatCompletions = async (req: Request, res: Response) => {
       userId: req.user?.id || '',
       accessToken: req.accessToken,
       isDirectSession: isDirectUserSession,
-      agentMode,
-      username: (oxyUser as any)?.username,
       requestId,
-      editorToolDefinitions: body.tools,
       sseEmitter,
     });
     const hasEditorTools = Array.isArray(body.tools) && body.tools.length > 0;
 
-    // Agent mode: full agent escalation for linked conversations
     const agentMessages: Array<{ role: 'assistant'; content: string; agentInfo: { id: string; name: string; avatar: string | null; handle: string } }> = [];
-    if (agentMode && isDirectUserSession) {
-
-      // Check if this conversation is linked to a specific agent — enable full agent execution
-      if (conversationId && req.user?.id) {
-        try {
-          const conv = await Conversation.findById(conversationId).select('agentId').lean();
-          if (conv?.agentId) {
-            const { Agent } = await import('../../models/agent.js');
-            const { AgentSession } = await import('../../models/agent-session.js');
-            const { enqueueAgentSession } = await import('../../lib/task-queue.js');
-            const { reserveCredits: reserveAgentCredits } = await import('../../lib/credits-manager.js');
-
-            const linkedAgent = await Agent.findById(conv.agentId).lean();
-            if (linkedAgent && linkedAgent.isPublished && linkedAgent.status === 'active') {
-              // Get the user's latest message as the task
-              const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-              const taskText = typeof lastUserMsg?.content === 'string'
-                ? lastUserMsg.content
-                : Array.isArray(lastUserMsg?.content)
-                  ? lastUserMsg.content.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(' ')
-                  : 'Execute task';
-
-              // Reserve credits for agent execution
-              const baseCredits = linkedAgent.price || 15;
-              const agentReservation = await reserveAgentCredits(req.user.id, baseCredits);
-
-              if (agentReservation) {
-                // Create agent session
-                const session = await AgentSession.create({
-                  agentId: linkedAgent._id,
-                  userId: req.user.id,
-                  task: taskText.slice(0, 2000),
-                  status: 'queued',
-                  depth: 0,
-                  creditReservation: agentReservation,
-                });
-
-                // Enqueue for async execution
-                await enqueueAgentSession({
-                  sessionId: session._id.toString(),
-                  userId: req.user.id,
-                  agentId: linkedAgent._id.toString(),
-                  agentName: linkedAgent.name,
-                });
-
-                // Increment counters
-                await Agent.updateOne({ _id: linkedAgent._id }, { $inc: { hireCount: 1, usageCount: 1 } });
-
-                // Emit agent session event via SSE so frontend can subscribe
-                if (body.stream) {
-                  res.write(`event: clarity.agent_session\ndata: ${JSON.stringify({
-                    eventVersion: 1,
-                    sessionId: session._id.toString(),
-                    agentId: linkedAgent._id.toString(),
-                    agentName: linkedAgent.name,
-                  })}\n\n`);
-                }
-
-                log.v1.info({ sessionId: session._id, agentId: linkedAgent._id }, 'Agent session created from chat');
-              }
-            }
-          }
-        } catch (agentErr) {
-          log.v1.warn({ err: agentErr }, 'Failed to check/create agent session from chat');
-        }
-      }
-    }
 
     // Log tool schemas for debugging
     if (Array.isArray(body.tools) && body.tools.length > 0) {
@@ -423,12 +334,8 @@ export const handleChatCompletions = async (req: Request, res: Response) => {
       userId: req.user?.id,
       accessToken: req.accessToken,
       oxyUser: oxyUser as any,
-      userMemory: userMemory as any,
       recalledMemories,
-      skill: skill as { systemPrompt?: string; title?: string } | null,
-      linkedAgent: linkedAgent as IAgent | null,
       agentMode,
-      autonomyRuntime,
     });
 
 
@@ -1074,7 +981,6 @@ export const handleChatCompletions = async (req: Request, res: Response) => {
       requestStartTime,
       skillId: body.skillId,
       isApiKey: !!req.apiKey,
-      autonomyRuntime,
     };
 
     // Save conversation
