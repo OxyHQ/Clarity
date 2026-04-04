@@ -1,7 +1,6 @@
-import { Pressable, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { ClarityLogo } from './ClarityLogo';
 import { ArrowRight } from 'lucide-react-native';
 import type { WelcomeSuggestion } from './types';
 
@@ -14,26 +13,27 @@ export interface ClarityWelcomeMessageProps {
   subtitle?: string;
   suggestions?: WelcomeSuggestion[];
   onSuggestionPress?: (text: string) => void;
-  faceSize?: number;
   selectedCategory?: SearchCategory;
   onCategoryChange?: (category: SearchCategory) => void;
 }
 
-const CATEGORIES: { id: SearchCategory; label: string }[] = [
+const CATEGORIES: { id: SearchCategory; label: string; isNew?: boolean }[] = [
   { id: 'all', label: 'All' },
   { id: 'academic', label: 'Academic' },
   { id: 'news', label: 'News' },
   { id: 'code', label: 'Code' },
-  { id: 'social', label: 'Social' },
+  { id: 'social', label: 'Social', isNew: true },
 ];
 
 function CategoryTab({
   label,
   isSelected,
+  isNew,
   onPress,
 }: {
   label: string;
   isSelected: boolean;
+  isNew?: boolean;
   onPress: () => void;
 }) {
   return (
@@ -41,19 +41,24 @@ function CategoryTab({
       onPress={onPress}
       className={
         isSelected
-          ? 'rounded-lg px-3 h-8 flex-row items-center bg-muted'
-          : 'rounded-lg px-3 h-8 flex-row items-center border border-border'
+          ? 'flex-row gap-1.5 items-center text-sm whitespace-nowrap py-3.5 rounded-lg px-3 h-8 select-none transition-colors duration-300 bg-accent border border-transparent text-foreground'
+          : 'flex-row gap-1.5 items-center text-sm whitespace-nowrap py-3.5 rounded-lg px-3 h-8 select-none transition-colors duration-300 opacity-80 text-foreground border border-solid border-border hover:bg-muted'
       }
     >
       <Text
         className={
           isSelected
             ? 'text-sm font-medium text-foreground'
-            : 'text-sm font-medium text-muted-foreground opacity-80'
+            : 'text-sm font-medium text-foreground opacity-80'
         }
       >
         {label}
       </Text>
+      {isNew && (
+        <View className="inline-flex items-center rounded-full px-1.5">
+          <Text className="text-[11px] font-medium text-primary">New</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -68,58 +73,53 @@ function SuggestionCard({
   return (
     <Pressable
       onPress={onPress}
-      className="flex-row w-full items-center py-2 px-2 rounded-lg active:bg-muted hover:bg-muted"
+      className="group flex-row w-full items-center text-left py-2 px-2 rounded-lg cursor-pointer transition-colors hover:bg-muted"
     >
       <Text className="text-muted-foreground text-sm flex-1" numberOfLines={1}>
         {text}
       </Text>
-      <ArrowRight size={16} className="text-muted-foreground ml-2" />
+      <View className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
+        <ArrowRight size={16} className="text-muted-foreground shrink-0" />
+      </View>
     </Pressable>
   );
 }
 
 export function ClarityWelcomeMessage({
-  greeting,
-  subtitle,
   suggestions = [],
   onSuggestionPress,
-  faceSize = 56,
   selectedCategory = 'all',
   onCategoryChange,
 }: ClarityWelcomeMessageProps) {
   return (
     <View className="w-full">
-      {/* Logo area */}
-      <View className="items-center mb-6">
-        <ClarityLogo size={faceSize} expression="Greeting" />
-        <Text className="text-2xl font-bold tracking-tight text-foreground mt-3">
-          {greeting}
-        </Text>
-        {subtitle ? (
-          <Text className="text-base text-muted-foreground mt-1">
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-
       {/* Category Tabs */}
       {onCategoryChange && (
-        <View className="flex-row flex-wrap gap-2 mt-4">
-          {CATEGORIES.map((cat) => (
-            <CategoryTab
-              key={cat.id}
-              label={cat.label}
-              isSelected={selectedCategory === cat.id}
-              onPress={() => onCategoryChange(cat.id)}
-            />
-          ))}
+        <View className="flex-row items-center gap-1 mt-4">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="min-w-0 flex-1"
+          >
+            <View className="flex-row flex-nowrap w-max items-center gap-2 relative">
+              {CATEGORIES.map((cat) => (
+                <CategoryTab
+                  key={cat.id}
+                  label={cat.label}
+                  isSelected={selectedCategory === cat.id}
+                  isNew={cat.isNew}
+                  onPress={() => onCategoryChange(cat.id)}
+                />
+              ))}
+            </View>
+          </ScrollView>
         </View>
       )}
 
       {/* Suggestion Cards */}
       {suggestions.length > 0 && (
-        <Animated.View entering={FadeIn.duration(400)} className="mt-4">
-          <View className="gap-1">
+        <Animated.View entering={FadeIn.duration(400)} className="mt-2">
+          <View className="flex-col">
             {suggestions.map((item) => (
               <SuggestionCard
                 key={item.id}

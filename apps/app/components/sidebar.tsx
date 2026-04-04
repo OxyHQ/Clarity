@@ -58,7 +58,7 @@ function groupConversations<T extends ConvLike>(convs: T[]) {
   return g;
 }
 
-/* History item */
+/* History item — matches reference: group relative block rounded-md select-none */
 
 const SearchHistoryItem = React.memo(function SearchHistoryItem({
   id, title, isActive, onSelect, onPrefetch, onDelete,
@@ -75,9 +75,19 @@ const SearchHistoryItem = React.memo(function SearchHistoryItem({
           onPressIn={prefetch}
           // @ts-ignore web-only
           onHoverIn={prefetch}
-          className={cn("py-1.5 px-2.5 rounded-lg active:bg-muted/50", isActive && "bg-muted")}
+          className={cn(
+            "group relative rounded-md select-none",
+            isActive && "bg-muted"
+          )}
         >
-          <Text className="text-sm text-foreground" numberOfLines={1}>{title || "New search"}</Text>
+          {/* Hover background overlay */}
+          <View className="absolute rounded-md opacity-0 group-hover:opacity-100 bg-muted inset-0" />
+          {/* Text content */}
+          <View className="relative flex-row items-center gap-2 pl-1 py-1.5 px-2">
+            <View className="w-full overflow-hidden">
+              <Text className="text-sm text-foreground" numberOfLines={1}>{title || "New search"}</Text>
+            </View>
+          </View>
         </Pressable>
       </DropdownMenu.Trigger>
       <DropdownMenu.Content>
@@ -90,7 +100,7 @@ const SearchHistoryItem = React.memo(function SearchHistoryItem({
   );
 });
 
-/* Grouped section */
+/* Grouped section — matches reference history-group-label / history-label-text */
 
 function ConversationGroup({ label, items, currentChatId, onSelect, onPrefetch, onDelete }: {
   label: string; items: ConvLike[]; currentChatId: string | undefined;
@@ -99,7 +109,12 @@ function ConversationGroup({ label, items, currentChatId, onSelect, onPrefetch, 
   if (items.length === 0) return null;
   return (
     <View className="gap-0.5">
-      <Text className="text-xs font-medium text-muted-foreground px-2.5 pt-3 pb-1">{label}</Text>
+      {/* history-group-label */}
+      <View className="gap-1 flex-row items-center justify-between select-none py-1 pl-1 pb-2">
+        <View className="min-w-0 flex-row items-center gap-1 w-fit max-w-full">
+          <Text className="text-muted-foreground font-medium text-xs hover:text-foreground">{label}</Text>
+        </View>
+      </View>
       {items.map((c) => (
         <SearchHistoryItem key={c.id} id={c.id} title={c.title} isActive={currentChatId === c.id}
           onSelect={onSelect} onPrefetch={onPrefetch} onDelete={onDelete} />
@@ -160,6 +175,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
+  /* Header: logo */
   const header = (
     <Pressable accessibilityLabel="Home" accessibilityRole="button" onPress={handleLogoPress}
       style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
@@ -167,16 +183,24 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     </Pressable>
   );
 
+  /* Nav items: New Search button */
   const topSection = (
-    <Button accessibilityLabel="New search" accessibilityRole="button" onPress={handleNewSearch}
-      className="h-11 md:h-9 rounded-full w-full flex-row items-center justify-center gap-2">
-      <Plus size={16} color="white" />
-      <Text className="text-sm md:text-xs font-medium text-primary-foreground">New Search</Text>
-    </Button>
+    <View className="flex-row items-center justify-start no-underline w-full h-8 shrink-0 relative cursor-pointer transition-colors duration-150 gap-1">
+      <Pressable
+        accessibilityLabel="New search"
+        accessibilityRole="button"
+        onPress={handleNewSearch}
+        className="flex-row items-center gap-2 w-full h-8 rounded-full bg-primary px-3 justify-center"
+      >
+        <Plus size={16} color="white" />
+        <Text className="text-sm font-medium text-primary-foreground">New Search</Text>
+      </Pressable>
+    </View>
   );
 
+  /* History section — matches: flex min-h-0 w-full flex-1 flex-col overflow-x-hidden overflow-y-auto */
   const scrollableContent = (
-    <View className="gap-0.5">
+    <View className="min-h-0 w-full flex-1 flex-col">
       {isLoading ? <SidebarSkeleton /> : allConvs.length === 0 ? (
         <View className="items-center justify-center py-8">
           <Text className="text-xs text-muted-foreground">No searches yet</Text>
@@ -196,15 +220,27 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     </View>
   );
 
+  /* Footer: user section — matches: mt-auto w-full min-w-0 border-t border-border/50 */
   const footer = (
-    <>
+    <View className="mt-auto w-full min-w-0 border-t border-border/50 flex-col items-center justify-center pt-3">
       {isAuthenticated ? (
-        <View className="flex-row items-center gap-2">
+        <View className="w-full flex-row justify-start overflow-hidden">
           <DropdownMenu.Root>
             <DropdownMenu.Trigger>
-              <Pressable accessibilityLabel="Account menu" accessibilityRole="button"
-                className="h-9 w-9 md:h-8 md:w-8 items-center justify-center rounded-lg hover:bg-muted active:bg-muted">
-                <UserAvatar size={24} />
+              {/* user-button: flex cursor-pointer items-center relative group shrink-0 w-full */}
+              <Pressable
+                accessibilityLabel="Account menu"
+                accessibilityRole="button"
+                className="flex-row cursor-pointer items-center relative group shrink-0 w-full gap-2 py-1"
+              >
+                {/* hover bg */}
+                <View className="pointer-events-none absolute bg-muted rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-150 inset-0" />
+                {/* avatar */}
+                <View className="relative flex aspect-square shrink-0 items-center justify-center bg-muted rounded-full w-8 h-8">
+                  <UserAvatar size={32} />
+                </View>
+                {/* name */}
+                <Text className="text-sm text-foreground leading-tight truncate">{displayName()}</Text>
               </Pressable>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content>
@@ -228,6 +264,10 @@ const SearchSidebar = React.memo(function SearchSidebar() {
                 <DropdownMenu.ItemIcon ios={{ name: "person.circle" }} />
                 <DropdownMenu.ItemTitle>{t("sidebar.account")}</DropdownMenu.ItemTitle>
               </DropdownMenu.Item>
+              <DropdownMenu.Item key="settings" onSelect={handleSettings}>
+                <DropdownMenu.ItemIcon ios={{ name: "gearshape" }} />
+                <DropdownMenu.ItemTitle>{t("sidebar.settings")}</DropdownMenu.ItemTitle>
+              </DropdownMenu.Item>
               <DropdownMenu.Separator />
               <DropdownMenu.Item key="terms" onSelect={() => Linking.openURL("https://oxy.so/company/transparency/policies/terms-of-service")}>
                 <DropdownMenu.ItemIcon ios={{ name: "doc.text" }} />
@@ -244,26 +284,24 @@ const SearchSidebar = React.memo(function SearchSidebar() {
               </DropdownMenu.Item>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
-          <Pressable accessibilityLabel="Settings" accessibilityRole="button" onPress={handleSettings}
-            className="h-9 w-9 md:h-8 md:w-8 items-center justify-center rounded-lg hover:bg-muted active:bg-muted">
-            <Settings2 size={18} className="text-muted-foreground" />
-          </Pressable>
-          <View className="flex-1" />
         </View>
       ) : (
-        <View className="gap-2 md:gap-1.5">
-          <Button onPress={handleLogin} className="h-11 md:h-9 rounded-full w-full">
-            <View className="flex-row items-center gap-2 md:gap-1.5">
-              <LogIn size={16} className="text-primary-foreground" />
-              <Text className="text-sm md:text-xs font-semibold text-primary-foreground">{t("login.signInButton")}</Text>
-            </View>
-          </Button>
-          <Button onPress={handleRegister} variant="outline" className="h-11 md:h-9 rounded-full w-full">
-            <View className="flex-row items-center gap-2 md:gap-1.5">
-              <UserPlus size={16} className="text-foreground" />
-              <Text className="text-sm md:text-xs font-medium">{t("login.footerLink")}</Text>
-            </View>
-          </Button>
+        <View className="w-full gap-2">
+          {/* sign-in-btn: select-none font-medium ... flex w-full rounded-full hover:bg-muted px-3 justify-between */}
+          <Pressable
+            onPress={handleLogin}
+            className="select-none font-medium transition-colors duration-300 text-center items-center justify-center whitespace-nowrap text-foreground border border-solid border-border h-8 text-sm cursor-pointer flex-row w-full rounded-full hover:bg-muted px-3 justify-between"
+          >
+            <LogIn size={16} className="text-foreground" />
+            <Text className="text-sm font-medium text-foreground flex-1 text-center">{t("login.signInButton")}</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleRegister}
+            className="select-none font-medium transition-colors duration-300 text-center items-center justify-center whitespace-nowrap text-foreground border border-solid border-border h-8 text-sm cursor-pointer flex-row w-full rounded-full hover:bg-muted px-3 justify-between"
+          >
+            <UserPlus size={16} className="text-foreground" />
+            <Text className="text-sm font-medium text-foreground flex-1 text-center">{t("login.footerLink")}</Text>
+          </Pressable>
           <View className="flex-row items-center justify-center gap-1 mt-1">
             <Text className="text-[10px] text-muted-foreground underline"
               onPress={() => Linking.openURL("https://oxy.so/company/transparency/policies/privacy")}>
@@ -277,12 +315,12 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           </View>
         </View>
       )}
-    </>
+    </View>
   );
 
   return (
     <BaseSidebar header={header} topSection={topSection} navigation={null}
-      scrollableContent={scrollableContent} footer={footer} backgroundColor="bg-muted/50"
+      scrollableContent={scrollableContent} footer={footer} backgroundColor="bg-muted"
       onScroll={handleScroll} showScrollIndicator={false} />
   );
 });

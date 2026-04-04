@@ -1,5 +1,4 @@
 import { View, useWindowDimensions, Platform } from "react-native";
-import { Text } from "@/components/ui/text";
 import { Search, MoreHorizontal, Menu } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,7 @@ export function ChatHeader({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const dimensions = useWindowDimensions();
-  const navigation = useNavigation<DrawerNavigationProp<any>>();
+  const navigation = useNavigation<DrawerNavigationProp<never>>();
   const router = useRouter();
   const isLargeScreen = dimensions.width >= 768;
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -71,86 +70,85 @@ export function ChatHeader({
         className="flex-row items-center justify-between px-4"
         style={{ paddingTop: insets.top, height: 56 + insets.top }}
       >
-      <View className="flex-row items-center gap-2">
-        {!isLargeScreen && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onPress={handleDrawerToggle}
-            className="h-9 w-9 rounded-full"
-          >
-            <Menu size={20} className="text-muted-foreground" />
-          </Button>
-        )}
-        <ModelSelector
-          selectedModel={selectedModel}
-          onModelChange={onModelChange}
-        />
-      </View>
-
-      <View className="flex-row items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onPress={() => {
-            if (Platform.OS === 'web') {
-              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
-            } else {
-              onSearchPress?.();
-            }
-          }}
-          className="h-9 w-9 rounded-full"
-        >
-          <Search size={20} className="text-muted-foreground" />
-        </Button>
-
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
+        <View className="flex-row items-center gap-2">
+          {!isLargeScreen && (
             <Button
               variant="ghost"
               size="icon"
+              onPress={handleDrawerToggle}
               className="h-9 w-9 rounded-full"
             >
-              <MoreHorizontal size={20} className="text-muted-foreground" />
+              <Menu size={20} className="text-muted-foreground" />
             </Button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content align="end">
-            {isConversation && (
-              <>
-                <DropdownMenu.Item key="share" onSelect={handleShare}>
-                  <DropdownMenu.ItemIcon ios={{ name: "square.and.arrow.up" }} />
-                  <DropdownMenu.ItemTitle>{t('chatHeader.shareConversation')}</DropdownMenu.ItemTitle>
-                </DropdownMenu.Item>
-                <DropdownMenu.Item key="export" onSelect={handleExport}>
-                  <DropdownMenu.ItemIcon ios={{ name: "arrow.down.doc" }} />
-                  <DropdownMenu.ItemTitle>{t('chatHeader.export')}</DropdownMenu.ItemTitle>
-                </DropdownMenu.Item>
-                <DropdownMenu.Separator />
-              </>
-            )}
-            <DropdownMenu.Item key="settings" onSelect={handleSettings}>
-              <DropdownMenu.ItemIcon ios={{ name: "gearshape" }} />
-              <DropdownMenu.ItemTitle>{t('chatHeader.settings')}</DropdownMenu.ItemTitle>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item key="help" onSelect={handleHelp}>
-              <DropdownMenu.ItemIcon ios={{ name: "questionmark.circle" }} />
-              <DropdownMenu.ItemTitle>{t('chatHeader.help')}</DropdownMenu.ItemTitle>
-            </DropdownMenu.Item>
-            {isConversation && (
-              <>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Item key="clear" destructive onSelect={handleClearConversation}>
-                  <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
-                  <DropdownMenu.ItemTitle>{t('chatHeader.clearConversation')}</DropdownMenu.ItemTitle>
-                </DropdownMenu.Item>
-              </>
-            )}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      </View>
-    </View>
+          )}
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelChange={onModelChange}
+          />
+        </View>
 
-      {/* Clear Conversation Confirmation Dialog */}
+        <View className="flex-row items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+              } else {
+                onSearchPress?.();
+              }
+            }}
+            className="h-9 w-9 rounded-full"
+          >
+            <Search size={20} className="text-muted-foreground" />
+          </Button>
+
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full"
+              >
+                <MoreHorizontal size={20} className="text-muted-foreground" />
+              </Button>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="end">
+              {isConversation && (
+                <>
+                  <DropdownMenu.Item key="share" onSelect={handleShare}>
+                    <DropdownMenu.ItemIcon ios={{ name: "square.and.arrow.up" }} />
+                    <DropdownMenu.ItemTitle>{t('chatHeader.shareConversation')}</DropdownMenu.ItemTitle>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Item key="export" onSelect={handleExport}>
+                    <DropdownMenu.ItemIcon ios={{ name: "arrow.down.doc" }} />
+                    <DropdownMenu.ItemTitle>{t('chatHeader.export')}</DropdownMenu.ItemTitle>
+                  </DropdownMenu.Item>
+                  <DropdownMenu.Separator />
+                </>
+              )}
+              <DropdownMenu.Item key="settings" onSelect={handleSettings}>
+                <DropdownMenu.ItemIcon ios={{ name: "gearshape" }} />
+                <DropdownMenu.ItemTitle>{t('chatHeader.settings')}</DropdownMenu.ItemTitle>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item key="help" onSelect={handleHelp}>
+                <DropdownMenu.ItemIcon ios={{ name: "questionmark.circle" }} />
+                <DropdownMenu.ItemTitle>{t('chatHeader.help')}</DropdownMenu.ItemTitle>
+              </DropdownMenu.Item>
+              {isConversation && (
+                <>
+                  <DropdownMenu.Separator />
+                  <DropdownMenu.Item key="clear" destructive onSelect={handleClearConversation}>
+                    <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
+                    <DropdownMenu.ItemTitle>{t('chatHeader.clearConversation')}</DropdownMenu.ItemTitle>
+                  </DropdownMenu.Item>
+                </>
+              )}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
+        </View>
+      </View>
+
       <ConfirmationDialog
         open={showClearDialog}
         onOpenChange={setShowClearDialog}

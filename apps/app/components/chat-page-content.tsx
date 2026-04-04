@@ -24,6 +24,7 @@ import { useEntitlements } from "@/lib/hooks/use-billing";
 import { useRouter } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
 import { WelcomeMessage } from "@/components/welcome-message";
+import { ClarityLogo } from "@/lib/sdk";
 
 type Mode = "search" | "deepResearch";
 
@@ -248,11 +249,11 @@ export const ChatPageContent = ({
     </>
   );
 
-  // When messages exist (or conversation is loading): full conversation view with bottom-sticky input
+  // ─── Conversation view: messages + sticky bottom input ───
   if (showConversationView) {
     return (
-      <View className="flex-1 bg-content-area">
-        <View className="flex-1 relative">
+      <View className="relative flex h-full flex-col bg-background">
+        <View className="relative flex-1 overflow-hidden">
           <ChatInterface
             messages={messages}
             scrollViewRef={scrollViewRef}
@@ -291,7 +292,7 @@ export const ChatPageContent = ({
               <CreditWarningBanner selectedModel={selectedModel} onSwitchModel={onModelChange} />
 
               {disabled && (
-                <View className="mx-auto w-full max-w-3xl px-4 pb-1">
+                <View className="mx-auto w-full max-w-screen-md px-4 pb-1">
                   <View className="flex-row items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">
                     <AlertTriangle size={14} className="text-destructive" />
                     <Text className="text-xs text-destructive flex-1">{t("usageLimit.limitReachedBanner")}</Text>
@@ -299,8 +300,8 @@ export const ChatPageContent = ({
                 </View>
               )}
 
-              <View className="px-4 py-3">
-                <View className="mx-auto w-full max-w-3xl relative">
+              <View className="mx-auto w-full max-w-screen-md px-4 md:px-6 py-3">
+                <View className="relative">
                   <View style={{ position: "absolute", top: -48, right: 0, zIndex: -1 }}>
                     <ScrollButton isAtBottom={isAtBottom} onScrollToBottom={handleScrollToBottom} />
                   </View>
@@ -339,9 +340,9 @@ export const ChatPageContent = ({
     );
   }
 
-  // No messages: centered search landing page
+  // ─── Landing: centered search page ───
   return (
-    <View className="flex-1 bg-content-area">
+    <View className="relative flex h-full flex-col bg-background">
       {/* Header row */}
       <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10 }}>
         <ChatHeader
@@ -353,33 +354,43 @@ export const ChatPageContent = ({
         />
       </View>
 
-      {/* Scrollable content area */}
-      <View className="flex-1">
-        <View className="flex-1 px-4 md:px-6" style={{ paddingBottom: insets.bottom + 16 }}>
-          <View className="mx-auto w-full max-w-screen-md flex-1 justify-center">
-            {/* Spacer: pushes content to center on larger screens */}
-            <View className="hidden md:flex" style={{ height: '15%' }} />
+      {/* search-section: static w-full grow flex-col items-center pb-[10vh] md:mt-0 md:flex z-10 */}
+      <View className="w-full grow flex-col items-center pb-[10vh] md:mt-0 md:flex z-10">
+        {/* spacer: hidden shrink-0 md:block md:h-[40vh] */}
+        <View className="hidden shrink-0 md:flex md:h-[40vh]" />
 
-            {/* Search Box: rounded-2xl, raised surface, shadow */}
-            <View className="w-full rounded-2xl border border-border bg-background shadow-sm overflow-hidden">
-              <View className="pt-3 pb-3">
-                <PromptInput
-                  value={inputValue}
-                  onValueChange={setInputValue}
-                  onSubmit={handleSubmit}
-                  isLoading={isLoading}
-                  disabled={isLoading || disabled}
-                  disableKeyboardAvoidance
-                  attachments={attachments}
-                  onAddAttachment={addAttachment}
-                  onRemoveAttachment={removeAttachment}
-                  onImagePaste={handleImagePaste}
-                  autocomplete
-                  placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
-                  onStop={onStop}
-                  className="border-0 rounded-none bg-transparent shadow-none"
-                  actionsLeft={actionsLeftContent}
-                />
+        {/* search-wrapper: px-4 relative flex size-full flex-col justify-center md:h-auto md:px-0 */}
+        <View className="px-4 relative flex w-full flex-col justify-center md:h-auto md:px-0">
+          {/* content-max: mx-auto size-full max-w-screen-md px-4 md:px-6 */}
+          <View className="mx-auto w-full max-w-screen-md px-0 md:px-6">
+
+            {/* logo-area: mb-6 bottom-0 flex w-full items-center justify-center pb-3 text-center */}
+            <View className="mb-6 flex w-full items-center justify-center pb-3 text-center">
+              <ClarityLogo size={56} expression="Greeting" />
+            </View>
+
+            {/* Search box: outer > border-wrap > search-box */}
+            <View className="bg-background rounded-2xl">
+              <View className="relative rounded-2xl bg-background">
+                <View className="bg-card w-full outline-none flex items-center border rounded-2xl duration-75 transition-all border-border shadow-sm px-0 pt-3 pb-3">
+                  <PromptInput
+                    value={inputValue}
+                    onValueChange={setInputValue}
+                    onSubmit={handleSubmit}
+                    isLoading={isLoading}
+                    disabled={isLoading || disabled}
+                    disableKeyboardAvoidance
+                    attachments={attachments}
+                    onAddAttachment={addAttachment}
+                    onRemoveAttachment={removeAttachment}
+                    onImagePaste={handleImagePaste}
+                    autocomplete
+                    placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
+                    onStop={onStop}
+                    className="border-0 rounded-none bg-transparent shadow-none"
+                    actionsLeft={actionsLeftContent}
+                  />
+                </View>
               </View>
             </View>
 

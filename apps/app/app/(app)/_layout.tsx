@@ -14,13 +14,12 @@ import { useNotificationSetup } from '@/lib/hooks/use-notification-setup';
 const VISIBLE_ROUTES = new Set(['c/[id]/index', 'settings/index']);
 
 // Routes that handle their own top safe area insets
-// All settings/* routes are covered by the startsWith('settings/') check in screenOptions
 const SELF_INSET_ROUTES = new Set(['index', 'c/[id]/index', 'settings']);
 
 export default function AppLayout() {
   const dimensions = useWindowDimensions();
   const isLargeScreen = dimensions.width >= 768;
-  const { colorScheme, colors } = useColorScheme();
+  const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
 
   // Prefetch welcome suggestions so they're ready before any chat screen mounts
@@ -39,7 +38,7 @@ export default function AppLayout() {
     },
     drawerStyle: {
       width: 200,
-      backgroundColor: colors.background,
+      backgroundColor: colors.muted,
       borderRightWidth: 0,
       boxShadow: 'none' as const,
       elevation: 0,
@@ -48,34 +47,39 @@ export default function AppLayout() {
     swipeEnabled: !isLargeScreen,
     overlayColor: isLargeScreen ? 'transparent' : 'rgba(0, 0, 0, 0.5)',
     drawerItemStyle: VISIBLE_ROUTES.has(route.name) ? undefined : { display: 'none' as const },
-  }), [insets.top, colors.background, isLargeScreen]);
+  }), [insets.top, colors.muted, isLargeScreen]);
 
   return (
     <AppErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={{ flex: 1, flexDirection: isLargeScreen ? 'row' : 'column' }}>
-        <View style={{ flex: 1 }}>
-          <Drawer
-            drawerContent={renderDrawerContent}
-            screenOptions={screenOptions}
-          >
-            <Drawer.Screen
-              name="c/[id]/index"
-              options={{
-                drawerLabel: i18n.t('nav.chat'),
-                title: i18n.t('nav.chat'),
-              }}
-            />
-            <Drawer.Screen
-              name="settings/index"
-              options={{
-                drawerLabel: i18n.t('nav.settings'),
-                title: i18n.t('nav.settings'),
-              }}
-            />
-          </Drawer>
+        {/* root: isolate flex h-screen */}
+        <View className="isolate flex h-screen flex-row">
+          {/* main: isolate flex h-auto max-h-screen min-w-0 grow flex-col */}
+          <View className="isolate flex h-auto max-h-screen min-w-0 grow flex-col">
+            {/* content-area: relative isolate min-h-0 flex-1 overflow-hidden bg-background */}
+            <View className="relative min-h-0 flex-1 overflow-hidden bg-background">
+              <Drawer
+                drawerContent={renderDrawerContent}
+                screenOptions={screenOptions}
+              >
+                <Drawer.Screen
+                  name="c/[id]/index"
+                  options={{
+                    drawerLabel: i18n.t('nav.chat'),
+                    title: i18n.t('nav.chat'),
+                  }}
+                />
+                <Drawer.Screen
+                  name="settings/index"
+                  options={{
+                    drawerLabel: i18n.t('nav.settings'),
+                    title: i18n.t('nav.settings'),
+                  }}
+                />
+              </Drawer>
+            </View>
+          </View>
         </View>
-      </View>
       </GestureHandlerRootView>
     </AppErrorBoundary>
   );
