@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { PromptInput, type Attachment } from "@/components/ui/prompt-input";
 import { ScrollButton } from "@/components/ui/scroll-button";
 import { ChatInterface } from "@/components/chat-interface";
-import { ChatHeader } from "@/components/chat-header";
+import { ChatHeader, type ConversationTab } from "@/components/chat-header";
 import { ChatTextInput } from "@/components/ui/chat-text-input";
 import type { Message } from "@/types/chat";
 import { toast } from "@/components/sonner";
@@ -121,6 +121,7 @@ export const ChatPageContent = ({
   const [inputValue, setInputValue] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<ConversationTab>("answer");
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
   const [bottomBarHeight, setBottomBarHeight] = useState(160);
@@ -345,10 +346,22 @@ export const ChatPageContent = ({
     }
   }, [addAttachment, pickDocument]);
 
-  // ---- Conversation view: messages + sticky bottom input ----
+  // ---- Conversation view: tab header + messages + sticky bottom follow-up input ----
   if (showConversationView) {
     return (
       <View className="relative flex h-full flex-col bg-background">
+        {/* Sticky tab header */}
+        <ChatHeader
+          title="Clarity"
+          selectedModel={selectedModel}
+          onModelChange={onModelChange}
+          onClear={onClear}
+          isConversation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+
+        {/* Scrollable content area */}
         <View className="relative flex-1 overflow-hidden">
           <ChatInterface
             messages={messages}
@@ -361,34 +374,22 @@ export const ChatPageContent = ({
             onAtBottomChange={setIsAtBottom}
           />
 
-          <LinearGradient
-            colors={[colors.background, "transparent"]}
-            locations={[0.1, 1]}
-            style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, paddingBottom: 32, pointerEvents: "box-none" }}
-          >
-            <ChatHeader
-              title="Clarity"
-              selectedModel={selectedModel}
-              onModelChange={onModelChange}
-              onClear={onClear}
-              isConversation
-            />
-          </LinearGradient>
-
+          {/* Sticky bottom follow-up input */}
           <KeyboardStickyView
             offset={{ closed: 0, opened: 0 }}
             style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 10 }}
             onLayout={(e) => setBottomBarHeight(e.nativeEvent.layout.height)}
           >
+            {/* Gradient fade from content to input */}
             <LinearGradient
               colors={["transparent", colors.background]}
-              locations={[0, 0.9]}
-              style={{ paddingTop: 24, paddingBottom: insets.bottom }}
+              locations={[0, 0.5]}
+              style={{ paddingTop: 32, paddingBottom: insets.bottom }}
             >
               <CreditWarningBanner selectedModel={selectedModel} onSwitchModel={onModelChange} />
 
               {disabled && (
-                <View className="mx-auto w-full max-w-screen-md px-4 pb-1">
+                <View className="mx-auto w-full max-w-[720px] px-4 pb-1">
                   <View className="flex-row items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">
                     <AlertTriangle size={14} className="text-destructive" />
                     <Text className="text-xs text-destructive flex-1">{t("usageLimit.limitReachedBanner")}</Text>
@@ -396,7 +397,7 @@ export const ChatPageContent = ({
                 </View>
               )}
 
-              <View className="mx-auto w-full max-w-screen-md px-4 md:px-6 py-3">
+              <View className="mx-auto w-full max-w-[720px] px-4 md:px-6 py-3">
                 <View className="relative">
                   <View style={{ position: "absolute", top: -48, right: 0, zIndex: -1 }}>
                     <ScrollButton isAtBottom={isAtBottom} onScrollToBottom={handleScrollToBottom} />
@@ -423,7 +424,7 @@ export const ChatPageContent = ({
                     onImagePaste={handleImagePaste}
                     autocomplete
                     leadingAddMenu
-                    placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
+                    placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask a follow-up..."}
                     onStop={onStop}
                     actionsLeft={actionsLeftContent}
                   />
@@ -611,4 +612,3 @@ export const ChatPageContent = ({
     </View>
   );
 };
-

@@ -608,7 +608,11 @@
     "exportComingSoon": "Export conversation functionality coming soon!",
     "shareComingSoon": "Share conversation functionality coming soon!",
     "settingsComingSoon": "Settings functionality coming soon!",
-    "helpComingSoon": "Help functionality coming soon!"
+    "helpComingSoon": "Help functionality coming soon!",
+    "tabAnswer": "Answer",
+    "tabLinks": "Links",
+    "tabImages": "Images",
+    "share": "Share"
   },
   "welcome": {
     "morningGreetings": [

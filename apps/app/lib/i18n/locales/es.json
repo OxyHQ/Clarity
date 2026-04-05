@@ -580,7 +580,11 @@
     "exportComingSoon": "La función de exportar conversación estará disponible pronto!",
     "shareComingSoon": "La función de compartir conversación estará disponible pronto!",
     "settingsComingSoon": "La función de configuración estará disponible pronto!",
-    "helpComingSoon": "La función de ayuda estará disponible pronto!"
+    "helpComingSoon": "La función de ayuda estará disponible pronto!",
+    "tabAnswer": "Respuesta",
+    "tabLinks": "Enlaces",
+    "tabImages": "Imágenes",
+    "share": "Compartir"
   },
   "welcome": {
     "morningGreetings": [
