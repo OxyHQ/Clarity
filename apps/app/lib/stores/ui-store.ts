@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { Message } from '@/lib/hooks/use-conversations';
 
 type RightPanel = 'credits' | 'thought' | 'canvas' | 'agent' | null;
+type SidebarMode = 'search' | 'chat';
 
 export interface CanvasArtifact {
   id: string;
@@ -14,6 +15,7 @@ export interface CanvasArtifact {
 interface UIState {
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
+  sidebarMode: SidebarMode;
   rightPanel: RightPanel;
   thoughtMessageId: string | null;
   thoughtMessages: Message[];
@@ -27,6 +29,7 @@ interface UIState {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebarCollapsed: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  setSidebarMode: (mode: SidebarMode) => void;
   setRightPanel: (panel: RightPanel) => void;
   toggleRightPanel: (panel: RightPanel) => void;
   openThoughtPanel: (messageId: string) => void;
@@ -41,6 +44,7 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: false,
   sidebarCollapsed: false,
+  sidebarMode: 'search',
   rightPanel: null,
   thoughtMessageId: null,
   thoughtMessages: [],
@@ -60,6 +64,9 @@ export const useUIStore = create<UIState>((set) => ({
 
   setSidebarCollapsed: (collapsed) =>
     set({ sidebarCollapsed: collapsed }),
+
+  setSidebarMode: (mode) =>
+    set({ sidebarMode: mode }),
 
   setRightPanel: (panel) =>
     set({ rightPanel: panel, ...(panel === null && { thoughtMessageId: null }) }),

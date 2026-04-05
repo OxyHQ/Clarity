@@ -1,59 +1,45 @@
 # Clarity
 
-Clarity is a multi-surface context-agent platform focused on autonomous execution with policy controls.
+AI-powered search engine by [Oxy](https://oxy.so). Get answers with source citations, deep research, and follow-up questions.
 
-## Current Architecture (2026-03)
+**Live:** [clarity.surf](https://clarity.surf)
 
-- **Unified chat runtime** for app, Codea, and Cowork (`/clarity/search` and `/v1/chat/completions` share one handler).
-- **Autonomy loop**: `classify -> recall -> retrieve -> act -> learn`.
-- **Persistent context graph** in MongoDB (`ContextNode`, `ContextEdge`, `ContextSource`, `RetrievalStrategy`, `LearningRule`).
-- **Risk governance** with `R0/R1/R2/R3` and rollback records for reversible writes.
-- **Trigger engine only** (`/triggers`) for scheduled, webhook, integration, and heartbeat executions.
-- **Strict model abstraction**: public APIs only expose Clarity model IDs.
+## Stack
+
+- **Frontend**: Expo 55 + React Native Web + NativeWind (Tailwind CSS)
+- **Backend**: Express + TypeScript + MongoDB + Redis + Socket.IO
+- **AI**: Multi-provider abstraction (OpenAI, Anthropic, Google, Groq, DeepSeek, xAI, Mistral)
+- **Auth**: OxyHQ (@oxyhq/services)
+- **Deploy**: Cloudflare Pages (frontend) + DigitalOcean (backend)
 
 ## Monorepo
 
-| App | Stack | Purpose |
-| --- | --- | --- |
-| `apps/app` | Expo | Main app (web + iOS + Android) |
-| `apps/api` | Express + TypeScript | Core API runtime |
-| `apps/clarity-codea` | VS Code extension | Coding assistant surface |
-| `apps/clarity-cowork` | Electron | Desktop assistant surface |
-| `apps/clarity-console` | TanStack Start + React | Admin console |
-| `apps/clarity-canvas` | Next.js | Canvas app |
-| `apps/clarity-gateway-admin` | Vite + React | Internal gateway admin |
-| `apps/clarity-codea-cli` | CLI | Terminal coding assistant |
-| `apps/clarity-docker-host` | Express + TypeScript | Sandboxed container host |
-| `apps/integrations` | Express + TypeScript | Messaging and channel integrations |
-
-## Quick Start
-
-```bash
-npm install
-npm run dev
+```
+apps/
+  app/              # Expo cross-platform app (web + mobile)
+  api/              # Express backend API
+  clarity-gateway/  # Model routing gateway
 ```
 
-Focused commands:
+## Development
 
 ```bash
-npm run dev:api
-npm run dev:app
+bun install
+bun run dev:app    # Start frontend (Expo)
+bun run dev:api    # Start backend (Express)
 ```
 
-## Docs
+## Deploy
 
-- [Onboarding guide](docs/onboarding.md) — **start here if you're new**
-- [Contributing](CONTRIBUTING.md)
-- [Agents and autonomy](docs/agents.md)
-- [API reference](docs/api-reference.md)
-- [Deployment](docs/deployment.md)
-- [Proactive intelligence](docs/proactive-intelligence.md)
-- [Memory and context graph](docs/memory-system.md)
-- [Oxy auth](docs/oxyhq-auth.md)
-- [Developer portal](docs/developers-portal.md)
+Frontend auto-deploys to Cloudflare Pages on push to `master`.
 
-## Non-Goals
+Backend deploys to DigitalOcean via `.do/app.yaml`.
 
-- `Triggers` are the only scheduling API.
-- No public model provider metadata.
-- No backward-compat model-resolution endpoints.
+## Key Features
+
+- **Search-first UI** with centered search box and category tabs
+- **Deep research mode** with multi-step search, source extraction, and synthesis
+- **Source citations** with numbered references
+- **Model abstraction** — users see Clarity models, never provider names
+- **SSE streaming** with custom events (clarity.research_progress, clarity.reasoning, etc.)
+- **Billing** via Stripe with credit-based usage tracking
