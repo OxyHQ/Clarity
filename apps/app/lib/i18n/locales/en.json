@@ -231,7 +231,8 @@
     "resetPassword": "Reset Password",
     "writingStyle": "Writing Style",
     "security": "Security",
-    "discover": "Discover"
+    "discover": "Discover",
+    "finance": "Finance"
   },
   "sidebar": {
     "newChat": "New Chat",
@@ -266,6 +267,18 @@
     "settings": "Settings",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy"
+  },
+  "finance": {
+    "title": "Finance",
+    "topAssets": "Top Assets",
+    "marketSummary": "Market Summary",
+    "recentDevelopments": "Recent Developments",
+    "watchlist": "Watchlist",
+    "gainers": "Gainers",
+    "losers": "Losers",
+    "active": "Active",
+    "sectors": "Equity Sectors",
+    "searchPlaceholder": "Ask about markets, stocks, or crypto..."
   },
   "discover": {
     "title": "Discover",

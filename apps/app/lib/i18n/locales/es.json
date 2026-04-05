@@ -203,7 +203,8 @@
     "notifications": "Notificaciones",
     "resetPassword": "Restablecer contraseña",
     "writingStyle": "Estilo de Escritura",
-    "discover": "Descubrir"
+    "discover": "Descubrir",
+    "finance": "Finanzas"
   },
   "sidebar": {
     "newChat": "Nueva conversación",
@@ -238,6 +239,18 @@
     "settings": "Configuración",
     "termsOfService": "Términos de Servicio",
     "privacyPolicy": "Política de Privacidad"
+  },
+  "finance": {
+    "title": "Finanzas",
+    "topAssets": "Activos Principales",
+    "marketSummary": "Resumen del Mercado",
+    "recentDevelopments": "Desarrollos Recientes",
+    "watchlist": "Lista de Seguimiento",
+    "gainers": "Ganadores",
+    "losers": "Perdedores",
+    "active": "Activos",
+    "sectors": "Sectores",
+    "searchPlaceholder": "Pregunta sobre mercados, acciones o cripto..."
   },
   "discover": {
     "title": "Descubrir",

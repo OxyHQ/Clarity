@@ -605,6 +605,11 @@ export const ChatPageContent = ({
                       <WelcomeMessage onSuggestionPress={handleSuggestionPress} />
                     </View>
 
+                    {/* Powered by */}
+                    <Text className="mt-8 text-center text-xs text-muted-foreground/60">
+                      Clarity is powered by Alia AI
+                    </Text>
+
                   </View>
                 </View>
             </View>
