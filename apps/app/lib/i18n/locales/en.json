@@ -196,11 +196,17 @@
     },
     "accentColor": {
       "title": "App Color",
-      "purple": "Purple",
-      "green": "Green",
+      "teal": "Teal",
       "blue": "Blue",
+      "green": "Green",
       "yellow": "Yellow",
-      "orange": "Orange"
+      "amber": "Amber",
+      "red": "Red",
+      "purple": "Purple",
+      "pink": "Pink",
+      "sky": "Sky",
+      "orange": "Orange",
+      "mint": "Mint"
     }
   },
   "nav": {

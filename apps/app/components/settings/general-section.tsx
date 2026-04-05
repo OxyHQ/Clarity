@@ -6,12 +6,13 @@ import { useColorScheme } from "@/lib/useColorScheme";
 import { useThemeStore } from "@/lib/stores/theme-store";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSelector } from "@/components/language-selector";
-import { APP_COLOR_PRESETS, APP_COLOR_NAMES, type AppColorPreset } from "@/lib/app-color-presets";
+import { APP_COLOR_PRESETS, APP_COLOR_NAMES, type AppColorName } from "@oxyhq/bloom/theme";
+import { getClarityVars } from "@/lib/app-color-presets";
 import { cn } from "@/lib/utils";
 
 /** Miniature app layout using real theme tokens via NativeWind vars() */
-const AppMiniature = React.memo(function AppMiniature({ variant, preset }: { variant: "light" | "dark"; preset: AppColorPreset }) {
-  const themeVars = vars(variant === "light" ? preset.light : preset.dark);
+const AppMiniature = React.memo(function AppMiniature({ variant, colorName }: { variant: "light" | "dark"; colorName: AppColorName }) {
+  const themeVars = vars(getClarityVars(colorName, variant));
 
   return (
     <View className="flex-row flex-1 rounded overflow-hidden" style={themeVars}>
@@ -69,7 +70,6 @@ export function GeneralSection() {
   const { mode, setColorScheme } = useColorScheme();
   const appColor = useThemeStore((s) => s.appColor);
   const setAppColor = useThemeStore((s) => s.setAppColor);
-  const preset = APP_COLOR_PRESETS[appColor];
   const { t } = useTranslation();
 
   return (
@@ -92,7 +92,7 @@ export function GeneralSection() {
               }`}
             >
               <View className="mb-1.5 aspect-[5/3]">
-                <AppMiniature variant="light" preset={preset} />
+                <AppMiniature variant="light" colorName={appColor} />
               </View>
               <Text className="text-center text-xs font-medium text-foreground">
                 {t("settings.appearance.light")}
@@ -110,10 +110,10 @@ export function GeneralSection() {
               <View className="rounded overflow-hidden mb-1.5 aspect-[5/3]">
                 <View className="flex-row flex-1">
                   <View className="flex-1 overflow-hidden">
-                    <AppMiniature variant="light" preset={preset} />
+                    <AppMiniature variant="light" colorName={appColor} />
                   </View>
                   <View className="flex-1 overflow-hidden">
-                    <AppMiniature variant="dark" preset={preset} />
+                    <AppMiniature variant="dark" colorName={appColor} />
                   </View>
                 </View>
               </View>
@@ -131,7 +131,7 @@ export function GeneralSection() {
               }`}
             >
               <View className="mb-1.5 aspect-[5/3]">
-                <AppMiniature variant="dark" preset={preset} />
+                <AppMiniature variant="dark" colorName={appColor} />
               </View>
               <Text className="text-center text-xs font-medium text-foreground">
                 {t("settings.appearance.dark")}

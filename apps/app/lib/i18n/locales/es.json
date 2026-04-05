@@ -169,11 +169,17 @@
     },
     "accentColor": {
       "title": "Color de la app",
-      "purple": "Morado",
-      "green": "Verde",
+      "teal": "Cerceta",
       "blue": "Azul",
+      "green": "Verde",
       "yellow": "Amarillo",
-      "orange": "Naranja"
+      "amber": "Ambar",
+      "red": "Rojo",
+      "purple": "Morado",
+      "pink": "Rosa",
+      "sky": "Cielo",
+      "orange": "Naranja",
+      "mint": "Menta"
     }
   },
   "nav": {

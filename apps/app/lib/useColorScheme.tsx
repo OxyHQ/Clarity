@@ -5,7 +5,8 @@ import { Platform } from 'react-native';
 import { useThemeStore, ThemeMode } from './stores/theme-store';
 import { setColorSchemeSafe } from './set-color-scheme-safe';
 import { useCallback, useEffect, useMemo } from 'react';
-import { APP_COLOR_PRESETS } from './app-color-presets';
+import { APP_COLOR_PRESETS } from '@oxyhq/bloom/theme';
+import { getClarityVars } from './app-color-presets';
 
 /** Convert an HSL CSS variable value like "153 50% 5%" to "hsl(153, 50%, 5%)".
  *  Also handles alpha syntax "0 0% 100% / 10%" → "hsla(0, 0%, 100%, 0.1)". */
@@ -45,19 +46,18 @@ export function useColorScheme() {
   );
 
   const colors = useMemo(() => {
-    const preset = APP_COLOR_PRESETS[appColor];
-    const vars = resolved === 'light' ? preset.light : preset.dark;
+    const v = getClarityVars(appColor, resolved);
     return {
-      background: hslVarToCSS(vars['--background']),
-      foreground: hslVarToCSS(vars['--foreground']),
-      card: hslVarToCSS(vars['--card']),
-      sidebar: hslVarToCSS(vars['--sidebar']),
-      surface: hslVarToCSS(vars['--surface']),
-      muted: hslVarToCSS(vars['--muted']),
-      mutedForeground: hslVarToCSS(vars['--muted-foreground']),
-      border: hslVarToCSS(vars['--border']),
-      primary: preset.hex,
-      primaryForeground: hslVarToCSS(vars['--primary-foreground']),
+      background: hslVarToCSS(v['--background']),
+      foreground: hslVarToCSS(v['--foreground']),
+      card: hslVarToCSS(v['--card']),
+      sidebar: hslVarToCSS(v['--sidebar']),
+      surface: hslVarToCSS(v['--surface']),
+      muted: hslVarToCSS(v['--muted']),
+      mutedForeground: hslVarToCSS(v['--muted-foreground']),
+      border: hslVarToCSS(v['--border']),
+      primary: APP_COLOR_PRESETS[appColor].hex,
+      primaryForeground: hslVarToCSS(v['--primary-foreground']),
     };
   }, [resolved, appColor]);
 

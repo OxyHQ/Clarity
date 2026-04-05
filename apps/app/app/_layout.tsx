@@ -13,7 +13,7 @@ import { Toaster } from '@/components/sonner';
 import { KeyboardProvider } from '@/lib/keyboard';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useThemeStore } from '@/lib/stores/theme-store';
-import { APP_COLOR_PRESETS, getAppColorCSSVariables, applyAppColorToDocument } from '@/lib/app-color-presets';
+import { getClarityVars, applyAppColorToDocument } from '@/lib/app-color-presets';
 import { setTokenGetter } from '@/lib/api/client';
 import 'react-native-reanimated';
 import '../global.css';
@@ -50,8 +50,7 @@ function AppContent() {
 
   // Native: cascade app color CSS variables via NativeWind vars()
   const colorVars = useMemo(() => {
-    const preset = APP_COLOR_PRESETS[appColor];
-    return vars(getAppColorCSSVariables(preset, colorScheme));
+    return vars(getClarityVars(appColor, colorScheme));
   }, [appColor, colorScheme]);
 
   const stack = (
