@@ -113,10 +113,10 @@ export const ChatPageContent = ({
   const isLargeScreen = dimensions.width >= 768;
 
   useEffect(() => {
-    if (!isThinkingModel(selectedModel)) {
+    if (!isThinkingModel(selectedModel) && selectedModel !== baseModel) {
       setBaseModel(selectedModel);
     }
-  }, [selectedModel, setBaseModel]);
+  }, [selectedModel, setBaseModel, baseModel]);
 
   const [inputValue, setInputValue] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -206,7 +206,7 @@ export const ChatPageContent = ({
     setInputValue("");
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (!inputValue.trim() || isLoading || disabled) return;
     if (editingMessageId) {
       onEditMessage(editingMessageId, inputValue);
@@ -217,7 +217,7 @@ export const ChatPageContent = ({
     onSubmit(inputValue, attachments.length > 0 ? attachments : undefined);
     setInputValue("");
     useStore.getState().clearAttachments();
-  };
+  }, [inputValue, isLoading, disabled, editingMessageId, onEditMessage, onSubmit, attachments]);
 
   const handleSuggestionPress = useCallback((message: string) => {
     if (isLoading) return;
@@ -252,6 +252,27 @@ export const ChatPageContent = ({
     });
   }, [addAttachment]);
 
+  const modeMenuItems = (
+    <>
+      <DropdownMenu.CheckboxItem
+        key="deep-research"
+        value={activeModes.has("deepResearch") ? "on" : "off"}
+        onValueChange={() => toggleMode("deepResearch")}
+      >
+        <DropdownMenu.ItemIcon ios={{ name: "magnifyingglass" }} />
+        <DropdownMenu.ItemTitle>Deep research</DropdownMenu.ItemTitle>
+      </DropdownMenu.CheckboxItem>
+      <DropdownMenu.CheckboxItem
+        key="thinking"
+        value={thinkingMode ? "on" : "off"}
+        onValueChange={handleThinkingMode}
+      >
+        <DropdownMenu.ItemIcon ios={{ name: "brain" }} />
+        <DropdownMenu.ItemTitle>Thinking mode</DropdownMenu.ItemTitle>
+      </DropdownMenu.CheckboxItem>
+    </>
+  );
+
   const actionsLeftContent = (
     <>
       <Button
@@ -282,22 +303,7 @@ export const ChatPageContent = ({
           </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Content side="top" align="start" collisionPadding={8}>
-          <DropdownMenu.CheckboxItem
-            key="deep-research"
-            value={activeModes.has("deepResearch") ? "on" : "off"}
-            onValueChange={() => toggleMode("deepResearch")}
-          >
-            <DropdownMenu.ItemIcon ios={{ name: "magnifyingglass" }} />
-            <DropdownMenu.ItemTitle>Deep research</DropdownMenu.ItemTitle>
-          </DropdownMenu.CheckboxItem>
-          <DropdownMenu.CheckboxItem
-            key="thinking"
-            value={thinkingMode ? "on" : "off"}
-            onValueChange={handleThinkingMode}
-          >
-            <DropdownMenu.ItemIcon ios={{ name: "brain" }} />
-            <DropdownMenu.ItemTitle>Thinking mode</DropdownMenu.ItemTitle>
-          </DropdownMenu.CheckboxItem>
+          {modeMenuItems}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
     </>
@@ -432,13 +438,9 @@ export const ChatPageContent = ({
 
   // ---- Landing: centered search page ----
   return (
-    <View className="isolate flex h-auto max-h-screen min-w-0 grow flex-col">
-      <View className="relative isolate min-h-0 flex-1 overflow-hidden bg-background">
-        <View className="mx-auto flex w-full flex-col h-full">
-          {/* Scrollable container */}
+    <View className="isolate relative flex h-auto max-h-screen min-w-0 min-h-0 grow flex-col overflow-hidden bg-background">
           <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
             <View className="mx-auto w-full max-w-screen-md px-4 md:px-6 h-full">
-              <View className="mx-auto w-full sm:max-w-screen-md h-full">
                 <View className="relative flex h-full flex-col">
 
                   {/* Mobile header (hidden on desktop) */}
@@ -475,7 +477,7 @@ export const ChatPageContent = ({
                         <View className="bg-card w-full rounded-2xl border border-border shadow-sm overflow-hidden">
                           {/* Text input area */}
                           <Pressable onPress={() => landingInputRef.current?.focus()}>
-                            <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, minHeight: 60 }}>
+                            <View className="px-4 pt-4 pb-2 min-h-[60px]">
                               <ChatTextInput
                                 ref={landingInputRef}
                                 value={inputValue}
@@ -493,13 +495,13 @@ export const ChatPageContent = ({
                           </Pressable>
 
                           {/* Action bar */}
-                          <View style={{ paddingHorizontal: 12, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View className="px-3 pb-3 flex-row items-center justify-between">
                             {/* Left actions */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <View className="flex-row items-center gap-2">
                               {/* (+) Add button */}
                               <DropdownMenu.Root>
                                 <DropdownMenu.Trigger>
-                                  <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}>
+                                  <View className="w-8 h-8 rounded-full items-center justify-center">
                                     <Plus size={18} color={colors.mutedForeground} />
                                   </View>
                                 </DropdownMenu.Trigger>
@@ -513,22 +515,7 @@ export const ChatPageContent = ({
                                     <DropdownMenu.ItemTitle>Upload document</DropdownMenu.ItemTitle>
                                   </DropdownMenu.Item>
                                   <DropdownMenu.Separator />
-                                  <DropdownMenu.CheckboxItem
-                                    key="deep-research"
-                                    value={activeModes.has("deepResearch") ? "on" : "off"}
-                                    onValueChange={() => toggleMode("deepResearch")}
-                                  >
-                                    <DropdownMenu.ItemIcon ios={{ name: "magnifyingglass" }} />
-                                    <DropdownMenu.ItemTitle>Deep research</DropdownMenu.ItemTitle>
-                                  </DropdownMenu.CheckboxItem>
-                                  <DropdownMenu.CheckboxItem
-                                    key="thinking"
-                                    value={thinkingMode ? "on" : "off"}
-                                    onValueChange={handleThinkingMode}
-                                  >
-                                    <DropdownMenu.ItemIcon ios={{ name: "brain" }} />
-                                    <DropdownMenu.ItemTitle>Thinking mode</DropdownMenu.ItemTitle>
-                                  </DropdownMenu.CheckboxItem>
+                                  {modeMenuItems}
                                 </DropdownMenu.Content>
                               </DropdownMenu.Root>
 
@@ -567,7 +554,7 @@ export const ChatPageContent = ({
                             </View>
 
                             {/* Right actions */}
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <View className="flex-row items-center gap-2">
                               {/* Model selector */}
                               <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
 
@@ -575,14 +562,8 @@ export const ChatPageContent = ({
                               <Pressable
                                 onPress={handleSubmit}
                                 disabled={!inputValue.trim()}
-                                style={{
-                                  width: 32,
-                                  height: 32,
-                                  borderRadius: 16,
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  backgroundColor: inputValue.trim() ? colors.primary : colors.muted,
-                                }}
+                                className="w-8 h-8 rounded-full items-center justify-center"
+                                style={{ backgroundColor: inputValue.trim() ? colors.primary : colors.muted }}
                               >
                                 <ArrowUp size={16} color={inputValue.trim() ? colors.primaryForeground : colors.mutedForeground} />
                               </Pressable>
@@ -598,10 +579,8 @@ export const ChatPageContent = ({
                                     onPress={() => {
                                       if (item.suggestionId) recordUsage(item.suggestionId);
                                       setInputValue(item.text);
-                                      setTimeout(() => {
-                                        onSubmit(item.text, attachments.length > 0 ? attachments : undefined);
-                                        useStore.getState().clearAttachments();
-                                      }, 0);
+                                      onSubmit(item.text, attachments.length > 0 ? attachments : undefined);
+                                      useStore.getState().clearAttachments();
                                     }}
                                     className="px-2 py-2 active:bg-muted rounded-lg flex-row items-center"
                                   >
@@ -622,20 +601,14 @@ export const ChatPageContent = ({
 
                     {/* Category tabs + suggestion cards below search */}
                     <View className="mt-6 w-full">
-                      <WelcomeContent onSuggestionPress={handleSuggestionPress} />
+                      <WelcomeMessage onSuggestionPress={handleSuggestionPress} />
                     </View>
 
                   </View>
                 </View>
-              </View>
             </View>
           </ScrollView>
-        </View>
-      </View>
     </View>
   );
 };
 
-function WelcomeContent({ onSuggestionPress }: { onSuggestionPress: (msg: string) => void }) {
-  return <WelcomeMessage onSuggestionPress={onSuggestionPress} />;
-}

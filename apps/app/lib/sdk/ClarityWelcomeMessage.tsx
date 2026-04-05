@@ -9,8 +9,6 @@ export type { WelcomeSuggestion };
 export type SearchCategory = 'all' | 'academic' | 'news' | 'code' | 'social';
 
 export interface ClarityWelcomeMessageProps {
-  greeting: string;
-  subtitle?: string;
   suggestions?: WelcomeSuggestion[];
   onSuggestionPress?: (text: string) => void;
   selectedCategory?: SearchCategory;
@@ -50,13 +48,7 @@ function CategoryTab({
       }
     >
       {icon}
-      <Text
-        className={
-          isSelected
-            ? 'text-sm font-medium text-foreground'
-            : 'text-sm font-medium text-foreground'
-        }
-      >
+      <Text className="text-sm font-medium text-foreground">
         {label}
       </Text>
       {isNew && (

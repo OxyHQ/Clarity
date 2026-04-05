@@ -15,7 +15,7 @@ import { queryKeys } from "@/lib/hooks/query-keys";
 import { useConversations, useDeleteConversation, prefetchConversation } from "@/lib/hooks/use-conversations";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 
-import Logo from "@/assets/clarity-logo.svg";
+import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
 import { useColorScheme } from "@/lib/useColorScheme";
 
 export function Sidebar() {
@@ -82,9 +82,7 @@ const SearchHistoryItem = React.memo(function SearchHistoryItem({
           onHoverIn={prefetch}
           className={`group relative rounded-md select-none ${isActive ? "bg-muted" : ""}`}
         >
-          {/* Hover overlay */}
           <View className="absolute inset-x-0 inset-y-0 rounded-md opacity-0 group-hover:opacity-100 duration-150 bg-muted/50" />
-          {/* Text content */}
           <View className="relative flex-row items-center gap-2 pl-1 font-sans text-sm text-foreground py-1.5 px-2 w-full overflow-hidden whitespace-nowrap">
             <Text className="font-sans text-sm text-foreground" numberOfLines={1}>
               {title || t("sidebar.newSearch")}
@@ -141,7 +139,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
   const handleLogin = React.useCallback(() => router.push("/login"), [router]);
   const handleUpgrade = React.useCallback(() => router.push("/(biglayout)/subscribe"), [router]);
 
-  const displayName = React.useCallback(() => {
+  const displayName = React.useMemo(() => {
     if (!user) return t("common.user");
     if (user.name?.first) return user.name.last ? `${user.name.first} ${user.name.last}` : user.name.first;
     return user.username || t("common.user");
@@ -171,7 +169,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
         >
           <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
-            <Logo width={20} height={20} fill={colors.foreground} />
+            <ClarityWordmark width={20} color={colors.foreground} />
           </View>
           <Text className="font-sans text-sm text-foreground flex-1">
             {t("sidebar.newSearch")}
@@ -205,7 +203,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           </View>
           {/* Name */}
           <Text className="font-sans text-sm text-foreground leading-tight truncate ml-2 flex-1">
-            {displayName()}
+            {displayName}
           </Text>
           <Bell size={16} className="text-muted-foreground ml-2" />
         </Pressable>
@@ -215,12 +213,12 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           <View className="flex-row items-center gap-2.5 px-2 py-2">
             <UserAvatar size={36} />
             <View>
-              <Text className="text-sm font-semibold text-foreground">{displayName()}</Text>
+              <Text className="text-sm font-semibold text-foreground">{displayName}</Text>
               {user?.username && <Text className="text-xs text-muted-foreground">{user.username}@oxy.so</Text>}
             </View>
           </View>
         ) : (
-          <DropdownMenu.Label>{displayName()}</DropdownMenu.Label>
+          <DropdownMenu.Label>{displayName}</DropdownMenu.Label>
         )}
         <DropdownMenu.Separator />
         <DropdownMenu.Item key="upgrade" onSelect={handleUpgrade}>
@@ -278,29 +276,16 @@ const SearchSidebar = React.memo(function SearchSidebar() {
       {/* Navigation items */}
       <View className="flex-col gap-0.5 px-2">
         {/* New thread */}
-        <Pressable
-          onPress={handleNewSearch}
-          className="py-1 group flex-row w-full justify-start items-center cursor-pointer relative"
-        >
-          <View className="absolute left-0 right-0 top-px bottom-px rounded-xl bg-muted/50 opacity-0 group-hover:opacity-100 pointer-events-none" />
-          <View className="flex-row items-center w-full justify-start relative">
-            <View className="items-center shrink-0 justify-center" style={{ width: 40 }}>
-              <View className="rounded-full items-center justify-center w-6 h-6 bg-accent">
-                <Plus size={14} className="text-foreground" />
-              </View>
+        <SidebarNavItem
+          icon={
+            <View className="rounded-full items-center justify-center w-6 h-6 bg-accent">
+              <Plus size={14} className="text-foreground" />
             </View>
-            <Text className="flex-1 font-sans text-sm font-medium text-foreground" numberOfLines={1}>
-              {t("sidebar.newChat")}
-            </Text>
-            {Platform.OS === "web" && (
-              <View className="opacity-0 group-hover:opacity-100">
-                <Text className="mr-3 shrink-0 font-sans text-[10px] font-normal text-muted-foreground/60 select-none">
-                  Ctrl I
-                </Text>
-              </View>
-            )}
-          </View>
-        </Pressable>
+          }
+          label={t("sidebar.newChat")}
+          onPress={handleNewSearch}
+          shortcut="Ctrl I"
+        />
 
         {/* History */}
         <SidebarNavItem
