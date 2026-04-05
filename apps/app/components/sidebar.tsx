@@ -481,7 +481,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
   );
 
   const handleNewChat = React.useCallback(async () => {
-    const conv = await createMut.mutateAsync();
+    const conv = await createMut.mutateAsync({});
     router.replace(`/(app)/c/${conv.id}`);
   }, [createMut, router]);
 
