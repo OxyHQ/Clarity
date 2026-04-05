@@ -19,7 +19,7 @@ export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
       mode: 'system',
-      appColor: 'amber',
+      appColor: 'yellow',
       setMode: (mode: ThemeMode) => set({ mode }),
       setAppColor: (appColor: AppColorName) => set({ appColor }),
     }),
