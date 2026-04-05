@@ -671,30 +671,28 @@ const SearchSidebar = React.memo(function SearchSidebar() {
       className="flex h-full w-full flex-col bg-background border-r border-border"
       style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
     >
-      {/* ── Header: logo + collapse button ── */}
-      <View className="h-14 flex-row items-center gap-0 shrink-0 relative overflow-hidden px-2">
-        {/* Logo */}
-        <Pressable onPress={handleNewSearch} className="block w-fit p-1 mx-0.5 shrink-0 hover:bg-muted rounded-xl">
-          <ClarityWordmark width={28} color={colors.foreground} />
-        </Pressable>
-
-        {/* Collapse toggle — pushed to right */}
-        {isLargeScreen && (
-          <View className="ms-auto shrink-0">
-            <Pressable
-              onPress={toggleSidebarCollapsed}
-              accessibilityLabel="Collapse sidebar"
-              className="h-10 w-10 rounded-xl items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-            >
-              <ChevronsLeft size={18} className="text-muted-foreground" />
-            </Pressable>
+      {/* ── Header: mode toggle + collapse button ── */}
+      <View className="flex-col shrink-0" style={{ height: 90 }}>
+        <View className="flex-row w-full items-start pt-2 justify-center">
+          <View className="w-full relative select-none px-2">
+            <View className="flex-row items-start">
+              {/* Mode toggle */}
+              <View className="flex-1">
+                <ModeToggle />
+              </View>
+              {/* Collapse button */}
+              {isLargeScreen && (
+                <Pressable
+                  onPress={toggleSidebarCollapsed}
+                  accessibilityLabel="Collapse sidebar"
+                  className="h-10 w-10 rounded-xl items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                >
+                  <ChevronsLeft size={18} color={colors.mutedForeground} />
+                </Pressable>
+              )}
+            </View>
           </View>
-        )}
-      </View>
-
-      {/* ── Mode toggle (Search / Chat) ── */}
-      <View className="shrink-0 px-2 pb-1">
-        <ModeToggle />
+        </View>
       </View>
 
       {/* ── Nav menu items ── */}
