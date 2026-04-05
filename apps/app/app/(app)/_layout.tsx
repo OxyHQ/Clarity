@@ -6,6 +6,7 @@ import { View, useWindowDimensions } from 'react-native';
 import { useCallback } from 'react';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUIStore } from '@/lib/stores/ui-store';
 import i18n from '@/lib/i18n';
 import { useWelcomeSuggestions, useSessionSuggestionGeneration } from '@/lib/hooks/use-suggestions';
 import { useNotificationSetup } from '@/lib/hooks/use-notification-setup';
@@ -16,11 +17,15 @@ const VISIBLE_ROUTES = new Set(['c/[id]/index', 'settings/index']);
 // Routes that handle their own top safe area insets
 const SELF_INSET_ROUTES = new Set(['index', 'c/[id]/index', 'settings']);
 
+const SIDEBAR_WIDTH_EXPANDED = 256;
+const SIDEBAR_WIDTH_COLLAPSED = 48;
+
 export default function AppLayout() {
   const dimensions = useWindowDimensions();
   const isLargeScreen = dimensions.width >= 768;
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
 
   // Prefetch welcome suggestions so they're ready before any chat screen mounts
   useWelcomeSuggestions();
@@ -31,14 +36,19 @@ export default function AppLayout() {
 
   const renderDrawerContent = useCallback(() => <Sidebar />, []);
 
+  // On large screens, use collapsed width when collapsed; on mobile always expanded
+  const drawerWidth = isLargeScreen && sidebarCollapsed
+    ? SIDEBAR_WIDTH_COLLAPSED
+    : SIDEBAR_WIDTH_EXPANDED;
+
   const screenOptions = useCallback(({ route }: { route: { name: string } }) => ({
     headerShown: false,
     sceneContainerStyle: {
       paddingTop: SELF_INSET_ROUTES.has(route.name) || route.name.startsWith('settings/') ? 0 : insets.top,
     },
     drawerStyle: {
-      width: 200,
-      backgroundColor: colors.muted,
+      width: drawerWidth,
+      backgroundColor: colors.background,
       borderRightWidth: 0,
       boxShadow: 'none' as const,
       elevation: 0,
@@ -47,7 +57,7 @@ export default function AppLayout() {
     swipeEnabled: !isLargeScreen,
     overlayColor: isLargeScreen ? 'transparent' : 'rgba(0, 0, 0, 0.5)',
     drawerItemStyle: VISIBLE_ROUTES.has(route.name) ? undefined : { display: 'none' as const },
-  }), [insets.top, colors.muted, isLargeScreen]);
+  }), [insets.top, colors.background, isLargeScreen, drawerWidth]);
 
   return (
     <AppErrorBoundary>

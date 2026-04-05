@@ -22,7 +22,7 @@ export const BaseSidebar = React.memo(function BaseSidebar({
   const insets = useSafeAreaInsets();
 
   return (
-    <View className="relative w-full overflow-hidden flex-1 flex-col bg-muted">
+    <View className="relative w-full overflow-hidden flex-1 flex-col bg-background">
       {/* Fixed header */}
       <View className="flex flex-none flex-col" style={{ paddingTop: insets.top }}>
         {header}

@@ -13,6 +13,7 @@ export interface CanvasArtifact {
 
 interface UIState {
   sidebarOpen: boolean;
+  sidebarCollapsed: boolean;
   rightPanel: RightPanel;
   thoughtMessageId: string | null;
   thoughtMessages: Message[];
@@ -24,6 +25,8 @@ interface UIState {
   // Actions
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  toggleSidebarCollapsed: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
   setRightPanel: (panel: RightPanel) => void;
   toggleRightPanel: (panel: RightPanel) => void;
   openThoughtPanel: (messageId: string) => void;
@@ -37,6 +40,7 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   sidebarOpen: false,
+  sidebarCollapsed: false,
   rightPanel: null,
   thoughtMessageId: null,
   thoughtMessages: [],
@@ -50,6 +54,12 @@ export const useUIStore = create<UIState>((set) => ({
 
   setSidebarOpen: (open) =>
     set({ sidebarOpen: open }),
+
+  toggleSidebarCollapsed: () =>
+    set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+
+  setSidebarCollapsed: (collapsed) =>
+    set({ sidebarCollapsed: collapsed }),
 
   setRightPanel: (panel) =>
     set({ rightPanel: panel, ...(panel === null && { thoughtMessageId: null }) }),
