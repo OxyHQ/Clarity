@@ -22,7 +22,7 @@ import {
   Plus,
   FolderOpen,
   Clock,
-  MessageSquare,
+  Monitor,
 } from "lucide-react-native";
 import Animated, {
   useSharedValue,
@@ -87,7 +87,7 @@ function ModeToggle() {
   const sidebarMode = useUIStore((s) => s.sidebarMode);
   const setSidebarMode = useUIStore((s) => s.setSidebarMode);
 
-  const isSearch = sidebarMode === "search";
+  const isSearch = sidebarMode !== "computer";
 
   // Animated translateY for the sliding indicator.
   // 0 = top (search), 32 = bottom (chat).  Each row is h-8 = 32px.
@@ -103,7 +103,7 @@ function ModeToggle() {
   }));
 
   const handleSearch = React.useCallback(() => setSidebarMode("search"), [setSidebarMode]);
-  const handleChat = React.useCallback(() => setSidebarMode("chat"), [setSidebarMode]);
+  const handleComputer = React.useCallback(() => setSidebarMode("computer"), [setSidebarMode]);
 
   return (
     <View className="p-1 relative rounded-xl overflow-hidden" style={{ height: 72 }}>
@@ -144,13 +144,13 @@ function ModeToggle() {
         )}
       </Pressable>
 
-      {/* Chat option */}
+      {/* Computer option */}
       <Pressable
-        onPress={handleChat}
+        onPress={handleComputer}
         className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
       >
         <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
-          <MessageSquare
+          <Monitor
             size={16}
             className={isSearch ? "text-muted-foreground" : "text-foreground"}
           />
@@ -161,7 +161,7 @@ function ModeToggle() {
             isSearch ? "text-muted-foreground" : "text-foreground",
           )}
         >
-          {t("sidebar.chat")}
+          Computer
         </Text>
         {Platform.OS === "web" && (
           <View className="opacity-0 group-hover/toggle:opacity-100">
@@ -487,7 +487,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
 
   /** The primary action depends on the selected sidebar mode */
   const handlePrimaryAction = React.useCallback(() => {
-    if (sidebarMode === "chat") {
+    if (sidebarMode === "computer") {
       handleNewChat();
     } else {
       handleNewSearch();

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { Message } from '@/lib/hooks/use-conversations';
 
 type RightPanel = 'credits' | 'thought' | 'canvas' | 'agent' | null;
-type SidebarMode = 'search' | 'chat';
+type SidebarMode = 'search' | 'computer';
 
 export interface CanvasArtifact {
   id: string;
