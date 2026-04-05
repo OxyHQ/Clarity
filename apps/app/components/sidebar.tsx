@@ -119,7 +119,7 @@ function ModeToggle() {
           {
             position: 'absolute',
             left: 4, right: 4, top: 4,
-            height: 28,
+            height: 32,
             backgroundColor: colors.card,
             borderRadius: 8,
           },
