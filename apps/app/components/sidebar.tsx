@@ -104,15 +104,25 @@ function ModeToggle() {
   const handleComputer = React.useCallback(() => setSidebarMode("computer"), [setSidebarMode]);
 
   return (
-    <View className="relative" style={{ padding: 4 }}>
+    <View style={{ padding: 4, position: 'relative' }}>
       {/* Background track */}
-      <View className="absolute inset-y-0 left-0 right-0 bg-muted rounded-xl" />
+      <View style={{
+        position: 'absolute',
+        top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: colors.muted,
+        borderRadius: 12,
+      }} />
 
       {/* Sliding active indicator */}
       <Animated.View
-        className="absolute bg-card rounded-lg"
         style={[
-          { left: 4, right: 4, top: 4, height: 28 },
+          {
+            position: 'absolute',
+            left: 4, right: 4, top: 4,
+            height: 28,
+            backgroundColor: colors.card,
+            borderRadius: 8,
+          },
           indicatorStyle,
         ]}
       />
