@@ -135,7 +135,7 @@ function ModeToggle() {
           className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
         >
           <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
-            <ClarityWordmark width={20} color={isSearch ? colors.foreground : colors.mutedForeground} />
+            <Search size={18} color={isSearch ? colors.foreground : colors.mutedForeground} />
           </View>
           <Text
             className={cn(
@@ -681,43 +681,36 @@ const SearchSidebar = React.memo(function SearchSidebar() {
       className="flex h-full w-full flex-col bg-background border-r border-border"
       style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
     >
-      {/* ── Header: mode toggle + collapse button ── */}
-      <View className="flex-col shrink-0" style={{ height: 90 }}>
-        <View className="flex-row w-full items-start pt-2 justify-center">
-          <View className="w-full relative select-none px-2">
-            <View className="flex-row items-start">
-              {/* Mode toggle */}
-              <View className="flex-1">
-                <ModeToggle />
-              </View>
-              {/* Collapse button */}
-              {isLargeScreen && (
-                <Pressable
-                  onPress={toggleSidebarCollapsed}
-                  accessibilityLabel="Collapse sidebar"
-                  className="h-10 w-10 rounded-xl items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-                >
-                  <ChevronsLeft size={18} color={colors.mutedForeground} />
-                </Pressable>
-              )}
-            </View>
+      {/* ── Header: logo + collapse button ── */}
+      <View className="h-14 flex-row items-center shrink-0 px-2">
+        <Pressable onPress={handleNewSearch} className="p-1 mx-0.5 shrink-0 hover:bg-muted rounded-xl">
+          <ClarityWordmark width={28} color={colors.foreground} />
+        </Pressable>
+        {isLargeScreen && (
+          <View className="ms-auto shrink-0">
+            <Pressable
+              onPress={toggleSidebarCollapsed}
+              accessibilityLabel="Collapse sidebar"
+              className="h-10 w-10 rounded-xl items-center justify-center hover:bg-muted"
+            >
+              <ChevronsLeft size={18} color={colors.mutedForeground} />
+            </Pressable>
           </View>
-        </View>
+        )}
+      </View>
+
+      {/* ── Mode toggle (Search / Computer) ── */}
+      <View className="shrink-0 px-2 pb-1">
+        <ModeToggle />
       </View>
 
       {/* ── Nav menu items ── */}
       <View className="shrink-0">
         <NavItem
-          icon={Search}
-          label={t("sidebar.search")}
-          onPress={handleNewSearch}
-          shortcut="Ctrl+K"
-        />
-        <NavItem
-          icon={PenSquare}
-          label={t("sidebar.chat")}
+          icon={Plus}
+          label={t("sidebar.newChat")}
           onPress={handleNewChat}
-          shortcut="Ctrl+J"
+          shortcut="Ctrl+I"
         />
         <NavItem
           icon={Mic}
