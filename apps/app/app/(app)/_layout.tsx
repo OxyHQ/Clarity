@@ -15,7 +15,7 @@ import { useNotificationSetup } from '@/lib/hooks/use-notification-setup';
 const VISIBLE_ROUTES = new Set(['c/[id]/index', 'settings/index']);
 
 // Routes that handle their own top safe area insets
-const SELF_INSET_ROUTES = new Set(['index', 'c/[id]/index', 'settings']);
+const SELF_INSET_ROUTES = new Set(['index', 'c/[id]/index', 'settings', 'history', 'discover']);
 
 const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 48;
@@ -83,6 +83,20 @@ export default function AppLayout() {
                   options={{
                     drawerLabel: i18n.t('nav.chat'),
                     title: i18n.t('nav.chat'),
+                  }}
+                />
+                <Drawer.Screen
+                  name="history"
+                  options={{
+                    drawerLabel: i18n.t('sidebar.history'),
+                    title: i18n.t('sidebar.history'),
+                  }}
+                />
+                <Drawer.Screen
+                  name="discover"
+                  options={{
+                    drawerLabel: i18n.t('nav.discover'),
+                    title: i18n.t('nav.discover'),
                   }}
                 />
                 <Drawer.Screen

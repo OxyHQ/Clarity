@@ -529,6 +529,10 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     (id: string) => deleteMut.mutate(id),
     [deleteMut],
   );
+  const handleHistory = React.useCallback(
+    () => router.push("/(app)/history"),
+    [router],
+  );
   const handleSettings = React.useCallback(
     () => router.push("/(app)/settings"),
     [router],
@@ -634,7 +638,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           <NavItem
             icon={Clock}
             label={t("sidebar.history")}
-            onPress={() => {}}
+            onPress={handleHistory}
             collapsed
           />
         </View>
@@ -790,7 +794,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
                 ))}
                 {hasMore && (
                   <Pressable
-                    onPress={() => fetchNextPage()}
+                    onPress={handleHistory}
                     className="w-full justify-start px-4 py-1 mt-1 pb-1"
                   >
                     <Text className="text-xs font-semibold text-muted-foreground hover:text-foreground select-none">

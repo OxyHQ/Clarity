@@ -230,7 +230,8 @@
     "notifications": "Notifications",
     "resetPassword": "Reset Password",
     "writingStyle": "Writing Style",
-    "security": "Security"
+    "security": "Security",
+    "discover": "Discover"
   },
   "sidebar": {
     "newChat": "New Chat",
@@ -1052,5 +1053,22 @@
     "newLine": "New line",
     "newChat": "New chat",
     "closeDialog": "Close dialog"
+  },
+  "history": {
+    "title": "History",
+    "newThread": "New Thread",
+    "searchPlaceholder": "Search your threads...",
+    "sort": "Sort",
+    "sort_newest": "Newest",
+    "sort_oldest": "Oldest",
+    "empty_title": "No threads yet",
+    "empty_threads": "Your conversation history will appear here.",
+    "empty_other": "This section is coming soon.",
+    "tabs": {
+      "threads": "Threads",
+      "media": "Media",
+      "apps": "Apps",
+      "documents": "Documents"
+    }
   }
 }

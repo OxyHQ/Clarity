@@ -1014,5 +1014,22 @@
     "newLine": "Nueva línea",
     "newChat": "Nueva conversación",
     "closeDialog": "Cerrar diálogo"
+  },
+  "history": {
+    "title": "Historial",
+    "newThread": "Nuevo hilo",
+    "searchPlaceholder": "Buscar en tus hilos...",
+    "sort": "Ordenar",
+    "sort_newest": "Más recientes",
+    "sort_oldest": "Más antiguos",
+    "empty_title": "Sin hilos aún",
+    "empty_threads": "Tu historial de conversaciones aparecerá aquí.",
+    "empty_other": "Esta sección estará disponible pronto.",
+    "tabs": {
+      "threads": "Hilos",
+      "media": "Medios",
+      "apps": "Apps",
+      "documents": "Documentos"
+    }
   }
 }
