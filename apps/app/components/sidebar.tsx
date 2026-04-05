@@ -22,7 +22,13 @@ import {
   Plus,
   FolderOpen,
   Clock,
+  MessageSquare,
 } from "lucide-react-native";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useStore } from "@/lib/globalStore";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -35,6 +41,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/hooks/query-keys";
 import {
   useConversations,
+  useCreateConversation,
   useDeleteConversation,
   prefetchConversation,
   type Conversation,
@@ -47,6 +54,13 @@ import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react-native";
 
 /* ================================================================
+   Constants
+   ================================================================ */
+
+const ANIM_CONFIG = { duration: 200 } as const;
+const VISIBLE_HISTORY_COUNT = 8;
+
+/* ================================================================
    Root Sidebar — routes to settings sidebar when on /settings
    ================================================================ */
 
@@ -55,6 +69,110 @@ export function Sidebar() {
   const isSettingsRoute = pathname.startsWith("/settings");
   if (isSettingsRoute) return <SettingsSidebar />;
   return <SearchSidebar />;
+}
+
+/* ================================================================
+   Mode toggle (Search / Chat segmented control)
+   ================================================================ */
+
+/**
+ * Vertical two-option segmented control in the sidebar header.
+ * A sliding bg-card indicator animates between the two options.
+ * The indicator height is (container - 8px padding) / 2, positioned
+ * at top (Search) or bottom (Chat) via translateY.
+ */
+function ModeToggle() {
+  const { t } = useTranslation();
+  const { colors } = useColorScheme();
+  const sidebarMode = useUIStore((s) => s.sidebarMode);
+  const setSidebarMode = useUIStore((s) => s.setSidebarMode);
+
+  const isSearch = sidebarMode === "search";
+
+  // Animated translateY for the sliding indicator.
+  // 0 = top (search), 32 = bottom (chat).  Each row is h-8 = 32px.
+  const indicatorY = useSharedValue(isSearch ? 0 : 32);
+
+  // Keep shared value in sync when store changes externally
+  React.useEffect(() => {
+    indicatorY.value = withTiming(isSearch ? 0 : 32, ANIM_CONFIG);
+  }, [isSearch, indicatorY]);
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: indicatorY.value }],
+  }));
+
+  const handleSearch = React.useCallback(() => setSidebarMode("search"), [setSidebarMode]);
+  const handleChat = React.useCallback(() => setSidebarMode("chat"), [setSidebarMode]);
+
+  return (
+    <View className="mx-2 p-1 relative" style={{ height: 72 }}>
+      {/* Background track */}
+      <View className="absolute inset-0 bg-accent/50 rounded-xl" />
+
+      {/* Sliding active indicator */}
+      <Animated.View
+        className="absolute bg-card rounded-lg"
+        style={[
+          { top: 4, left: 4, right: 4, height: 32 },
+          indicatorStyle,
+        ]}
+      />
+
+      {/* Search option */}
+      <Pressable
+        onPress={handleSearch}
+        className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
+      >
+        <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
+          <ClarityWordmark width={20} color={isSearch ? colors.foreground : colors.mutedForeground} />
+        </View>
+        <Text
+          className={cn(
+            "font-sans text-sm flex-1",
+            isSearch ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {t("sidebar.search")}
+        </Text>
+        {Platform.OS === "web" && (
+          <View className="opacity-0 group-hover/toggle:opacity-100">
+            <Text className="mr-4 shrink-0 font-sans text-[10px] font-normal text-muted-foreground/60 select-none">
+              {"\u2325\u2303"}1
+            </Text>
+          </View>
+        )}
+      </Pressable>
+
+      {/* Chat option */}
+      <Pressable
+        onPress={handleChat}
+        className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
+      >
+        <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
+          <MessageSquare
+            size={16}
+            className={isSearch ? "text-muted-foreground" : "text-foreground"}
+          />
+        </View>
+        <Text
+          className={cn(
+            "font-sans text-sm flex-1",
+            isSearch ? "text-muted-foreground" : "text-foreground",
+          )}
+        >
+          {t("sidebar.chat")}
+        </Text>
+        {Platform.OS === "web" && (
+          <View className="opacity-0 group-hover/toggle:opacity-100">
+            <Text className="mr-4 shrink-0 font-sans text-[10px] font-normal text-muted-foreground/60 select-none">
+              {"\u2325\u2303"}2
+            </Text>
+          </View>
+        )}
+      </Pressable>
+    </View>
+  );
 }
 
 /* ================================================================
@@ -105,9 +223,12 @@ function groupByDate(
   }
 
   const groups: DateGroup[] = [];
-  if (today.length > 0) groups.push({ label: t("sidebar.today"), conversations: today });
-  if (yesterday.length > 0) groups.push({ label: t("sidebar.yesterday"), conversations: yesterday });
-  if (earlier.length > 0) groups.push({ label: t("sidebar.earlier"), conversations: earlier });
+  if (today.length > 0)
+    groups.push({ label: t("sidebar.today"), conversations: today });
+  if (yesterday.length > 0)
+    groups.push({ label: t("sidebar.yesterday"), conversations: yesterday });
+  if (earlier.length > 0)
+    groups.push({ label: t("sidebar.earlier"), conversations: earlier });
   return groups;
 }
 
@@ -258,7 +379,9 @@ const HistoryItem = React.memo(function HistoryItem({
             onSelect={() => onDelete(id)}
           >
             <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
-            <DropdownMenu.ItemTitle>{t("sidebar.delete")}</DropdownMenu.ItemTitle>
+            <DropdownMenu.ItemTitle>
+              {t("sidebar.delete")}
+            </DropdownMenu.ItemTitle>
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Root>
@@ -304,8 +427,6 @@ function SectionHeader({
    Main search sidebar
    ================================================================ */
 
-const VISIBLE_HISTORY_COUNT = 8;
-
 const SearchSidebar = React.memo(function SearchSidebar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -318,6 +439,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
 
   const chatId = useStore((s) => s.chatId);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const sidebarMode = useUIStore((s) => s.sidebarMode);
   const toggleSidebarCollapsed = useUIStore((s) => s.toggleSidebarCollapsed);
 
   const {
@@ -328,6 +450,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     isLoading,
   } = useConversations();
   const deleteMut = useDeleteConversation();
+  const createMut = useCreateConversation();
   const { user, isAuthenticated, logout, showBottomSheet } = useOxy();
 
   // Section open/closed state
@@ -339,7 +462,9 @@ const SearchSidebar = React.memo(function SearchSidebar() {
 
   const allConvs = React.useMemo(() => {
     const all = data?.pages.flatMap((p) => p.conversations) ?? [];
-    return all.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return all.sort(
+      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime(),
+    );
   }, [data]);
 
   const dateGroups = React.useMemo(
@@ -349,11 +474,26 @@ const SearchSidebar = React.memo(function SearchSidebar() {
 
   const hasMore = allConvs.length > VISIBLE_HISTORY_COUNT || hasNextPage;
 
-  // Handlers
+  // Handlers — mode-aware primary action
   const handleNewSearch = React.useCallback(
     () => router.replace("/(app)"),
     [router],
   );
+
+  const handleNewChat = React.useCallback(async () => {
+    const conv = await createMut.mutateAsync();
+    router.replace(`/(app)/c/${conv.id}`);
+  }, [createMut, router]);
+
+  /** The primary action depends on the selected sidebar mode */
+  const handlePrimaryAction = React.useCallback(() => {
+    if (sidebarMode === "chat") {
+      handleNewChat();
+    } else {
+      handleNewSearch();
+    }
+  }, [sidebarMode, handleNewChat, handleNewSearch]);
+
   const handlePrefetch = React.useCallback(
     (id: string) => prefetchConversation(qc, id),
     [qc],
@@ -430,7 +570,11 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     return (
       <View
         className="flex h-full flex-col bg-background border-r border-border items-center"
-        style={{ width: 48, paddingTop: insets.top, paddingBottom: insets.bottom }}
+        style={{
+          width: 48,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        }}
       >
         {/* Logo */}
         <View className="h-14 items-center justify-center shrink-0">
@@ -448,7 +592,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           <NavItem
             icon={PenSquare}
             label={t("sidebar.chat")}
-            onPress={handleNewSearch}
+            onPress={handleNewChat}
             collapsed
           />
           <NavItem
@@ -526,23 +670,25 @@ const SearchSidebar = React.memo(function SearchSidebar() {
       className="flex h-full w-full flex-col bg-background border-r border-border"
       style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
     >
-      {/* ── Header: logo + collapse toggle ── */}
-      <View className="h-14 flex flex-row items-center gap-0 shrink-0 relative overflow-hidden px-2">
-        <Pressable
-          onPress={handleNewSearch}
-          className="block w-fit p-1 mx-0.5 shrink-0 hover:bg-muted rounded-xl"
-        >
-          <ClarityWordmark width={64} color={colors.foreground} />
-        </Pressable>
+      {/* ── Header: mode toggle + collapse button ── */}
+      <View className="shrink-0 relative overflow-hidden">
+        {/* Collapse toggle — positioned top-right */}
         {isLargeScreen && (
-          <Pressable
-            onPress={toggleSidebarCollapsed}
-            accessibilityLabel="Collapse sidebar"
-            className="ms-auto shrink-0 h-10 w-10 rounded-xl items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
-          >
-            <ChevronsLeft size={18} className="text-muted-foreground" />
-          </Pressable>
+          <View className="absolute top-1 right-1 z-10">
+            <Pressable
+              onPress={toggleSidebarCollapsed}
+              accessibilityLabel="Collapse sidebar"
+              className="h-10 w-10 rounded-xl items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <ChevronsLeft size={18} className="text-muted-foreground" />
+            </Pressable>
+          </View>
         )}
+
+        {/* Mode toggle switch */}
+        <View style={{ height: 90 }} className="flex-col justify-center">
+          <ModeToggle />
+        </View>
       </View>
 
       {/* ── Nav menu items ── */}
@@ -556,7 +702,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
         <NavItem
           icon={PenSquare}
           label={t("sidebar.chat")}
-          onPress={handleNewSearch}
+          onPress={handleNewChat}
           shortcut="Ctrl+J"
         />
         <NavItem

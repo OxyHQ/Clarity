@@ -2,7 +2,7 @@ import { Drawer } from 'expo-router/drawer';
 import { Sidebar } from '@/components/sidebar';
 import { AppErrorBoundary } from '@/components/error-boundary';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { View, useWindowDimensions } from 'react-native';
+import { View, Platform, useWindowDimensions } from 'react-native';
 import { useCallback } from 'react';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +52,12 @@ export default function AppLayout() {
       borderRightWidth: 0,
       boxShadow: 'none' as const,
       elevation: 0,
+      // Smooth collapse/expand transition on web (desktop only)
+      ...(Platform.OS === 'web' && isLargeScreen && {
+        transitionProperty: 'width',
+        transitionDuration: '200ms',
+        transitionTimingFunction: 'ease-out',
+      }),
     },
     drawerType: isLargeScreen ? ('permanent' as const) : ('front' as const),
     swipeEnabled: !isLargeScreen,

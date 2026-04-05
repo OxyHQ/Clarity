@@ -8,9 +8,6 @@ jobs:
   deploy-frontend:
     name: Deploy Frontend to Cloudflare Pages
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/app
     steps:
       - uses: actions/checkout@v4
 
@@ -19,10 +16,10 @@ jobs:
           bun-version: "1.3.10"
 
       - name: Install dependencies
-        run: cd ../.. && bun install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Build web
-        run: bunx expo export --platform web
+        run: cd apps/app && bunx expo export --platform web
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
@@ -30,4 +27,3 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy apps/app/dist --project-name clarity --branch master
-          workingDirectory: ../..
