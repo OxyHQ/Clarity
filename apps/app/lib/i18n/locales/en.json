@@ -240,6 +240,7 @@
     "chat": "Chat",
     "voice": "Voice",
     "imagine": "Imagine",
+    "discover": "Discover",
     "history": "History",
     "noSearches": "No searches yet",
     "delete": "Delete",
@@ -265,6 +266,18 @@
     "settings": "Settings",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy"
+  },
+  "discover": {
+    "title": "Discover",
+    "forYou": "For You",
+    "top": "Top",
+    "topics": "Topics",
+    "share": "Share",
+    "makeItYours": "Make it yours",
+    "selectTopics": "Select topics you care about to personalize your feed.",
+    "saveInterests": "Save Interests",
+    "marketOutlook": "Market Outlook",
+    "trendingCompanies": "Trending Companies"
   },
   "billing": {
     "title": "Billing",

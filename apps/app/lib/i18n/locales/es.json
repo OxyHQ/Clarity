@@ -202,7 +202,8 @@
     "integrations": "Integraciones",
     "notifications": "Notificaciones",
     "resetPassword": "Restablecer contraseña",
-    "writingStyle": "Estilo de Escritura"
+    "writingStyle": "Estilo de Escritura",
+    "discover": "Descubrir"
   },
   "sidebar": {
     "newChat": "Nueva conversación",
@@ -211,6 +212,7 @@
     "chat": "Chat",
     "voice": "Voz",
     "imagine": "Imaginar",
+    "discover": "Descubrir",
     "history": "Historial",
     "noSearches": "Sin búsquedas aún",
     "delete": "Eliminar",
@@ -236,6 +238,18 @@
     "settings": "Configuración",
     "termsOfService": "Términos de Servicio",
     "privacyPolicy": "Política de Privacidad"
+  },
+  "discover": {
+    "title": "Descubrir",
+    "forYou": "Para Ti",
+    "top": "Destacados",
+    "topics": "Temas",
+    "share": "Compartir",
+    "makeItYours": "Personaliza tu feed",
+    "selectTopics": "Selecciona los temas que te interesan para personalizar tu feed.",
+    "saveInterests": "Guardar Intereses",
+    "marketOutlook": "Panorama del Mercado",
+    "trendingCompanies": "Empresas en Tendencia"
   },
   "billing": {
     "title": "Facturación",

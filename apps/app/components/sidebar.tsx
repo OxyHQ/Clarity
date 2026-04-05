@@ -23,6 +23,7 @@ import {
   FolderOpen,
   Clock,
   Monitor,
+  Compass,
 } from "lucide-react-native";
 import Animated, {
   useSharedValue,
@@ -533,6 +534,10 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     () => router.push("/(app)/history"),
     [router],
   );
+  const handleDiscover = React.useCallback(
+    () => router.push("/(app)/discover"),
+    [router],
+  );
   const handleSettings = React.useCallback(
     () => router.push("/(app)/settings"),
     [router],
@@ -620,6 +625,12 @@ const SearchSidebar = React.memo(function SearchSidebar() {
             icon={ImageIcon}
             label={t("sidebar.imagine")}
             onPress={() => {}}
+            collapsed
+          />
+          <NavItem
+            icon={Compass}
+            label={t("sidebar.discover")}
+            onPress={handleDiscover}
             collapsed
           />
         </View>
@@ -725,6 +736,11 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           icon={ImageIcon}
           label={t("sidebar.imagine")}
           onPress={() => {}}
+        />
+        <NavItem
+          icon={Compass}
+          label={t("sidebar.discover")}
+          onPress={handleDiscover}
         />
       </View>
 
