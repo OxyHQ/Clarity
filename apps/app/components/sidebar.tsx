@@ -89,11 +89,9 @@ function ModeToggle() {
 
   const isSearch = sidebarMode !== "computer";
 
-  // Animated translateY for the sliding indicator.
-  // 0 = top (search), 32 = bottom (chat).  Each row is h-8 = 32px.
+  // Animated translateY: 0 = Search (top), 32 = Computer (bottom)
   const indicatorY = useSharedValue(isSearch ? 0 : 32);
 
-  // Keep shared value in sync when store changes externally
   React.useEffect(() => {
     indicatorY.value = withTiming(isSearch ? 0 : 32, ANIM_CONFIG);
   }, [isSearch, indicatorY]);
@@ -106,71 +104,74 @@ function ModeToggle() {
   const handleComputer = React.useCallback(() => setSidebarMode("computer"), [setSidebarMode]);
 
   return (
-    <View className="p-1 relative rounded-xl overflow-hidden" style={{ height: 72 }}>
+    <View className="relative" style={{ padding: 4 }}>
       {/* Background track */}
-      <View className="absolute inset-0 bg-accent/50 rounded-xl" />
+      <View className="absolute inset-y-0 left-0 right-0 bg-muted rounded-xl" />
 
       {/* Sliding active indicator */}
       <Animated.View
         className="absolute bg-card rounded-lg"
         style={[
-          { top: 4, left: 4, right: 4, height: 32 },
+          { left: 4, right: 4, top: 4, height: 28 },
           indicatorStyle,
         ]}
       />
 
-      {/* Search option */}
-      <Pressable
-        onPress={handleSearch}
-        className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
-      >
-        <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
-          <ClarityWordmark width={20} color={isSearch ? colors.foreground : colors.mutedForeground} />
-        </View>
-        <Text
-          className={cn(
-            "font-sans text-sm flex-1",
-            isSearch ? "text-foreground" : "text-muted-foreground",
-          )}
+      {/* Items container */}
+      <View className="flex-col">
+        {/* Search option */}
+        <Pressable
+          onPress={handleSearch}
+          className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
         >
-          {t("sidebar.search")}
-        </Text>
-        {Platform.OS === "web" && (
-          <View className="opacity-0 group-hover/toggle:opacity-100">
-            <Text className="mr-4 shrink-0 font-sans text-[10px] font-normal text-muted-foreground/60 select-none">
-              {"\u2325\u2303"}1
-            </Text>
+          <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
+            <ClarityWordmark width={20} color={isSearch ? colors.foreground : colors.mutedForeground} />
           </View>
-        )}
-      </Pressable>
+          <Text
+            className={cn(
+              "font-sans text-sm flex-1",
+              isSearch ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {t("sidebar.search")}
+          </Text>
+          {Platform.OS === "web" && (
+            <View className="opacity-0 group-hover/toggle:opacity-100">
+              <Text className="mr-4 shrink-0 font-sans text-[10px] font-normal text-muted-foreground/60 select-none">
+                {"\u2325\u2303"}1
+              </Text>
+            </View>
+          )}
+        </Pressable>
 
-      {/* Computer option */}
-      <Pressable
-        onPress={handleComputer}
-        className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
-      >
-        <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
-          <Monitor
-            size={16}
-            className={isSearch ? "text-muted-foreground" : "text-foreground"}
-          />
-        </View>
-        <Text
-          className={cn(
-            "font-sans text-sm flex-1",
-            isSearch ? "text-muted-foreground" : "text-foreground",
-          )}
+        {/* Computer option */}
+        <Pressable
+          onPress={handleComputer}
+          className="group/toggle flex-row items-center justify-start w-full h-8 shrink-0 relative cursor-pointer gap-1"
         >
-          Computer
-        </Text>
-        {Platform.OS === "web" && (
-          <View className="opacity-0 group-hover/toggle:opacity-100">
-            <Text className="mr-4 shrink-0 font-sans text-[10px] font-normal text-muted-foreground/60 select-none">
-              {"\u2325\u2303"}2
-            </Text>
+          <View className="items-center justify-center shrink-0" style={{ width: 32 }}>
+            <Monitor
+              size={16}
+              color={isSearch ? colors.mutedForeground : colors.foreground}
+            />
           </View>
-        )}
-      </Pressable>
+          <Text
+            className={cn(
+              "font-sans text-sm flex-1",
+              isSearch ? "text-muted-foreground" : "text-foreground",
+            )}
+          >
+            Computer
+          </Text>
+          {Platform.OS === "web" && (
+            <View className="opacity-0 group-hover/toggle:opacity-100">
+              <Text className="mr-4 shrink-0 font-sans text-[10px] font-normal text-muted-foreground/60 select-none">
+                {"\u2325\u2303"}2
+              </Text>
+            </View>
+          )}
+        </Pressable>
+      </View>
     </View>
   );
 }
