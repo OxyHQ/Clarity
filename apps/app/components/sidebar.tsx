@@ -106,7 +106,7 @@ function ModeToggle() {
   const handleChat = React.useCallback(() => setSidebarMode("chat"), [setSidebarMode]);
 
   return (
-    <View className="mx-2 p-1 relative" style={{ height: 72 }}>
+    <View className="p-1 relative rounded-xl overflow-hidden" style={{ height: 72 }}>
       {/* Background track */}
       <View className="absolute inset-0 bg-accent/50 rounded-xl" />
 
@@ -670,11 +670,16 @@ const SearchSidebar = React.memo(function SearchSidebar() {
       className="flex h-full w-full flex-col bg-background border-r border-border"
       style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
     >
-      {/* ── Header: mode toggle + collapse button ── */}
-      <View className="shrink-0 relative overflow-hidden">
-        {/* Collapse toggle — positioned top-right */}
+      {/* ── Header: logo + collapse button ── */}
+      <View className="h-14 flex-row items-center gap-0 shrink-0 relative overflow-hidden px-2">
+        {/* Logo */}
+        <Pressable onPress={handleNewSearch} className="block w-fit p-1 mx-0.5 shrink-0 hover:bg-muted rounded-xl">
+          <ClarityWordmark width={28} color={colors.foreground} />
+        </Pressable>
+
+        {/* Collapse toggle — pushed to right */}
         {isLargeScreen && (
-          <View className="absolute top-1 right-1 z-10">
+          <View className="ms-auto shrink-0">
             <Pressable
               onPress={toggleSidebarCollapsed}
               accessibilityLabel="Collapse sidebar"
@@ -684,11 +689,11 @@ const SearchSidebar = React.memo(function SearchSidebar() {
             </Pressable>
           </View>
         )}
+      </View>
 
-        {/* Mode toggle switch */}
-        <View style={{ height: 90 }} className="flex-col justify-center">
-          <ModeToggle />
-        </View>
+      {/* ── Mode toggle (Search / Chat) ── */}
+      <View className="shrink-0 px-2 pb-1">
+        <ModeToggle />
       </View>
 
       {/* ── Nav menu items ── */}
