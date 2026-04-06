@@ -446,7 +446,7 @@ export const ChatPageContent = ({
 
                   {/* Mobile header (hidden on desktop) */}
                   {!isLargeScreen && (
-                    <View className="py-4 pr-4 pl-1 h-14 flex-row items-center justify-between border-b -mx-4 border-border/50">
+                    <View className="py-4 pr-4 pl-1 h-14 flex-row items-center justify-between border-b border-border/50">
                       <View className="gap-x-1 flex-row items-center">
                         <Pressable
                           onPress={() => navigation.toggleDrawer()}
@@ -459,17 +459,17 @@ export const ChatPageContent = ({
                   )}
 
                   {/* Search section (vertically centered) */}
-                  <View className="w-full grow flex-col items-center md:mt-0 md:flex z-10">
-                    {/* Spacer pushes content to center on desktop */}
-                    {isLargeScreen && <View style={{ height: '30vh' }} />}
+                  <View className="w-full grow flex-col items-center justify-center md:justify-start md:mt-0 md:flex z-10">
+                    {/* Spacer pushes content toward center */}
+                    <View style={{ height: isLargeScreen ? dimensions.height * 0.3 : dimensions.height * 0.12 }} />
 
                     {/* Search wrapper */}
-                    <View className="px-4 relative flex w-full flex-col justify-center md:h-auto md:px-0">
+                    <View className="relative flex w-full flex-col justify-center md:h-auto">
 
                       {/* Logo area */}
                       <View className="mb-6 flex w-full items-center justify-center pb-3">
-                        <View className="h-auto w-80">
-                          <ClarityWordmark width={320} />
+                        <View className="h-auto">
+                          <ClarityWordmark width={Math.min(dimensions.width * 0.5, 320)} />
                         </View>
                       </View>
 

@@ -398,7 +398,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
 
   if (isAuthenticated) return null;
 
-  const logoHeight = isLargeScreen ? 60 : 44;
+  const logoHeight = isLargeScreen ? 60 : width < 400 ? 32 : 40;
 
   return (
     <View className="flex-1">
