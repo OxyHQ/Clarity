@@ -8,11 +8,24 @@ const trackPlayerWebShim = path.resolve(
   "lib/shims/react-native-track-player.web.js"
 );
 
+// Monorepo root and linked package roots that live outside the project tree
+const monorepoRoot = path.resolve(__dirname, "../..");
+const bloomRoot = path.resolve(require.resolve("@oxyhq/bloom/package.json"), "..");
+
 module.exports = (() => {
   const config = getDefaultConfig(__dirname);
 
+  // Let Metro watch directories outside the project (symlinked deps)
+  config.watchFolders = [monorepoRoot, bloomRoot];
+
   // Enable package exports for zod v4 compatibility
   config.resolver.unstable_enablePackageExports = true;
+
+  // Ensure Metro can find node_modules from both the project and the monorepo root
+  config.resolver.nodeModulesPaths = [
+    path.resolve(__dirname, "node_modules"),
+    path.resolve(monorepoRoot, "node_modules"),
+  ];
 
   // Add web-specific resolver settings to handle ESM modules
   config.resolver.sourceExts = [...config.resolver.sourceExts, 'mjs', 'cjs'];
