@@ -1,11 +1,13 @@
 /**
  * Cloudflare Pages Worker -- SPA routing with proper MIME-type handling.
  *
- * Static files are served by the Pages asset pipeline with correct MIME types.
- * Only HTML-navigation requests fall back to /index.html.
- * Requests for missing static assets (old hashed filenames, etc.) receive a 404
- * instead of being silently rewritten to index.html, which would cause browsers
- * to reject the response due to MIME-type mismatch.
+ * Cloudflare Pages' asset pipeline (env.ASSETS.fetch) returns index.html for
+ * any path that doesn't match a static file, regardless of _redirects settings.
+ * This causes browsers to reject stale hashed CSS/JS URLs because the response
+ * has text/html MIME type instead of the expected type.
+ *
+ * This worker intercepts asset responses and returns a proper 404 when the
+ * platform returns HTML for a URL with a static-asset file extension.
  */
 
 const STATIC_EXTENSIONS = new Set([
@@ -38,50 +40,42 @@ const STATIC_EXTENSIONS = new Set([
   ".txt",
 ]);
 
+function getExtension(pathname) {
+  const lastDot = pathname.lastIndexOf(".");
+  return lastDot === -1 ? "" : pathname.slice(lastDot).toLowerCase();
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
+    const extension = getExtension(pathname);
 
-    // Always try to serve the static asset first.
+    // Try the asset pipeline first.
     const assetResponse = await env.ASSETS.fetch(request);
+    const contentType = assetResponse.headers.get("content-type") || "";
 
-    // If the asset exists (not a 404), serve it with appropriate cache headers.
-    if (assetResponse.status !== 404) {
-      // Hashed assets under /_expo/static/ are content-addressed and can be
-      // cached indefinitely. Everything else uses the default headers.
-      if (pathname.startsWith("/_expo/static/")) {
-        const headers = new Headers(assetResponse.headers);
-        headers.set("Cache-Control", "public, max-age=31536000, immutable");
-        return new Response(assetResponse.body, {
-          status: assetResponse.status,
-          headers,
-        });
-      }
-      return assetResponse;
-    }
-
-    // The asset does not exist. Decide whether to serve the SPA shell.
-    const extension = pathname.includes(".")
-      ? pathname.slice(pathname.lastIndexOf(".")).toLowerCase()
-      : "";
-
-    // If the URL has a known static-asset extension, the file simply does not
-    // exist (e.g., a stale hashed bundle). Return 404 -- never serve HTML here.
-    if (STATIC_EXTENSIONS.has(extension)) {
+    // Detect when the platform returns an HTML fallback for a static-asset URL.
+    // If the URL has a known static extension but the response is HTML, the
+    // actual file doesn't exist (e.g., stale hashed bundle from a previous
+    // deploy). Return a clean 404 instead of HTML with the wrong MIME type.
+    if (STATIC_EXTENSIONS.has(extension) && contentType.includes("text/html")) {
       return new Response("Not Found", { status: 404 });
     }
 
-    // For navigation requests (no extension, or unknown extension), serve
-    // index.html so client-side routing can handle the path.
-    const indexResponse = await env.ASSETS.fetch(
-      new Request(new URL("/index.html", url.origin), request),
-    );
+    // For existing static assets under /_expo/static/, set immutable caching
+    // since these filenames are content-addressed (hash in the filename).
+    if (pathname.startsWith("/_expo/static/") && !contentType.includes("text/html")) {
+      const headers = new Headers(assetResponse.headers);
+      headers.set("Cache-Control", "public, max-age=31536000, immutable");
+      return new Response(assetResponse.body, {
+        status: assetResponse.status,
+        headers,
+      });
+    }
 
-    // Preserve the 200 status but ensure headers indicate HTML content.
-    return new Response(indexResponse.body, {
-      status: 200,
-      headers: indexResponse.headers,
-    });
+    // For non-asset paths (SPA navigation routes), the platform's index.html
+    // fallback is correct behavior. Return the response as-is.
+    return assetResponse;
   },
 };
