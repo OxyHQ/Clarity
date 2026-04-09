@@ -6,7 +6,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "bun --watch src/index.ts",
     "build": "bun build.ts",
     "start": "node dist/index.js",
     "lint": "eslint src",
@@ -45,7 +45,6 @@
     "socket.io": "^4.8.3",
     "ssh2": "^1.17.0",
     "stripe": "^20.2.0",
-    "tsx": "^4.19.2",
     "web-push": "^3.6.7",
     "ws": "^8.19.0",
     "zod": "^3.24.1"

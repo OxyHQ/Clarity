@@ -15,6 +15,6 @@
 ## Checklist
 
 - [ ] TypeScript compiles (`tsc --noEmit`)
-- [ ] Tests pass (`npm test -w @clarity/api`)
+- [ ] Tests pass (`bun test --filter @clarity/api`)
 - [ ] No provider names exposed in UI, errors, or API responses
 - [ ] Lint passes

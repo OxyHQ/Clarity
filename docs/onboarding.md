@@ -205,9 +205,8 @@ This is the most important convention in the codebase. Violating it is a shippin
 ### Running tests
 
 ```bash
-npm test -w @clarity/api            # Run all API tests
-npm test -w @clarity/api -- --run   # Run once (no watch)
-npm run lint -w @clarity/api        # Lint the API
+bun test --filter @clarity/api      # Run all API tests
+bun run lint                        # Lint the API
 ```
 
 ---
@@ -215,12 +214,12 @@ npm run lint -w @clarity/api        # Lint the API
 ## Useful Commands
 
 ```bash
-npm install                      # Install all workspace dependencies
-npm run dev                      # Start all apps in dev mode
-npm run dev:api                  # API only (Express + hot reload)
-npm run dev:app                  # Expo app only (web + tunnel)
-npm test -w @clarity/api            # API tests (vitest)
-npm run lint -w @clarity/api        # Lint API code
+bun install                      # Install all workspace dependencies
+bun run dev                      # Start all apps in dev mode
+bun run dev:api                  # API only (Express + hot reload)
+bun run dev:app                  # Expo app only (web + tunnel)
+bun test --filter @clarity/api   # API tests (vitest)
+bun run lint                     # Lint API code
 ```
 
 Environment: copy `.env.example` to `.env` in `apps/api/` and fill in your MongoDB URI, Redis URL, and provider API keys. The database name is computed automatically as `clarity-{NODE_ENV}` -- do not embed it in the URI.

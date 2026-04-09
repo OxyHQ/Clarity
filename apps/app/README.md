@@ -53,18 +53,18 @@ Screen path remains `app/(app)/automations.tsx`, but the data source is now `/tr
 
 ```bash
 # from repo root
-npm run dev:app
+bun run dev:app
 
 # from apps/app
-npm start
+bun start
 ```
 
 Platform targets:
 
 ```bash
-npm run web
-npm run ios
-npm run android
+bun run web
+bun run ios
+bun run android
 ```
 
 ## API Config

@@ -68,13 +68,13 @@ Are you building...
 ### Installation
 
 ```bash
-npm install @oxyhq/services @oxyhq/core
+bun add @oxyhq/services @oxyhq/core
 ```
 
 #### Peer Dependencies
 
 ```bash
-npm install react-native-reanimated react-native-gesture-handler \
+bun add react-native-reanimated react-native-gesture-handler \
   react-native-safe-area-context react-native-svg \
   expo expo-font expo-image expo-linear-gradient \
   @react-navigation/native @tanstack/react-query
@@ -241,7 +241,7 @@ const {
 ### Installation
 
 ```bash
-npm install @oxyhq/auth @oxyhq/core
+bun add @oxyhq/auth @oxyhq/core
 ```
 
 ### Next.js Example
@@ -327,7 +327,7 @@ Cross-domain SSO uses **FedCM** (Federated Credential Management) -- the browser
 ### Installation
 
 ```bash
-npm install @oxyhq/core
+bun add @oxyhq/core
 ```
 
 ### Quick Start
