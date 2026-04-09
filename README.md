@@ -18,7 +18,6 @@ AI-powered search engine by [Oxy](https://oxy.so). Get answers with source citat
 apps/
   app/              # Expo cross-platform app (web + mobile)
   api/              # Express backend API
-  clarity-gateway/  # Model routing gateway
 ```
 
 ## Development

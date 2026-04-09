@@ -1,13 +1,8 @@
 /**
- * Gateway Client — Dual-mode facade
+ * Gateway Client (local-only)
  *
- * When GATEWAY_API is available (SERVICE_SECRET is set):
- *   → Routes all calls through the clarity-gateway HTTP service
- *
- * When GATEWAY_API is NOT available:
- *   → Falls back to direct imports from internal/providers/ modules
- *
- * Consumer files always import from this module — the backend is transparent.
+ * Gateway service is removed. This module is now a thin wrapper around the
+ * local providers implementation so existing imports keep working.
  */
 
 import crypto from 'crypto';
@@ -16,13 +11,7 @@ import { getStatusCode } from './errors/index.js';
 
 // ============== MODE DETECTION ==============
 
-const SERVICE_SECRET = process.env.SERVICE_SECRET;
-const GATEWAY_API_URL = process.env.GATEWAY_API_URL || 'http://localhost:9091';
-const GATEWAY_API_ENABLED = !!SERVICE_SECRET;
-
-if (!GATEWAY_API_ENABLED) {
-  log.general.info('Gateway API not configured (no SERVICE_SECRET) — using local fallback');
-}
+const GATEWAY_API_ENABLED = false;
 
 // ============== HTTP AUTH (only used when GATEWAY_API_ENABLED) ==============
 
@@ -41,55 +30,7 @@ function generateAuthHeaders(): Record<string, string> {
   };
 }
 
-async function apiGet<T = unknown>(path: string): Promise<T> {
-  const res = await fetch(`${GATEWAY_API_URL}${path}`, {
-    headers: generateAuthHeaders(),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Gateway API GET ${path} failed (${res.status}): ${body}`);
-  }
-  const json = await res.json() as Record<string, unknown>;
-  return (json.data ?? json) as T;
-}
-
-async function apiPost<T = unknown>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(`${GATEWAY_API_URL}${path}`, {
-    method: 'POST',
-    headers: generateAuthHeaders(),
-    body: JSON.stringify(body),
-    signal,
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    let parsed: { error?: string; reason?: string };
-    try { parsed = JSON.parse(text); } catch { parsed = { error: text }; }
-    const error = new Error(parsed.error || `Gateway API POST ${path} failed (${res.status})`) as Error & { reason?: string; status?: number };
-    error.reason = parsed.reason;
-    error.status = res.status;
-    throw error;
-  }
-  const json = await res.json() as Record<string, unknown>;
-  return (json.data ?? json) as T;
-}
-
-async function apiPatch<T = unknown>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${GATEWAY_API_URL}${path}`, {
-    method: 'PATCH',
-    headers: generateAuthHeaders(),
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    let parsed: { error?: string };
-    try { parsed = JSON.parse(text); } catch { parsed = { error: text }; }
-    const error = new Error(parsed.error || `Gateway API PATCH ${path} failed (${res.status})`) as Error & { status?: number };
-    error.status = res.status;
-    throw error;
-  }
-  const json = await res.json() as Record<string, unknown>;
-  return (json.data ?? json) as T;
-}
+// Gateway HTTP helpers removed (gateway service deprecated)
 
 // ============== TYPES ==============
 
@@ -501,19 +442,6 @@ export function getDefaultClarityModel(): string {
  * Get tier-to-model mappings.
  */
 export async function getTierMappings(): Promise<Record<string, ModelMapping[]>> {
-  if (GATEWAY_API_ENABLED) {
-    if (isCacheValid(tierMappingsCache)) return tierMappingsCache.data;
-    const data = await apiGet<{ models: ClarityModel[]; tierMappings: Record<string, ModelMapping[]> }>(
-      '/api/models?tierMappings=true'
-    );
-    const mappings = data.tierMappings;
-    tierMappingsCache = { data: mappings, expiresAt: Date.now() + CACHE_TTL };
-    if (data.models) {
-      modelsCache = { data: data.models, expiresAt: Date.now() + CACHE_TTL };
-    }
-    return mappings;
-  }
-
   const { TIER_MODEL_MAPPINGS } = await import('../internal/providers/lib/clarity-models.js');
   return TIER_MODEL_MAPPINGS as unknown as Record<string, ModelMapping[]>;
 }
@@ -522,11 +450,6 @@ export async function getTierMappings(): Promise<Record<string, ModelMapping[]>>
  * Get model mappings for a specific tier.
  */
 export async function getModelMappingsForTier(tier: string): Promise<ModelMapping[]> {
-  if (GATEWAY_API_ENABLED) {
-    const mappings = await getTierMappings();
-    return mappings[tier] ?? [];
-  }
-
   const { getModelMappingsForTier: localGetMappings } = await import('../internal/providers/lib/clarity-models.js');
   return localGetMappings(tier as never) as unknown as ModelMapping[];
 }
@@ -537,10 +460,6 @@ export async function getModelMappingsForTier(tier: string): Promise<ModelMappin
  * Get all provider health metrics.
  */
 export async function getAllProviderHealth(): Promise<HealthMetrics[]> {
-  if (GATEWAY_API_ENABLED) {
-    return apiGet<HealthMetrics[]>('/api/health');
-  }
-
   const { getAllProviderHealth: localGetAll } = await import('../internal/providers/lib/provider-health.js');
   return localGetAll();
 }
@@ -549,10 +468,6 @@ export async function getAllProviderHealth(): Promise<HealthMetrics[]> {
  * Get health for a specific provider/model.
  */
 export async function getProviderHealth(provider: string, modelId: string): Promise<HealthMetrics> {
-  if (GATEWAY_API_ENABLED) {
-    return apiGet<HealthMetrics>(`/api/health?provider=${encodeURIComponent(provider)}&modelId=${encodeURIComponent(modelId)}`);
-  }
-
   const { getProviderHealth: localGet } = await import('../internal/providers/lib/provider-health.js');
   return localGet(provider, modelId);
 }
@@ -563,13 +478,6 @@ export async function getProviderHealth(provider: string, modelId: string): Prom
  * Get plans.
  */
 export async function getPlans(filter?: Record<string, unknown>): Promise<PlanData[]> {
-  if (GATEWAY_API_ENABLED) {
-    const data = await apiGet<{ plans: PlanData[] }>('/api/billing?type=plans');
-    const plans = data.plans ?? [];
-    if (!filter) return plans;
-    return plans.filter(p => Object.entries(filter).every(([k, v]) => (p as unknown as Record<string, unknown>)[k] === v));
-  }
-
   const { Plan } = await import('../internal/providers/models/plan.js');
   return Plan.find(filter || {}).lean() as unknown as PlanData[];
 }
@@ -578,12 +486,6 @@ export async function getPlans(filter?: Record<string, unknown>): Promise<PlanDa
  * Get credit packages.
  */
 export async function getCreditPackages(active?: boolean): Promise<CreditPackageData[]> {
-  if (GATEWAY_API_ENABLED) {
-    const query = active !== undefined ? `&active=${active}` : '';
-    const data = await apiGet<{ packages: CreditPackageData[] }>(`/api/billing?type=packages${query}`);
-    return data.packages ?? [];
-  }
-
   const { CreditPackage } = await import('../internal/providers/models/credit-package.js');
   const filter: Record<string, boolean> = {};
   if (active !== undefined) filter.isActive = active;
@@ -594,11 +496,6 @@ export async function getCreditPackages(active?: boolean): Promise<CreditPackage
  * Get features.
  */
 export async function getFeatures(): Promise<FeatureData[]> {
-  if (GATEWAY_API_ENABLED) {
-    const data = await apiGet<{ features: FeatureData[] }>('/api/billing?type=features');
-    return data.features ?? [];
-  }
-
   const { Feature } = await import('../internal/providers/models/feature.js');
   return Feature.find({}).lean() as unknown as FeatureData[];
 }
@@ -607,12 +504,6 @@ export async function getFeatures(): Promise<FeatureData[]> {
  * Get plan features.
  */
 export async function getPlanFeatures(planId?: string): Promise<PlanFeatureData[]> {
-  if (GATEWAY_API_ENABLED) {
-    const query = planId ? `&planId=${encodeURIComponent(planId)}` : '';
-    const data = await apiGet<{ planFeatures: PlanFeatureData[] }>(`/api/billing?type=plan-features${query}`);
-    return data.planFeatures ?? [];
-  }
-
   const { PlanFeature } = await import('../internal/providers/models/plan-feature.js');
   const filter: Record<string, string> = {};
   if (planId) filter.planId = planId;
@@ -623,10 +514,6 @@ export async function getPlanFeatures(planId?: string): Promise<PlanFeatureData[
  * Update a plan (e.g. to persist auto-created Stripe price IDs).
  */
 export async function updatePlan(planId: string, updates: Record<string, unknown>): Promise<PlanData | null> {
-  if (GATEWAY_API_ENABLED) {
-    return apiPatch(`/v1/plans/${planId}`, updates);
-  }
-
   const { Plan } = await import('../internal/providers/models/plan.js');
   return Plan.findOneAndUpdate({ planId }, { $set: updates }, { returnDocument: 'after' }).lean();
 }
@@ -639,10 +526,6 @@ export async function updatePlan(planId: string, updates: Record<string, unknown
  */
 export async function markKeyCreditExhausted(keyId: string): Promise<void> {
   if (!keyId) return;
-  if (GATEWAY_API_ENABLED) {
-    apiPost('/api/report', { keyId, provider: '', modelId: '', success: false, reason: 'billing' }).catch(() => {});
-    return;
-  }
   const { markKeyCreditExhausted: localMark } = await import('../internal/providers/lib/key-manager.js');
   localMark(keyId).catch(() => {});
 }
@@ -653,15 +536,5 @@ export async function markKeyCreditExhausted(keyId: string): Promise<void> {
  * Warm up the in-memory cache at startup.
  */
 export async function warmupGatewayClient(): Promise<void> {
-  if (!GATEWAY_API_ENABLED) {
-    log.general.info('Gateway client using local modules — no warmup needed');
-    return;
-  }
-
-  try {
-    await getTierMappings();
-    log.general.info('Gateway client cache warmed up');
-  } catch (error: unknown) {
-    log.general.warn({ err: error }, 'Failed to warm up gateway client cache (gateway API may not be ready)');
-  }
+  log.general.info('Gateway client using local modules — no warmup needed');
 }

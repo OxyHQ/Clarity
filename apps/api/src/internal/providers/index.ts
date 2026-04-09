@@ -17,12 +17,7 @@ const providersModule = express.Router();
 
 // Health check (no auth)
 providersModule.get('/health', (_req, res) => {
-  res.json({
-    success: true,
-    service: 'clarity-gateway (internal fallback)',
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-  });
+  res.json({ success: true, service: 'clarity-providers', status: 'healthy', timestamp: new Date().toISOString() });
 });
 
 // API routes (require HMAC service auth or Bearer token auth)

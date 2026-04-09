@@ -45,8 +45,8 @@ export interface ResolvedModel {
 }
 
 /**
- * Resolve an Clarity model ID to a concrete provider and model.
- * Uses the gateway API for key-manager + circuit breaker + priority rotation.
+ * Resolve a Clarity model ID to a concrete provider and model.
+ * Uses local providers for key-manager + circuit breaker + priority rotation.
  *
  * @param clarityModelId - The Clarity model ID (e.g., "clarity-v1", "clarity-fast")
  * @param skipProviders - Providers to skip (for retry scenarios)

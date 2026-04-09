@@ -28,7 +28,6 @@ import notificationsRouter from './routes/notifications.js';
 import './lib/hooks/index.js';
 import { seedSuggestions } from './lib/seed-suggestions.js';
 import { warmupProviders } from './lib/provider-warmup.js';
-import { warmupGatewayClient } from './lib/gateway-client.js';
 // Socket.io
 import { initSocket } from './socket.js';
 
@@ -234,8 +233,6 @@ connectDB()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 API Server running on http://0.0.0.0:${PORT}`);
-      // Warm up gateway client cache (non-blocking)
-      warmupGatewayClient().catch((err) => console.error('[Gateway] Client warmup error:', err));
       // Seed suggestions (non-blocking)
       seedSuggestions().catch((err) => console.error('[Suggestions] Seed error:', err));
       // Pre-warm TLS connections to AI providers (non-blocking)

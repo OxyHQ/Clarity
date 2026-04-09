@@ -25,7 +25,6 @@ Are you building...
 **Packages:** `@oxyhq/auth` + `@oxyhq/core`
 
 **Apps using this:**
-- `clarity-gateway-admin` - Vite + React admin panel
 - `clarity-console` - Vite + React console
 - `canvas` - Next.js web app
 

@@ -38,7 +38,6 @@ All Oxy ecosystem apps share the same MongoDB cluster on DigitalOcean. Each app 
 
 - `apps/app/` - Main Expo app (React Native + Web)
 - `apps/api/` - Express backend API
-- `apps/clarity-gateway/` - Gateway service (internal)
 
 ## Tech Stack
 

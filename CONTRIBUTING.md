@@ -30,14 +30,7 @@ This is an **npm workspaces** monorepo (no Turborepo/Nx).
 | --- | --- | --- |
 | `apps/api` | Express + TypeScript | Core API runtime |
 | `apps/app` | Expo 55 (React Native + Web) | Main app (web + iOS + Android) |
-| `apps/clarity-codea` | VS Code extension | Coding assistant surface |
-| `apps/clarity-cowork` | Electron | Desktop assistant surface |
-| `apps/clarity-console` | TanStack Start + React | Admin console |
-| `apps/clarity-canvas` | Next.js | Canvas app |
-| `apps/clarity-gateway-admin` | Vite + React | Internal gateway admin |
-| `apps/clarity-codea-cli` | CLI | Terminal coding assistant |
-| `apps/clarity-docker-host` | Express + TypeScript | Sandboxed container host |
-| `apps/integrations` | Express + TypeScript | Messaging and channel integrations |
+| `apps/clarity-api` | (deprecated) | (removed) |
 
 ## Branch Naming
 

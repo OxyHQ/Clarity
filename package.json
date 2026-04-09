@@ -5,22 +5,18 @@
   "private": true,
   "workspaces": [
     "apps/api",
-    "apps/app",
-    "apps/clarity-gateway"
+    "apps/app"
   ],
   "packageManager": "bun@1.3.10",
   "scripts": {
     "dev": "bun run --filter '*' dev",
-    "dev:gateway": "bun run --filter @clarity/gateway dev",
     "dev:app": "bun run --filter @clarity/app dev -- --clear --tunnel",
     "dev:api": "bun run --filter @clarity/api dev",
     "build": "bun run --filter '*' build",
     "build:app": "bun run --filter @clarity/app build",
     "build:api": "bun run --filter @clarity/api build",
-    "build:gateway": "bun run --filter @clarity/gateway build",
     "start:app": "bun run --filter @clarity/app start",
     "start:api": "bun run --filter @clarity/api start",
-    "start:gateway": "bun run --filter @clarity/gateway start",
     "lint": "bun run --filter '*' lint",
     "android": "bun run --filter @clarity/app android",
     "ios": "bun run --filter @clarity/app ios",

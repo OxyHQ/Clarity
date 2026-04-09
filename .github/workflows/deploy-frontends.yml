@@ -7,7 +7,6 @@ on:
     paths:
       - '.github/workflows/deploy-frontends.yml'
       - 'apps/app/**'
-      - 'apps/clarity-gateway-admin/**'
       - 'packages/**'
       - 'bun.lock'
 
@@ -16,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       app: ${{ steps.changes.outputs.app }}
-      gateway-admin: ${{ steps.changes.outputs.gateway-admin }}
+      gateway-admin: 'false'
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -27,10 +26,7 @@ jobs:
               - 'apps/app/**'
               - 'packages/**'
               - 'bun.lock'
-            gateway-admin:
-              - 'apps/clarity-gateway-admin/**'
-              - 'packages/**'
-              - 'bun.lock'
+            gateway-admin: []
 
   deploy-app:
     needs: detect-changes
@@ -55,22 +51,7 @@ jobs:
           command: pages deploy apps/app/dist --project-name=clarity-app --branch=main
 
   deploy-gateway-admin:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.gateway-admin == 'true' || github.event_name == 'workflow_dispatch'
+    if: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install --frozen-lockfile
-      - name: Build gateway admin
-        run: bun run build:gateway-admin
-        env:
-          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-          NODE_ENV: production
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy apps/clarity-gateway-admin/dist --project-name=clarity-gateway-admin --branch=main
+      - run: echo "gateway admin removed"

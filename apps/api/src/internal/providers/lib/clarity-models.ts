@@ -182,6 +182,12 @@ export function getClarityModelsByCategory(category: ModelCategory): ClarityMode
  * Get the default model for a category (lowest credit multiplier)
  */
 export function getDefaultModelForCategory(category: ModelCategory): ClarityModel | null {
+  // Prefer clarity-v1 (DigitalOcean-backed) as the default general/coding model
+  if (category === 'general' || category === 'coding') {
+    const preferred = CLARITY_MODELS['clarity-v1'];
+    if (preferred && preferred.category === category) return preferred;
+  }
+
   const models = getClarityModelsByCategory(category);
   if (models.length === 0) return null;
   return models.reduce((best, m) => m.creditMultiplier < best.creditMultiplier ? m : best);
