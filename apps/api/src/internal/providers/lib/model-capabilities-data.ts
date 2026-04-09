@@ -342,6 +342,17 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   'deepseek-r1-distill-llama-70b': createCapabilities({ maxContextTokens: 64000, maxOutputTokens: 8192 }),
   'alibaba-qwen3-32b': createCapabilities({ maxContextTokens: 128000, maxOutputTokens: 8192 }),
   'mistral-nemo-instruct-2407': createCapabilities({ maxContextTokens: 128000, maxOutputTokens: 8192 }),
+  // Newer DO models
+  'openai-gpt-5.3-codex': createCapabilities({ vision: true, maxContextTokens: 400000, maxOutputTokens: 128000 }),
+  'openai-gpt-5.4': createCapabilities({ vision: true, maxContextTokens: 400000, maxOutputTokens: 128000 }),
+  'openai-gpt-5.4-mini': createCapabilities({ vision: true, maxContextTokens: 400000, maxOutputTokens: 128000 }),
+  'openai-gpt-5.4-nano': createCapabilities({ vision: true, maxContextTokens: 400000, maxOutputTokens: 128000 }),
+  'openai-gpt-5.4-pro': createCapabilities({ vision: true, maxContextTokens: 400000, maxOutputTokens: 128000 }),
+  'glm-5': createCapabilities({ maxContextTokens: 200000, maxOutputTokens: 128000 }),
+  'kimi-k2.5': createCapabilities({ maxContextTokens: 256000, maxOutputTokens: 32768 }),
+  'minimax-m2.5': createCapabilities({ maxContextTokens: 200000, maxOutputTokens: 128000 }),
+  'nvidia-nemotron-3-super-120b': createCapabilities({ maxContextTokens: 1000000, maxOutputTokens: 32768 }),
+  'arcee-trinity-large-thinking': createCapabilities({ maxContextTokens: 128000, maxOutputTokens: 32000 }),
 };
 
 // ============== PRICING DATABASE ==============
@@ -662,6 +673,17 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   'deepseek-r1-distill-llama-70b': { tier: 'paid', costPer1MInput: 0.99, costPer1MOutput: 0.99 },
   'alibaba-qwen3-32b': { tier: 'paid', costPer1MInput: 0.25, costPer1MOutput: 0.55 },
   'mistral-nemo-instruct-2407': { tier: 'paid', costPer1MInput: 0.30, costPer1MOutput: 0.30 },
+  // Newer DO models
+  'openai-gpt-5.3-codex': { tier: 'paid', costPer1MInput: 1.50, costPer1MOutput: 12.00 },
+  'openai-gpt-5.4': { tier: 'paid', costPer1MInput: 2.00, costPer1MOutput: 16.00 },
+  'openai-gpt-5.4-mini': { tier: 'paid', costPer1MInput: 0.30, costPer1MOutput: 2.50 },
+  'openai-gpt-5.4-nano': { tier: 'paid', costPer1MInput: 0.08, costPer1MOutput: 0.60 },
+  'openai-gpt-5.4-pro': { tier: 'paid', costPer1MInput: 25.00, costPer1MOutput: 200.00 },
+  'glm-5': { tier: 'paid', costPer1MInput: 0.50, costPer1MOutput: 2.00 },
+  'kimi-k2.5': { tier: 'paid', costPer1MInput: 0.60, costPer1MOutput: 2.40 },
+  'minimax-m2.5': { tier: 'paid', costPer1MInput: 0.50, costPer1MOutput: 2.00 },
+  'nvidia-nemotron-3-super-120b': { tier: 'paid', costPer1MInput: 0.80, costPer1MOutput: 3.20 },
+  'arcee-trinity-large-thinking': { tier: 'paid', costPer1MInput: 0.70, costPer1MOutput: 2.80 },
 
 };
 

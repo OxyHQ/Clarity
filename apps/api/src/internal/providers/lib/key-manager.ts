@@ -1,6 +1,13 @@
 /**
  * Key Manager - Handles provider key loading, selection, and rate limiting
  * Uses dynamic priority rotation: failed keys move to end of queue
+ *
+ * Supports two key sources:
+ * 1. MongoDB (production) — keys stored in ProviderKey collection
+ * 2. Environment variables (development fallback) — e.g. DIGITALOCEAN_KEYS, GOOGLE_KEYS
+ *
+ * When MongoDB returns no keys for a provider, the manager falls back to
+ * comma-separated keys from the corresponding env var.
  */
 
 import { ProviderKey, IProviderKey } from '../models/provider-key';
@@ -16,8 +23,55 @@ const RATE_LIMIT_PATTERN = /rate.?limit|429|RESOURCE_EXHAUSTED|quota/i;
 const keyCache = new Map<string, { keys: IProviderKey[]; timestamp: number }>();
 const KEY_CACHE_TTL = 10000;
 
+// ============== ENV-BASED KEY FALLBACK ==============
+
 /**
- * Load all available keys for a provider from MongoDB
+ * Map provider names to their environment variable names.
+ * Supports both _KEYS (multi-key, comma-separated) and _API_KEY (single key) formats.
+ */
+const PROVIDER_ENV_MAP: Record<string, string[]> = {
+  digitalocean: ['DIGITALOCEAN_KEYS', 'DIGITALOCEAN_API_KEY'],
+  google: ['GOOGLE_KEYS', 'GOOGLE_API_KEY'],
+  openai: ['OPENAI_KEYS', 'OPENAI_API_KEY'],
+  anthropic: ['ANTHROPIC_KEYS', 'ANTHROPIC_API_KEY'],
+  groq: ['GROQ_KEYS', 'GROQ_API_KEY'],
+  deepseek: ['DEEPSEEK_KEYS', 'DEEPSEEK_API_KEY'],
+  together: ['TOGETHER_KEYS', 'TOGETHER_API_KEY'],
+  cerebras: ['CEREBRAS_KEYS', 'CEREBRAS_API_KEY'],
+  mistral: ['MISTRAL_KEYS', 'MISTRAL_API_KEY'],
+  xai: ['XAI_KEYS', 'XAI_API_KEY'],
+  fireworks: ['FIREWORKS_KEYS', 'FIREWORKS_API_KEY'],
+  replicate: ['REPLICATE_KEYS', 'REPLICATE_API_KEY'],
+  cohere: ['COHERE_KEYS', 'COHERE_API_KEY'],
+  perplexity: ['PERPLEXITY_KEYS', 'PERPLEXITY_API_KEY'],
+  cloudflare: ['CLOUDFLARE_KEYS', 'CLOUDFLARE_API_KEY'],
+  openrouter: ['OPENROUTER_KEYS', 'OPENROUTER_API_KEY'],
+  sambanova: ['SAMBANOVA_KEYS', 'SAMBANOVA_API_KEY'],
+  hyperbolic: ['HYPERBOLIC_KEYS', 'HYPERBOLIC_API_KEY'],
+  novita: ['NOVITA_KEYS', 'NOVITA_API_KEY'],
+};
+
+/**
+ * Load keys from environment variables for a provider.
+ * Returns empty array if no env var is set.
+ */
+function loadEnvKeys(provider: string): string[] {
+  const envNames = PROVIDER_ENV_MAP[provider];
+  if (!envNames) return [];
+
+  for (const envName of envNames) {
+    const value = process.env[envName];
+    if (value && value.trim()) {
+      // Support comma-separated keys
+      return value.split(',').map(k => k.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+/**
+ * Load all available keys for a provider from MongoDB.
+ * Falls back to environment variables when MongoDB returns no keys.
  * Keys are sorted by: 1) Free first, then paid 2) currentPriority within each group
  */
 export async function loadProviderKeys(provider: string): Promise<IProviderKey[]> {
@@ -30,11 +84,59 @@ export async function loadProviderKeys(provider: string): Promise<IProviderKey[]
   }
 
   // Query MongoDB - exclude archived keys
-  const allKeys = await ProviderKey.find({
-    provider,
-    isArchived: false,
-    isActive: true,
-  });
+  let allKeys: IProviderKey[] = [];
+  try {
+    allKeys = await ProviderKey.find({
+      provider,
+      isArchived: false,
+      isActive: true,
+    });
+  } catch (err) {
+    log.keys.warn({ err, provider }, 'Failed to query MongoDB for keys, trying env fallback');
+  }
+
+  // If MongoDB returned no keys, try environment variables
+  if (allKeys.length === 0) {
+    const envKeys = loadEnvKeys(provider);
+    if (envKeys.length > 0) {
+      log.keys.info({ provider, count: envKeys.length }, 'Using env-based keys (no DB keys found)');
+      // Create lightweight in-memory key objects that satisfy IProviderKey shape
+      const envKeyDocs = envKeys.map((key, idx) => ({
+        _id: { toString: () => `env-${provider}-${idx}` },
+        name: `${provider}-env-${idx}`,
+        provider,
+        environment: 'development',
+        key,
+        keyHash: '',
+        keyPrefix: key.substring(0, 8) + '...',
+        isActive: true,
+        isPaid: false,
+        tier: 'free',
+        currentPriority: idx + 1,
+        originalPriority: idx + 1,
+        creditLimitUSD: null,
+        spentUSD: 0,
+        totalRequests: 0,
+        totalTokens: 0,
+        successCount: 0,
+        consecutiveFailures: 0,
+        totalFailures: 0,
+        maxTotalFailures: 100,
+        isArchived: false,
+        rateLimit: {},
+        cooldownUntil: null,
+        // Stub methods for compatibility
+        recordSuccess: async () => {},
+        recordFailure: async () => {},
+        isAvailable: () => true,
+        validateKey: () => true,
+        updateUsage: async () => {},
+      })) as unknown as IProviderKey[];
+
+      keyCache.set(cacheKey, { keys: envKeyDocs, timestamp: Date.now() });
+      return envKeyDocs;
+    }
+  }
 
   // Separate free and paid keys, sort each group by currentPriority
   const freeKeys = allKeys
@@ -222,6 +324,9 @@ export async function recordKeyUsage(
  * Record key success (resets failure counters, restores original priority, clears cooldown)
  */
 export async function recordKeySuccess(keyId: string): Promise<void> {
+  // Skip DB operations for env-based keys (they have no MongoDB document)
+  if (!keyId || keyId.startsWith('env-')) return;
+
   try {
     const key = await ProviderKey.findById(keyId);
     if (key) {
@@ -246,6 +351,9 @@ export async function recordKeySuccess(keyId: string): Promise<void> {
  * Also sets exponential cooldown: 30s * 2^consecutiveFailures, max 30min
  */
 export async function recordKeyFailure(keyId: string, reason: string, retryAfterMs?: number): Promise<void> {
+  // Skip DB operations for env-based keys (they have no MongoDB document)
+  if (!keyId || keyId.startsWith('env-')) return;
+
   try {
     const key = await ProviderKey.findById(keyId);
     if (!key) {
@@ -329,7 +437,7 @@ export async function getProviderKeyStats(provider: string): Promise<any> {
  * Record key spend (fire and forget) - increments spentUSD on the key
  */
 export async function recordKeySpend(keyId: string, costUSD: number): Promise<void> {
-  if (costUSD <= 0) return;
+  if (costUSD <= 0 || !keyId || keyId.startsWith('env-')) return;
   ProviderKey.findByIdAndUpdate(keyId, {
     $inc: { spentUSD: costUSD },
   }).catch((err) => log.keys.error({ err }, 'Failed to update key spend'));
@@ -339,6 +447,9 @@ export async function recordKeySpend(keyId: string, costUSD: number): Promise<vo
  * Mark a key as credit-exhausted (set spentUSD = creditLimitUSD)
  */
 export async function markKeyCreditExhausted(keyId: string): Promise<void> {
+  // Skip DB operations for env-based keys
+  if (!keyId || keyId.startsWith('env-')) return;
+
   try {
     const key = await ProviderKey.findById(keyId);
     if (key && key.creditLimitUSD != null) {
