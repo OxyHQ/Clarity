@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { Text } from "@/components/ui/text";
+import { Button } from "@/components/ui/button";
 import {
   Search,
   PenSquare,
@@ -24,6 +25,8 @@ import {
   Clock,
   Monitor,
   Compass,
+  LogIn,
+  UserPlus,
 } from "lucide-react-native";
 import Animated, {
   useSharedValue,
@@ -558,6 +561,18 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     () => router.push("/(biglayout)/subscribe"),
     [router],
   );
+  const handleBilling = React.useCallback(
+    () => router.push("/(app)/settings/usage"),
+    [router],
+  );
+  const handleNotifications = React.useCallback(
+    () => router.push("/(app)/notifications"),
+    [router],
+  );
+  const handleRegister = React.useCallback(
+    () => router.push("/register"),
+    [router],
+  );
 
   const handleScroll = React.useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -871,6 +886,18 @@ const SearchSidebar = React.memo(function SearchSidebar() {
                   {t("sidebar.account")}
                 </DropdownMenu.ItemTitle>
               </DropdownMenu.Item>
+              <DropdownMenu.Item key="billing" onSelect={handleBilling}>
+                <DropdownMenu.ItemIcon ios={{ name: "creditcard" }} />
+                <DropdownMenu.ItemTitle>
+                  {t("sidebar.billing")}
+                </DropdownMenu.ItemTitle>
+              </DropdownMenu.Item>
+              <DropdownMenu.Item key="notifications" onSelect={handleNotifications}>
+                <DropdownMenu.ItemIcon ios={{ name: "bell" }} />
+                <DropdownMenu.ItemTitle>
+                  {t("sidebar.notifications")}
+                </DropdownMenu.ItemTitle>
+              </DropdownMenu.Item>
               <DropdownMenu.Item key="settings" onSelect={handleSettings}>
                 <DropdownMenu.ItemIcon ios={{ name: "gearshape" }} />
                 <DropdownMenu.ItemTitle>
@@ -920,14 +947,54 @@ const SearchSidebar = React.memo(function SearchSidebar() {
             </DropdownMenu.Content>
           </DropdownMenu.Root>
         ) : (
-          <Pressable
-            onPress={handleLogin}
-            className="rounded-full h-10 w-10 flex items-center justify-center bg-primary/10"
-          >
-            <Text className="text-sm font-bold text-primary">
-              {(t("login.signInButton")[0] || "S").toUpperCase()}
-            </Text>
-          </Pressable>
+          <View className="gap-2">
+            <Button
+              onPress={handleLogin}
+              className="h-11 md:h-9 rounded-full w-full"
+            >
+              <View className="flex-row items-center gap-2 md:gap-1.5">
+                <LogIn size={16} className="text-primary-foreground" />
+                <Text className="text-sm md:text-xs font-semibold text-primary-foreground">
+                  {t("login.signInButton")}
+                </Text>
+              </View>
+            </Button>
+            <Button
+              onPress={handleRegister}
+              variant="outline"
+              className="h-11 md:h-9 rounded-full w-full"
+            >
+              <View className="flex-row items-center gap-2 md:gap-1.5">
+                <UserPlus size={16} className="text-foreground" />
+                <Text className="text-sm md:text-xs font-medium">
+                  {t("login.footerLink")}
+                </Text>
+              </View>
+            </Button>
+            <View className="flex-row items-center justify-center gap-1 mt-1">
+              <Text
+                className="text-[10px] text-muted-foreground underline"
+                onPress={() =>
+                  Linking.openURL(
+                    "https://oxy.so/company/transparency/policies/privacy",
+                  )
+                }
+              >
+                {t("sidebar.privacyPolicy")}
+              </Text>
+              <Text className="text-[10px] text-muted-foreground">·</Text>
+              <Text
+                className="text-[10px] text-muted-foreground underline"
+                onPress={() =>
+                  Linking.openURL(
+                    "https://oxy.so/company/transparency/policies/terms-of-service",
+                  )
+                }
+              >
+                {t("sidebar.termsOfService")}
+              </Text>
+            </View>
+          </View>
         )}
       </View>
     </View>
