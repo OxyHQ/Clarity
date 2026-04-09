@@ -67,8 +67,14 @@ export function useChatConversation({ conversationId, thinkingMode, selectedMode
     wasLoadingRef.current = isLoading;
   }, [isLoading, conversationId, queryClient]);
 
+  // Track local message count via ref to avoid dependency cycle
+  // (the effect calls setMessages which would change messages.length and re-trigger itself).
+  const messagesLengthRef = useRef(0);
+  useEffect(() => { messagesLengthRef.current = messages.length; }, [messages.length]);
+
   // Sync chatId and load messages when conversation changes or when
   // seeded cache data upgrades to full data (messages go from empty to populated).
+  const incomingMessagesLength = conversation?.messages?.length ?? 0;
   useEffect(() => {
     useStore.getState().setChatId(conversationId ? { id: conversationId, from: "url" } : null);
 
@@ -76,7 +82,7 @@ export function useChatConversation({ conversationId, thinkingMode, selectedMode
 
     const incomingMessages = conversation?.messages || [];
     const isNewConversation = lastConversationId.current !== conversationId;
-    const isDataUpgrade = !isNewConversation && incomingMessages.length > 0 && messages.length === 0;
+    const isDataUpgrade = !isNewConversation && incomingMessages.length > 0 && messagesLengthRef.current === 0;
 
     if (!isNewConversation && !isDataUpgrade) return;
 
@@ -92,13 +98,13 @@ export function useChatConversation({ conversationId, thinkingMode, selectedMode
         id: msg.id || `db-${conversationId}-${index}`,
       }));
     setMessages(validMessages);
-  }, [conversationId, conversation, conversationQueryLoading, setMessages, messages.length]);
+  }, [conversationId, incomingMessagesLength, conversationQueryLoading, setMessages]);
 
   // Send pending initial message for new conversations
   useEffect(() => {
     if (!conversationId || !pendingInitialMessage || isLoading) return;
     if (hasSentPendingMessage.current) return;
-    if (messages.length > 0) return; // Only send if no messages yet
+    if (messagesLengthRef.current > 0) return; // Only send if no messages yet
 
     hasSentPendingMessage.current = true;
     useStore.getState().setBottomChatHeightHandler(true);
@@ -107,7 +113,7 @@ export function useChatConversation({ conversationId, thinkingMode, selectedMode
       content: pendingInitialMessage,
     });
     useStore.getState().clearPendingInitialMessage();
-  }, [conversationId, pendingInitialMessage, isLoading, messages.length, append]);
+  }, [conversationId, pendingInitialMessage, isLoading, append]);
 
   // Actions
   const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {

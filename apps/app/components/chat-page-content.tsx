@@ -113,10 +113,11 @@ export const ChatPageContent = ({
   const isLargeScreen = dimensions.width >= 768;
 
   useEffect(() => {
-    if (!isThinkingModel(selectedModel) && selectedModel !== baseModel) {
+    const currentBase = useModelStore.getState().baseModel;
+    if (!isThinkingModel(selectedModel) && selectedModel !== currentBase) {
       setBaseModel(selectedModel);
     }
-  }, [selectedModel, setBaseModel, baseModel]);
+  }, [selectedModel, setBaseModel]);
 
   const [inputValue, setInputValue] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
