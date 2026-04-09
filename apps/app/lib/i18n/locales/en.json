@@ -27,8 +27,7 @@
     "user": "User",
     "done": "Done",
     "authorize": "Authorize",
-    "tryAgain": "Try Again",
-    "more": "More"
+    "tryAgain": "Try Again"
   },
   "login": {
     "title": "Sign in or sign up",
@@ -176,7 +175,7 @@
       "format": "Format",
       "blocked": "Blocked",
       "warning": "Warning",
-      "noThreats": "All clear — no threats detected yet"
+      "noThreats": "All clear \u2014 no threats detected yet"
     },
     "sections": {
       "account": "Account",
@@ -500,7 +499,7 @@
     "title": "Choose your plan",
     "back": "Back",
     "monthly": "Monthly",
-    "annuallySave": "Annual · Save 20%",
+    "annuallySave": "Annual \u00b7 Save 20%",
     "perMonth": "/mo",
     "perMonthBilledYearly": "/mo billed yearly",
     "perYear": "/yr",
@@ -562,7 +561,7 @@
     "inputDisabledPlaceholder": "Usage limit reached",
     "limitReachedBanner": "Usage limit reached. Upgrade or wait to continue.",
     "warningMessage": "Spending more than usual today. At this rate, credits last ~{{days}} days.",
-    "criticalMessage": "High usage — credits may run out in ~{{days}} day(s).",
+    "criticalMessage": "High usage \u2014 credits may run out in ~{{days}} day(s).",
     "switchModel": "Switch",
     "modelLockedTitle": "Model locked",
     "modelLockedDesc": "Upgrade your plan to use this model.",
@@ -890,7 +889,7 @@
     "failedToDelete": "Failed to delete memory",
     "deleteMemory": "Delete Memory",
     "deleteConfirmation": "Are you sure you want to delete this memory? This action cannot be undone.",
-    "aiSearchEnabled": "AI search enabled — finds semantically related memories",
+    "aiSearchEnabled": "AI search enabled \u2014 finds semantically related memories",
     "semanticUnavailable": "Semantic search unavailable, using text search",
     "failedDuplicates": "Failed to check for duplicates",
     "updated": "Updated",
@@ -935,7 +934,7 @@
     "failedToReadFile": "Failed to read file",
     "fileTooLarge": "File too large (max 5MB)",
     "duplicateMemories": "Duplicate Memories",
-    "noDuplicates": "No duplicates found — your memory is clean!",
+    "noDuplicates": "No duplicates found \u2014 your memory is clean!",
     "foundDuplicates": "Found {{count}} potential duplicate(s)",
     "identicalValue": "Identical value",
     "similarKey": "Similar key",
@@ -1065,12 +1064,7 @@
     "cap4Title": "Code Generation & Thinking",
     "cap4Desc": "Write, debug, and reason through complex problems step by step.",
     "ctaTitle": "Ready to get started?",
-    "ctaSubtitle": "Free to use. No credit card required.",
-    "demo1": "Write a poem about the northern lights...",
-    "demo2": "Explain quantum computing in simple terms...",
-    "demo3": "Help me plan a trip to Tokyo...",
-    "demo4": "Debug this Python function...",
-    "demo5": "Create a workout plan for beginners..."
+    "ctaSubtitle": "Free to use. No credit card required."
   },
   "keyboardShortcuts": {
     "title": "Keyboard Shortcuts",

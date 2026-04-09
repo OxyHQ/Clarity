@@ -713,8 +713,8 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     >
       {/* ── Header: logo + collapse button ── */}
       <View className="h-14 flex-row items-center shrink-0 px-2">
-        <Pressable onPress={handleNewSearch} className="p-1 mx-0.5 shrink-0 hover:bg-muted rounded-xl">
-          <ClarityWordmark height={24} color={colors.foreground} />
+          <Pressable onPress={handleNewSearch} className="p-1 mx-0.5 shrink-0 rounded-xl hover:bg-muted">
+          <ClarityWordmark height={24} width={62} color={colors.foreground} />
         </Pressable>
         {isLargeScreen && (
           <View className="ms-auto shrink-0">
