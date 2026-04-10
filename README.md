@@ -10,7 +10,7 @@ AI-powered search engine by [Oxy](https://oxy.so). Get answers with source citat
 - **Backend**: Express + TypeScript + MongoDB + Redis + Socket.IO
 - **AI**: Multi-provider abstraction (OpenAI, Anthropic, Google, Groq, DeepSeek, xAI, Mistral)
 - **Auth**: OxyHQ (@oxyhq/services)
-- **Deploy**: Cloudflare Pages (frontend) + DigitalOcean (backend)
+- **Infra**: SST + DigitalOcean (App Platform, Spaces) + Cloudflare
 
 ## Monorepo
 
@@ -28,11 +28,41 @@ bun run dev:app    # Start frontend (Expo)
 bun run dev:api    # Start backend (Express)
 ```
 
-## Deploy
+## Infrastructure
 
-Frontend auto-deploys to Cloudflare Pages on push to `master`.
+Infrastructure is defined as code in `sst.config.ts` using [SST](https://sst.dev) with DigitalOcean and Cloudflare providers.
 
-Backend deploys to DigitalOcean via `.do/app.yaml`.
+```bash
+# Set credentials
+export DIGITALOCEAN_TOKEN=dop_v1_...
+export SPACES_ACCESS_KEY_ID=...
+export SPACES_SECRET_ACCESS_KEY=...
+export CLOUDFLARE_API_TOKEN=...
+
+# Deploy to a stage
+bunx sst deploy --stage production
+
+# Local dev (starts multiplexer)
+bunx sst dev
+```
+
+### Resources managed by SST
+
+| Resource | Provider | Notes |
+|----------|----------|-------|
+| API service | DO App Platform | Express backend, 2 instances (prod) |
+| Static frontend | DO App Platform | Expo web build |
+| File storage | DO Spaces | `bucket-clarity` in ams3 |
+| Domains | clarity.surf | api.clarity.surf |
+
+### Shared resources (external)
+
+MongoDB and Valkey (Redis) are shared across all Oxy apps and referenced by cluster name in the App Platform spec. They are **not** created or destroyed by SST.
+
+### Stages
+
+- `production` — live at clarity.surf, retains resources on removal
+- Any other stage name — creates isolated environment, removes resources on cleanup
 
 ## Key Features
 

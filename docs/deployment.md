@@ -1,15 +1,65 @@
 # Deployment Guide
 
-Last updated: 2026-03-07
+Last updated: 2026-04-10
 
-This guide covers production deployment for the current Clarity runtime (unified chat + trigger engine + autonomy).
+This guide covers production deployment for Clarity. Infrastructure is defined as code using [SST](https://sst.dev) with DigitalOcean and Cloudflare providers.
+
+## Infrastructure as Code (SST)
+
+All infrastructure is defined in `sst.config.ts` at the repo root. SST manages:
+
+- **DO App Platform**: API service + static frontend
+- **DO Spaces**: File storage bucket (`bucket-clarity`)
+- **Domains**: clarity.surf, api.clarity.surf
+
+Shared resources (MongoDB, Valkey) are referenced by cluster name but managed externally across all Oxy apps.
+
+### Prerequisites
+
+```bash
+bun add -d sst    # Already in devDependencies
+```
+
+Set credentials:
+
+```bash
+export DIGITALOCEAN_TOKEN=dop_v1_...
+export SPACES_ACCESS_KEY_ID=...
+export SPACES_SECRET_ACCESS_KEY=...
+export CLOUDFLARE_API_TOKEN=...
+```
+
+### Deploy
+
+```bash
+# Deploy to production
+bunx sst deploy --stage production
+
+# Deploy a dev/preview environment
+bunx sst deploy --stage dev
+
+# Remove a non-production stage
+bunx sst remove --stage dev
+```
+
+### Stages
+
+| Stage | Behavior |
+|-------|----------|
+| `production` | 2x API instances, retains resources on removal, domains configured |
+| Any other | 1x API instance, removes all resources on cleanup, no custom domains |
+
+### Local Development
+
+```bash
+bunx sst dev    # Starts multiplexer with linked resources
+```
 
 ## Preconditions
 
-- MongoDB cluster reachable from API.
+- MongoDB cluster reachable from API (shared `db-oxy` cluster).
 - Oxy auth service reachable.
-- Redis available if using queued agent sessions.
-- Optional integrations/channels configured.
+- Valkey (Redis) available for caching and rate limiting.
 
 ## Database Naming
 
@@ -23,39 +73,36 @@ Set database name via `mongoose.connect(..., { dbName })`.
 
 ## Minimum Environment (API)
 
+These are configured in `sst.config.ts` and injected via DO App Platform:
+
 ```bash
 PORT=8080
 NODE_ENV=production
-WEB_URL=https://clarity.oxy.so
-API_BASE_URL=https://api.clarity.oxy.so
-MONGODB_URI=<mongodb-uri>
-JWT_SECRET=<strong-secret>
-SERVICE_SECRET=<strong-secret>
-OXY_API_URL=https://api.oxy.so
+WEB_URL=https://clarity.surf
+MONGODB_URI=<from db-oxy cluster>
+REDIS_URL=<from db-valkey cluster>
+SERVICE_SECRET=<strong-secret>       # Set as SECRET in DO dashboard
 ```
 
 ## Optional but Recommended
 
 ```bash
-# Async queue
-REDIS_URL=redis://...
+# S3/Spaces (auto-configured by SST)
+AWS_REGION=ams3
+AWS_ACCESS_KEY_ID=<secret>
+AWS_SECRET_ACCESS_KEY=<secret>
+AWS_ENDPOINT_URL=https://ams3.digitaloceanspaces.com
+AWS_S3_BUCKET=bucket-clarity
 
-# Integrations bridge
-INTEGRATIONS_SERVICE_URL=https://integrations.clarity.oxy.so
-INTEGRATIONS_SECRET=<shared-secret>
+# Stripe
+STRIPE_SECRET_KEY=<secret>
+STRIPE_WEBHOOK_SECRET=<secret>
 
-# Channels
-TELEGRAM_BOT_SECRET=<secret>
-DISCORD_BOT_SECRET=<secret>
-
-# Sandbox runtime
-DOCKER_HOST_URL=https://docker-host.clarity.oxy.so
-DOCKER_HOST_SECRET=<secret>
+# LiveKit
+LIVEKIT_URL=wss://livekit.oxy.so
+LIVEKIT_API_KEY=<secret>
+LIVEKIT_API_SECRET=<secret>
 ```
-
-## Model Routing Credentials
-
-Configure internal model-routing credentials via environment variables required by your deployment policy and internal routing module. Do not expose routing internals in public clients.
 
 ## Startup Behavior
 
@@ -67,11 +114,6 @@ On API boot, the server automatically:
 - Starts async worker if queue is configured.
 - Seeds built-in skills/suggestions/bots.
 - Warms model-routing caches.
-
-## Proactive Runtime
-
-- Scheduled execution is trigger-native (`/triggers`).
-- Startup loads and schedules enabled triggers automatically.
 
 ## Health Checks
 
@@ -89,10 +131,10 @@ On API boot, the server automatically:
 
 ## Rollback Strategy
 
-- Use deployment-level rollback (image/version).
+- Use `bunx sst deploy --stage production` to redeploy.
+- For DO App Platform, rollback is also available via the DO dashboard.
 - For runtime actions, `R1` writes are tracked in `RollbackRecord` with expiration window.
 
-## Operational Notes
+## Legacy Reference
 
-- Keep logs sanitized for user-facing surfaces.
-- Do not expose internal model-routing details in public responses, docs, or audits.
+The `.do/app.yaml` file is kept as a reference for the DO App Platform spec but is no longer the source of truth. All infrastructure changes should go through `sst.config.ts`.

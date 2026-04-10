@@ -220,6 +220,8 @@ bun run dev:api                  # API only (Express + hot reload)
 bun run dev:app                  # Expo app only (web + tunnel)
 bun test --filter @clarity/api   # API tests (vitest)
 bun run lint                     # Lint API code
+bunx sst dev                     # Start SST dev multiplexer
+bunx sst deploy --stage dev      # Deploy to a stage
 ```
 
 Environment: copy `.env.example` to `.env` in `apps/api/` and fill in your MongoDB URI, Redis URL, and provider API keys. The database name is computed automatically as `clarity-{NODE_ENV}` -- do not embed it in the URI.
@@ -234,7 +236,7 @@ Environment: copy `.env.example` to `.env` in `apps/api/` and fill in your Mongo
 | API reference (all endpoints) | [docs/api-reference.md](api-reference.md) |
 | Memory and context graph | [docs/memory-system.md](memory-system.md) |
 | OxyHQ authentication | [docs/oxyhq-auth.md](oxyhq-auth.md) |
-| Deployment (DigitalOcean) | [docs/deployment.md](deployment.md) |
+| Deployment (SST + DigitalOcean) | [docs/deployment.md](deployment.md) |
 | Proactive intelligence / triggers | [docs/proactive-intelligence.md](proactive-intelligence.md) |
 | Developer portal / API keys | [docs/developers-portal.md](developers-portal.md) |
 | Project conventions | [CLAUDE.md](../CLAUDE.md) (also read by AI coding assistants) |
