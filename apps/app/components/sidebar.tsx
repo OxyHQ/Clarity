@@ -39,7 +39,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useRouter, usePathname } from "expo-router";
 import { SettingsSidebar } from "@/components/settings/settings-sidebar";
 import { UserAvatar } from "@/components/user-avatar";
-import { useOxy } from "@oxyhq/services";
+import { useOxy, showSignInModal } from "@oxyhq/services";
 import { SidebarSkeleton } from "@/components/sidebar-skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/hooks/query-keys";
@@ -551,11 +551,11 @@ const SearchSidebar = React.memo(function SearchSidebar() {
   );
   const handleLogout = React.useCallback(() => {
     logout();
-    router.replace("/login");
+    router.replace("/(app)");
   }, [router, logout]);
   const handleLogin = React.useCallback(
-    () => router.push("/login"),
-    [router],
+    () => showSignInModal(),
+    [],
   );
   const handleUpgrade = React.useCallback(
     () => router.push("/(biglayout)/subscribe"),
@@ -570,8 +570,8 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     [router],
   );
   const handleRegister = React.useCallback(
-    () => router.push("/register"),
-    [router],
+    () => showSignInModal(),
+    [],
   );
 
   const handleScroll = React.useCallback(

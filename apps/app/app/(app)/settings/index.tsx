@@ -13,7 +13,7 @@ export default function SettingsAccountScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace("/login");
+      router.replace("/(app)");
     }
   }, [isAuthenticated]);
 

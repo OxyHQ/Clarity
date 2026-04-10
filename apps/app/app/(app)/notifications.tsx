@@ -61,7 +61,7 @@ export default function NotificationsScreen() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace("/login");
+      router.replace("/(app)");
     }
   }, [isAuthenticated]);
 
