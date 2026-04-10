@@ -32,6 +32,9 @@ dist/
 # claude
 .claude/
 
+# SST
+.sst/
+
 # IDE
 .vscode/
 

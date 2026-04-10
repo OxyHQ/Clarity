@@ -1,6 +1,6 @@
 # DigitalOcean App Platform spec for clarity-production
-# NOTE: The actual deployment is managed via DO dashboard.
-# This file serves as documentation and reference.
+# NOTE: Infrastructure is now managed by SST (sst.config.ts).
+# This file is kept as a reference / fallback.
 name: clarity-production
 region: ams
 
@@ -41,10 +41,8 @@ services:
         value: "${db-valkey.CA_CERT}"
       - key: SERVICE_SECRET
         type: SECRET
-      - key: GATEWAY_API_URL
-        value: "http://gateway:9091"
       - key: WEB_URL
-        value: "https://clarity.oxy.so"
+        value: "https://clarity.surf"
       # S3/Spaces
       - key: AWS_REGION
         value: "ams3"
@@ -70,46 +68,6 @@ services:
         type: SECRET
       - key: LIVEKIT_INTERNAL_URL
         value: "wss://livekit.oxy.so"
-
-  - name: gateway
-    github:
-      repo: OxyHQ/Clarity
-      branch: main
-      deploy_on_push: true
-
-    build_command: >-
-      ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-      bun run build:gateway
-    run_command: bun run start:gateway
-    source_dir: /
-    environment_slug: node-js
-
-    instance_size_slug: apps-s-1vcpu-1gb
-    instance_count: 1
-
-    health_check:
-      http_path: /health
-      initial_delay_seconds: 20
-      period_seconds: 10
-      timeout_seconds: 5
-      success_threshold: 1
-      failure_threshold: 3
-
-    http_port: 9091
-
-    envs:
-      - key: MONGODB_URI
-        value: "${db-oxy.DATABASE_URL}"
-      - key: CA_CERT
-        value: "${db-oxy.CA_CERT}"
-      - key: PORT
-        value: "9091"
-      - key: SERVICE_SECRET
-        type: SECRET
-      - key: OXY_API_URL
-        value: "https://api.oxy.so"
-      - key: ADMIN_USERNAMES
-        value: "nate"
 
 static_sites:
   - name: clarity-app
@@ -138,15 +96,12 @@ databases:
     cluster_name: db-valkey-ams3-04785
 
 domains:
-  - domain: clarity.oxy.so
+  - domain: clarity.surf
     type: PRIMARY
-    zone: oxy.so
-  - domain: api.clarity.oxy.so
+    zone: clarity.surf
+  - domain: api.clarity.surf
     type: ALIAS
-    zone: oxy.so
-  - domain: gateway.clarity.oxy.so
-    type: ALIAS
-    zone: oxy.so
+    zone: clarity.surf
 
 alerts:
   - rule: DEPLOYMENT_FAILED
