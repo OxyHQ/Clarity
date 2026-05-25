@@ -1,0 +1,11 @@
+{
+  "package": "clarity",
+  "displayName": "Clarity",
+  "shortName": "clarity",
+  "repo": "https://github.com/OxyHQ/Clarity",
+  "category": "app",
+  "versions": ["main"],
+  "defaultVersion": "main",
+  "docsPath": "docs/",
+  "description": "AI-powered search engine by Oxy — cited answers, deep research, and proactive agents."
+}
