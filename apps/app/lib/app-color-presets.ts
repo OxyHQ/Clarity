@@ -9,8 +9,12 @@ function extractSat(hslVar: string): number {
   return parseInt(hslVar.split(' ')[1], 10);
 }
 
-/** Bloom's CSS vars extended with Clarity-specific vars (card, chart, sidebar-*). */
-export function getClarityVars(
+/**
+ * Clarity-specific CSS variables that extend Bloom's preset vars
+ * (card, chart, sidebar-*, content-area). Bloom owns the base preset vars;
+ * this only adds Clarity's surface tokens layered on top.
+ */
+export function getScopedColorCSSVariables(
   colorName: AppColorName,
   mode: 'light' | 'dark',
 ): Record<string, string> {
@@ -40,13 +44,18 @@ export function getClarityVars(
   };
 }
 
-export function applyAppColorToDocument(
+/**
+ * Apply Clarity's scoped CSS variables to the document root. Web-only.
+ * Bloom's `BloomThemeProvider` already applies the base preset vars; this
+ * layers Clarity's surface tokens on top so Tailwind `@theme` rules resolve.
+ */
+export function applyScopedColorVarsToDocument(
   colorName: AppColorName,
   resolvedMode: 'light' | 'dark',
 ) {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
 
-  const vars = getClarityVars(colorName, resolvedMode);
+  const vars = getScopedColorCSSVariables(colorName, resolvedMode);
   Object.entries(vars).forEach(([key, value]) => {
     document.documentElement.style.setProperty(key, value);
   });

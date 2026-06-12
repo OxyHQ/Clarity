@@ -3,16 +3,20 @@ import { View, Pressable } from "react-native";
 import { vars } from "nativewind";
 import { Text } from "@/components/ui/text";
 import { useColorScheme } from "@/lib/useColorScheme";
-import { useThemeStore } from "@/lib/stores/theme-store";
 import { useTranslation } from "@/hooks/useTranslation";
 import { LanguageSelector } from "@/components/language-selector";
-import { APP_COLOR_PRESETS, APP_COLOR_NAMES, type AppColorName } from "@oxyhq/bloom/theme";
-import { getClarityVars } from "@/lib/app-color-presets";
+import {
+  APP_COLOR_PRESETS,
+  APP_COLOR_NAMES,
+  useBloomTheme,
+  type AppColorName,
+} from "@oxyhq/bloom/theme";
+import { getScopedColorCSSVariables } from "@/lib/app-color-presets";
 import { cn } from "@/lib/utils";
 
 /** Miniature app layout using real theme tokens via NativeWind vars() */
 const AppMiniature = React.memo(function AppMiniature({ variant, colorName }: { variant: "light" | "dark"; colorName: AppColorName }) {
-  const themeVars = vars(getClarityVars(colorName, variant));
+  const themeVars = vars(getScopedColorCSSVariables(colorName, variant));
 
   return (
     <View className="flex-row flex-1 rounded overflow-hidden" style={themeVars}>
@@ -68,8 +72,7 @@ const AppMiniature = React.memo(function AppMiniature({ variant, colorName }: { 
 
 export function GeneralSection() {
   const { mode, setColorScheme } = useColorScheme();
-  const appColor = useThemeStore((s) => s.appColor);
-  const setAppColor = useThemeStore((s) => s.setAppColor);
+  const { colorPreset: appColor, setColorPreset: setAppColor } = useBloomTheme();
   const { t } = useTranslation();
 
   return (
