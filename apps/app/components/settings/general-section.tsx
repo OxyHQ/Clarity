@@ -8,15 +8,15 @@ import { LanguageSelector } from "@/components/language-selector";
 import {
   APP_COLOR_PRESETS,
   APP_COLOR_NAMES,
+  getPresetVars,
   useBloomTheme,
   type AppColorName,
 } from "@oxyhq/bloom/theme";
-import { getScopedColorCSSVariables } from "@/lib/app-color-presets";
 import { cn } from "@/lib/utils";
 
 /** Miniature app layout using real theme tokens via NativeWind vars() */
 const AppMiniature = React.memo(function AppMiniature({ variant, colorName }: { variant: "light" | "dark"; colorName: AppColorName }) {
-  const themeVars = vars(getScopedColorCSSVariables(colorName, variant));
+  const themeVars = vars(getPresetVars(colorName, variant));
 
   return (
     <View className="flex-row flex-1 rounded overflow-hidden" style={themeVars}>
