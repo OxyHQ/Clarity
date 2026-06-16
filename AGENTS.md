@@ -6,14 +6,14 @@
 
 ### How it works
 
-- **User-facing models**: `clarity-fast`, `clarity-v1`, `clarity-v1`, `clarity-pro`, `clarity-thinking`, `clarity-pro-max`, etc.
+- **User-facing models**: `clarity-fast`, `clarity-v1`, `clarity-pro`, `clarity-thinking`, `clarity-pro-max`
 - **Internal providers**: OpenAI, Anthropic, Google, Groq, DeepSeek, xAI, Mistral, and others. These are strictly internal and must never be exposed.
 - **Routing**: Each Clarity model maps to multiple provider models with automatic fallback (cheapest/free tier first, then progressively more expensive).
 
 ### What to NEVER do
 
 - Never show provider names (OpenAI, Anthropic, Google, Groq, etc.) in UI, API responses, error messages, SEO metadata, or documentation
-- Never show provider model IDs (gpt-4o, Codex-sonnet-4, gemini-2.5-flash, etc.) to users
+- Never show provider model IDs (gpt-4o, claude-sonnet-4, gemini-2.5-flash, etc.) to users
 - Never reference specific provider models in feature descriptions or marketing copy
 
 ### What to ALWAYS do
@@ -38,8 +38,6 @@ All Oxy ecosystem apps share the same MongoDB cluster on DigitalOcean. Each app 
 
 - `apps/app/` - Main Expo app (React Native + Web)
 - `apps/api/` - Express backend API
-- (only) `apps/app/` - Main Expo app (React Native + Web)
-- (only) `apps/api/` - Express backend API
 
 ## Tech Stack
 
@@ -47,6 +45,15 @@ All Oxy ecosystem apps share the same MongoDB cluster on DigitalOcean. Each app 
 - **Backend**: Express, TypeScript, MongoDB/Mongoose, Socket.IO
 - **Auth**: @oxyhq/services (OxyProvider, useAuth, OxySignInButton)
 - **Routing**: expo-router (file-based)
+
+## Search-First Architecture
+
+Clarity is an AI-powered search engine by Oxy. Key principles:
+- **Always search first**: The AI searches the web before answering factual questions
+- **Source citations**: Every factual claim includes numbered source references [1], [2], etc.
+- **Deep research mode**: Multi-step research with decomposition, parallel search, extraction, synthesis
+- **Follow-up suggestions**: After each answer, suggest 3 related follow-up questions
+- **SSE streaming**: All search responses stream via Server-Sent Events with custom events (clarity.research_progress, clarity.reasoning, clarity.tool_result, clarity.title, clarity.follow_ups, clarity.source_card)
 
 ## Oxy Service Connector Protocol
 
