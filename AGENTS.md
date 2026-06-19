@@ -43,7 +43,7 @@ All Oxy ecosystem apps share the same MongoDB cluster on DigitalOcean. Each app 
 
 - **Frontend**: Expo 55, React Native 0.83, TypeScript, NativeWind (Tailwind), Reanimated v4, Zustand, TanStack Query
 - **Backend**: Express, TypeScript, MongoDB/Mongoose, Socket.IO
-- **Auth**: @oxyhq/services (OxyProvider, useAuth, OxySignInButton)
+- **Auth**: `@oxyhq/core ^3.4.13`, `@oxyhq/services ^10.2.10` (OxyProvider, useAuth, OxySignInButton)
 - **Routing**: expo-router (file-based)
 
 ## Search-First Architecture
@@ -54,6 +54,13 @@ Clarity is an AI-powered search engine by Oxy. Key principles:
 - **Deep research mode**: Multi-step research with decomposition, parallel search, extraction, synthesis
 - **Follow-up suggestions**: After each answer, suggest 3 related follow-up questions
 - **SSE streaming**: All search responses stream via Server-Sent Events with custom events (clarity.research_progress, clarity.reasoning, clarity.tool_result, clarity.title, clarity.follow_ups, clarity.source_card)
+
+## Oxy Auth / Session Contract
+
+- Frontend auth/session state belongs to `OxyProvider` with a registered `clientId`; SDK cold boot owns `/__oxy/sso-callback`, stored-session restore, FedCM/silent restore, and SSO bounce.
+- Do not add local SSO helpers, callback routes, token providers, auth interceptors, manual `Authorization` plumbing, refresh retries, or app-local session invalidation.
+- Backend APIs use `@oxyhq/core/server` (`createOxyAuthMiddleware`, `createOptionalOxyAuth`, `createOxyRateLimit`, `requireOxyAuth`, `getRequiredOxyUserId`, `authSocket`) and must not define local `AuthRequest`, `requireAuth`, `getUserId`, bearer parsers, or token-decoding middleware.
+- Bearer-authenticated writes do not fetch app-local CSRF tokens; CSRF remains for ambient cookie credentials and cookie-only writes.
 
 ## Oxy Service Connector Protocol
 
