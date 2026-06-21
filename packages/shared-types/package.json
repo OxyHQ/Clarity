@@ -1,0 +1,36 @@
+{
+  "name": "@clarity/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript types for the Clarity frontend and backend",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "test": "echo \"No tests specified\" && exit 0",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "typescript",
+    "types",
+    "shared",
+    "clarity"
+  ],
+  "author": "Oxy",
+  "license": "UNLICENSED",
+  "files": [
+    "dist/**/*"
+  ],
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^25.0.8"
+  }
+}

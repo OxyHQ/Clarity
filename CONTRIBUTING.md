@@ -10,27 +10,27 @@
 
 ```bash
 git clone <repo-url> && cd Clarity
-npm install              # installs all workspaces
-cp apps/api/.env.example apps/api/.env   # fill in your values
-npm run dev              # starts all services
+bun install              # installs all workspaces
+cp packages/backend/.env.example packages/backend/.env   # fill in your values
+bun run dev              # starts all services
 ```
 
 Focused commands:
 
 ```bash
-npm run dev:api          # API only
-npm run dev:app          # Expo app only
+bun run dev:backend      # API only
+bun run dev:frontend     # Expo app only
 ```
 
 ## Monorepo Structure
 
-This is an **npm workspaces** monorepo (no Turborepo/Nx).
+This is a **bun workspaces** monorepo (no Turborepo/Nx).
 
-| App | Stack | Purpose |
+| Package | Stack | Purpose |
 | --- | --- | --- |
-| `apps/api` | Express + TypeScript | Core API runtime |
-| `apps/app` | Expo 55 (React Native + Web) | Main app (web + iOS + Android) |
-| `apps/clarity-api` | (deprecated) | (removed) |
+| `packages/backend` (`@clarity/backend`) | Express + TypeScript | Core API runtime |
+| `packages/frontend` (`@clarity/frontend`) | Expo (React Native + Web) | Main app (web + iOS + Android) |
+| `packages/shared-types` (`@clarity/shared-types`) | TypeScript | Types shared by frontend + backend |
 
 ## Branch Naming
 
@@ -68,7 +68,7 @@ chore: bump dependencies
 - **TypeScript strict mode** encouraged. Avoid `any` -- use proper types.
 - **Frontend styling**: NativeWind (Tailwind). No inline style objects unless necessary.
 - **State management**: Zustand stores. Data fetching via TanStack Query.
-- **Routing**: expo-router (file-based) in `apps/app`.
+- **Routing**: expo-router (file-based) in `packages/frontend`.
 - Follow existing patterns in the codebase. When in doubt, look at neighboring files.
 
 ## Testing
@@ -76,7 +76,7 @@ chore: bump dependencies
 Run API tests before submitting:
 
 ```bash
-npm test -w @clarity/api
+bun run --filter @clarity/backend test
 ```
 
 Tests use **Vitest**. Place test files next to source as `*.test.ts`.
@@ -94,7 +94,7 @@ Always use Clarity model names: `clarity-v1`, `clarity-fast`, `clarity-v1-pro`, 
 
 ### Error Handling
 
-Use `sanitizeMessage()` from `apps/api/src/lib/errors/sanitize.ts` for all user-facing error messages. This strips any leaked provider names.
+Use `sanitizeMessage()` from `packages/backend/src/lib/errors/sanitize.ts` for all user-facing error messages. This strips any leaked provider names.
 
 ### Database
 

@@ -13,8 +13,8 @@ services:
 
     build_command: >-
       ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-      bun run build:api
-    run_command: bun run start:api
+      bun run build:backend
+    run_command: bun run start:backend
     source_dir: /
     environment_slug: node-js
     instance_size_slug: apps-s-2vcpu-4gb
@@ -77,10 +77,10 @@ static_sites:
       deploy_on_push: true
     build_command: >-
       ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-      bun run build:app
+      bun run build:frontend
     source_dir: /
     environment_slug: node-js
-    output_dir: apps/app/dist
+    output_dir: packages/frontend/dist
     catchall_document: index.html
 
 databases:

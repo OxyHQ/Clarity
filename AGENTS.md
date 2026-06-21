@@ -19,16 +19,16 @@
 ### What to ALWAYS do
 
 - Use Clarity model names: `clarity-v1`, `clarity-fast`, `clarity-pro`, `clarity-thinking`, etc.
-- Use `sanitizeMessage()` from `apps/api/src/lib/errors/sanitize.ts` for all user-facing error messages
+- Use `sanitizeMessage()` from `packages/backend/src/lib/errors/sanitize.ts` for all user-facing error messages
 - When displaying analytics/model usage, resolve to Clarity model names via `getClarityModel()` and skip entries that can't be resolved
 
 ### Key files
 
-- `apps/api/src/internal/providers/lib/clarity-models.ts` - Clarity model definitions
-- `apps/api/src/internal/providers/lib/generate-model-mappings.ts` - Provider routing config
-- `apps/api/src/routes/v1/models.ts` - Public models API (returns only Clarity models)
-- `apps/api/src/lib/errors/sanitize.ts` - Error message sanitization (strips provider names)
-- `apps/api/src/internal/` - All provider logic (internal only, CORS-restricted)
+- `packages/backend/src/internal/providers/lib/clarity-models.ts` - Clarity model definitions
+- `packages/backend/src/internal/providers/lib/generate-model-mappings.ts` - Provider routing config
+- `packages/backend/src/routes/v1/models.ts` - Public models API (returns only Clarity models)
+- `packages/backend/src/lib/errors/sanitize.ts` - Error message sanitization (strips provider names)
+- `packages/backend/src/internal/` - All provider logic (internal only, CORS-restricted)
 
 ## MongoDB Database Naming
 
@@ -36,8 +36,9 @@ All Oxy ecosystem apps share the same MongoDB cluster on DigitalOcean. Each app 
 
 ## Monorepo Structure
 
-- `apps/app/` - Main Expo app (React Native + Web)
-- `apps/api/` - Express backend API
+- `packages/frontend/` (`@clarity/frontend`) - Main Expo app (React Native + Web)
+- `packages/backend/` (`@clarity/backend`) - Express backend API
+- `packages/shared-types/` (`@clarity/shared-types`) - TypeScript types shared by frontend and backend (conversation/message/model DTOs, SSE event payloads, pagination). Imported via `@clarity/shared-types` on both sides. MUST NOT expose internal provider names — only Clarity-branded model identities.
 
 ## Tech Stack
 
@@ -86,11 +87,11 @@ Insert an `OxyService` document — zero changes to Clarity's codebase needed:
 
 ### Key files
 
-- `apps/api/src/models/oxy-service.ts` - OxyService Mongoose model (manifest schema)
-- `apps/api/src/lib/tools/oxy-services.ts` - Tool builder (`buildOxyServiceTools`, `callOxyService`, `getOxyServiceContext`, `getOxyServicePromptFragment`)
-- `apps/api/src/routes/oxy-service-events.ts` - Event webhook endpoint
-- `apps/api/src/scripts/seed-oxy-services.ts` - Seed script for email service manifest
-- `apps/api/src/routes/v1/chat-completions.ts` - Integration point (~line 615)
+- `packages/backend/src/models/oxy-service.ts` - OxyService Mongoose model (manifest schema)
+- `packages/backend/src/lib/tools/oxy-services.ts` - Tool builder (`buildOxyServiceTools`, `callOxyService`, `getOxyServiceContext`, `getOxyServicePromptFragment`)
+- `packages/backend/src/routes/oxy-service-events.ts` - Event webhook endpoint
+- `packages/backend/src/scripts/seed-oxy-services.ts` - Seed script for email service manifest
+- `packages/backend/src/routes/v1/chat-completions.ts` - Integration point (~line 615)
 
 ### Patterns to follow
 

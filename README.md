@@ -24,8 +24,8 @@ apps/
 
 ```bash
 bun install
-bun run dev:app    # Start frontend (Expo)
-bun run dev:api    # Start backend (Express)
+bun run dev:frontend    # Start frontend (Expo)
+bun run dev:backend     # Start backend (Express)
 ```
 
 ## Infrastructure

@@ -15,7 +15,7 @@ Clarity proactive intelligence is built on `triggers` + autonomy runtime + polic
 
 ## Trigger Engine
 
-Source: `apps/api/src/lib/trigger-engine.ts`
+Source: `packages/backend/src/lib/trigger-engine.ts`
 
 Supported trigger types:
 
@@ -59,7 +59,7 @@ Approvals emit `clarity.approval_request` and `clarity.approval_result`.
 
 ## Oxy Service Events
 
-Source: `apps/api/src/routes/oxy-service-events.ts`
+Source: `packages/backend/src/routes/oxy-service-events.ts`
 
 Behavior:
 

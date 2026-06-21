@@ -19,7 +19,7 @@ Clarity integrates with the rest of the Oxy ecosystem — and with future third-
 
 ## Manifest shape
 
-`OxyService` documents follow the schema in [`apps/api/src/models/oxy-service.ts`](https://github.com/OxyHQ/Clarity/blob/main/apps/api/src/models/oxy-service.ts):
+`OxyService` documents follow the schema in [`packages/backend/src/models/oxy-service.ts`](https://github.com/OxyHQ/Clarity/blob/main/packages/backend/src/models/oxy-service.ts):
 
 ```ts
 {
@@ -57,7 +57,7 @@ Tool names exposed to the model are namespaced: `oxy_{serviceId}__{toolName}`. F
 
 ## Chat-time integration
 
-At chat start, [`apps/api/src/routes/v1/chat-completions.ts`](https://github.com/OxyHQ/Clarity/blob/main/apps/api/src/routes/v1/chat-completions.ts) calls `buildOxyServiceTools()` to merge service tools into the model's toolset:
+At chat start, [`packages/backend/src/routes/v1/chat-completions.ts`](https://github.com/OxyHQ/Clarity/blob/main/packages/backend/src/routes/v1/chat-completions.ts) calls `buildOxyServiceTools()` to merge service tools into the model's toolset:
 
 ```ts
 import { buildOxyServiceTools } from '@/lib/tools/oxy-services';
@@ -113,7 +113,7 @@ Content-Type: application/json
 }
 ```
 
-Runtime behavior (`apps/api/src/routes/oxy-service-events.ts`):
+Runtime behavior (`packages/backend/src/routes/oxy-service-events.ts`):
 
 - **Signature verification** — HMAC over `timestamp + body` using `webhookSecret`.
 - **Idempotency** — duplicate `eventId` values are dropped silently.
@@ -152,7 +152,7 @@ To remove a service, delete (or set `enabled: false` on) the manifest. Running c
 
 When extending this system:
 
-- Use the same `safeExecute()` + per-user cache pattern as [`integrations.ts`](https://github.com/OxyHQ/Clarity/blob/main/apps/api/src/lib/tools/integrations.ts) and [`mcp.ts`](https://github.com/OxyHQ/Clarity/blob/main/apps/api/src/lib/tools/mcp.ts).
+- Use the same `safeExecute()` + per-user cache pattern as [`integrations.ts`](https://github.com/OxyHQ/Clarity/blob/main/packages/backend/src/lib/tools/integrations.ts) and [`mcp.ts`](https://github.com/OxyHQ/Clarity/blob/main/packages/backend/src/lib/tools/mcp.ts).
 - Use `jsonSchemaToZod()` from `mcp-schema.ts` for runtime schema conversion — keep the manifest format JSON Schema for transport.
 - Forward `req.accessToken` (the user's OxyHQ JWT) for first-party services. Do **not** invent a new auth mechanism.
 - Namespace tool ids as `oxy_{serviceId}__{toolName}` everywhere — it's load-bearing for tool-call attribution.
@@ -162,12 +162,12 @@ When extending this system:
 
 | File | Purpose |
 |------|---------|
-| `apps/api/src/models/oxy-service.ts` | `OxyService` Mongoose model (manifest schema) |
-| `apps/api/src/lib/tools/oxy-services.ts` | `buildOxyServiceTools`, `callOxyService`, `getOxyServiceContext`, `getOxyServicePromptFragment` |
-| `apps/api/src/routes/oxy-service-events.ts` | Inbound event webhook (`POST /webhooks/oxy/:serviceId`) |
-| `apps/api/src/lib/tools/mcp-schema.ts` | `jsonSchemaToZod()` runtime conversion |
-| `apps/api/src/scripts/seed-oxy-services.ts` | Seed script for the bundled email service manifest |
-| `apps/api/src/routes/v1/chat-completions.ts` | Chat-time integration point |
+| `packages/backend/src/models/oxy-service.ts` | `OxyService` Mongoose model (manifest schema) |
+| `packages/backend/src/lib/tools/oxy-services.ts` | `buildOxyServiceTools`, `callOxyService`, `getOxyServiceContext`, `getOxyServicePromptFragment` |
+| `packages/backend/src/routes/oxy-service-events.ts` | Inbound event webhook (`POST /webhooks/oxy/:serviceId`) |
+| `packages/backend/src/lib/tools/mcp-schema.ts` | `jsonSchemaToZod()` runtime conversion |
+| `packages/backend/src/scripts/seed-oxy-services.ts` | Seed script for the bundled email service manifest |
+| `packages/backend/src/routes/v1/chat-completions.ts` | Chat-time integration point |
 
 ## Related
 

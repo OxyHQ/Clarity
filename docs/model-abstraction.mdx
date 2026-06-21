@@ -12,7 +12,7 @@ This page documents the abstraction: the public model tiers, how routing and fal
 
 ## Public catalogue
 
-Clarity ships a small, named tier set. The complete list (with token limits, credit multipliers, and category flags) lives in [`apps/api/src/internal/providers/lib/clarity-models.ts`](https://github.com/OxyHQ/Clarity/blob/main/apps/api/src/internal/providers/lib/clarity-models.ts).
+Clarity ships a small, named tier set. The complete list (with token limits, credit multipliers, and category flags) lives in [`packages/backend/src/internal/providers/lib/clarity-models.ts`](https://github.com/OxyHQ/Clarity/blob/main/packages/backend/src/internal/providers/lib/clarity-models.ts).
 
 | Model id | Tier | Use case |
 |----------|------|----------|
@@ -36,7 +36,7 @@ Each `ClarityModel` carries a `creditMultiplier`, `maxTokens`, and capability fl
 
 ## Routing and fallback
 
-Each Clarity tier maps to **one or more** provider models, ranked by priority and quality. The routing table lives in `apps/api/src/internal/providers/lib/generate-model-mappings.ts` and is rebuilt at startup.
+Each Clarity tier maps to **one or more** provider models, ranked by priority and quality. The routing table lives in `packages/backend/src/internal/providers/lib/generate-model-mappings.ts` and is rebuilt at startup.
 
 Resolution order at chat time:
 
@@ -56,7 +56,7 @@ Three layers ensure provider names never leak:
 
 ### 1. Error messages
 
-Every user-facing error path calls `sanitizeMessage()` from [`apps/api/src/lib/errors/sanitize.ts`](https://github.com/OxyHQ/Clarity/blob/main/apps/api/src/lib/errors/sanitize.ts). It strips known provider names, provider model IDs, and provider-specific error codes, replacing them with neutral language.
+Every user-facing error path calls `sanitizeMessage()` from [`packages/backend/src/lib/errors/sanitize.ts`](https://github.com/OxyHQ/Clarity/blob/main/packages/backend/src/lib/errors/sanitize.ts). It strips known provider names, provider model IDs, and provider-specific error codes, replacing them with neutral language.
 
 ```ts
 import { sanitizeMessage } from '@/lib/errors/sanitize';
@@ -92,20 +92,20 @@ These rules apply to **all** contributors:
 - Use Clarity model ids: `clarity-v1`, `clarity-fast`, `clarity-pro`, `clarity-thinking`.
 - Run user-facing error strings through `sanitizeMessage()`.
 - Resolve usage events to Clarity tiers via `getClarityModel()`; drop unresolvable entries.
-- Restrict all provider routes to the **internal subnet** — `apps/api/src/internal/` is CORS-locked and not exposed publicly.
+- Restrict all provider routes to the **internal subnet** — `packages/backend/src/internal/` is CORS-locked and not exposed publicly.
 
 ## Key files
 
 | File | Purpose |
 |------|---------|
-| `apps/api/src/internal/providers/lib/clarity-models.ts` | Clarity model catalogue (tiers, capabilities, credit multipliers) |
-| `apps/api/src/internal/providers/lib/generate-model-mappings.ts` | Tier → provider routing table |
-| `apps/api/src/internal/providers/lib/model-resolver.ts` | `resolveModel()` + `getAIModel()` |
-| `apps/api/src/internal/providers/lib/fallback-engine.ts` | Failover orchestration with `clarity.model_switch` emission |
-| `apps/api/src/internal/providers/lib/provider-health.ts` | Per-provider circuit breaker |
-| `apps/api/src/internal/providers/lib/provider-names.ts` | Internal-only provider identifiers |
-| `apps/api/src/lib/errors/sanitize.ts` | `sanitizeMessage()` provider-name stripping |
-| `apps/api/src/routes/v1/models.ts` | Public `GET /v1/models` endpoint |
+| `packages/backend/src/internal/providers/lib/clarity-models.ts` | Clarity model catalogue (tiers, capabilities, credit multipliers) |
+| `packages/backend/src/internal/providers/lib/generate-model-mappings.ts` | Tier → provider routing table |
+| `packages/backend/src/internal/providers/lib/model-resolver.ts` | `resolveModel()` + `getAIModel()` |
+| `packages/backend/src/internal/providers/lib/fallback-engine.ts` | Failover orchestration with `clarity.model_switch` emission |
+| `packages/backend/src/internal/providers/lib/provider-health.ts` | Per-provider circuit breaker |
+| `packages/backend/src/internal/providers/lib/provider-names.ts` | Internal-only provider identifiers |
+| `packages/backend/src/lib/errors/sanitize.ts` | `sanitizeMessage()` provider-name stripping |
+| `packages/backend/src/routes/v1/models.ts` | Public `GET /v1/models` endpoint |
 
 ## Adding a new Clarity tier
 

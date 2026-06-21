@@ -169,7 +169,7 @@ Errors during the stream emit an OpenAI-shaped error chunk and close the connect
 }
 ```
 
-Messages are run through `sanitizeMessage()` (`apps/api/src/lib/errors/sanitize.ts`) so provider names never appear in user-facing text. The HTTP status is set before the stream begins; once SSE has started, transport-level errors are signalled inside the stream with an error chunk and a `data: [DONE]`.
+Messages are run through `sanitizeMessage()` (`packages/backend/src/lib/errors/sanitize.ts`) so provider names never appear in user-facing text. The HTTP status is set before the stream begins; once SSE has started, transport-level errors are signalled inside the stream with an error chunk and a `data: [DONE]`.
 
 ## Conversation persistence
 

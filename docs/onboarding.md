@@ -16,7 +16,7 @@ Welcome to Clarity -- a multi-surface context-agent platform with autonomous exe
                                     |
                            +--------v----------+
                            |  Express API       |
-                           |  (apps/api)        |
+                           |  (packages/backend)        |
                            +--+---------+------+
                               |         |
               +---------------+         +----------------+
@@ -58,7 +58,7 @@ Approvals are real-time via Socket.IO (`clarity.approval_request` / `clarity.app
 
 ## Key Directories and Files
 
-### API (`apps/api/src/`)
+### API (`packages/backend/src/`)
 
 | Path | What it does | When you touch it |
 |------|-------------|-------------------|
@@ -80,7 +80,7 @@ Approvals are real-time via Socket.IO (`clarity.approval_request` / `clarity.app
 | `models/` | Mongoose models (~40 files: conversation, message, agent, trigger, etc.) | Schema changes |
 | `internal/providers/` | Provider routing logic (CORS-restricted, never exposed) | Internal model config |
 
-### App (`apps/app/`)
+### App (`packages/frontend/`)
 
 | Path | What it does | When you touch it |
 |------|-------------|-------------------|
@@ -185,27 +185,27 @@ This is the most important convention in the codebase. Violating it is a shippin
 
 ### Adding a new API route
 
-1. Create `apps/api/src/routes/my-route.ts` with an Express Router
-2. Import and mount it in `apps/api/src/index.ts`
+1. Create `packages/backend/src/routes/my-route.ts` with an Express Router
+2. Import and mount it in `packages/backend/src/index.ts`
 3. If it needs auth, the `auth` middleware is already applied to most route groups -- check `index.ts` for the pattern
 
 ### Adding a new screen in the app
 
-1. Create a file in `apps/app/app/(app)/` -- expo-router uses file-based routing
+1. Create a file in `packages/frontend/app/(app)/` -- expo-router uses file-based routing
 2. Register it as a `<Drawer.Screen>` in `app/(app)/_layout.tsx`
-3. Add the route constant to `apps/app/lib/api/routes.ts` if it needs an API endpoint
+3. Add the route constant to `packages/frontend/lib/api/routes.ts` if it needs an API endpoint
 
 ### Adding a new AI tool
 
-1. Create `apps/api/src/lib/tools/my-tool.ts` exporting a tool constructor function
-2. Export it from `apps/api/src/lib/tools/index.ts`
+1. Create `packages/backend/src/lib/tools/my-tool.ts` exporting a tool constructor function
+2. Export it from `packages/backend/src/lib/tools/index.ts`
 3. Wire it into the tool-building section of `routes/v1/chat-completions.ts`
 4. Follow the `safeExecute()` pattern used by existing tools for error handling
 
 ### Running tests
 
 ```bash
-bun test --filter @clarity/api      # Run all API tests
+bun test --filter @clarity/backend      # Run all API tests
 bun run lint                        # Lint the API
 ```
 
@@ -216,15 +216,15 @@ bun run lint                        # Lint the API
 ```bash
 bun install                      # Install all workspace dependencies
 bun run dev                      # Start all apps in dev mode
-bun run dev:api                  # API only (Express + hot reload)
-bun run dev:app                  # Expo app only (web + tunnel)
-bun test --filter @clarity/api   # API tests (vitest)
+bun run dev:backend              # API only (Express + hot reload)
+bun run dev:frontend             # Expo app only (web + tunnel)
+bun test --filter @clarity/backend   # API tests (vitest)
 bun run lint                     # Lint API code
 bunx sst dev                     # Start SST dev multiplexer
 bunx sst deploy --stage dev      # Deploy to a stage
 ```
 
-Environment: copy `.env.example` to `.env` in `apps/api/` and fill in your MongoDB URI, Redis URL, and provider API keys. The database name is computed automatically as `clarity-{NODE_ENV}` -- do not embed it in the URI.
+Environment: copy `.env.example` to `.env` in `packages/backend/` and fill in your MongoDB URI, Redis URL, and provider API keys. The database name is computed automatically as `clarity-{NODE_ENV}` -- do not embed it in the URI.
 
 ---
 
