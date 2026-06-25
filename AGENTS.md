@@ -44,7 +44,7 @@ All Oxy ecosystem apps share the same MongoDB cluster on DigitalOcean. Each app 
 
 - **Frontend**: Expo 55, React Native 0.83, TypeScript, NativeWind (Tailwind), Reanimated v4, Zustand, TanStack Query
 - **Backend**: Express, TypeScript, MongoDB/Mongoose, Socket.IO
-- **Auth**: `@oxyhq/core ^3.4.13`, `@oxyhq/services ^10.2.10` (OxyProvider, useAuth, OxySignInButton)
+- **Auth**: `@oxyhq/core ^3.10.0`, `@oxyhq/services ^11.0.0`, `@oxyhq/bloom ^0.19.1`, `@oxyhq/contracts ^0.2.1` (OxyProvider, useAuth, OxySignInButton)
 - **Routing**: expo-router (file-based)
 
 ## Search-First Architecture
@@ -55,6 +55,15 @@ Clarity is an AI-powered search engine by Oxy. Key principles:
 - **Deep research mode**: Multi-step research with decomposition, parallel search, extraction, synthesis
 - **Follow-up suggestions**: After each answer, suggest 3 related follow-up questions
 - **SSE streaming**: All search responses stream via Server-Sent Events with custom events (clarity.research_progress, clarity.reasoning, clarity.tool_result, clarity.title, clarity.follow_ups, clarity.source_card)
+
+## Oxy SDK Conventions
+
+- **Versions**: `@oxyhq/core ^3.10.0`, `@oxyhq/services ^11.0.0`, `@oxyhq/bloom ^0.19.1`, `@oxyhq/contracts ^0.2.1` (transitive via core). `@oxyhq/services ^11.0.0` is a packaging-only major — deps moved to peerDependencies; app must declare TanStack Query peers.
+- **Media**: avatars/images resolve ONLY through `oxyServices.getFileDownloadUrl(id, variant)` + bloom's variant-aware `<Avatar source={fileId} variant="thumb">`. Never hardcode `cloud.oxy.so` or `/media/` URLs.
+- **Display names**: render `name.displayName` directly (core 3.10 fixes the type under node resolution). No local name fallbacks.
+- **Backend auth**: `@oxyhq/core/server` only — `createOxyAuthMiddleware`/`getRequiredOxyUserId`/`authSocket`. No local `requireAuth`, bearer parsers, or token-decoding middleware.
+- **Socket.IO (CRITICAL)**: Socket.IO server MUST use `io.use(oxy.authSocket())` for authenticated namespaces + per-event ownership checks. Previously unauthenticated — this was a critical security fix; do not regress.
+- **Backend client (flagged follow-up)**: bespoke axios client (17+ call sites) should be migrated to `oxyServices.createLinkedClient({ baseURL })`. Do not add new local token providers or auth interceptors while this is pending.
 
 ## Oxy Auth / Session Contract
 
