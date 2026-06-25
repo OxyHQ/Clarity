@@ -232,11 +232,11 @@ process.on('uncaughtException', (error) => {
 connectDB()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 API Server running on http://0.0.0.0:${PORT}`);
+      log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
       // Seed suggestions (non-blocking)
-      seedSuggestions().catch((err) => console.error('[Suggestions] Seed error:', err));
+      seedSuggestions().catch((err) => log.general.error({ err }, '[Suggestions] Seed error'));
       // Pre-warm TLS connections to AI providers (non-blocking)
-      warmupProviders().catch((err) => console.error('[Warmup] Provider warmup error:', err));
+      warmupProviders().catch((err) => log.general.error({ err }, '[Warmup] Provider warmup error'));
       // Verify Redis connectivity (non-blocking)
       import('./lib/redis.js').then(({ getRedisClient }) => {
         const redis = getRedisClient();
@@ -301,6 +301,6 @@ connectDB()
     process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((error) => {
-    console.error('Failed to connect to MongoDB:', error);
+    log.general.error({ err: error }, 'Failed to connect to MongoDB');
     process.exit(1);
   });

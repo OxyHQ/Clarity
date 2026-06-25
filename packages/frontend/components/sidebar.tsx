@@ -546,7 +546,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     [router],
   );
   const handleAccount = React.useCallback(
-    () => showBottomSheet("AccountSettings"),
+    () => showBottomSheet("ManageAccount"),
     [showBottomSheet],
   );
   const handleLogout = React.useCallback(() => {
@@ -589,14 +589,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     [hasNextPage, isFetchingNextPage, fetchNextPage],
   );
 
-  const displayName = React.useMemo(() => {
-    if (!user) return t("common.user");
-    if (user.name?.first)
-      return user.name.last
-        ? `${user.name.first} ${user.name.last}`
-        : user.name.first;
-    return user.username || t("common.user");
-  }, [user, t]);
+  const displayName = user?.name?.displayName || t("common.user");
 
   /* ================================================================
      COLLAPSED LAYOUT
@@ -863,9 +856,9 @@ const SearchSidebar = React.memo(function SearchSidebar() {
                     <Text className="text-sm font-semibold text-foreground">
                       {displayName}
                     </Text>
-                    {user?.username && (
+                    {user?.email && (
                       <Text className="text-xs text-muted-foreground">
-                        {user.username}@oxy.so
+                        {user.email}
                       </Text>
                     )}
                   </View>

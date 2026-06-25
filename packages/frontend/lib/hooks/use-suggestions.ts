@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@oxyhq/services';
-import apiClient from '../api/client';
+import { useApiClient } from '../api/use-api-client';
 import { API_ROUTES } from '../api/routes';
 import { queryKeys } from './query-keys';
 
@@ -30,11 +30,12 @@ export interface Suggestion {
  * Backend returns random/personalized suggestions from the pool.
  */
 export function useWelcomeSuggestions() {
+  const client = useApiClient();
   return useQuery<Suggestion[]>({
     queryKey: queryKeys.suggestions.welcome,
     queryFn: async () => {
-      const res = await apiClient.post(API_ROUTES.suggestions.welcome, { count: 4 });
-      return res.data.suggestions;
+      const data = await client.post<{ suggestions: Suggestion[] }>(API_ROUTES.suggestions.welcome, { count: 4 });
+      return data.suggestions;
     },
     staleTime: 1000 * 60 * 15, // 15 minutes
     placeholderData: (prev: Suggestion[] | undefined) => prev,
@@ -46,10 +47,10 @@ export function useWelcomeSuggestions() {
  * Record suggestion usage (fire-and-forget mutation)
  */
 export function useRecordSuggestionUsage() {
+  const client = useApiClient();
   return useMutation({
-    mutationFn: async (suggestionId: string) => {
-      await apiClient.post(API_ROUTES.suggestions.use(suggestionId), {});
-    },
+    mutationFn: (suggestionId: string) =>
+      client.post(API_ROUTES.suggestions.use(suggestionId), {}),
   });
 }
 
@@ -57,11 +58,12 @@ export function useRecordSuggestionUsage() {
  * Real-time autocomplete search (Google-style, debounced client-side)
  */
 export function useSearchSuggestions(query: string) {
+  const client = useApiClient();
   return useQuery<Suggestion[]>({
     queryKey: queryKeys.suggestions.search(query),
     queryFn: async () => {
-      const res = await apiClient.post(API_ROUTES.suggestions.search, { query, limit: 6 });
-      return res.data.suggestions;
+      const data = await client.post<{ suggestions: Suggestion[] }>(API_ROUTES.suggestions.search, { query, limit: 6 });
+      return data.suggestions;
     },
     enabled: query.trim().length >= 2,
     staleTime: 1000 * 60 * 5,
@@ -75,11 +77,10 @@ export function useSearchSuggestions(query: string) {
  */
 export function useGenerateSuggestions() {
   const queryClient = useQueryClient();
+  const client = useApiClient();
   return useMutation({
-    mutationFn: async (params?: { count?: number; types?: string[] }) => {
-      const res = await apiClient.post(API_ROUTES.suggestions.generate, params || {}, { timeout: 60000 });
-      return res.data;
-    },
+    mutationFn: (params?: { count?: number; types?: string[] }) =>
+      client.post(API_ROUTES.suggestions.generate, params ?? {}, { timeout: 60000 }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.suggestions.welcome });
       queryClient.invalidateQueries({ queryKey: queryKeys.suggestions.me });

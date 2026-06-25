@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import Head from 'expo-router/head';
 import { AuthContainer, AuthLogo } from '@/components/auth';
 import { useAuth, useOxy } from '@oxyhq/services';
-import apiClient from '@/lib/api/client';
+import { useApiClient } from '@/lib/api/use-api-client';
 import config from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -63,6 +63,7 @@ export default function AuthorizeScreen() {
   const params = useLocalSearchParams();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { isAuthenticated: isOxyAuth } = useOxy();
+  const apiClient = useApiClient();
   const { t } = useTranslation();
   const { colors } = useColorScheme();
 
@@ -94,11 +95,11 @@ export default function AuthorizeScreen() {
     setStatus('authorizing');
 
     try {
-      const response = await apiClient.post(`/auth/authorize/${app}`, {
+      const response = await apiClient.post<{ code?: string }>(`/auth/authorize/${app}`, {
         code_challenge,
         code_challenge_method: code_challenge_method || 'S256',
       });
-      const { code } = response.data;
+      const { code } = response;
 
       if (!code) {
         throw new Error('No authorization code received');
@@ -120,10 +121,11 @@ export default function AuthorizeScreen() {
           window.location.href = finalUrl;
         }
       }, 1000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Authorization error:', error);
       setStatus('error');
-      setMessage(error.response?.data?.error || t('authorize.failedToAuthorize'));
+      const err = error as { message?: string };
+      setMessage(err.message || t('authorize.failedToAuthorize'));
     }
   };
 
@@ -142,13 +144,13 @@ export default function AuthorizeScreen() {
 
     // Verify token is valid via bot route
     try {
-      const res = await apiClient.get(`/bots/internal/${channelType}/check-token/${token}`);
-      if (!res.data?.valid) {
+      const res = await apiClient.get<{ valid?: boolean; error?: string }>(`/bots/internal/${channelType}/check-token/${token}`);
+      if (!res?.valid) {
         setStatus('error');
-        setMessage(res.data?.error || t('authorize.tokenExpired'));
+        setMessage(res?.error || t('authorize.tokenExpired'));
         return;
       }
-    } catch (e: any) {
+    } catch {
       setStatus('error');
       setMessage(t('authorize.invalidOrExpiredToken'));
       return;
@@ -166,21 +168,21 @@ export default function AuthorizeScreen() {
 
     // Link via bot platform route
     try {
-      const response = await apiClient.post(`/bots/platform/${channelType}/link`, {
+      const response = await apiClient.post<{ success?: boolean }>(`/bots/platform/${channelType}/link`, {
         authToken: token,
       });
-      if (response.data.success) {
+      if (response?.success) {
         setStatus('success');
         setMessage(t('authorize.linkSuccess', { app: appConfig.displayName }));
       } else {
         setStatus('error');
         setMessage(t('authorize.failedToLink'));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Bot link error:', error);
-      const errorMessage = error.response?.data?.error || t('authorize.failedToLink');
+      const err = error as { message?: string };
       setStatus('error');
-      setMessage(errorMessage);
+      setMessage(err.message || t('authorize.failedToLink'));
     }
   }, [params, isOxyAuth, router, channel, app, appConfig.displayName]);
 

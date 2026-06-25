@@ -9,13 +9,9 @@ export function AccountSection() {
   const { user, showBottomSheet } = useOxy();
   const { t } = useTranslation();
 
-  const displayName = user?.name?.first
-    ? user.name.last
-      ? `${user.name.first} ${user.name.last}`
-      : user.name.first
-    : user?.username || t('common.user');
+  const displayName = user?.name?.displayName || t('common.user');
 
-  const initial = (user?.name?.first?.[0] || user?.username?.[0] || "U").toUpperCase();
+  const initial = (user?.name?.displayName?.[0] || "U").toUpperCase();
 
   return (
     <View className="gap-6">
@@ -35,7 +31,7 @@ export function AccountSection() {
       {/* Manage Account */}
       <Button
         variant="outline"
-        onPress={() => showBottomSheet("AccountSettings")}
+        onPress={() => showBottomSheet("ManageAccount")}
         className="flex-row items-center justify-between"
       >
         <Text className="text-sm font-medium">{t("settings.account.title")}</Text>

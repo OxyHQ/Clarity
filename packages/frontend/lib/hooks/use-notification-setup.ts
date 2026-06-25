@@ -14,7 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxyhq/services';
 import { io as socketIO } from 'socket.io-client';
 import config from '@/lib/config';
-import apiClient from '@/lib/api/client';
+import { useApiClient } from '@/lib/api/use-api-client';
 
 // ── Constants ──────────────────────────────────────────────────────
 const PROJECT_ID =
@@ -24,6 +24,7 @@ export function useNotificationSetup() {
   const { user, isAuthenticated } = useOxy();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const client = useApiClient();
   const tokenRef = useRef<string | null>(null);
   const webPushRegisteredRef = useRef(false);
 
@@ -73,7 +74,7 @@ export function useNotificationSetup() {
         tokenRef.current = token;
 
         // Register with backend
-        await apiClient.post('/notifications/push-token', {
+        await client.post('/notifications/push-token', {
           token,
           platform: Platform.OS,
         });
@@ -85,7 +86,7 @@ export function useNotificationSetup() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, client]);
 
   // ── Notification tap handler (deep-link to conversation) ───────
   useEffect(() => {
@@ -113,7 +114,7 @@ export function useNotificationSetup() {
     (async () => {
       try {
         // Fetch VAPID public key from backend
-        const { data: vapidData } = await apiClient.get('/notifications/vapid-public-key');
+        const vapidData = await client.get<{ publicKey?: string }>('/notifications/vapid-public-key');
         if (cancelled || !vapidData?.publicKey) return;
 
         // Register service worker
@@ -142,7 +143,7 @@ export function useNotificationSetup() {
 
         // Send subscription to backend
         const subJson = subscription.toJSON();
-        await apiClient.post('/notifications/web-push-subscription', {
+        await client.post('/notifications/web-push-subscription', {
           endpoint: subJson.endpoint,
           keys: subJson.keys,
         });
@@ -156,7 +157,7 @@ export function useNotificationSetup() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, client]);
 
   // ── Socket.IO real-time notification subscription ──────────────
   useEffect(() => {

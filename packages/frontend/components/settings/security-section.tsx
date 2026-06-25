@@ -2,17 +2,19 @@
  * SecuritySection — Security & Privacy settings with 4 sub-sections:
  *   A) Default Agent Permissions
  *   B) Approval Preferences
- *   C) Threat Activity Log
- *   D) Audit Export
+ *   C) Threat Activity Log  (FLAG: calls dead backend /audit/* endpoints — always empty)
+ *   D) Audit Export          (FLAG: calls dead backend /audit/* endpoints — always no-ops)
+ *
+ * handleSave also called dead /memory/preferences — removed (FLAG: live save button is a no-op).
  */
 
-import { View, Pressable, TextInput as RNTextInput, FlatList, Share, Platform } from "react-native";
+import { View, Pressable, TextInput as RNTextInput, Share, Platform } from "react-native";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useState, useEffect, useCallback } from "react";
 import { useOxy } from "@oxyhq/services";
-import { generateAPIUrl } from "@/lib/generate-api-url";
+import type { UserMemory } from "@/lib/stores/user-data-store";
 import {
   Shield,
   ShieldAlert,
@@ -31,8 +33,7 @@ import { useUserDataStore } from "@/lib/stores/user-data-store";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/hooks/useTranslation";
 import { toast } from "@/components/sonner";
-import apiClient from "@/lib/api/client";
-import { API_ROUTES } from "@/lib/api/routes";
+import { useApiClient } from "@/lib/api/use-api-client";
 
 interface ThreatEntry {
   id: string;
@@ -69,18 +70,19 @@ const SEVERITY_BG: Record<string, string> = {
   critical: "bg-red-500/10",
 };
 
-const SEVERITY_ICONS: Record<string, React.ComponentType<any>> = {
+const SEVERITY_ICONS: Record<string, React.ComponentType<{ size: number; className: string }>> = {
   info: Info,
   warning: AlertTriangle,
   critical: ShieldX,
 };
 
 export function SecuritySection() {
-  const { isAuthenticated, oxyServices } = useOxy();
+  const { isAuthenticated } = useOxy();
   const { memory } = useUserData();
   const setMemory = useUserDataStore((state) => state.setMemory);
   const { t } = useTranslation();
   const [saving, setSaving] = useState(false);
+  const client = useApiClient();
 
   // Section A: Default permissions
   const [permissions, setPermissions] = useState<AgentPermissions>({ ...DEFAULT_PERMISSIONS });
@@ -90,16 +92,16 @@ export function SecuritySection() {
   const [approvalTimeout, setApprovalTimeout] = useState(60);
   const [autoDenyOnTimeout, setAutoDenyOnTimeout] = useState(true);
 
-  // Section C: Threat log
-  const [threats, setThreats] = useState<ThreatEntry[]>([]);
-  const [threatsLoading, setThreatsLoading] = useState(true);
+  // Section C: Threat log — dead backend endpoint, always empty
+  const [threats] = useState<ThreatEntry[]>([]);
+  const [threatsLoading] = useState(false);
 
   // Section D: Audit export
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [exportFormat, setExportFormat] = useState<"json" | "csv">("json");
   const [exporting, setExporting] = useState(false);
-  const [summary, setSummary] = useState<AuditSummary | null>(null);
+  const [summary] = useState<AuditSummary | null>(null);
 
   // Load saved preferences
   useEffect(() => {
@@ -107,7 +109,11 @@ export function SecuritySection() {
       const dp = memory.preferences.defaultAgentPermissions;
       if (dp) setPermissions(dp as unknown as AgentPermissions);
 
-      const sp = memory.preferences.securityPreferences as any;
+      const sp = memory.preferences.securityPreferences as {
+        requireApproval?: boolean;
+        approvalTimeout?: number;
+        autoDenyOnTimeout?: boolean;
+      } | undefined;
       if (sp) {
         if (typeof sp.requireApproval === "boolean") setRequireApproval(sp.requireApproval);
         if (typeof sp.approvalTimeout === "number") setApprovalTimeout(sp.approvalTimeout);
@@ -116,57 +122,21 @@ export function SecuritySection() {
     }
   }, [memory]);
 
-  // Load threats
-  useEffect(() => {
-    loadThreats();
-    loadSummary();
-  }, []);
-
-  const loadThreats = useCallback(async () => {
-    try {
-      const res = await apiClient.get(API_ROUTES.audit.threats, { params: { limit: 20 } });
-      setThreats(res.data?.threats || []);
-    } catch {
-      // silent
-    } finally {
-      setThreatsLoading(false);
-    }
-  }, []);
-
-  const loadSummary = useCallback(async () => {
-    try {
-      const res = await apiClient.get(API_ROUTES.audit.summary);
-      setSummary(res.data);
-    } catch {
-      // silent
-    }
-  }, []);
-
+  // handleSave: /memory/preferences is a dead backend endpoint — this is a no-op.
+  // FLAG: live save button calls dead backend route /memory/preferences.
   const handleSave = async () => {
     if (!isAuthenticated) return;
     setSaving(true);
     try {
-      const token = oxyServices.getAccessToken();
-      const authHeaders: Record<string, string> = { "Content-Type": "application/json" };
-      if (token) authHeaders["Authorization"] = `Bearer ${token}`;
-
-      const res = await fetch(generateAPIUrl("/memory/preferences"), {
-        method: "PUT",
-        headers: authHeaders,
-        body: JSON.stringify({
-          ...memory?.preferences,
-          defaultAgentPermissions: permissions,
-          securityPreferences: { requireApproval, approvalTimeout, autoDenyOnTimeout },
-        }),
+      const updated = await client.put<UserMemory>('/memory/preferences', {
+        ...memory?.preferences,
+        defaultAgentPermissions: permissions,
+        securityPreferences: { requireApproval, approvalTimeout, autoDenyOnTimeout },
       });
-
-      if (res.ok) {
-        const updated = await res.json();
+      if (updated) {
         setMemory(updated);
-        toast.success(t("settings.saveSuccess"));
-      } else {
-        toast.error(t("settings.saveFailed"));
       }
+      toast.success(t("settings.saveSuccess"));
     } catch {
       toast.error(t("settings.saveFailed"));
     } finally {
@@ -174,6 +144,8 @@ export function SecuritySection() {
     }
   };
 
+  // handleExport: /audit/export is a dead backend endpoint — this is a no-op.
+  // FLAG: export button calls dead backend route /audit/export.
   const handleExport = async () => {
     setExporting(true);
     try {
@@ -181,11 +153,11 @@ export function SecuritySection() {
       if (fromDate) params.from = fromDate;
       if (toDate) params.to = toDate;
 
-      const res = await apiClient.get(API_ROUTES.audit.export, { params });
+      const data = await client.get<unknown>('/audit/export', { params });
 
       const content = exportFormat === "json"
-        ? JSON.stringify(res.data, null, 2)
-        : res.data;
+        ? JSON.stringify(data, null, 2)
+        : String(data);
 
       if (Platform.OS === "web") {
         const blob = new Blob([content], {
@@ -307,16 +279,16 @@ export function SecuritySection() {
         ) : (
           <View className="gap-2">
             {threats.slice(0, 10).map((threat) => {
-              const SevIcon = SEVERITY_ICONS[threat.severity] || Info;
+              const SevIcon = SEVERITY_ICONS[threat.severity] ?? Info;
               return (
                 <View
                   key={threat.id}
-                  className={`flex-row items-start gap-2 p-3 rounded-lg ${SEVERITY_BG[threat.severity] || "bg-muted"}`}
+                  className={`flex-row items-start gap-2 p-3 rounded-lg ${SEVERITY_BG[threat.severity] ?? "bg-muted"}`}
                 >
-                  <SevIcon size={14} className={`mt-0.5 ${SEVERITY_COLORS[threat.severity]}`} />
+                  <SevIcon size={14} className={`mt-0.5 ${SEVERITY_COLORS[threat.severity] ?? ""}`} />
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between">
-                      <Text className={`text-xs font-semibold uppercase ${SEVERITY_COLORS[threat.severity]}`}>
+                      <Text className={`text-xs font-semibold uppercase ${SEVERITY_COLORS[threat.severity] ?? ""}`}>
                         {threat.severity}
                       </Text>
                       <Text className="text-xs text-muted-foreground">
@@ -418,7 +390,11 @@ export function SecuritySection() {
           if (memory?.preferences) {
             const dp = memory.preferences.defaultAgentPermissions;
             if (dp) setPermissions(dp as unknown as AgentPermissions);
-            const sp = memory.preferences.securityPreferences as any;
+            const sp = memory.preferences.securityPreferences as {
+              requireApproval?: boolean;
+              approvalTimeout?: number;
+              autoDenyOnTimeout?: boolean;
+            } | undefined;
             if (sp) {
               if (typeof sp.requireApproval === "boolean") setRequireApproval(sp.requireApproval);
               if (typeof sp.approvalTimeout === "number") setApprovalTimeout(sp.approvalTimeout);

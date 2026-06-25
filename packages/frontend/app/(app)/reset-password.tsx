@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthContainer, AuthLogo, AuthInput, AuthButton, AuthError } from '@/components/auth';
-import apiClient from '@/lib/api/client';
+import { useApiClient } from '@/lib/api/use-api-client';
 import { toast } from '@/components/sonner';
 import { useTranslation } from '@/hooks/useTranslation';
 
@@ -10,6 +10,7 @@ export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { token } = useLocalSearchParams<{ token: string }>();
+  const apiClient = useApiClient();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -55,9 +56,10 @@ export default function ResetPasswordScreen() {
 
       toast.success(t('resetPassword.successMessage'));
       router.replace('/login');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reset password error:', error);
-      const errorMessage = error.response?.data?.error || t('resetPassword.failedToReset');
+      const err = error as { message?: string };
+      const errorMessage = err.message || t('resetPassword.failedToReset');
       setError(errorMessage);
 
       toast.error(errorMessage);

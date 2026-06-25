@@ -1,9 +1,9 @@
-import crypto from 'crypto';
 import { Request, Response, NextFunction } from 'express';
 import { OxyServices } from '@oxyhq/core';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
+  verifySecret,
   type OxyRequestUser,
   type OxyServiceAppContext,
 } from '@oxyhq/core/server';
@@ -90,8 +90,7 @@ export function authenticateTokenOrApiKey(
 
   // Internal service auth (e.g., browse tool calling Clarity API as LLM)
   const serviceSecret = process.env.SERVICE_SECRET;
-  if (serviceSecret && token.length === serviceSecret.length &&
-      crypto.timingSafeEqual(Buffer.from(token), Buffer.from(serviceSecret))) {
+  if (serviceSecret && verifySecret(token, serviceSecret)) {
     req.userId = 'system';
     req.user = { id: 'system' };
     req.serviceApp = {
@@ -165,18 +164,8 @@ export async function authenticateTelegramBot(
       return;
     }
 
-    // Use crypto.timingSafeEqual to prevent timing attacks
-    const expectedBuffer = Buffer.from(expectedSecret);
-    const providedBuffer = Buffer.from(botSecret);
-
-    if (expectedBuffer.length !== providedBuffer.length) {
-      log.auth.warn({ ip: getClientIp(req) }, 'Invalid bot secret length');
-      res.status(401).json({ error: 'Invalid bot authentication' });
-      return;
-    }
-
-    const crypto = await import('crypto');
-    if (!crypto.timingSafeEqual(expectedBuffer, providedBuffer)) {
+    // Constant-time secret comparison to prevent timing attacks
+    if (!verifySecret(botSecret, expectedSecret)) {
       log.auth.warn({ ip: getClientIp(req) }, 'Invalid bot secret');
       res.status(401).json({ error: 'Invalid bot authentication' });
       return;

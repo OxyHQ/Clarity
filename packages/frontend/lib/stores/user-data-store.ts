@@ -11,7 +11,7 @@ interface Memory {
   updatedAt: string;
 }
 
-interface UserMemory {
+export interface UserMemory {
   memories: Memory[];
   preferences: {
     language?: string;

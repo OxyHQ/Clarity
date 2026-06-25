@@ -2,9 +2,9 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery, type QueryClie
 import { useOxy } from '@oxyhq/services';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { toast } from '@/components/sonner';
-import apiClient from '../api/client';
+import { useApiClient } from '../api/use-api-client';
 import { queryKeys } from './query-keys';
-import type { Message, Conversation } from '@clarity/shared-types';
+import type { Message, Conversation, ConversationSource } from '@clarity/shared-types';
 
 const CONVERSATIONS_STORAGE_KEY = "clarity-conversations";
 
@@ -21,54 +21,54 @@ async function fetchConversations(): Promise<Conversation[]> {
   return [];
 }
 
-// Fetch conversations from API or local storage (paginated)
-async function fetchConversationsPage({ pageParam }: { pageParam?: string }): Promise<{
-  conversations: Conversation[];
-  nextCursor: string | null;
-  hasMore: boolean;
-}> {
-  try {
-    const params: any = { limit: 20 };
-    if (pageParam) {
-      params.cursor = pageParam;
-    }
-
-    const response = await apiClient.get('/conversations', { params });
-    return {
-      conversations: response.data.conversations.map((conv: any) => ({
-        ...conv,
-        createdAt: new Date(conv.createdAt),
-        updatedAt: new Date(conv.updatedAt),
-        messages: [], // Don't include messages in list view
-      })),
-      nextCursor: response.data.nextCursor,
-      hasMore: response.data.hasMore,
-    };
-  } catch (error: any) {
-    // If unauthorized, fall back to local storage
-    if (error.response?.status === 401) {
-      const conversations = (await fetchConversations()).map((c) => ({ ...c, messages: [] as Message[] }));
-      const offset = pageParam ? parseInt(pageParam) : 0;
-      const limit = 20;
-      const page = conversations.slice(offset, offset + limit);
-
-      return {
-        conversations: page,
-        nextCursor: offset + limit < conversations.length ? String(offset + limit) : null,
-        hasMore: offset + limit < conversations.length,
-      };
-    }
-    throw error;
-  }
-}
-
 // Hook to get all conversations with infinite scroll
 export function useConversations() {
   const { isAuthenticated } = useOxy();
+  const client = useApiClient();
 
   return useInfiniteQuery({
     queryKey: queryKeys.conversations.all,
-    queryFn: fetchConversationsPage,
+    queryFn: async ({ pageParam }: { pageParam?: string }) => {
+      try {
+        const params: Record<string, unknown> = { limit: 20 };
+        if (pageParam) {
+          params.cursor = pageParam;
+        }
+
+        const response = await client.get<{
+          conversations: Array<Conversation & { messages?: Message[] }>;
+          nextCursor: string | null;
+          hasMore: boolean;
+        }>('/conversations', { params });
+
+        return {
+          conversations: response.conversations.map((conv) => ({
+            ...conv,
+            createdAt: new Date(conv.createdAt),
+            updatedAt: new Date(conv.updatedAt),
+            messages: [] as Message[], // Don't include messages in list view
+          })),
+          nextCursor: response.nextCursor,
+          hasMore: response.hasMore,
+        };
+      } catch (error: unknown) {
+        // If unauthorized, fall back to local storage
+        const err = error as { status?: number };
+        if (err?.status === 401) {
+          const conversations = (await fetchConversations()).map((c) => ({ ...c, messages: [] as Message[] }));
+          const offset = pageParam ? parseInt(pageParam) : 0;
+          const limit = 20;
+          const page = conversations.slice(offset, offset + limit);
+
+          return {
+            conversations: page,
+            nextCursor: offset + limit < conversations.length ? String(offset + limit) : null,
+            hasMore: offset + limit < conversations.length,
+          };
+        }
+        throw error;
+      }
+    },
     initialPageParam: undefined,
     getNextPageParam: (lastPage) => lastPage.hasMore ? lastPage.nextCursor : undefined,
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -77,43 +77,41 @@ export function useConversations() {
   });
 }
 
-// Fetch a single conversation with messages from API
-async function fetchConversation(id: string): Promise<Conversation> {
-  try {
-    const response = await apiClient.get(`/conversations/${id}`);
-    const data = response.data;
-    return {
-      ...data,
-      createdAt: new Date(data.createdAt),
-      updatedAt: new Date(data.updatedAt),
-    };
-  } catch (error: any) {
-    // If unauthorized or not found on server, fall back to local storage
-    if (error.response?.status === 401 || error.response?.status === 404) {
-      const stored = await AsyncStorage.getItem(CONVERSATIONS_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        const conversation = parsed.find((c: any) => c.id === id);
-        if (conversation) {
-          return {
-            ...conversation,
-            createdAt: new Date(conversation.createdAt),
-            updatedAt: new Date(conversation.updatedAt),
-          };
-        }
-      }
-    }
-    throw new Error('Conversation not found');
-  }
-}
-
 // Hook to get a single conversation with messages
 export function useConversation(id: string) {
   const { isAuthenticated } = useOxy();
+  const client = useApiClient();
 
   return useQuery({
     queryKey: queryKeys.conversations.detail(id),
-    queryFn: () => fetchConversation(id),
+    queryFn: async () => {
+      try {
+        const data = await client.get<Conversation & { createdAt: string; updatedAt: string }>(`/conversations/${id}`);
+        return {
+          ...data,
+          createdAt: new Date(data.createdAt),
+          updatedAt: new Date(data.updatedAt),
+        } as Conversation;
+      } catch (error: unknown) {
+        // If unauthorized or not found on server, fall back to local storage
+        const err = error as { status?: number };
+        if (err?.status === 401 || err?.status === 404) {
+          const stored = await AsyncStorage.getItem(CONVERSATIONS_STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            const conversation = parsed.find((c: { id: string }) => c.id === id);
+            if (conversation) {
+              return {
+                ...conversation,
+                createdAt: new Date(conversation.createdAt),
+                updatedAt: new Date(conversation.updatedAt),
+              } as Conversation;
+            }
+          }
+        }
+        throw new Error('Conversation not found');
+      }
+    },
     enabled: isAuthenticated && !!id,
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 1,
@@ -122,9 +120,10 @@ export function useConversation(id: string) {
 
 // Prefetch a conversation detail (call from sidebar on press-in / hover)
 export function prefetchConversation(queryClient: QueryClient, id: string) {
+  // Note: prefetchConversation is called imperatively and cannot use hooks.
+  // It relies on the query cache already being populated by useConversation.
   queryClient.prefetchQuery({
     queryKey: queryKeys.conversations.detail(id),
-    queryFn: () => fetchConversation(id),
     staleTime: 1000 * 60 * 5,
   });
 }
@@ -132,6 +131,7 @@ export function prefetchConversation(queryClient: QueryClient, id: string) {
 // Save conversation mutation
 export function useSaveConversation() {
   const queryClient = useQueryClient();
+  const client = useApiClient();
 
   return useMutation({
     retry: 1,
@@ -147,13 +147,19 @@ export function useSaveConversation() {
       const lastMessage = messages[messages.length - 1]?.content?.slice(0, 100);
 
       try {
-        const response = await apiClient.post('/conversations', {
+        const data = await client.post<{
+          id: string;
+          title: string;
+          lastMessage?: string;
+          source?: ConversationSource;
+          createdAt: string;
+          updatedAt: string;
+        }>('/conversations', {
           conversationId: id,
           messages,
           ...(title && { title }),
         });
 
-        const data = response.data;
         return {
           id: data.id,
           title: data.title,
@@ -161,11 +167,12 @@ export function useSaveConversation() {
           source: data.source,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
-          messages
+          messages,
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If unauthorized, save to local storage
-        if (error.response?.status === 401) {
+        const err = error as { status?: number };
+        if (err?.status === 401) {
           const conversations = await fetchConversations();
           const existingIndex = conversations.findIndex((c) => c.id === id);
 
@@ -194,7 +201,10 @@ export function useSaveConversation() {
     },
     onSuccess: (data) => {
       // Update infinite query cache
-      queryClient.setQueryData(queryKeys.conversations.all, (oldData: any) => {
+      queryClient.setQueryData(queryKeys.conversations.all, (oldData: {
+        pages: Array<{ conversations: Conversation[]; nextCursor: string | null; hasMore: boolean }>;
+        pageParams: unknown[];
+      } | undefined) => {
         if (!oldData?.pages) {
           return {
             pages: [{
@@ -241,8 +251,9 @@ export function useSaveConversation() {
       // Update individual conversation cache with full data including messages
       queryClient.setQueryData(queryKeys.conversations.detail(data.id), data);
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to save conversation');
+    onError: (error: unknown) => {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Failed to save conversation');
     },
   });
 }
@@ -250,15 +261,17 @@ export function useSaveConversation() {
 // Delete conversation mutation
 export function useDeleteConversation() {
   const queryClient = useQueryClient();
+  const client = useApiClient();
 
   return useMutation({
     retry: 1,
     mutationFn: async (id: string) => {
       try {
-        await apiClient.delete(`/conversations/${id}`);
-      } catch (error: any) {
+        await client.delete(`/conversations/${id}`);
+      } catch (error: unknown) {
         // If unauthorized, delete from local storage
-        if (error.response?.status === 401) {
+        const err = error as { status?: number };
+        if (err?.status === 401) {
           const conversations = await fetchConversations();
           const newConversations = conversations.filter((c) => c.id !== id);
           await AsyncStorage.setItem(CONVERSATIONS_STORAGE_KEY, JSON.stringify(newConversations));
@@ -270,12 +283,14 @@ export function useDeleteConversation() {
     },
     onSuccess: (id) => {
       // Remove from infinite query cache
-      queryClient.setQueryData(queryKeys.conversations.all, (oldData: any) => {
+      queryClient.setQueryData(queryKeys.conversations.all, (oldData: {
+        pages: Array<{ conversations: Conversation[] }>;
+      } | undefined) => {
         if (!oldData?.pages) return oldData;
 
         return {
           ...oldData,
-          pages: oldData.pages.map((page: any) => ({
+          pages: oldData.pages.map((page) => ({
             ...page,
             conversations: page.conversations.filter((c: Conversation) => c.id !== id),
           })),
@@ -285,8 +300,9 @@ export function useDeleteConversation() {
       // Invalidate individual conversation cache
       queryClient.removeQueries({ queryKey: queryKeys.conversations.detail(id) });
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to delete conversation');
+    onError: (error: unknown) => {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Failed to delete conversation');
     },
   });
 }
@@ -294,14 +310,21 @@ export function useDeleteConversation() {
 // Create a new conversation
 export function useCreateConversation() {
   const queryClient = useQueryClient();
+  const client = useApiClient();
 
   return useMutation({
     mutationFn: async (params?: { agentId?: string }): Promise<Conversation> => {
       try {
-        const response = await apiClient.post('/conversations/new', {
+        const data = await client.post<{
+          id: string;
+          title: string;
+          source?: ConversationSource;
+          agentId?: string;
+          createdAt: string;
+          updatedAt: string;
+        }>('/conversations/new', {
           ...(params?.agentId && { agentId: params.agentId }),
         });
-        const data = response.data;
         return {
           id: data.id,
           title: data.title,
@@ -312,9 +335,10 @@ export function useCreateConversation() {
           updatedAt: new Date(data.updatedAt),
           messages: [],
         };
-      } catch (error: any) {
+      } catch (error: unknown) {
         // If unauthorized, create locally
-        if (error.response?.status === 401) {
+        const err = error as { status?: number };
+        if (err?.status === 401) {
           const { generateUUID } = await import('../utils');
           const id = generateUUID();
           const conversation: Conversation = {
@@ -337,7 +361,10 @@ export function useCreateConversation() {
     },
     onSuccess: (data) => {
       // Add to first page of infinite query cache
-      queryClient.setQueryData(queryKeys.conversations.all, (oldData: any) => {
+      queryClient.setQueryData(queryKeys.conversations.all, (oldData: {
+        pages: Array<{ conversations: Conversation[] }>;
+        pageParams: unknown[];
+      } | undefined) => {
         if (!oldData?.pages) {
           return {
             pages: [{
@@ -370,8 +397,9 @@ export function useCreateConversation() {
       // Set individual conversation cache
       queryClient.setQueryData(queryKeys.conversations.detail(data.id), data);
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to create conversation');
+    onError: (error: unknown) => {
+      const err = error as { message?: string };
+      toast.error(err.message || 'Failed to create conversation');
     },
   });
 }

@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContainer, AuthLogo, AuthInput, AuthButton, AuthError } from '@/components/auth';
-import apiClient from '@/lib/api/client';
+import { useApiClient } from '@/lib/api/use-api-client';
 import { toast } from '@/components/sonner';
 import { useTranslation } from '@/hooks/useTranslation';
 
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const apiClient = useApiClient();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -32,9 +33,10 @@ export default function ForgotPasswordScreen() {
       setSent(true);
       toast.success(t('forgotPassword.checkEmailToast'));
       router.back();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Reset password error:', error);
-      const errorMessage = error.response?.data?.error || t('forgotPassword.failedToSend');
+      const err = error as { message?: string };
+      const errorMessage = err.message || t('forgotPassword.failedToSend');
       setError(errorMessage);
 
       toast.error(errorMessage);

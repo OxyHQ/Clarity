@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxyhq/services';
-import apiClient from '../api/client';
+import { useApiClient } from '../api/use-api-client';
 import { queryKeys } from './query-keys';
 import { useAuthQuery } from './create-query';
 
@@ -80,17 +80,16 @@ export interface Transaction {
 // Credit Packages
 // ======================
 
-async function fetchPackages(): Promise<CreditPackage[]> {
-  const response = await apiClient.get('/billing/packages');
-  return response.data.packages;
-}
-
 export function useCreditPackages() {
   const { isAuthenticated } = useOxy();
+  const client = useApiClient();
 
   return useQuery({
     queryKey: queryKeys.billing.packages,
-    queryFn: fetchPackages,
+    queryFn: async () => {
+      const data = await client.get<{ packages: CreditPackage[] }>('/billing/packages');
+      return data.packages;
+    },
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 2,
     enabled: isAuthenticated,
@@ -101,18 +100,17 @@ export function useCreditPackages() {
 // Subscription Plans
 // ======================
 
-async function fetchPlans(product?: 'clarity' | 'codea'): Promise<SubscriptionPlan[]> {
-  const params = product ? `?product=${product}` : '';
-  const response = await apiClient.get(`/billing/plans${params}`);
-  return response.data.plans;
-}
-
 export function useSubscriptionPlans(product?: 'clarity' | 'codea') {
   const { isAuthenticated } = useOxy();
+  const client = useApiClient();
 
   return useQuery({
     queryKey: queryKeys.billing.plans(product),
-    queryFn: () => fetchPlans(product),
+    queryFn: async () => {
+      const params = product ? `?product=${product}` : '';
+      const data = await client.get<{ plans: SubscriptionPlan[] }>(`/billing/plans${params}`);
+      return data.plans;
+    },
     staleTime: 1000 * 60 * 5, // 5 minutes
     retry: 2,
     enabled: isAuthenticated,
@@ -123,18 +121,17 @@ export function useSubscriptionPlans(product?: 'clarity' | 'codea') {
 // Current Subscription
 // ======================
 
-async function fetchSubscription(product?: 'clarity' | 'codea'): Promise<Subscription | null> {
-  const params = product ? `?product=${product}` : '';
-  const response = await apiClient.get(`/billing/subscription${params}`);
-  return response.data.subscription;
-}
-
 export function useSubscription(product?: 'clarity' | 'codea') {
   const { isAuthenticated } = useOxy();
+  const client = useApiClient();
 
   return useQuery({
     queryKey: queryKeys.billing.subscription(product),
-    queryFn: () => fetchSubscription(product),
+    queryFn: async () => {
+      const params = product ? `?product=${product}` : '';
+      const data = await client.get<{ subscription: Subscription | null }>(`/billing/subscription${params}`);
+      return data.subscription;
+    },
     staleTime: 1000 * 60 * 2, // 2 minutes
     retry: 2,
     enabled: isAuthenticated,
@@ -154,10 +151,15 @@ export function useSubscriptionPolling(
   options?: { enabled?: boolean; intervalMs?: number; maxAttempts?: number }
 ) {
   const { enabled = false, intervalMs = 2000, maxAttempts = 15 } = options || {};
+  const client = useApiClient();
 
   return useQuery({
     queryKey: queryKeys.billing.subscriptionPoll(product),
-    queryFn: () => fetchSubscription(product),
+    queryFn: async () => {
+      const params = product ? `?product=${product}` : '';
+      const data = await client.get<{ subscription: Subscription | null }>(`/billing/subscription${params}`);
+      return data.subscription;
+    },
     enabled,
     refetchInterval: (query) => {
       const data = query.state.data;
@@ -192,8 +194,9 @@ export function useTransactions(limit: number = 20, offset: number = 0) {
 // ======================
 
 export function useCreateCheckout() {
+  const client = useApiClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       packageId,
       successUrl,
       cancelUrl,
@@ -201,20 +204,15 @@ export function useCreateCheckout() {
       packageId: string;
       successUrl: string;
       cancelUrl: string;
-    }) => {
-      const response = await apiClient.post('/billing/checkout/credits', {
-        packageId,
-        successUrl,
-        cancelUrl,
-      });
-      return response.data;
-    },
+    }) =>
+      client.post<{ url: string }>('/billing/checkout/credits', { packageId, successUrl, cancelUrl }),
   });
 }
 
 export function useCreateCustomCheckout() {
+  const client = useApiClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       credits,
       successUrl,
       cancelUrl,
@@ -222,14 +220,8 @@ export function useCreateCustomCheckout() {
       credits: number;
       successUrl: string;
       cancelUrl: string;
-    }) => {
-      const response = await apiClient.post('/billing/checkout/custom-credits', {
-        credits,
-        successUrl,
-        cancelUrl,
-      });
-      return response.data;
-    },
+    }) =>
+      client.post<{ url: string }>('/billing/checkout/custom-credits', { credits, successUrl, cancelUrl }),
   });
 }
 
@@ -244,8 +236,9 @@ export function useCreditPrice() {
 }
 
 export function useCreateSubscriptionCheckout() {
+  const client = useApiClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       planId,
       billingPeriod,
       successUrl,
@@ -255,34 +248,26 @@ export function useCreateSubscriptionCheckout() {
       billingPeriod: 'monthly' | 'annual';
       successUrl: string;
       cancelUrl: string;
-    }) => {
-      const response = await apiClient.post('/billing/checkout/subscription', {
-        planId,
-        billingPeriod,
-        successUrl,
-        cancelUrl,
-      });
-      return response.data;
-    },
+    }) =>
+      client.post<{ url: string }>('/billing/checkout/subscription', { planId, billingPeriod, successUrl, cancelUrl }),
   });
 }
 
 export function useChangePlan() {
   const queryClient = useQueryClient();
+  const client = useApiClient();
   return useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       planId,
       billingPeriod,
     }: {
       planId: string;
       billingPeriod: 'monthly' | 'annual';
-    }) => {
-      const response = await apiClient.post('/billing/subscription/change-plan', {
-        planId,
-        billingPeriod,
-      });
-      return response.data as { subscription: Subscription; direction: 'upgrade' | 'downgrade' };
-    },
+    }) =>
+      client.post<{ subscription: Subscription; direction: 'upgrade' | 'downgrade' }>(
+        '/billing/subscription/change-plan',
+        { planId, billingPeriod },
+      ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.entitlements });
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription() });
@@ -292,11 +277,9 @@ export function useChangePlan() {
 
 export function useCancelSubscription() {
   const queryClient = useQueryClient();
+  const client = useApiClient();
   return useMutation({
-    mutationFn: async () => {
-      const response = await apiClient.post('/billing/subscription/cancel');
-      return response.data;
-    },
+    mutationFn: () => client.post('/billing/subscription/cancel'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.entitlements });
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription() });
@@ -305,10 +288,11 @@ export function useCancelSubscription() {
 }
 
 export function useCreatePortalSession() {
+  const client = useApiClient();
   return useMutation({
     mutationFn: async (returnUrl: string) => {
-      const response = await apiClient.post('/billing/portal', { returnUrl });
-      return response.data.url;
+      const data = await client.post<{ url: string }>('/billing/portal', { returnUrl });
+      return data.url;
     },
   });
 }

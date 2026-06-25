@@ -35,7 +35,7 @@ export const WelcomeMessage = ({ onSuggestionPress }: WelcomeMessageProps) => {
   const timeOfDay = useMemo(() => getTimeOfDay(), []);
   const pairIndex = useMemo(() => Math.floor(Math.random() * PAIRS_COUNT), []);
 
-  const userName = user?.name?.first || user?.username || user?.email?.split('@')[0] || "there";
+  const userName = user?.name?.displayName || "there";
   const greeting = isAuthenticated
     ? t(`welcome.${timeOfDay}Greetings.${pairIndex}`, { name: userName })
     : t('welcome.appName');

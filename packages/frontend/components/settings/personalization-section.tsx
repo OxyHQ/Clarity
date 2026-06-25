@@ -3,7 +3,7 @@ import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useOxy } from "@oxyhq/services";
-import { generateAPIUrl } from "@/lib/generate-api-url";
+import { useApiClient } from "@/lib/api/use-api-client";
 import {
   Globe,
   MapPin,
@@ -16,6 +16,7 @@ import {
 import { PersonalityStylePicker } from "./personality-style-picker";
 import { useUserData } from "@/hooks/useUserData";
 import { useUserDataStore } from "@/lib/stores/user-data-store";
+import type { UserMemory } from "@/lib/stores/user-data-store";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/hooks/useTranslation";
 import { toast } from "@/components/sonner";
@@ -36,7 +37,8 @@ const LANGUAGES = [
 ];
 
 export function PersonalizationSection() {
-  const { isAuthenticated, oxyServices } = useOxy();
+  const { isAuthenticated } = useOxy();
+  const client = useApiClient();
   const { memory } = useUserData();
   const setMemory = useUserDataStore((state) => state.setMemory);
   const [saving, setSaving] = useState(false);
@@ -74,46 +76,32 @@ export function PersonalizationSection() {
     }
   };
 
+  // FLAG: /memory/preferences and /memory/context are dead backend endpoints.
+  // This save is a no-op on the backend until those routes are implemented.
   const handleSave = async () => {
     if (!isAuthenticated) return;
 
     setSaving(true);
     try {
-      const token = oxyServices.getAccessToken();
-      const authHeaders: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) authHeaders["Authorization"] = `Bearer ${token}`;
-
-      const prefRes = await fetch(generateAPIUrl("/memory/preferences"), {
-        method: "PUT",
-        headers: authHeaders,
-        body: JSON.stringify({
-          language,
-          tone,
-          voice,
-          interests: interests
-            .split(",")
-            .map((i) => i.trim())
-            .filter(Boolean),
-        }),
+      await client.put('/memory/preferences', {
+        language,
+        tone,
+        voice,
+        interests: interests
+          .split(",")
+          .map((i) => i.trim())
+          .filter(Boolean),
       });
 
-      const contextRes = await fetch(generateAPIUrl("/memory/context"), {
-        method: "PUT",
-        headers: authHeaders,
-        body: JSON.stringify({ occupation, location, bio }),
+      const updatedMemory = await client.put<UserMemory>('/memory/context', {
+        occupation,
+        location,
+        bio,
       });
 
-      if (prefRes.ok && contextRes.ok) {
-        const updatedMemory = await contextRes.json();
-        setMemory(updatedMemory);
-        toast.success(t("settings.saveSuccess"));
-      } else {
-        toast.error(t("settings.saveFailed"));
-      }
-    } catch (error) {
-      console.error("Error saving memory:", error);
+      setMemory(updatedMemory);
+      toast.success(t("settings.saveSuccess"));
+    } catch {
       toast.error(t("settings.saveFailed"));
     } finally {
       setSaving(false);

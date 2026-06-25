@@ -1,8 +1,19 @@
-import { Server } from 'socket.io';
+import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import http from 'http';
 import { getRedisClient, getRedisSubClient } from './lib/redis.js';
 import { log } from './lib/logger.js';
+import { oxyClient } from './middleware/auth.js';
+
+/** Authenticated user context attached by oxyClient.authSocket() */
+interface AuthenticatedUser {
+  id: string;
+  userId: string;
+  sessionId?: string | null;
+}
+
+/** Socket.IO Socket augmented with auth user */
+type AuthenticatedSocket = Socket & { user?: AuthenticatedUser };
 
 const ALLOWED_ORIGINS = [
   process.env.WEB_URL || 'http://localhost:3000',
@@ -36,39 +47,59 @@ export function initSocket(server: http.Server) {
         log.general.warn({ err }, 'Socket.IO Redis adapter failed — using in-memory');
       });
   }
-  io.on('connection', (socket) => {
+
+  // Require valid Oxy JWT for all socket connections.
+  // Sets socket.user = { id, userId, sessionId } on the socket before 'connection' fires.
+  io.use(oxyClient.authSocket());
+
+  io.on('connection', (rawSocket) => {
+    const socket = rawSocket as AuthenticatedSocket;
+
+    // subscribe-telegram-token: short-lived linking token — requires auth for consistency
     socket.on('subscribe-telegram-token', (token: string) => {
+      if (!socket.user?.id) return;
       if (typeof token !== 'string' || token.length > 256) return;
       socket.join(`telegram-token:${token}`);
     });
 
+    // subscribe-workflow: authenticated sockets only; no additional ownership check
+    // (workflow IDs are server-generated UUIDs — no practical guessability risk)
     socket.on('subscribe-workflow', (executionId: string) => {
+      if (!socket.user?.id) return;
       if (typeof executionId !== 'string' || executionId.length > 256) return;
       socket.join(`workflow:${executionId}`);
     });
 
+    // subscribe-canvas: authenticated sockets only
     socket.on('subscribe-canvas', (conversationId: string) => {
+      if (!socket.user?.id) return;
       if (typeof conversationId !== 'string' || conversationId.length > 256) return;
       socket.join(`canvas:${conversationId}`);
     });
 
+    // subscribe-agent: authenticated sockets only
     socket.on('subscribe-agent', (agentId: string) => {
+      if (!socket.user?.id) return;
       if (typeof agentId !== 'string' || agentId.length > 256) return;
       socket.join(`agent:${agentId}`);
     });
 
+    // subscribe-agent-session: authenticated sockets only
     socket.on('subscribe-agent-session', (sessionId: string) => {
+      if (!socket.user?.id) return;
       if (typeof sessionId !== 'string' || sessionId.length > 256) return;
       socket.join(`agent-session:${sessionId}`);
     });
 
-    socket.on('subscribe-notifications', (userId: string) => {
-      if (typeof userId !== 'string' || userId.length > 256) return;
-      socket.join(`user:${userId}`);
+    // subscribe-notifications: derive room from the authenticated user — ignore client-supplied userId
+    socket.on('subscribe-notifications', (_userId: string) => {
+      if (!socket.user?.id) return;
+      socket.join(`user:${socket.user.id}`);
     });
 
     // Agent action approval response from user
     socket.on('agent-approval-response', async (data: { requestId: string; sessionId: string; approved: boolean; alwaysAllow?: boolean }) => {
+      if (!socket.user?.id) return;
       if (!data?.requestId || typeof data.sessionId !== 'string') return;
 
       // Mirror to the session room for real-time client updates.

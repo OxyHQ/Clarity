@@ -36,7 +36,7 @@ import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
 import { ResearchProgressCard } from "@/lib/sdk";
 import type { ResearchProgress as ResearchProgressData } from "@/lib/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
-import apiClient from "@/lib/api/client";
+import { useApiClient } from "@/lib/api/use-api-client";
 import { useTranslation } from "@/hooks/useTranslation";
 
 const isWeb = Platform.OS === "web";
@@ -544,6 +544,7 @@ export const ChatInterface = React.memo(function ChatInterface({
   const openThoughtPanel = useUIStore((s) => s.openThoughtPanel);
   const setThoughtMessages = useUIStore((s) => s.setThoughtMessages);
   const chatId = useStore((s) => s.chatId);
+  const apiClient = useApiClient();
 
   const { isAtBottom, onScroll, onContentSizeChange } = useScrollToBottom(scrollViewRef);
 
@@ -603,7 +604,7 @@ export const ChatInterface = React.memo(function ChatInterface({
         })
         .finally(() => voteInFlightRef.current.delete(messageId));
     },
-    [chatId, t]
+    [chatId, t, apiClient]
   );
 
   // Auto-scroll on new messages

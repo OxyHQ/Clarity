@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useOxy } from '@oxyhq/services';
-import apiClient from '../api/client';
+import { useApiClient } from '../api/use-api-client';
 import { queryKeys } from './query-keys';
 import { useAuthQuery } from './create-query';
 
@@ -67,14 +67,15 @@ interface AnalyticsData {
 export function useAnalytics(period: UsagePeriod = '24h') {
   const days = PERIOD_DAYS[period];
   const { isAuthenticated } = useOxy();
+  const client = useApiClient();
   return useQuery({
     queryKey: queryKeys.credits.analytics(period),
     queryFn: async () => {
       const [u, m] = await Promise.all([
-        apiClient.get('/analytics/usage', { params: { days } }),
-        apiClient.get('/analytics/models', { params: { days } }),
+        client.get<{ usage: UsageDay[] }>('/analytics/usage', { params: { days } }),
+        client.get<{ models: ModelUsage[] }>('/analytics/models', { params: { days } }),
       ]);
-      return { usage: u.data.usage, models: m.data.models } as AnalyticsData;
+      return { usage: u.usage, models: m.models } as AnalyticsData;
     },
     staleTime: 60_000,
     retry: 2,

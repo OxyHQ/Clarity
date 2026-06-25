@@ -1,3 +1,5 @@
+// FLAG: Uses raw expoFetch (expo/fetch) for SSE streaming — cannot use HttpService/linked client.
+// Bearer token is fetched via oxyServices.getAccessToken() inside the function.
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetch as expoFetch } from 'expo/fetch';
 import * as Haptics from 'expo-haptics';
