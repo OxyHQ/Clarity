@@ -44,7 +44,7 @@ All Oxy ecosystem apps share the same MongoDB cluster on DigitalOcean. Each app 
 
 - **Frontend**: Expo 55, React Native 0.83, TypeScript, NativeWind (Tailwind), Reanimated v4, Zustand, TanStack Query
 - **Backend**: Express, TypeScript, MongoDB/Mongoose, Socket.IO
-- **Auth**: `@oxyhq/core ^3.10.0`, `@oxyhq/services ^11.0.0`, `@oxyhq/bloom ^0.19.1`, `@oxyhq/contracts ^0.2.1` (OxyProvider, useAuth, OxySignInButton)
+- **Auth**: `@oxyhq/core ^3.11.0`, `@oxyhq/services ^11.1.0`, `@oxyhq/bloom ^0.19.1`, `@oxyhq/contracts ^0.3.0` (OxyProvider, useAuth, OxySignInButton)
 - **Routing**: expo-router (file-based)
 
 ## Search-First Architecture
@@ -58,7 +58,7 @@ Clarity is an AI-powered search engine by Oxy. Key principles:
 
 ## Oxy SDK Conventions
 
-- **Versions**: `@oxyhq/core ^3.10.0`, `@oxyhq/services ^11.0.0`, `@oxyhq/bloom ^0.19.1`, `@oxyhq/contracts ^0.2.1` (transitive via core). `@oxyhq/services ^11.0.0` is a packaging-only major — deps moved to peerDependencies; app must declare TanStack Query peers.
+- **Versions**: `@oxyhq/core ^3.11.0`, `@oxyhq/services ^11.1.0`, `@oxyhq/bloom ^0.19.1`, `@oxyhq/contracts ^0.3.0` (transitive via core). **3.11.0 / services 11.1.0:** self-sovereign identity layer (did:web, signed records, export, domain verify) + "Sign in with Oxy" (shared-keychain SSO + cross-device QR/deep-link handoff via `Commons by Oxy`). **Accounts is now keyless "Accounts by Oxy"** (management-only; identity creation moved to Commons). `@oxyhq/services ^11.0.0` was a packaging-only major — deps moved to peerDependencies; app must declare TanStack Query peers.
 - **Media**: avatars/images resolve ONLY through `oxyServices.getFileDownloadUrl(id, variant)` + bloom's variant-aware `<Avatar source={fileId} variant="thumb">`. Never hardcode `cloud.oxy.so` or `/media/` URLs.
 - **Display names**: render `name.displayName` directly (core 3.10 fixes the type under node resolution). No local name fallbacks.
 - **Backend auth**: `@oxyhq/core/server` only — `createOxyAuthMiddleware`/`getRequiredOxyUserId`/`authSocket`. No local `requireAuth`, bearer parsers, or token-decoding middleware.
