@@ -111,7 +111,7 @@ export async function runDeepResearch(
           try {
             const searchResult = await webSearchTool.execute(
               { query: q },
-              { messages: [], toolCallId: `research-${totalSearches}`, abortSignal: signal },
+              { messages: [], toolCallId: `research-${totalSearches}`, abortSignal: signal, context: undefined },
             );
             if ('results' in searchResult && searchResult.results) {
               for (const result of searchResult.results.slice(0, MAX_SOURCES_PER_QUERY)) {
@@ -168,7 +168,7 @@ export async function runDeepResearch(
     for (const gap of gaps.slice(0, 3)) {
       totalSearches++;
       try {
-        const searchResult = await webSearchTool.execute({ query: gap }, { messages: [], toolCallId: `followup-${totalSearches}`, abortSignal: signal });
+        const searchResult = await webSearchTool.execute({ query: gap }, { messages: [], toolCallId: `followup-${totalSearches}`, abortSignal: signal, context: undefined });
         if ('results' in searchResult && searchResult.results) {
           for (const result of searchResult.results.slice(0, 3)) {
             sourceTracker.add(result.url, result.title, result.snippet, gap);

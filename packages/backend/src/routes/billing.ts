@@ -24,7 +24,7 @@ function getStripe(): Stripe {
       throw new Error('STRIPE_SECRET_KEY is not defined');
     }
     stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2026-02-25.clover',
+      apiVersion: '2026-06-24.dahlia',
     });
   }
   return stripeInstance;
@@ -131,7 +131,7 @@ router.post('/checkout/credits', authenticateToken, async (req: Request, res: Re
     res.json({ sessionId: session.id, url: session.url });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return res.status(400).json({ error: 'Invalid input', details: error.issues });
     }
     log.credits.error({ err: error }, 'Error creating checkout session');
     res.status(500).json({ error: getSafeErrorMessage(error, 'Failed to create checkout session') });
@@ -190,7 +190,7 @@ router.post('/checkout/custom-credits', authenticateToken, async (req: Request, 
     res.json({ sessionId: session.id, url: session.url });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return res.status(400).json({ error: 'Invalid input', details: error.issues });
     }
     log.credits.error({ err: error }, 'Error creating custom credits checkout');
     res.status(500).json({ error: getSafeErrorMessage(error, 'Failed to create custom credits checkout') });
@@ -371,7 +371,7 @@ router.post('/checkout/subscription', authenticateToken, async (req: Request, re
     res.json({ sessionId: session.id, url: session.url });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return res.status(400).json({ error: 'Invalid input', details: error.issues });
     }
     log.credits.error({ err: error }, 'Error creating subscription checkout');
     res.status(500).json({ error: getSafeErrorMessage(error, 'Failed to create subscription checkout') });
@@ -521,7 +521,7 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
     res.json({ message: 'Plan changed successfully', subscription, direction });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: 'Invalid input', details: error.errors });
+      return res.status(400).json({ error: 'Invalid input', details: error.issues });
     }
     log.credits.error({ err: error }, 'Error changing plan');
     res.status(500).json({ error: getSafeErrorMessage(error, 'Failed to change plan') });
