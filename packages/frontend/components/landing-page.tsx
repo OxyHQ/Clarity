@@ -128,7 +128,7 @@ function BlinkingCursor() {
   }));
 
   return (
-    <Animated.View style={[{ display: "inline-flex" as any }, animStyle]}>
+    <Animated.View className="inline-flex" style={animStyle}>
       <Text className="text-base text-primary font-light">|</Text>
     </Animated.View>
   );
@@ -279,7 +279,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
   // Auth redirect
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      router.replace((returnTo || "/") as any);
+      router.replace(returnTo || "/");
     }
   }, [isAuthenticated, isLoading]);
 

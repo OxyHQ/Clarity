@@ -72,9 +72,9 @@ export async function runPendingMigrations(): Promise<void> {
   const col = await getMigrationCollection();
 
   // Simple advisory lock: try to claim the lock
-  const lockCol = mongoose.connection.db!.collection('_migration_lock');
+  const lockCol = mongoose.connection.db!.collection<{ _id: string; locked: boolean; lockedAt?: Date }>('_migration_lock');
   const lockResult = await lockCol.findOneAndUpdate(
-    { _id: 'migration_lock' as any, locked: false },
+    { _id: 'migration_lock', locked: false },
     { $set: { locked: true, lockedAt: new Date() } },
     { upsert: true, returnDocument: 'after' },
   ).catch(() => null);
@@ -112,7 +112,7 @@ export async function runPendingMigrations(): Promise<void> {
   } finally {
     // Release the lock
     await lockCol.updateOne(
-      { _id: 'migration_lock' as any },
+      { _id: 'migration_lock' },
       { $set: { locked: false } },
     ).catch(() => {});
   }

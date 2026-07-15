@@ -14,7 +14,7 @@ export default function AuthorizeCodeaScreen() {
       if (value) urlParams.set(key, value as string);
     });
 
-    router.replace(`/authorize?${urlParams.toString()}` as any);
+    router.replace(`/authorize?${urlParams.toString()}`);
   }, [params, router]);
 
   return null;

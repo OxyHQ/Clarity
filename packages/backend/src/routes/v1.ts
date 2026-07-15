@@ -56,8 +56,8 @@ router.get('/me', async (req: Request, res: Response) => {
 
     res.json({
       id: userId,
-      email: (req.user as any)?.email || '',
-      name: (req.user as any)?.displayName || (req.user as any)?.email || '',
+      email: req.user?.email || '',
+      name: req.user?.displayName || req.user?.email || '',
       credits: {
         free: userCredits.credits.free,
         paid: userCredits.credits.paid,

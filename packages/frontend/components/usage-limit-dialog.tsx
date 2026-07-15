@@ -57,12 +57,12 @@ export function UsageLimitDialog({ error, onDismiss }: UsageLimitDialogProps) {
 
   const handleUpgrade = () => {
     onDismiss();
-    router.push('/(biglayout)/subscribe' as any);
+    router.push('/(biglayout)/subscribe');
   };
 
   const handleBuyCredits = () => {
     onDismiss();
-    router.push('/(app)/settings/usage' as any);
+    router.push('/(app)/settings/usage');
   };
 
   // Title

@@ -82,18 +82,19 @@ export const grokVoiceProvider: VoiceProvider = {
               },
               temperature: config.temperature !== undefined ? config.temperature : 0.8,
               max_response_output_tokens: 4096,
+              // Include tools when provided
+              ...(config.tools && config.tools.length > 0
+                ? {
+                    tools: config.tools.map(tool => ({
+                      type: tool.type,
+                      name: tool.function.name,
+                      description: tool.function.description,
+                      parameters: tool.function.parameters,
+                    })),
+                  }
+                : {}),
             }
           };
-
-          // Add tools if provided
-          if (config.tools && config.tools.length > 0) {
-            (sessionConfig.session as any).tools = config.tools.map(tool => ({
-              type: tool.type,
-              name: tool.function.name,
-              description: tool.function.description,
-              parameters: tool.function.parameters,
-            }));
-          }
 
           ws.send(JSON.stringify(sessionConfig));
           log.providers.info({ model }, '[Voice] Sent Grok session configuration');

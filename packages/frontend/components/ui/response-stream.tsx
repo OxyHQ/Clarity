@@ -116,7 +116,9 @@ function useTextStream({
           );
           return;
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[response-stream] Intl.Segmenter unavailable, falling back to whitespace split', e);
+      }
       // Fallback: split on whitespace
       setSegments(
         text

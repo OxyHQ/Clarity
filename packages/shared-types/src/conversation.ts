@@ -44,6 +44,50 @@ export type MessageSpeaker = 'primary' | 'cohost';
 export type MessageVote = 'up' | 'down';
 
 /**
+ * Incremental deep-research progress attached to an assistant message while a
+ * research run is in flight (mirrors the `clarity.research_progress` SSE event).
+ */
+export interface MessageResearchProgress {
+  phase?: string;
+  message?: string;
+  subQuestions?: string[];
+  sourcesFound?: number;
+  currentQuery?: string;
+  iteration?: number;
+  isComplete?: boolean;
+}
+
+/** A single step of an agent execution plan awaiting user approval. */
+export interface PlanStep {
+  title?: string;
+  description?: string;
+}
+
+/** Plan preview attached to an assistant message, awaiting user approval. */
+export interface PendingPlan {
+  planId: string;
+  steps: PlanStep[];
+  approved: boolean;
+  rejected: boolean;
+}
+
+/** Tool-execution approval request attached to an assistant message. */
+export interface PendingApproval {
+  requestId: string;
+  toolName: string;
+  description?: string;
+  severity?: string;
+  timeout?: number;
+  args?: unknown;
+}
+
+/** Resolution of a tool-execution approval request. */
+export interface PendingApprovalResult {
+  requestId: string;
+  decision: string;
+}
+
+/**
  * A single chat message DTO. Shared by the frontend chat UI and the backend
  * message model / API responses.
  */
@@ -64,6 +108,14 @@ export interface Message {
   agentInfo?: AgentInfo;
   audioUrl?: string;
   createdAt?: string | Date;
+  /** Deep-research progress (present while a research run streams). */
+  researchProgress?: MessageResearchProgress;
+  /** Agent execution plan awaiting user approval. */
+  pendingPlan?: PendingPlan;
+  /** Tool-execution approval request awaiting user decision. */
+  pendingApproval?: PendingApproval;
+  /** Resolution of a tool-execution approval request. */
+  pendingApprovalResult?: PendingApprovalResult;
 }
 
 /**

@@ -46,7 +46,7 @@ export function useStreamingChat(apiUrl: string, activeRole?: any, conversationI
       if (lastMessage?.role === 'assistant') {
         const changes: Partial<Message> = {};
         if (content) changes.content = lastMessage.content + content;
-        if (reasoning) (changes as any).thinking = ((lastMessage as any).thinking || '') + reasoning;
+        if (reasoning) changes.thinking = (lastMessage.thinking || '') + reasoning;
         updated[updated.length - 1] = { ...lastMessage, ...changes };
       }
       return updated;
@@ -204,7 +204,9 @@ Use this role to guide your responses, maintaining the specified tone, style, an
               errorData = JSON.parse(new TextDecoder().decode(value));
             }
           }
-        } catch {}
+        } catch (e) {
+          console.warn('[useStreamingChat] Failed to read error response body', e);
+        }
 
         // Detect usage limit errors (429 rate limit, 402 insufficient credits, 403 model access)
         if (response.status === 429 || response.status === 402 || response.status === 403) {
@@ -434,12 +436,12 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                           researchProgress: {
                             phase: parsed.phase,
                             message: parsed.message,
-                            subQuestions: parsed.subQuestions || (lastMessage as any).researchProgress?.subQuestions,
+                            subQuestions: parsed.subQuestions || lastMessage.researchProgress?.subQuestions,
                             sourcesFound: parsed.sourcesFound,
                             currentQuery: parsed.currentQuery,
                             iteration: parsed.iteration,
                           },
-                        } as any;
+                        };
                       }
                       return updated;
                     });
@@ -459,7 +461,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                             approved: false,
                             rejected: false,
                           },
-                        } as any;
+                        };
                       }
                       return updated;
                     });
@@ -481,7 +483,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                             timeout: parsed.timeout,
                             args: parsed.args,
                           },
-                        } as any;
+                        };
                       }
                       return updated;
                     });
@@ -499,7 +501,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                             requestId: parsed.requestId,
                             decision: parsed.decision,
                           },
-                        } as any;
+                        };
                       }
                       return updated;
                     });
@@ -827,9 +829,9 @@ Use this role to guide your responses, maintaining the specified tone, style, an
   const approvePlan = useCallback((planId: string) => {
     setMessages((prev) => {
       const updated = [...prev];
-      const msg = updated.find((m) => (m as any).pendingPlan?.planId === planId);
-      if (msg) {
-        (msg as any).pendingPlan = { ...(msg as any).pendingPlan, approved: true };
+      const msg = updated.find((m) => m.pendingPlan?.planId === planId);
+      if (msg?.pendingPlan) {
+        msg.pendingPlan = { ...msg.pendingPlan, approved: true };
       }
       return [...updated];
     });
@@ -839,9 +841,9 @@ Use this role to guide your responses, maintaining the specified tone, style, an
   const rejectPlan = useCallback((planId: string) => {
     setMessages((prev) => {
       const updated = [...prev];
-      const msg = updated.find((m) => (m as any).pendingPlan?.planId === planId);
-      if (msg) {
-        (msg as any).pendingPlan = { ...(msg as any).pendingPlan, rejected: true };
+      const msg = updated.find((m) => m.pendingPlan?.planId === planId);
+      if (msg?.pendingPlan) {
+        msg.pendingPlan = { ...msg.pendingPlan, rejected: true };
       }
       return [...updated];
     });

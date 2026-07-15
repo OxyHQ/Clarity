@@ -37,7 +37,7 @@ export function TextShimmer({
   }, [translateX, duration]);
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: `${translateX.value * 100}%` as any }],
+    transform: [{ translateX: `${translateX.value * 100}%` }],
   }));
 
   const dynamicSpread = Math.min(Math.max(spread, 5), 45) / 100;

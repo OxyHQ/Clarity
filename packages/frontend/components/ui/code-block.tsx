@@ -4,9 +4,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { Copy, Check } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
-// @ts-expect-error - no type declarations available
 import SyntaxHighlighter from "react-native-syntax-highlighter";
-// @ts-expect-error - no type declarations available
 import { atomOneLight } from "react-syntax-highlighter/styles/hljs";
 
 // --- CodeBlock (root container) ---

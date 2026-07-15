@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, TextInput } from 'react-native';
+import { Platform, TextInput, type TextStyle } from 'react-native';
 import { cn } from '@/lib/utils';
 
 interface TextareaProps extends React.ComponentPropsWithoutRef<typeof TextInput> {
@@ -26,7 +26,9 @@ const Textarea = React.forwardRef<TextInput, TextareaProps>(
         scrollEnabled={false}
         textAlignVertical="top"
         style={[
-          Platform.OS === 'web' ? ({ fieldSizing: 'content' } as any) : undefined,
+          // `fieldSizing` is a web-only CSS property absent from RN's TextStyle;
+          // react-native-web applies it at runtime for content-height auto-sizing.
+          Platform.OS === 'web' ? ({ fieldSizing: 'content' } as TextStyle) : undefined,
           style,
         ]}
         {...props}

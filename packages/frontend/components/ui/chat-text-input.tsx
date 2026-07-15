@@ -42,7 +42,15 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
     ...props
   }, ref) => {
     const inputRef = React.useRef<TextInput>(null);
-    const wrapperRef = React.useRef<View>(null);
+    // Stable DOM id for the wrapper so the web paste handler can resolve the
+    // element via document.getElementById (react-native-web renders the RN `id`
+    // prop as the DOM id). Strip non-alphanumerics from useId() to match the id
+    // react-native-web actually writes.
+    const rawWrapperId = React.useId();
+    const wrapperId = React.useMemo(
+      () => `chat-input-wrapper-${rawWrapperId.replace(/[^a-zA-Z0-9]/g, '')}`,
+      [rawWrapperId],
+    );
 
     // Combine refs
     React.useImperativeHandle(ref, () => inputRef.current as TextInput);
@@ -54,15 +62,9 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
       const handlePaste = (e: Event) => {
         const clipboardEvent = e as ClipboardEvent;
 
-        // Check if our input is focused
-        // @ts-ignore - web-specific API
-        const activeElement = document.activeElement;
-        // @ts-ignore - web-specific API
-        const wrapper = wrapperRef.current;
-
-        // Only handle paste if our input is active
-        // @ts-ignore - web-specific API
-        const isContained = wrapper && wrapper.contains(activeElement);
+        // Only handle paste if our input is currently focused
+        const wrapper = document.getElementById(wrapperId);
+        const isContained = !!wrapper && wrapper.contains(document.activeElement);
 
         if (!isContained) return;
 
@@ -86,14 +88,12 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
         }
       };
 
-      // @ts-ignore - web-specific API
       document.addEventListener('paste', handlePaste);
 
       return () => {
-        // @ts-ignore - web-specific API
         document.removeEventListener('paste', handlePaste);
       };
-    }, [onImagePaste]);
+    }, [onImagePaste, wrapperId]);
 
     const handleKeyPress = (
       e: NativeSyntheticEvent<TextInputKeyPressEventData>
@@ -113,8 +113,10 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
 
       // Handle Enter key press (without Shift on web)
       if (key === "Enter" && !disableEnterToSubmit) {
-        // @ts-ignore - shiftKey exists on web
-        if (Platform.OS !== 'web' || !e.nativeEvent.shiftKey) {
+        // `shiftKey` is present on web key events (react-native-web) but absent
+        // from RN's TextInputKeyPressEventData; widen the type to read it safely.
+        const nativeEvent: { key: string; shiftKey?: boolean } = e.nativeEvent;
+        if (Platform.OS !== 'web' || !nativeEvent.shiftKey) {
           e.preventDefault();
           onEnterPress?.();
         }
@@ -129,7 +131,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
 
     return (
       <View
-        ref={wrapperRef}
+        id={wrapperId}
         style={{ width: '100%', ...(fillContainer && { flex: 1 }) }}
         onLayout={(e) => onHeightChange?.(e.nativeEvent.layout.height)}
       >

@@ -149,7 +149,7 @@ export function useChatConversation({ conversationId, thinkingMode, selectedMode
       const newConversation = await createConversationMutation.mutateAsync({});
 
       // Navigate to the new conversation
-      router.replace(`/(app)/c/${newConversation.id}` as any);
+      router.replace(`/(app)/c/${newConversation.id}`);
     } catch {
       // onError handler in useCreateConversation already shows a toast
     }

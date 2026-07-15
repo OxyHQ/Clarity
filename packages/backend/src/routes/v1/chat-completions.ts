@@ -19,7 +19,7 @@ import {
 import { getUserEntitlements } from '../../lib/plan-access.js';
 import { ToolPipeline } from '../../lib/tool-pipeline.js';
 import { createResponseSSEEmitter } from '../../lib/sse-emitter.js';
-import { SystemPromptBuilder } from '../../lib/system-prompt-builder.js';
+import { SystemPromptBuilder, type OxyUserProfile } from '../../lib/system-prompt-builder.js';
 import { convertToAISDKMessages, type ChatMessage } from '../../lib/message-converter.js';
 import { oxyClient } from '../../middleware/auth.js';
 import { estimateMessageTokens } from '../../lib/token-counter.js';
@@ -331,7 +331,7 @@ export const handleChatCompletions = async (req: Request, res: Response) => {
       isDirectUserSession,
       userId: req.user?.id,
       accessToken: req.accessToken,
-      oxyUser: oxyUser as any,
+      oxyUser: oxyUser as OxyUserProfile | null,
       recalledMemories,
       agentMode,
     });

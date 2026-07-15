@@ -266,15 +266,7 @@ export function PromptInput({
 
       {showFullscreen && (
         <View
-          style={{
-            position: "fixed" as any,
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 9998,
-          }}
-          className="bg-background"
+          className="fixed inset-0 z-[9998] bg-background"
         >
           <Pressable
             onPress={() => setShowFullscreen(false)}
