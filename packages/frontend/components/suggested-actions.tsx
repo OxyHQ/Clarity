@@ -11,12 +11,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { useStore } from "@/lib/globalStore";
 import { generateUUID } from "@/lib/utils";
-import type { Message, CreateMessage } from "@ai-sdk/react";
+import type { UIMessage, CreateUIMessage } from "@ai-sdk/react";
 
 interface SuggestedActionsProps {
   hasInput?: boolean;
   append: (
-    message: Message | CreateMessage,
+    message: UIMessage | CreateUIMessage<UIMessage>,
     chatRequestOptions?: { body?: object },
   ) => Promise<string | null | undefined>;
 }
@@ -63,7 +63,7 @@ export function SuggestedActions({
     await append(
       {
         role: "user",
-        content: action,
+        parts: [{ type: "text", text: action }],
       },
       {
         body: { id: newChatId },

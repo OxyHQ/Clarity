@@ -8,11 +8,6 @@
     "icon": "./assets/icon-512.png",
     "scheme": "clarity",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/icon-512.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#040711"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "so.oxy.clarity",
@@ -51,7 +46,16 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-asset",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon-512.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#040711"
+        }
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
