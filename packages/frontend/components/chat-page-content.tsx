@@ -16,7 +16,7 @@ import { ChatInterface } from "@/components/chat-interface";
 import { ChatHeader, type ConversationTab } from "@/components/chat-header";
 import { ChatTextInput } from "@/components/ui/chat-text-input";
 import type { Message } from "@clarity/shared-types";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { AlertTriangle, Pencil } from "lucide-react-native";
 import { CreditWarningBanner } from "@/components/credit-warning-banner";
 import { ModelSelector, getThinkingModelId, isThinkingModel } from "@/components/model-selector";

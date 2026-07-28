@@ -19,7 +19,7 @@ import { useUserDataStore } from "@/lib/stores/user-data-store";
 import type { UserMemory } from "@/lib/stores/user-data-store";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/hooks/useTranslation";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 
 const LANGUAGES = [
   { value: "en-US", label: "English" },

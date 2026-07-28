@@ -3,7 +3,7 @@ import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { AuthContainer, AuthLogo, AuthInput, AuthButton, AuthError } from '@/components/auth';
 import { useApiClient } from '@/lib/api/use-api-client';
-import { toast } from '@/components/sonner';
+import { toast } from '@oxyhq/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
 
 export default function ResetPasswordScreen() {

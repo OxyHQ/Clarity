@@ -7,7 +7,7 @@ import {
   type ConnectedIntegration,
   type IntegrationEntry,
 } from "@/hooks/useIntegrations";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Link2, Unlink, ExternalLink, Plug } from "lucide-react-native";
 

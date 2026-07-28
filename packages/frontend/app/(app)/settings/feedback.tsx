@@ -8,7 +8,7 @@ import { useRouter } from "expo-router";
 import { MessageSquare, Bug, Lightbulb, Sparkles, Star } from "lucide-react-native";
 import { useApiClient } from "@/lib/api/use-api-client";
 import { SettingsHeader } from "@/components/settings/settings-header";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 

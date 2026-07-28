@@ -5,7 +5,7 @@ import { Text } from "@/components/ui/text";
 import { useNavigation, useRouter } from "expo-router";
 import { DrawerNavigationProp } from "@react-navigation/drawer";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useState } from "react";
 import { useTranslation } from "@/hooks/useTranslation";

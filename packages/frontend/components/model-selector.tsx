@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "expo-router";
 import config from "@/lib/config";
 import { useEntitlements } from "@/lib/hooks/use-billing";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { useTranslation } from "@/hooks/useTranslation";
 
 interface Model {

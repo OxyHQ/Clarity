@@ -7,7 +7,7 @@ import {
   type InstalledMcpServer,
   type McpRegistryEntry,
 } from "@/hooks/useMcpServers";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
   Dialog,

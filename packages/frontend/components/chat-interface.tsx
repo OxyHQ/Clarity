@@ -1,5 +1,5 @@
 import { View, Pressable, Platform } from "react-native";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { Image } from "expo-image";
 import { KeyboardAwareScrollView } from "@/lib/keyboard";
 import { CustomMarkdown } from "@/components/ui/markdown";

@@ -9,7 +9,6 @@ import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
 import { AppErrorBoundary } from '@/components/error-boundary';
-import { Toaster } from '@/components/sonner';
 import { KeyboardProvider } from '@/lib/keyboard';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
@@ -43,7 +42,6 @@ function AppContent() {
         <Stack.Screen name="(app)" options={{ headerShown: false }} />
         <Stack.Screen name="(biglayout)" options={{ headerShown: false }} />
       </Stack>
-      <Toaster />
     </KeyboardProvider>
   );
 }

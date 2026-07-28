@@ -32,7 +32,7 @@ import { useUserData } from "@/hooks/useUserData";
 import { useUserDataStore } from "@/lib/stores/user-data-store";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/hooks/useTranslation";
-import { toast } from "@/components/sonner";
+import { toast } from "@oxyhq/bloom/toast";
 import { useApiClient } from "@/lib/api/use-api-client";
 
 interface ThreatEntry {

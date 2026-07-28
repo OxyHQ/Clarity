@@ -13,7 +13,7 @@ import { queryKeys } from '@/lib/hooks/query-keys';
 import { useStore } from '@/lib/globalStore';
 import { useModelStore } from '@/lib/stores/model-store';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { toast } from '@/components/sonner';
+import { toast } from '@oxyhq/bloom/toast';
 
 import type { ToolInvocation } from '@clarity/shared-types';
 
