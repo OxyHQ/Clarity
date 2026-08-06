@@ -25,7 +25,6 @@
     "clarity"
   ],
   "author": "Oxy",
-  "license": "UNLICENSED",
   "files": [
     "dist/**/*"
   ],

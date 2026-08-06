@@ -31,7 +31,6 @@
     "clarity"
   ],
   "author": "",
-  "license": "ISC",
   "devDependencies": {
     "sst": "^4.17.1",
     "typescript": "~6.0.3"
