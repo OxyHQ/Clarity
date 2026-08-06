@@ -1,6 +1,7 @@
 {
   "name": "clarity-monorepo",
   "version": "1.0.0",
+  "license": "SEE LICENSE IN LICENSE",
   "description": "Clarity - AI-powered search engine with cited sources",
   "private": true,
   "workspaces": [
