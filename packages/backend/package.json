@@ -1,7 +1,7 @@
 {
   "name": "@clarity/backend",
   "version": "1.0.0",
-  "description": "Clarity API - Intelligent proxy server orchestrating multiple AI provider API keys",
+  "description": "Express + TypeScript API for Clarity's cited search, deep research, and autonomy runtime",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
