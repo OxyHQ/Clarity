@@ -1,39 +1,13 @@
-/**
- * SecuritySection — Security & Privacy settings with 4 sub-sections:
- *   A) Default Agent Permissions
- *   B) Approval Preferences
- *   C) Threat Activity Log  (FLAG: calls dead backend /audit/* endpoints — always empty)
- *   D) Audit Export          (FLAG: calls dead backend /audit/* endpoints — always no-ops)
- *
- * handleSave also called dead /memory/preferences — removed (FLAG: live save button is a no-op).
- */
-
-import { View, Pressable, TextInput as RNTextInput, Share, Platform } from "react-native";
-import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useState } from "react";
+import { Platform, Pressable, Share, TextInput as RNTextInput, View } from "react-native";
+import { AlertTriangle, Download, Info, Shield, ShieldCheck, ShieldX } from "lucide-react-native";
 import { useOxy } from "@oxyhq/services";
-import type { UserMemory } from "@/lib/stores/user-data-store";
-import {
-  Shield,
-  ShieldAlert,
-  ShieldX,
-  ShieldCheck,
-  Clock,
-  Download,
-  ChevronDown,
-  AlertTriangle,
-  Info,
-} from "lucide-react-native";
-type AgentPermissions = Record<string, boolean>;
-const DEFAULT_PERMISSIONS: AgentPermissions = {};
-import { useUserData } from "@/hooks/useUserData";
-import { useUserDataStore } from "@/lib/stores/user-data-store";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import { useTranslation } from "@/hooks/useTranslation";
 import { toast } from "@oxyhq/bloom/toast";
+
+import { Button } from "@/components/ui/button";
+import { Text } from "@/components/ui/text";
 import { useApiClient } from "@/lib/api/use-api-client";
+import { useTranslation } from "@/hooks/useTranslation";
 
 interface ThreatEntry {
   id: string;
@@ -51,123 +25,77 @@ interface AuditSummary {
   threatDetections: number;
 }
 
-const TIMEOUT_OPTIONS = [
-  { value: 30, label: "30s" },
-  { value: 60, label: "60s" },
-  { value: 120, label: "2min" },
-  { value: 0, label: "Never" },
-];
-
-const SEVERITY_COLORS: Record<string, string> = {
+const SEVERITY_COLORS: Record<ThreatEntry["severity"], string> = {
   info: "text-blue-500",
   warning: "text-yellow-500",
   critical: "text-red-500",
 };
 
-const SEVERITY_BG: Record<string, string> = {
+const SEVERITY_BG: Record<ThreatEntry["severity"], string> = {
   info: "bg-blue-500/10",
   warning: "bg-yellow-500/10",
   critical: "bg-red-500/10",
 };
 
-const SEVERITY_ICONS: Record<string, React.ComponentType<{ size: number; className: string }>> = {
+const SEVERITY_ICONS = {
   info: Info,
   warning: AlertTriangle,
   critical: ShieldX,
-};
+} as const;
 
 export function SecuritySection() {
   const { isAuthenticated } = useOxy();
-  const { memory } = useUserData();
-  const setMemory = useUserDataStore((state) => state.setMemory);
   const { t } = useTranslation();
-  const [saving, setSaving] = useState(false);
   const client = useApiClient();
-
-  // Section A: Default permissions
-  const [permissions, setPermissions] = useState<AgentPermissions>({ ...DEFAULT_PERMISSIONS });
-
-  // Section B: Approval preferences
-  const [requireApproval, setRequireApproval] = useState(true);
-  const [approvalTimeout, setApprovalTimeout] = useState(60);
-  const [autoDenyOnTimeout, setAutoDenyOnTimeout] = useState(true);
-
-  // Section C: Threat log — dead backend endpoint, always empty
-  const [threats] = useState<ThreatEntry[]>([]);
-  const [threatsLoading] = useState(false);
-
-  // Section D: Audit export
+  const [threats, setThreats] = useState<ThreatEntry[]>([]);
+  const [summary, setSummary] = useState<AuditSummary | null>(null);
+  const [loading, setLoading] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [exportFormat, setExportFormat] = useState<"json" | "csv">("json");
   const [exporting, setExporting] = useState(false);
-  const [summary] = useState<AuditSummary | null>(null);
 
-  // Load saved preferences
   useEffect(() => {
-    if (memory?.preferences) {
-      const dp = memory.preferences.defaultAgentPermissions;
-      if (dp) setPermissions(dp as unknown as AgentPermissions);
-
-      const sp = memory.preferences.securityPreferences as {
-        requireApproval?: boolean;
-        approvalTimeout?: number;
-        autoDenyOnTimeout?: boolean;
-      } | undefined;
-      if (sp) {
-        if (typeof sp.requireApproval === "boolean") setRequireApproval(sp.requireApproval);
-        if (typeof sp.approvalTimeout === "number") setApprovalTimeout(sp.approvalTimeout);
-        if (typeof sp.autoDenyOnTimeout === "boolean") setAutoDenyOnTimeout(sp.autoDenyOnTimeout);
-      }
+    if (!isAuthenticated) {
+      setThreats([]);
+      setSummary(null);
+      return;
     }
-  }, [memory]);
+    let active = true;
+    setLoading(true);
+    Promise.all([
+      client.get<AuditSummary>("/audit/summary"),
+      client.get<{ threats: ThreatEntry[] }>("/audit/threats", { params: { limit: "20" } }),
+    ]).then(([nextSummary, result]) => {
+      if (!active) return;
+      setSummary(nextSummary);
+      setThreats(result.threats);
+    }).catch(() => {
+      if (active) toast.error(t("settings.security.exportFailed"));
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [client, isAuthenticated, t]);
 
-  // handleSave: /memory/preferences is a dead backend endpoint — this is a no-op.
-  // FLAG: live save button calls dead backend route /memory/preferences.
-  const handleSave = async () => {
-    if (!isAuthenticated) return;
-    setSaving(true);
-    try {
-      const updated = await client.put<UserMemory>('/memory/preferences', {
-        ...memory?.preferences,
-        defaultAgentPermissions: permissions,
-        securityPreferences: { requireApproval, approvalTimeout, autoDenyOnTimeout },
-      });
-      if (updated) {
-        setMemory(updated);
-      }
-      toast.success(t("settings.saveSuccess"));
-    } catch {
-      toast.error(t("settings.saveFailed"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // handleExport: /audit/export is a dead backend endpoint — this is a no-op.
-  // FLAG: export button calls dead backend route /audit/export.
   const handleExport = async () => {
     setExporting(true);
     try {
       const params: Record<string, string> = { format: exportFormat };
       if (fromDate) params.from = fromDate;
       if (toDate) params.to = toDate;
-
-      const data = await client.get<unknown>('/audit/export', { params });
-
-      const content = exportFormat === "json"
-        ? JSON.stringify(data, null, 2)
-        : String(data);
+      const data = await client.get<unknown>("/audit/export", { params });
+      const content = typeof data === "string" ? data : JSON.stringify(data, null, 2);
 
       if (Platform.OS === "web") {
         const blob = new Blob([content], {
           type: exportFormat === "json" ? "application/json" : "text/csv",
         });
         const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `clarity-audit-${new Date().toISOString().split("T")[0]}.${exportFormat}`;
-        a.click();
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `clarity-audit-${new Date().toISOString().split("T")[0]}.${exportFormat}`;
+        anchor.click();
         URL.revokeObjectURL(url);
       } else {
         await Share.share({
@@ -175,7 +103,6 @@ export function SecuritySection() {
           title: `Clarity Audit Export (${exportFormat.toUpperCase()})`,
         });
       }
-
       toast.success(t("settings.security.exportSuccess"));
     } catch {
       toast.error(t("settings.security.exportFailed"));
@@ -188,119 +115,50 @@ export function SecuritySection() {
 
   return (
     <View className="gap-8">
-      {/* Section A: Default Agent Permissions */}
       <View className="gap-3">
         <View className="flex-row items-center gap-2">
           <Shield size={18} className="text-primary" />
           <Text className="text-sm font-semibold">{t("settings.security.defaultPermissions")}</Text>
         </View>
-        <Text className="text-xs text-muted-foreground">
-          {t("settings.security.defaultPermissionsDesc")}
-        </Text>
-        <View className="border border-border rounded-lg p-3">
-          <Text className="text-xs text-muted-foreground">{t("settings.security.noPermissionsConfigured")}</Text>
+        <View className="border border-border rounded-lg p-3 gap-1">
+          <Text className="text-sm font-medium">Managed by the Clarity agent in Alia</Text>
+          <Text className="text-xs text-muted-foreground">
+            Permission and approval rules stay fail-closed here until Alia publishes an agent-scoped settings contract.
+          </Text>
         </View>
       </View>
 
-      {/* Section B: Approval Preferences */}
-      <View className="gap-3">
-        <View className="flex-row items-center gap-2">
-          <ShieldAlert size={18} className="text-primary" />
-          <Text className="text-sm font-semibold">{t("settings.security.approvalPreferences")}</Text>
-        </View>
-
-        <View className="flex-row items-center justify-between py-2">
-          <View className="flex-1 mr-3">
-            <Text className="text-sm">{t("settings.security.requireApproval")}</Text>
-            <Text className="text-xs text-muted-foreground">
-              {t("settings.security.requireApprovalDesc")}
-            </Text>
-          </View>
-          <Switch value={requireApproval} onValueChange={setRequireApproval} />
-        </View>
-
-        <View className="flex-row items-center justify-between py-2">
-          <View className="flex-row items-center gap-2 flex-1 mr-3">
-            <Clock size={14} className="text-muted-foreground" />
-            <Text className="text-sm">{t("settings.security.approvalTimeout")}</Text>
-          </View>
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <Pressable className="flex-row items-center gap-1 border border-border rounded-lg px-3 py-1.5">
-                <Text className="text-sm text-foreground">
-                  {TIMEOUT_OPTIONS.find(o => o.value === approvalTimeout)?.label || "60s"}
-                </Text>
-                <ChevronDown size={14} className="text-muted-foreground" />
-              </Pressable>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              {TIMEOUT_OPTIONS.map((opt) => (
-                <DropdownMenu.CheckboxItem
-                  key={String(opt.value)}
-                  value={approvalTimeout === opt.value ? "on" : "off"}
-                  onValueChange={() => setApprovalTimeout(opt.value)}
-                >
-                  <DropdownMenu.ItemIndicator />
-                  <DropdownMenu.ItemTitle>{opt.label}</DropdownMenu.ItemTitle>
-                </DropdownMenu.CheckboxItem>
-              ))}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        </View>
-
-        <View className="flex-row items-center justify-between py-2">
-          <View className="flex-1 mr-3">
-            <Text className="text-sm">{t("settings.security.autoDenyOnTimeout")}</Text>
-            <Text className="text-xs text-muted-foreground">
-              {t("settings.security.autoDenyOnTimeoutDesc")}
-            </Text>
-          </View>
-          <Switch value={autoDenyOnTimeout} onValueChange={setAutoDenyOnTimeout} />
-        </View>
-      </View>
-
-      {/* Section C: Threat Activity Log */}
       <View className="gap-3">
         <View className="flex-row items-center gap-2">
           <ShieldX size={18} className="text-primary" />
           <Text className="text-sm font-semibold">{t("settings.security.threatLog")}</Text>
         </View>
-        <Text className="text-xs text-muted-foreground">
-          {t("settings.security.threatLogDesc")}
-        </Text>
-
-        {threats.length === 0 ? (
+        <Text className="text-xs text-muted-foreground">{t("settings.security.threatLogDesc")}</Text>
+        {loading ? (
+          <Text className="text-sm text-muted-foreground">Loading audit activity…</Text>
+        ) : threats.length === 0 ? (
           <View className="items-center py-8 gap-2">
             <ShieldCheck size={32} className="text-muted-foreground" />
-            <Text className="text-sm text-muted-foreground">
-              {t("settings.security.noThreats")}
-            </Text>
+            <Text className="text-sm text-muted-foreground">{t("settings.security.noThreats")}</Text>
           </View>
         ) : (
           <View className="gap-2">
             {threats.slice(0, 10).map((threat) => {
-              const SevIcon = SEVERITY_ICONS[threat.severity] ?? Info;
+              const SeverityIcon = SEVERITY_ICONS[threat.severity];
               return (
-                <View
-                  key={threat.id}
-                  className={`flex-row items-start gap-2 p-3 rounded-lg ${SEVERITY_BG[threat.severity] ?? "bg-muted"}`}
-                >
-                  <SevIcon size={14} className={`mt-0.5 ${SEVERITY_COLORS[threat.severity] ?? ""}`} />
+                <View key={threat.id} className={`flex-row items-start gap-2 p-3 rounded-lg ${SEVERITY_BG[threat.severity]}`}>
+                  <SeverityIcon size={14} className={`mt-0.5 ${SEVERITY_COLORS[threat.severity]}`} />
                   <View className="flex-1">
                     <View className="flex-row items-center justify-between">
-                      <Text className={`text-xs font-semibold uppercase ${SEVERITY_COLORS[threat.severity] ?? ""}`}>
+                      <Text className={`text-xs font-semibold uppercase ${SEVERITY_COLORS[threat.severity]}`}>
                         {threat.severity}
                       </Text>
                       <Text className="text-xs text-muted-foreground">
                         {new Date(threat.timestamp).toLocaleDateString()}
                       </Text>
                     </View>
-                    <Text className="text-xs text-muted-foreground mt-0.5">
-                      {threat.agentName}
-                    </Text>
-                    <Text className="text-sm text-foreground mt-1" numberOfLines={2}>
-                      {threat.description}
-                    </Text>
+                    <Text className="text-xs text-muted-foreground mt-0.5">{threat.agentName}</Text>
+                    <Text className="text-sm text-foreground mt-1" numberOfLines={2}>{threat.description}</Text>
                   </View>
                 </View>
               );
@@ -309,103 +167,32 @@ export function SecuritySection() {
         )}
       </View>
 
-      {/* Section D: Audit Export */}
       <View className="gap-3">
         <View className="flex-row items-center gap-2">
           <Download size={18} className="text-primary" />
           <Text className="text-sm font-semibold">{t("settings.security.auditExport")}</Text>
         </View>
-        <Text className="text-xs text-muted-foreground">
-          {t("settings.security.auditExportDesc")}
-        </Text>
-
+        <Text className="text-xs text-muted-foreground">{t("settings.security.auditExportDesc")}</Text>
         {summary && (
           <View className="flex-row gap-4 py-2">
-            <View>
-              <Text className="text-lg font-bold text-foreground">{summary.totalSessions}</Text>
-              <Text className="text-xs text-muted-foreground">Sessions</Text>
-            </View>
-            <View>
-              <Text className="text-lg font-bold text-foreground">{summary.totalSteps}</Text>
-              <Text className="text-xs text-muted-foreground">Steps</Text>
-            </View>
-            <View>
-              <Text className="text-lg font-bold text-foreground">{summary.threatDetections}</Text>
-              <Text className="text-xs text-muted-foreground">Threats</Text>
-            </View>
+            <View><Text className="text-lg font-bold">{summary.totalSessions}</Text><Text className="text-xs text-muted-foreground">Sessions</Text></View>
+            <View><Text className="text-lg font-bold">{summary.totalSteps}</Text><Text className="text-xs text-muted-foreground">Steps</Text></View>
+            <View><Text className="text-lg font-bold">{summary.threatDetections}</Text><Text className="text-xs text-muted-foreground">Threats</Text></View>
           </View>
         )}
-
         <View className="flex-row gap-2">
-          <View className="flex-1 gap-1">
-            <Text className="text-xs text-muted-foreground">{t("settings.security.from")}</Text>
-            <RNTextInput
-              className={inputClass}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#9ca3af"
-              value={fromDate}
-              onChangeText={setFromDate}
-            />
-          </View>
-          <View className="flex-1 gap-1">
-            <Text className="text-xs text-muted-foreground">{t("settings.security.to")}</Text>
-            <RNTextInput
-              className={inputClass}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#9ca3af"
-              value={toDate}
-              onChangeText={setToDate}
-            />
-          </View>
+          <RNTextInput className={`${inputClass} flex-1`} placeholder="From: YYYY-MM-DD" placeholderTextColor="#9ca3af" value={fromDate} onChangeText={setFromDate} />
+          <RNTextInput className={`${inputClass} flex-1`} placeholder="To: YYYY-MM-DD" placeholderTextColor="#9ca3af" value={toDate} onChangeText={setToDate} />
         </View>
-
         <View className="flex-row gap-2">
-          <Text className="text-xs text-muted-foreground self-center">{t("settings.security.format")}:</Text>
-          <Pressable
-            onPress={() => setExportFormat("json")}
-            className={`px-3 py-1.5 rounded-lg border ${exportFormat === "json" ? "border-primary bg-primary/10" : "border-border"}`}
-          >
-            <Text className={`text-sm ${exportFormat === "json" ? "text-primary font-medium" : "text-muted-foreground"}`}>
-              JSON
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => setExportFormat("csv")}
-            className={`px-3 py-1.5 rounded-lg border ${exportFormat === "csv" ? "border-primary bg-primary/10" : "border-border"}`}
-          >
-            <Text className={`text-sm ${exportFormat === "csv" ? "text-primary font-medium" : "text-muted-foreground"}`}>
-              CSV
-            </Text>
-          </Pressable>
+          {(["json", "csv"] as const).map((format) => (
+            <Pressable key={format} onPress={() => setExportFormat(format)} className={`px-3 py-1.5 rounded-lg border ${exportFormat === format ? "border-primary bg-primary/10" : "border-border"}`}>
+              <Text className={exportFormat === format ? "text-primary font-medium uppercase" : "text-muted-foreground uppercase"}>{format}</Text>
+            </Pressable>
+          ))}
         </View>
-
-        <Button onPress={handleExport} disabled={exporting}>
+        <Button onPress={handleExport} disabled={exporting || !isAuthenticated}>
           <Text>{exporting ? t("settings.security.exporting") : t("settings.security.exportButton")}</Text>
-        </Button>
-      </View>
-
-      {/* Save / Cancel */}
-      <View className="flex-row gap-2 mt-2">
-        <Button variant="outline" className="flex-1" onPress={() => {
-          if (memory?.preferences) {
-            const dp = memory.preferences.defaultAgentPermissions;
-            if (dp) setPermissions(dp as unknown as AgentPermissions);
-            const sp = memory.preferences.securityPreferences as {
-              requireApproval?: boolean;
-              approvalTimeout?: number;
-              autoDenyOnTimeout?: boolean;
-            } | undefined;
-            if (sp) {
-              if (typeof sp.requireApproval === "boolean") setRequireApproval(sp.requireApproval);
-              if (typeof sp.approvalTimeout === "number") setApprovalTimeout(sp.approvalTimeout);
-              if (typeof sp.autoDenyOnTimeout === "boolean") setAutoDenyOnTimeout(sp.autoDenyOnTimeout);
-            }
-          }
-        }} disabled={saving}>
-          <Text>{t("common.cancel")}</Text>
-        </Button>
-        <Button className="flex-1" onPress={handleSave} disabled={saving}>
-          <Text>{saving ? t("settings.saving") : t("settings.saveButton")}</Text>
         </Button>
       </View>
     </View>

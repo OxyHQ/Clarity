@@ -4,11 +4,8 @@ import { useUserDataStore } from '@/lib/stores/user-data-store';
 import type { UserMemory } from '@/lib/stores/user-data-store';
 import { useApiClient } from '@/lib/api/use-api-client';
 
-// NOTE: This hook calls /memory which is a dead backend endpoint.
-// It is kept as-is (with shape migrated to the linked client) because
-// security-section and personalization-section render this data via the store.
-// The dead endpoint means this fetch will always fail silently.
-// FLAG: live UI (security-section, personalization-section) reads memory from a dead backend route.
+// Memory is owned by Alia and exposed through Clarity's authenticated,
+// allowlisted product proxy.
 export function useUserData() {
   const { isAuthenticated } = useAuth();
   const { memory, loading, setMemory, setLoading, shouldRefetch, clearMemory } = useUserDataStore();

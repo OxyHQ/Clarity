@@ -4,9 +4,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { connectDB } from './lib/db.js';
+import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
+import { requireRuntimeReady } from './middleware/runtime-ready.js';
 
 // Routes
 import healthRouter from './routes/health.js';
@@ -20,14 +21,12 @@ import feedbackRouter from './routes/feedback.js';
 import modelsStatsRouter from './routes/models-stats.js';
 import internalRouter from './routes/internal.js';
 import analyticsRouter from './routes/analytics.js';
-import webhooksRouter from './routes/webhooks.js';
 import suggestionsRouter from './routes/suggestions.js';
 import notificationsRouter from './routes/notifications.js';
-
-// Register hooks (side-effect import)
-import './lib/hooks/index.js';
-import { seedSuggestions } from './lib/seed-suggestions.js';
-import { warmupProviders } from './lib/provider-warmup.js';
+import memoryRouter from './routes/memory.js';
+import auditRouter from './routes/audit.js';
+import triggersRouter from './routes/triggers.js';
+import botsRouter from './routes/bots.js';
 // Socket.io
 import { initSocket } from './socket.js';
 
@@ -154,6 +153,9 @@ app.use('/clarity/search', (_req, res, next) => {
 
 // Routes
 app.use('/health', healthRouter);
+// Keep every product/data route closed until the exact PostgreSQL snapshot and
+// provisioned Clarity Alia agent identity have both been attested.
+app.use(requireRuntimeReady);
 app.use('/auth', authRouter);
 app.use('/conversations', conversationsRouter);
 app.use('/credits', creditsRouter);
@@ -163,9 +165,12 @@ app.use('/billing', billingRouter);
 app.use('/feedback', feedbackRouter);
 app.use('/models', modelsStatsRouter);
 app.use('/analytics', analyticsRouter);
-app.use('/webhooks', webhooksRouter);
 app.use('/suggestions', suggestionsRouter);
 app.use('/notifications', notificationsRouter);
+app.use('/memory', memoryRouter);
+app.use('/audit', auditRouter);
+app.use('/triggers', triggersRouter);
+app.use('/bots', botsRouter);
 app.use('/internal', internalRouter);
 
 // Root route
@@ -184,9 +189,12 @@ app.get('/', (_req, res) => {
       '/feedback',
       '/models',
       '/analytics',
-      '/webhooks',
       '/suggestions',
       '/notifications',
+      '/memory',
+      '/audit',
+      '/triggers',
+      '/bots',
       '/internal',
     ]
   });
@@ -213,7 +221,7 @@ process.on('unhandledRejection', (reason) => {
     return;
   }
 
-  // Transient network: ECONNRESET, ETIMEDOUT, etc. — expected with external providers
+  // Transient network: ECONNRESET, ETIMEDOUT, etc. — expected with external services
   if (isTransientNetworkError(reason)) {
     log.general.warn({ err: reason }, '[Process] Transient network error (continuing)');
     return;
@@ -228,15 +236,15 @@ process.on('uncaughtException', (error) => {
   setTimeout(() => process.exit(1), 5000).unref();
 });
 
-// Connect to MongoDB before starting the server
-connectDB()
+const database = connectPostgres(process.env.DATABASE_URL);
+if (!database) {
+  log.general.error('DATABASE_URL is required');
+  process.exit(1);
+} else {
+  Promise.resolve()
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
-      // Seed suggestions (non-blocking)
-      seedSuggestions().catch((err) => log.general.error({ err }, '[Suggestions] Seed error'));
-      // Pre-warm TLS connections to AI providers (non-blocking)
-      warmupProviders().catch((err) => log.general.error({ err }, '[Warmup] Provider warmup error'));
       // Verify Redis connectivity (non-blocking)
       import('./lib/redis.js').then(({ getRedisClient }) => {
         const redis = getRedisClient();
@@ -283,10 +291,8 @@ connectDB()
         await closeRedis();
         log.general.info('Redis connections closed');
 
-        // Close MongoDB connection
-        const mongoose = await import('mongoose');
-        await mongoose.default.connection.close();
-        log.general.info('MongoDB connection closed');
+        await closePostgres();
+        log.general.info('PostgreSQL connection closed');
 
         clearTimeout(forceTimeout);
         log.general.info('Graceful shutdown complete');
@@ -301,6 +307,7 @@ connectDB()
     process.on('SIGINT', () => shutdown('SIGINT'));
   })
   .catch((error) => {
-    log.general.error({ err: error }, 'Failed to connect to MongoDB');
+    log.general.error({ err: error }, 'Failed to start Clarity with PostgreSQL');
     process.exit(1);
   });
+}

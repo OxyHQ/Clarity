@@ -1,58 +1,58 @@
-# Clarity — AI-Powered Search Engine
+# Clarity
 
-AI search engine by Oxy; also the NativeWind 5 reference implementation (`packages/frontend` mirrors Mention frontend patterns).
+> Universal standards live in `~/AGENTS.md`, Oxy-wide gotchas in `~/Oxy/AGENTS.md`. Documentation belongs in `docs/`, history in git, status in issues. This file holds only RULES, commands and pointers. **Budget: under 8 KB.**
 
-## Monorepo Structure
+Clarity is an Expo product plus an Express product API. The assistant is one
+named Alia bot/agent. Chat flows `Clarity -> Alia -> Oxy inference -> Kaana`.
 
+## Hard boundaries
+
+- PostgreSQL/Drizzle is the only Clarity datastore. Do not add another database
+  driver, fallback, connection string, compatibility reader, or dual write.
+- Clarity owns product state: conversations, suggestions, notifications,
+  feedback, plan catalogue, subscriptions and entitlements.
+- Alia owns the agent runtime, tools, search/deep research, memory, citations,
+  inference credits and inference telemetry.
+- Kaana owns inference routing, adapters and provider credentials. No provider
+  credential, adapter, routing table or direct provider endpoint belongs here.
+- Preserve the public product IDs in
+  `packages/backend/src/lib/clarity-models.ts`. Map by exact ID, never name,
+  array position, or sort order.
+- Never invent `CLARITY_ALIA_AGENT_ID`. Missing provisioning must fail closed.
+- A service credential is not a user session or an Alia agent identity.
+  Service-triggered agent work stays unavailable until the canonical delegated
+  contract is implemented and provisioned.
+
+Platform credentials such as Stripe, VAPID, Valkey and Oxy identity are not
+inference-provider credentials. Keep that distinction in architecture gates.
+
+## Commands
+
+```bash
+bun install --frozen-lockfile
+bun run --filter @clarity/backend lint
+bun run --filter @clarity/backend test
+bun run build:backend
 ```
-packages/
-  frontend/       @clarity/frontend     Expo app (React Native + Web) — NW5 reference
-  backend/        @clarity/backend      Express backend API
-  shared-types/   @clarity/shared-types Conversation/message/model DTOs, SSE event payloads, pagination
+
+Database commands require an explicit database and phase:
+
+```bash
+DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
+  --target-database=clarity_ci --phase=pre --dry-run
+DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
+  --target-database=clarity_ci --phase=pre
 ```
 
-`shared-types` must NOT expose internal provider names — only Clarity-branded model identities.
+Use only a disposable database named `clarity_ci` for repository integration
+tests. See `docs/postgres-alia-migration.md` for backfill and cutover commands.
 
-## MongoDB Database Naming
+## Pointers
 
-Database name is `{appName}-{NODE_ENV}` (e.g., `clarity-production`). Pass `dbName` to `mongoose.connect()` — do NOT embed it in `MONGODB_URI`.
-
-## Model Abstraction (CRITICAL)
-
-Users and developers must ONLY see Clarity-branded model names. Never expose internal provider names or model IDs.
-
-- **User-facing**: `clarity-fast`, `clarity-v1`, `clarity-pro`, `clarity-thinking`, `clarity-pro-max`
-- **Never show**: provider names (OpenAI, Anthropic, Google, etc.) or provider model IDs in UI, API responses, errors, SEO, or docs
-- Use `sanitizeMessage()` from `packages/backend/src/lib/errors/sanitize.ts` for all user-facing errors
-- Analytics: resolve via `getClarityModel()` and skip entries that can't resolve
-
-Key files:
-- `packages/backend/src/internal/providers/lib/clarity-models.ts` — model definitions
-- `packages/backend/src/internal/providers/lib/generate-model-mappings.ts` — provider routing
-- `packages/backend/src/routes/v1/models.ts` — public models API (Clarity names only)
-- `packages/backend/src/lib/errors/sanitize.ts` — strips provider names from errors
-- `packages/backend/src/internal/` — all provider logic (internal, CORS-restricted)
-
-## Search-First Architecture
-
-- **Always search first** before answering factual questions
-- **Source citations**: numbered references [1], [2], etc. for every factual claim
-- **Deep research mode**: multi-step decomposition, parallel search, extraction, synthesis
-- **Follow-up suggestions**: 3 related questions after each answer
-- **SSE streaming**: all responses stream with custom events (`clarity.research_progress`, `clarity.reasoning`, `clarity.tool_result`, `clarity.title`, `clarity.follow_ups`, `clarity.source_card`)
-
-## Oxy Service Connector
-
-Same manifest-driven protocol as Alia. Apps register tool definitions in MongoDB → Clarity auto-discovers and exposes them to the AI.
-
-Key files:
-- `packages/backend/src/models/oxy-service.ts`
-- `packages/backend/src/lib/tools/oxy-services.ts` (`buildOxyServiceTools`, `callOxyService`, `getOxyServiceContext`, `getOxyServicePromptFragment`)
-- `packages/backend/src/routes/oxy-service-events.ts`
-- `packages/backend/src/routes/v1/chat-completions.ts` (~line 615)
-- Tool naming: `oxy_{serviceId}__{toolName}` (e.g. `oxy_inbox__searchEmails`)
-- Auth: forward `req.accessToken` (user's OxyHQ JWT) — no OAuth needed for first-party services
-
-## Backend Client (Pending Migration)
-
-Backend uses a bespoke axios client (17+ call sites). Target pattern is `oxyServices.createLinkedClient({ baseURL })`. Do not add new local token providers or auth interceptors while this migration is pending.
+- `docs/index.mdx` — current architecture and ownership.
+- `docs/chat-api.mdx` — user-session chat and streaming boundary.
+- `docs/postgres-alia-migration.md` — rehearsal, reconciliation and cutover.
+- `packages/backend/src/db/schema/index.ts` — product schema.
+- `packages/backend/src/lib/alia-agent-client.ts` — fixed-agent proxy.
+- `packages/backend/src/__tests__/architecture-gates.test.ts` — forbidden
+  dependency/config regression gate.

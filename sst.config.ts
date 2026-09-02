@@ -7,8 +7,7 @@
  * - DigitalOcean App Platform (API service + static frontend)
  * - DigitalOcean Spaces bucket (file storage)
  *
- * Shared resources (MongoDB, Valkey) are managed externally
- * and referenced via environment variables.
+ * PostgreSQL is supplied as a deployment secret. Valkey is managed externally.
  *
  * Auth:
  *   export DIGITALOCEAN_TOKEN=dop_v1_...
@@ -71,7 +70,7 @@ export default $config({
             name: "clarity-api",
             github: {
               repo: "OxyHQ/Clarity",
-              branch: isProd ? "main" : $app.stage,
+              branch: isProd ? "master" : $app.stage,
               deployOnPush: true,
             },
             buildCommand: [
@@ -86,7 +85,7 @@ export default $config({
             instanceCount: isProd ? 2 : 1,
             httpPort: 8080,
             healthCheck: {
-              httpPath: "/health",
+              httpPath: "/health/ready",
               initialDelaySeconds: 30,
               periodSeconds: 10,
               timeoutSeconds: 5,
@@ -94,36 +93,26 @@ export default $config({
               failureThreshold: 3,
             },
             envs: [
-              // Shared DB references (external, not managed by SST)
-              { key: "MONGODB_URI", value: "${db-oxy.DATABASE_URL}" },
-              { key: "CA_CERT", value: "${db-oxy.CA_CERT}" },
+              // Required product database URL
+              { key: "DATABASE_URL", type: "SECRET" },
               { key: "REDIS_URL", value: "${db-valkey.DATABASE_URL}" },
               { key: "REDIS_CA_CERT", value: "${db-valkey.CA_CERT}" },
-              // Service config
-              { key: "SERVICE_SECRET", type: "SECRET" },
+              // Product agent
+              { key: "ALIA_API_URL", value: "https://api.alia.onl" },
+              { key: "CLARITY_ALIA_AGENT_ID", type: "SECRET" },
               {
                 key: "WEB_URL",
                 value: isProd
                   ? "https://clarity.surf"
                   : `https://${$app.stage}.clarity.surf`,
               },
-              // S3/Spaces
-              { key: "AWS_REGION", value: region },
-              { key: "AWS_ACCESS_KEY_ID", type: "SECRET" },
-              { key: "AWS_SECRET_ACCESS_KEY", type: "SECRET" },
-              {
-                key: "AWS_ENDPOINT_URL",
-                value: `https://${region}.digitaloceanspaces.com`,
-              },
-              { key: "AWS_S3_BUCKET", value: bucket.name },
               // Stripe
               { key: "STRIPE_SECRET_KEY", type: "SECRET" },
               { key: "STRIPE_WEBHOOK_SECRET", type: "SECRET" },
-              // LiveKit
-              { key: "LIVEKIT_URL", value: "wss://livekit.oxy.so" },
-              { key: "LIVEKIT_API_KEY", type: "SECRET" },
-              { key: "LIVEKIT_API_SECRET", type: "SECRET" },
-              { key: "LIVEKIT_INTERNAL_URL", value: "wss://livekit.oxy.so" },
+              // Browser push
+              { key: "VAPID_PUBLIC_KEY", type: "SECRET" },
+              { key: "VAPID_PRIVATE_KEY", type: "SECRET" },
+              { key: "VAPID_SUBJECT", value: "mailto:contact@clarity.surf" },
             ],
           },
         ],
@@ -134,7 +123,7 @@ export default $config({
             name: "clarity-app",
             github: {
               repo: "OxyHQ/Clarity",
-              branch: isProd ? "main" : $app.stage,
+              branch: isProd ? "master" : $app.stage,
               deployOnPush: true,
             },
             buildCommand: [
@@ -151,13 +140,6 @@ export default $config({
 
         // --- Managed databases (shared, referenced by name) ---
         databases: [
-          {
-            name: "db-oxy",
-            engine: "MONGODB",
-            version: "8",
-            production: isProd,
-            clusterName: "db-oxy",
-          },
           {
             name: "db-valkey",
             engine: "REDIS",

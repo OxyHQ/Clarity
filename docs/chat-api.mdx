@@ -1,188 +1,68 @@
 ---
 title: Chat API
-description: OpenAI-compatible POST /v1/chat/completions with SSE streaming, deep research, and Clarity-specific events.
-order: 1
+description: Clarity product IDs over a fixed Alia agent boundary.
 ---
 
 # Chat API
 
-Clarity exposes an OpenAI-compatible `/v1/chat/completions` endpoint over Server-Sent Events. The wire format is a superset of OpenAI's: standard `delta` chunks stream verbatim, augmented with named `clarity.*` events for research progress, citations, approvals, and reasoning traces.
-
-## Endpoint
-
-```
-POST https://api.clarity.surf/v1/chat/completions
-POST https://api.clarity.surf/clarity/search       (alias, same runtime)
+```http
+POST /v1/chat/completions
+POST /clarity/search
+Authorization: Bearer <Oxy user session>
+Content-Type: application/json
 ```
 
-Both endpoints accept the same payload and emit the same events. `/clarity/search` exists for symmetry with the user-facing surface name.
-
-## Authentication
-
-Send one of the following in `Authorization`:
-
-| Token type | Header | Source |
-|------------|--------|--------|
-| Session token | `Bearer <oxy_jwt>` | OxyHQ session, used by the Clarity app |
-| Developer API key | `Bearer clarity_sk_<key>` | Created in the [developer portal](developers-portal) |
-
-Developer keys carry scopes (`chat:read`, `chat:write`, `models:read`, …). Calls missing a required scope return `403 Forbidden` with a sanitised error body — provider names are never leaked.
-
-## Request body
-
-```ts
-type ChatCompletionsBody = {
-  model: string;                  // Clarity model id (e.g. "clarity-v1")
-  messages: ChatMessage[];        // Standard OpenAI message shape
-  stream?: boolean;               // Default false; set true for SSE
-  stream_options?: {
-    include_usage?: boolean;      // Emits a final usage chunk
-  };
-  conversationId?: string;        // Persist messages to an existing conversation
-  thinkingMode?: boolean;         // Surface clarity.reasoning events
-  agentMode?: boolean;            // Allow autonomous tool use
-  deepResearch?: boolean;         // Multi-step research pipeline
-  tools?: ToolDefinition[];       // Caller-supplied tools (Zod via JSON Schema)
-};
-
-type ChatMessage = {
-  role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string | ContentBlock[];
-};
-```
-
-Unknown fields are accepted but ignored. The model id **must** be a Clarity tier (`clarity-fast`, `clarity-v1`, `clarity-pro`, `clarity-thinking`, `clarity-pro-max`, or one of the specialised `clarity-v1-*` variants). Sending a provider model id returns `400`.
-
-## Minimal example
-
-```ts
-const res = await fetch('https://api.clarity.surf/v1/chat/completions', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${process.env.CLARITY_API_KEY}`,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    model: 'clarity-v1',
-    messages: [
-      { role: 'user', content: 'What did Oxy ship this week?' },
-    ],
-    stream: true,
-  }),
-});
-
-const reader = res.body!.getReader();
-const decoder = new TextDecoder();
-let buffer = '';
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  buffer += decoder.decode(value, { stream: true });
-
-  let idx: number;
-  while ((idx = buffer.indexOf('\n\n')) !== -1) {
-    const frame = buffer.slice(0, idx);
-    buffer = buffer.slice(idx + 2);
-    handleSseFrame(frame);
-  }
-}
-```
-
-## SSE wire format
-
-Each event is a standard SSE frame:
-
-```
-event: clarity.research_progress
-data: {"eventVersion":1,"phase":"decompose","percent":12}
-
-event: clarity.source_card
-data: {"eventVersion":1,"index":1,"url":"https://...","title":"...","snippet":"..."}
-
-data: {"id":"chatcmpl-...","object":"chat.completion.chunk","choices":[{"delta":{"content":"Oxy "}}]}
-```
-
-Frames without an `event:` line are standard OpenAI chunks (`object: "chat.completion.chunk"`). Frames with an `event:` line are Clarity events.
-
-### Named events
-
-All `clarity.*` events include `eventVersion: 1`. Treat unknown fields as forward-compatible additions.
-
-| Event | When emitted | Payload shape |
-|-------|--------------|---------------|
-| `clarity.plan_preview` | Multi-step run, before execution | `{ planId, intent, confidence, steps: string[] }` |
-| `clarity.research_progress` | `deepResearch: true` runs | `{ phase, percent, summary? }` |
-| `clarity.reasoning` | `thinkingMode: true` | `{ tokens?: string, summary?: string }` |
-| `clarity.tool_result` | After each tool call | `{ toolCallId, toolName, output }` |
-| `clarity.source_card` | Each citation discovered | `{ index, url, title, snippet, favicon? }` |
-| `clarity.title` | First assistant response in a new conversation | `{ conversationId, title }` |
-| `clarity.follow_ups` | After final answer | `{ suggestions: [string, string, string] }` |
-| `clarity.approval_request` | Risk level `R2` action | `{ requestId, agentId, toolName, args, description, severity, timeout }` |
-| `clarity.approval_result` | Approval resolved | `{ requestId, decision: 'approved' \| 'denied' \| 'timeout' }` |
-| `clarity.agent_session` | Autonomous session created from chat | `{ agentSessionId }` |
-| `clarity.model_switch` | Provider failover | `{ from, to, reason }` |
-
-The terminal frame is the OpenAI-standard `data: [DONE]`.
-
-## Deep research
-
-Set `deepResearch: true` to switch into multi-step research. The runtime:
-
-1. **Decomposes** the prompt into sub-queries.
-2. **Searches in parallel** across providers, the context graph, and registered Oxy services.
-3. **Extracts** source passages with quality scoring.
-4. **Synthesises** the final answer with full citation chain.
-
-Progress is announced via `clarity.research_progress` (`phase` ∈ `decompose | search | extract | synthesize`, `percent` 0-100). Each discovered source emits `clarity.source_card`.
-
-Deep research costs more credits — the `creditMultiplier` on the chosen Clarity model is multiplied by an additional factor per research step.
-
-## Approval flow
-
-When the runtime selects an `R2` action (external impact, e.g. sending an email or posting to Telegram), it streams a `clarity.approval_request` and pauses. The client surfaces a confirmation UI, then replies via Socket.IO:
-
-```ts
-import { io } from 'socket.io-client';
-
-const socket = io('https://api.clarity.surf', {
-  auth: { token: oxyJwt },
-});
-
-socket.emit('approval:respond', { requestId, decision: 'approved' });
-```
-
-The server then emits `clarity.approval_result` over SSE and resumes the run. If the user does not respond within `timeout` ms, the runtime emits `decision: 'timeout'` and aborts the action.
-
-## Errors
-
-Errors during the stream emit an OpenAI-shaped error chunk and close the connection:
+Both paths use the same handler. A local developer key, arbitrary service
+secret, client-supplied agent ID or provider key is not accepted.
 
 ```json
 {
-  "error": {
-    "message": "Rate limit exceeded. Try again in 60s.",
-    "type": "rate_limit_exceeded",
-    "code": "rate_limit",
-    "param": null
-  }
+  "model": "clarity-v1",
+  "conversationId": "conversation-42",
+  "messages": [{ "id": "message-1", "role": "user", "content": "Research this" }],
+  "stream": true,
+  "deepResearch": true,
+  "webSearch": true
 }
 ```
 
-Messages are run through `sanitizeMessage()` (`packages/backend/src/lib/errors/sanitize.ts`) so provider names never appear in user-facing text. The HTTP status is set before the stream begins; once SSE has started, transport-level errors are signalled inside the stream with an error chunk and a `data: [DONE]`.
+The server overwrites any supplied `agentId` with the provisioned
+`CLARITY_ALIA_AGENT_ID`. Conversation and message IDs remain unchanged.
 
-## Conversation persistence
+## Streaming
 
-Pass `conversationId` to append messages to an existing `Conversation` document. Without it, the API creates a new conversation, generates a title in parallel (emitted as `clarity.title`), and persists every user/assistant turn including any `toolInvocations`.
+Alia's named `alia.*` events are translated to `clarity.*`. Standard unnamed
+completion chunks pass through with the public Clarity model ID. Current
+product events include:
 
-Conversations are scoped by `oxyUserId`. Developer keys can be scoped with `conversations:write` to allow third-party apps to manage conversations on the user's behalf.
+- `clarity.reasoning`
+- `clarity.research_progress`
+- `clarity.tool_result`
+- `clarity.agent`
+- `clarity.agent_session`
+- `clarity.title`
 
-## Removed endpoints
+Tool/research payloads, including citation/source objects, are preserved. An
+internal route/deployment switch is not exposed as a product model change.
+Unknown named Alia events are mechanically namespaced as `clarity.*`, so
+clients must ignore event names they do not understand.
 
-For historical reference, the following endpoints have been removed and now return `410 Gone`:
+Deep research uses a bounded 15-minute upstream deadline and relies on Alia's
+progress frames to keep the stream active.
 
-- `POST /v1/resolve-model`
-- `POST /v1/report-usage`
-- `POST /codea/resolve-model`
-- `POST /codea/report-usage`
-- All `/automations*` routes (use `/triggers` instead)
+## Persistence and accounting
+
+When `conversationId` is present, Clarity atomically stores product conversation
+metadata and the complete message set in PostgreSQL. Alia/Oxy record inference
+usage and debit the inference balance. Clarity stores neither a duplicate usage
+event nor a duplicate credit balance.
+
+## Failure modes
+
+- no direct Oxy user bearer: `401 oxy_user_session_required`
+- no real configured agent: `503 clarity_agent_not_configured`
+- unknown Clarity model ID: `404 model_not_found`
+- Alia unavailable: `502 alia_unavailable`
+- bounded upstream deadline reached: `504 alia_timeout`
+
+There is deliberately no local inference fallback.

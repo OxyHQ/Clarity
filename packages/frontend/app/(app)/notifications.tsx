@@ -187,7 +187,7 @@ export default function NotificationsScreen() {
           <Bell size={32} className="text-muted-foreground mb-3" />
           <Text className="text-base font-medium text-foreground mb-1">No notifications yet</Text>
           <Text className="text-sm text-muted-foreground text-center">
-            Set up triggers and routines to get proactive updates from Clarity.
+            Agent activity and product notifications will appear here.
           </Text>
         </View>
       ) : (

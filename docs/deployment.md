@@ -1,140 +1,53 @@
-# Deployment Guide
+# Deployment
 
-Last updated: 2026-04-10
+No production deployment is performed or asserted by this migration branch.
 
-This guide covers production deployment for Clarity. Infrastructure is defined as code using [SST](https://sst.dev) with DigitalOcean and Cloudflare providers.
+## Required secrets and bindings
 
-## Infrastructure as Code (SST)
+- `DATABASE_URL`: dedicated Clarity PostgreSQL database
+- `CLARITY_ALIA_AGENT_ID`: real provisioned Clarity bot/agent record
+- `ALIA_API_URL`: Alia product API origin
+- Stripe secrets only when local product subscription checkout is enabled
+- VAPID secrets only when browser push is enabled
+- Redis/Valkey only for cache and burst limiting
 
-All infrastructure is defined in `sst.config.ts` at the repo root. SST manages:
+Provider credentials are forbidden here. They live in Kaana's encrypted
+PostgreSQL/KMS custody. A product/service credential is a different identity
+boundary and must not be described as a provider key.
 
-- **DO App Platform**: API service + static frontend
-- **DO Spaces**: File storage bucket (`bucket-clarity`)
-- **Domains**: clarity.surf, api.clarity.surf
+## Health contract
 
-Shared resources (MongoDB, Valkey) are referenced by cluster name but managed externally across all Oxy apps.
+- `GET /health/live`: process is running.
+- `GET /health/ready`: PostgreSQL is connected, the exact data snapshot has a
+  `cutover` attestation, and the configured `CLARITY_ALIA_AGENT_ID` hashes to
+  the exact agent identity recorded by that snapshot.
 
-### Prerequisites
+App Platform must use `/health/ready` as the readiness/deployment gate. A live
+but unattested process is deliberately not production-ready. The same check is
+enforced in front of every product HTTP route and every Socket.IO handshake, so
+a direct origin cannot bypass load-balancer health.
 
-```bash
-bun add -d sst    # Already in devDependencies
-```
+## Before enabling traffic
 
-Set credentials:
+1. Provision PostgreSQL and run all `pre` migrations with an exact target name.
+2. Complete and reconcile the source inventory/backfill.
+3. Provision the Clarity Oxy bot account and Alia agent; record their real IDs
+   in the deployment secret system, never the repository.
+4. Prove an authenticated Clarity turn reaches Alia, Oxy and Kaana with one
+   correlation trail.
+5. Prove deep research returns progress, tools and citations through the
+   translated `clarity.*` stream.
+6. Prove a Clarity subscription event updates local product entitlement and
+   grants inference credit in Alia exactly once.
+7. Attest the exact snapshot using the documented confirmation command.
+8. Deploy and verify the running revision, image/spec, health payload and an
+   authenticated live request.
 
-```bash
-export DIGITALOCEAN_TOKEN=dop_v1_...
-export SPACES_ACCESS_KEY_ID=...
-export SPACES_SECRET_ACCESS_KEY=...
-export CLOUDFLARE_API_TOKEN=...
-```
+Alia owns channel bot registrations and webhook validation. Clarity exposes
+only the allowlisted Telegram/Discord token-check and user-link endpoints used
+by its authorization screen. `EXPO_PUBLIC_TELEGRAM_BOT_USERNAME` is an optional
+public link and stays blank until that canonical Alia channel bot is provisioned;
+it is not a secret and no fallback username is invented.
 
-### Deploy
-
-```bash
-# Deploy to production
-bunx sst deploy --stage production
-
-# Deploy a dev/preview environment
-bunx sst deploy --stage dev
-
-# Remove a non-production stage
-bunx sst remove --stage dev
-```
-
-### Stages
-
-| Stage | Behavior |
-|-------|----------|
-| `production` | 2x API instances, retains resources on removal, domains configured |
-| Any other | 1x API instance, removes all resources on cleanup, no custom domains |
-
-### Local Development
-
-```bash
-bunx sst dev    # Starts multiplexer with linked resources
-```
-
-## Preconditions
-
-- MongoDB cluster reachable from API (shared `db-oxy` cluster).
-- Oxy auth service reachable.
-- Valkey (Redis) available for caching and rate limiting.
-
-## Database Naming
-
-Use per-app, per-env database naming:
-
-- `clarity-development`
-- `clarity-staging`
-- `clarity-production`
-
-Set database name via `mongoose.connect(..., { dbName })`.
-
-## Minimum Environment (API)
-
-These are configured in `sst.config.ts` and injected via DO App Platform:
-
-```bash
-PORT=8080
-NODE_ENV=production
-WEB_URL=https://clarity.surf
-MONGODB_URI=<from db-oxy cluster>
-REDIS_URL=<from db-valkey cluster>
-SERVICE_SECRET=<strong-secret>       # Set as SECRET in DO dashboard
-```
-
-## Optional but Recommended
-
-```bash
-# S3/Spaces (auto-configured by SST)
-AWS_REGION=ams3
-AWS_ACCESS_KEY_ID=<secret>
-AWS_SECRET_ACCESS_KEY=<secret>
-AWS_ENDPOINT_URL=https://ams3.digitaloceanspaces.com
-AWS_S3_BUCKET=bucket-clarity
-
-# Stripe
-STRIPE_SECRET_KEY=<secret>
-STRIPE_WEBHOOK_SECRET=<secret>
-
-# LiveKit
-LIVEKIT_URL=wss://livekit.oxy.so
-LIVEKIT_API_KEY=<secret>
-LIVEKIT_API_SECRET=<secret>
-```
-
-## Startup Behavior
-
-On API boot, the server automatically:
-
-- Connects MongoDB.
-- Initializes Socket.IO.
-- Starts trigger scheduler (`/triggers` runtime).
-- Starts async worker if queue is configured.
-- Seeds built-in skills/suggestions/bots.
-- Warms model-routing caches.
-
-## Health Checks
-
-- `GET /health`
-- `GET /v1/models` (verifies auth + model abstraction path)
-
-## Post-Deploy Validation
-
-1. Chat stream works on `/v1/chat/completions`.
-2. `clarity.plan_preview` SSE is emitted for stream requests with autonomy context.
-3. Trigger create/run works via `/triggers`.
-4. Oxy webhook accepts and deduplicates `eventId`.
-5. Approval flow emits `clarity.approval_request/result` for `R2` actions.
-6. Removed endpoints return `410` (`/v1/resolve-model`, `/v1/report-usage`, `/codea/resolve-model`, `/codea/report-usage`).
-
-## Rollback Strategy
-
-- Use `bunx sst deploy --stage production` to redeploy.
-- For DO App Platform, rollback is also available via the DO dashboard.
-- For runtime actions, `R1` writes are tracked in `RollbackRecord` with expiration window.
-
-## Legacy Reference
-
-The `.do/app.yaml` file is kept as a reference for the DO App Platform spec but is no longer the source of truth. All infrastructure changes should go through `sst.config.ts`.
+The checked-in DigitalOcean/SST declarations are desired configuration, not
+evidence that any live app currently matches them.

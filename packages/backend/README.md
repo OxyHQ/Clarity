@@ -1,113 +1,52 @@
-# Clarity API
+# Clarity product API
 
-Express + TypeScript API for Clarity autonomy runtime.
+Express API for Clarity-owned state and the fixed Alia agent boundary.
 
-## What Is Live
+## Runtime ownership
 
-- Single chat runtime for all surfaces (`/clarity/search` and `/v1/chat/completions`).
-- Autonomy loop with intent classification and context-graph recall.
-- Trigger engine (`/triggers`) for schedule, webhook, integration event, and agent heartbeat tasks.
-- Oxy service event ingestion with idempotency and autonomous session creation.
-- Governance by risk level (`R0` read, `R1` reversible write + rollback record, `R2` approval required, `R3` blocked).
-- Public model abstraction: only Clarity model IDs are exposed.
+- PostgreSQL/Drizzle: conversations, messages, suggestions, feedback,
+  notifications, product catalogue, subscriptions and entitlements.
+- Alia: agent execution, tools, research, citations, credits and telemetry.
+- Oxy: identity and inference accounting.
+- Kaana: inference routing, adapters and provider-key custody.
 
-## Runtime Flow
-
-1. Classify intent.
-2. Recall ranked sources and learning rules.
-3. Retrieve context.
-4. Execute with tools.
-5. Persist learnings and source quality.
-
-## Core Modules
-
-- `src/routes/v1/chat-completions.ts` - Unified chat handler.
-- `src/lib/autonomy/runtime.ts` - Before/after chat autonomy orchestration.
-- `src/lib/autonomy/context-graph.ts` - Recall/learning engine.
-- `src/lib/agent/governance.ts` - Risk policy and rollback registration.
-- `src/lib/agent/action-approval.ts` - Approval request/decision lifecycle.
-- `src/lib/trigger-engine.ts` - Unified trigger scheduler/executor.
-- `src/routes/oxy-service-events.ts` - Oxy event webhook + autonomous execution.
-
-## Public Endpoints
-
-### Chat
+The two chat entry points use the same handler:
 
 - `POST /clarity/search`
 - `POST /v1/chat/completions`
-- `POST /v1/responses`
-- `GET /v1/models`
-- `GET /v1/models/:modelId`
 
-### Triggers
+Only a direct authenticated Oxy user session can currently invoke chat. The
+internal service route returns `503` until an explicit service-to-agent
+delegation contract exists.
 
-- `GET /triggers`
-- `POST /triggers`
-- `GET /triggers/:id`
-- `PATCH /triggers/:id`
-- `DELETE /triggers/:id`
-- `POST /triggers/:id/run`
-- `GET /triggers/:id/executions`
-- `POST /triggers/:id/regenerate-token`
-- `POST /triggers/webhook/:token`
-
-### Oxy Event Ingestion
-
-- `POST /webhooks/oxy/:serviceId`
-
-### Removed (hard cut)
-
-- `POST /v1/resolve-model` -> `410`
-- `POST /v1/report-usage` -> `410`
-- `POST /codea/resolve-model` -> `410`
-- `POST /codea/report-usage` -> `410`
-- All `/automations*` routes removed.
-
-## Streaming Event Contract (`eventVersion: 1`)
-
-Named SSE events used by all clients:
-
-- `clarity.plan_preview`
-- `clarity.approval_request`
-- `clarity.approval_result`
-- `clarity.research_progress`
-- `clarity.agent_session`
-- `clarity.reasoning`
-- `clarity.tool_result`
-- `clarity.title`
-- `clarity.model_switch`
+Memory, agent audit, authenticated triggers and the two channel-link endpoints
+used by Clarity are fixed, allowlisted proxies into Alia. They never accept a
+caller-supplied upstream URL. Alia returns its own webhook URL and validates
+webhook tokens, signatures and source IPs at that origin; Clarity does not
+relay webhook ingestion.
 
 ## Development
 
 ```bash
-# from repo root
-bun run dev:backend
-
-# or from packages/backend
 bun run dev
+bun run lint
+bun run test
+bun run build
 ```
 
-## Build
+The service does not start without `DATABASE_URL`. `/health/live` proves only
+process liveness; `/health/ready` requires PostgreSQL, an attested cutover and
+the exact configured Alia agent whose hash was recorded during reconciliation.
+All product HTTP routes and Socket.IO handshakes enforce that same gate.
+
+Database scripts:
 
 ```bash
-bun run build
-bun run start
+bun run db:generate
+bun run db:migrate -- --target-database=clarity_ci --phase=pre --dry-run
+bun run db:backfill -- --manifest=/absolute/path/manifest.json
+bun run db:attest-cutover -- --manifest=/absolute/path/manifest.json \
+  --snapshot-hash=<sha256> --confirm=CUTOVER_CLARITY_TO_POSTGRES
 ```
 
-## Environment
-
-Use `packages/backend/example.env` as baseline.
-
-Key groups:
-
-- Server and CORS (`PORT`, `WEB_URL`, `API_BASE_URL`)
-- MongoDB (`MONGODB_URI`)
-- Auth secrets (`JWT_SECRET`, `SERVICE_SECRET`)
-- Queue/async execution (`REDIS_URL`)
-- Integrations and channels (`INTEGRATIONS_SERVICE_URL`, channel secrets)
-- Optional sandbox runtime (`DOCKER_HOST_URL`, `DOCKER_HOST_SECRET`)
-
-## Notes
-
-- Keep all user-facing errors sanitized.
-- Never expose internal model-routing details in public responses or logs.
+See `../../docs/postgres-alia-migration.md` before running any data command.

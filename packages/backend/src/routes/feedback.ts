@@ -1,7 +1,10 @@
 import { Router } from 'express';
-import { Feedback } from '../models/feedback.js';
+import { randomUUID } from 'node:crypto';
+import { and, desc, eq } from 'drizzle-orm';
 import { authenticateToken } from '../middleware/auth.js';
 import { log } from '../lib/logger.js';
+import { getDb } from '../db/index.js';
+import { feedback as feedbackTable } from '../db/schema/index.js';
 
 const router = Router();
 
@@ -32,22 +35,22 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    const feedback = new Feedback({
+    const [feedback] = await getDb().insert(feedbackTable).values({
+      id: randomUUID(),
       oxyUserId: req.user!.id,
       type,
-      rating,
+      rating: rating ?? null,
       message,
-      email,
-      metadata,
-      status: 'pending'
-    });
-
-    await feedback.save();
+      email: email ?? null,
+      metadata: metadata ?? null,
+      status: 'pending',
+    }).returning();
+    if (!feedback) throw new Error('feedback insert returned no row');
 
     res.status(201).json({
       success: true,
       feedback: {
-        id: feedback._id,
+        id: feedback.id,
         type: feedback.type,
         message: feedback.message,
         createdAt: feedback.createdAt
@@ -65,8 +68,9 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
-    const feedback = await Feedback.find({ oxyUserId: req.user!.id })
-      .sort({ createdAt: -1 })
+    const feedback = await getDb().select().from(feedbackTable)
+      .where(eq(feedbackTable.oxyUserId, req.user!.id))
+      .orderBy(desc(feedbackTable.createdAt), desc(feedbackTable.id))
       .limit(50);
 
     res.json(feedback);
@@ -82,10 +86,10 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const feedback = await Feedback.findOne({
-      _id: req.params.id,
-      oxyUserId: req.user!.id
-    });
+    const [feedback] = await getDb().select().from(feedbackTable).where(and(
+      eq(feedbackTable.id, req.params.id),
+      eq(feedbackTable.oxyUserId, req.user!.id),
+    )).limit(1);
 
     if (!feedback) {
       res.status(404).json({ error: 'Feedback not found' });

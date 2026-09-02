@@ -10,7 +10,7 @@ export default defineConfig({
       include: ['src/**/*.ts'],
       exclude: ['src/**/__tests__/**', 'src/**/*.test.ts', 'src/index.ts'],
     },
-    // Increase timeout for tests that mock MongoDB
+    // Allow enough time for repository and stream boundary tests
     testTimeout: 10000,
   },
 });

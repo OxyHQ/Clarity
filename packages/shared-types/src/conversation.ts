@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Conversation / Message DTOs — the wire shape exchanged between the Clarity
-// frontend and backend over HTTP. The backend Mongoose models extend these
+// frontend and backend over HTTP. The PostgreSQL repositories use these
 // interfaces; the frontend hooks consume them directly.
 // ---------------------------------------------------------------------------
 
