@@ -37,14 +37,14 @@ router.get('/me', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    if (!req.accessToken || req.serviceApp) {
+    if (req.serviceApp) {
       return res.status(401).json({ error: 'An authenticated Oxy user session is required' });
     }
     const credits = await fetchAliaJson<{
       credits: number;
       freeCredits: number;
       paidCredits: number;
-    }>(req.accessToken, '/credits');
+    }>(userId, '/credits');
 
     res.json({
       id: userId,

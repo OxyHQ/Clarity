@@ -36,6 +36,15 @@ DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
 ```
 
 Re-run the apply command; it must report no migrations to apply.
+After the new application revision is healthy and no previous image can write
+the retired per-conversation agent metadata, apply and re-run the `post` phase:
+
+```bash
+DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
+  --target-database=clarity_rehearsal --phase=post --dry-run
+DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
+  --target-database=clarity_rehearsal --phase=post
+```
 
 ## Source inventory and backfill manifest
 
@@ -84,7 +93,7 @@ must hash to that value. After reviewing the exact snapshot hash:
 
 ```bash
 DATABASE_URL=postgresql://... \
-CLARITY_ALIA_AGENT_ID=<provisioned-secret> \
+CLARITY_ALIA_AGENT_ID=01a0646a-078f-7642-95ef-439952f4f3f9 \
 bun run --filter @clarity/backend db:attest-cutover -- \
   --manifest=/approved/export/manifest.json \
   --snapshot-hash=<exact-inventory-sha256> \
@@ -93,24 +102,29 @@ bun run --filter @clarity/backend db:attest-cutover -- \
 
 Only a matching `reconciled` row with the same agent-ID hash can become
 `cutover`. Until then `/health/ready` returns `503`, every product HTTP route
-returns `503`, and Socket.IO rejects the handshake. Changing the provisioned
-agent after attestation also closes those gates.
+returns `503`, and Socket.IO rejects the handshake. Changing the canonical
+agent or backend service configuration also closes those gates.
 
 ## Production blockers
 
 - live source database/collection inventory and exact export are not available
   in this repository;
 - DigitalOcean PostgreSQL and `DATABASE_URL` are not proven provisioned;
-- the deployed frontend currently points at `api.clarity.oxy.so`, which did not
-  resolve during the 2026-09-02 audit; no replacement API origin is assumed;
-- no real Clarity bot account, Alia agent or delegation ID was supplied;
+- source now targets the declared `api.clarity.surf` product API, but no DNS
+  answer or deployed App Platform revision has been observed for that origin;
+- the canonical bot/agent/backend-app IDs are pinned, but no dated evidence
+  proves Alia has reconciled the manifest, prompt hash, app binding and exact
+  `web`/`artifacts`/`memory` grants;
+- the declarations accept the backend service credential as a
+  DigitalOcean-managed secret, but no read-back proves that the live app has it;
 - the pre-existing Codea/Cowork developer authorization endpoints remain
   explicit `410` responses until a canonical Oxy application-delegation
   replacement is designed; this migration does not claim that flow works;
 - the Oxy inference edge dependency used by Alia is still an external rollout
   dependency;
 - external migration receipts for historical credits/usage/memory/agent data
-  and Kaana credential custody do not yet exist;
+  and a live receipt proving Clarity reached Kaana's credential-backed route do
+  not yet exist; this is not a claim that Kaana's custody store itself is absent;
 - no production Stripe dual-webhook credit-grant test or deployed revision was
   observed.
 

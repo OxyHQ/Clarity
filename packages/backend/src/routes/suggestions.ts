@@ -29,6 +29,7 @@ const aiSuggestionSchema = z.object({
 });
 
 const router = Router();
+type SearchSuggestion = Awaited<ReturnType<typeof searchSuggestions>>[number];
 
 function routeParam(req: Request, key: string): string {
   const value = req.params[key];
@@ -37,11 +38,11 @@ function routeParam(req: Request, key: string): string {
 
 // ============== IN-MEMORY CACHE ==============
 
-const cache = new Map<string, { data: any; expiresAt: number }>();
+const cache = new Map<string, { data: SearchSuggestion[]; expiresAt: number }>();
 const CACHE_MAX_SIZE = 500;
 const SEARCH_CACHE_TTL = 3 * 60 * 1000; // 3 min — autocomplete results
 
-function cacheGet(key: string): any | null {
+function cacheGet(key: string): SearchSuggestion[] | null {
   const entry = cache.get(key);
   if (!entry) return null;
   if (entry.expiresAt < Date.now()) {
@@ -51,7 +52,7 @@ function cacheGet(key: string): any | null {
   return entry.data;
 }
 
-function cacheSet(key: string, data: any, ttl: number): void {
+function cacheSet(key: string, data: SearchSuggestion[], ttl: number): void {
   // Evict oldest if full
   if (cache.size >= CACHE_MAX_SIZE) {
     const oldest = cache.keys().next().value;
@@ -73,10 +74,10 @@ interface AliaMemoryProfile {
   context?: { occupation?: string; location?: string };
 }
 
-async function getUserProfile(accessToken?: string): Promise<AliaMemoryProfile> {
-  if (!accessToken) return {};
+async function getUserProfile(userId?: string): Promise<AliaMemoryProfile> {
+  if (!userId) return {};
   try {
-    return await fetchAliaJson<AliaMemoryProfile>(accessToken, '/memory');
+    return await fetchAliaJson<AliaMemoryProfile>(userId, '/memory');
   } catch (error: unknown) {
     log.general.warn({ err: error }, 'Alia memory unavailable for suggestion personalization');
     return {};
@@ -91,7 +92,7 @@ async function getUserProfile(accessToken?: string): Promise<AliaMemoryProfile> 
 router.post('/list', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { type, category, limit = 200, offset = 0 } = req.body || {};
-    const profile = await getUserProfile(req.accessToken);
+    const profile = await getUserProfile(req.user?.id);
     const language = profile.preferences?.language || 'en-US';
 
     const suggestions = await listSuggestions({
@@ -118,7 +119,7 @@ router.post('/list', optionalAuth, async (req: Request, res: Response) => {
 router.post('/welcome', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { count = 4 } = req.body || {};
-    const profile = await getUserProfile(req.accessToken);
+    const profile = await getUserProfile(req.user?.id);
     const language = profile.preferences?.language || 'en-US';
 
     const requestedCount = Math.min(Number(count) || 4, 20);
@@ -181,7 +182,7 @@ router.post('/create', authenticateToken, async (req: Request, res: Response) =>
     }
 
     // Generate suggestionId
-    let suggestionId = `user-${title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40)}-${Date.now().toString(36).slice(-4)}`;
+    const suggestionId = `user-${title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40)}-${Date.now().toString(36).slice(-4)}`;
 
     const suggestion = await createSuggestion({
       suggestionId,
@@ -193,7 +194,7 @@ router.post('/create', authenticateToken, async (req: Request, res: Response) =>
       triggerWords: triggerWords || [],
       tags: tags || [],
       scope: 'personal',
-      language: (await getUserProfile(req.accessToken)).preferences?.language || 'en-US',
+      language: (await getUserProfile(req.user.id)).preferences?.language || 'en-US',
       isBuiltIn: false,
       isAiGenerated: false,
       oxyUserId: req.user.id,
@@ -217,10 +218,7 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
     if (!req.user?.id) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-
-    if (!req.accessToken) {
-      return res.status(401).json({ error: 'An Oxy user session is required' });
-    }
+    const userId = req.user.id;
 
     const requestedCount = Number(req.body?.count ?? 6);
     const count = Number.isInteger(requestedCount)
@@ -232,7 +230,7 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
     );
     if (types.length === 0) types.push('welcome', 'autocomplete');
 
-    const profile = await getUserProfile(req.accessToken);
+    const profile = await getUserProfile(userId);
     const language = profile.preferences?.language || 'en-US';
     const interests = profile.preferences?.interests ?? [];
     const tone = profile.preferences?.tone || 'friendly';
@@ -249,7 +247,7 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
     ].filter(Boolean).join(' | ');
 
     const responseText = await completeAsClarityAgent({
-      accessToken: req.accessToken,
+      userId,
       clarityModelId: 'clarity-fast',
       signal: AbortSignal.timeout(30_000),
       messages: [
@@ -295,8 +293,7 @@ Return ONLY a valid JSON array, no other text.`,
     // Validate each item with Zod, skip invalid ones
     const validated = rawParsed
       .map(item => aiSuggestionSchema.safeParse(item))
-      .filter(r => r.success)
-      .map(r => r.data!);
+      .flatMap((result) => result.success ? [result.data] : []);
 
     // Create suggestion documents
     const created = [];
@@ -326,7 +323,7 @@ Return ONLY a valid JSON array, no other text.`,
           language: item.language || language,
           isBuiltIn: false,
           isAiGenerated: true,
-          oxyUserId: req.user!.id,
+          oxyUserId: userId,
         });
         created.push(suggestion);
       } catch (err: unknown) {
@@ -416,7 +413,7 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
     }
 
     const trimmed = query.trim().toLowerCase();
-    const profile = await getUserProfile(req.accessToken);
+    const profile = await getUserProfile(req.user?.id);
     const language = profile.preferences?.language || 'en-US';
     const limitNum = Math.min(Number(limit) || 6, 20);
 
@@ -433,7 +430,7 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
     }
 
     // 2. Personal results — only for authenticated users, not cached
-    let personalResults: any[] = [];
+    let personalResults: SearchSuggestion[] = [];
     if (req.user?.id) {
       personalResults = await searchSuggestions({
         query: trimmed,
@@ -445,7 +442,7 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
 
     // 3. Merge: personal first, then global, dedupe, prioritize user's language
     const seen = new Set<string>();
-    const candidates = [];
+    const candidates: SearchSuggestion[] = [];
     for (const s of [...personalResults, ...globalResults]) {
       if (!seen.has(s.suggestionId)) {
         seen.add(s.suggestionId);
@@ -453,7 +450,7 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
       }
     }
     // Sort: user's preferred language first, then others
-    candidates.sort((a: any, b: any) => {
+    candidates.sort((a, b) => {
       const aMatch = a.language === language ? 0 : 1;
       const bMatch = b.language === language ? 0 : 1;
       return aMatch - bMatch;

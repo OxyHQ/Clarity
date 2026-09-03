@@ -6,6 +6,7 @@
  * only routing vocabulary Clarity sends is an Alia product profile; Alia owns
  * the subsequent Oxy -> Kaana inference decision.
  */
+import { CLARITY_AGENT_MANIFEST } from './clarity-agent-manifest.js';
 
 export type ModelCategory = 'general' | 'coding';
 export type AliaReasoningEffort = 'instant' | 'medium' | 'high' | 'max';
@@ -132,7 +133,7 @@ export function getClarityModelsByCategory(category: ModelCategory): ClarityMode
 
 export function getDefaultModelForCategory(category: ModelCategory): ClarityModel | null {
   if (category === 'general') return getClarityModel('clarity-v1');
-  return getClarityModelsByCategory(category)[0] ?? null;
+  return null;
 }
 
 /**
@@ -142,11 +143,10 @@ export function getDefaultModelForCategory(category: ModelCategory): ClarityMode
 export function getAvailableModels(
   env: NodeJS.ProcessEnv = process.env,
 ): ClarityModelWithAvailability[] {
-  const isAvailable = Boolean(env.CLARITY_ALIA_AGENT_ID?.trim());
+  const isAvailable = env.CLARITY_ALIA_AGENT_ID === CLARITY_AGENT_MANIFEST.agentId;
   return getAllClarityModels().map((model) => ({
     ...model,
     isAvailable,
     isLegacy: false,
   }));
 }
-

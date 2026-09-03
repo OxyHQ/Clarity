@@ -13,15 +13,20 @@ named Alia bot/agent. Chat flows `Clarity -> Alia -> Oxy inference -> Kaana`.
   feedback, plan catalogue, subscriptions and entitlements.
 - Alia owns the agent runtime, tools, search/deep research, memory, citations,
   inference credits and inference telemetry.
-- Kaana owns inference routing, adapters and provider credentials. No provider
-  credential, adapter, routing table or direct provider endpoint belongs here.
+- Oxy authorizes and orders exact inference routes. Kaana owns adapters,
+  provider credentials and execution/failover within that signed order. No
+  provider credential, adapter, routing table or direct provider endpoint
+  belongs here.
 - Preserve the public product IDs in
   `packages/backend/src/lib/clarity-models.ts`. Map by exact ID, never name,
   array position, or sort order.
-- Never invent `CLARITY_ALIA_AGENT_ID`. Missing provisioning must fail closed.
-- A service credential is not a user session or an Alia agent identity.
-  Service-triggered agent work stays unavailable until the canonical delegated
-  contract is implemented and provisioned.
+- The canonical IDs, public/backend app split, prompt hash and grants live in
+  `packages/backend/src/lib/clarity-agent-manifest.ts`. Match them byte for byte;
+  do not trim, normalize, discover by name/list/order, or accept client rebinding.
+- Backend calls to Alia use only Clarity's Oxy service credential plus the
+  authenticated user's `X-Oxy-User-Id`. Never forward a human bearer. The token
+  must identify the exact backend app, credential, project payer and exact
+  `user:read` + `inference:invoke` scope set.
 
 Platform credentials such as Stripe, VAPID, Valkey and Oxy identity are not
 inference-provider credentials. Keep that distinction in architecture gates.

@@ -54,7 +54,7 @@ export const API_ROUTES = {
   // Health check
   health: '/health',
 
-  // API v1 routes (OpenAI compatible)
+  // API v1 routes (chat-completions format)
   v1: {
     chatCompletions: '/v1/chat/completions',
     models: '/v1/models',

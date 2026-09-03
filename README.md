@@ -8,13 +8,15 @@
 Clarity client
   -> Clarity API (Oxy auth, product IDs, PostgreSQL product state)
   -> Clarity bot/agent in Alia (conversation runtime, tools, search, citations)
-  -> Oxy inference edge (identity, billing, usage)
-  -> Kaana (routing and provider execution)
+  -> Oxy inference edge (identity, billing, exact route authorization/order)
+  -> Kaana (provider execution and failover within Oxy's signed order)
 ```
 
-Clarity has no inference-provider adapters, keys, routing or local inference
+Clarity has no inference-provider adapters, keys, route selection or local inference
 billing. Its backend is PostgreSQL/Drizzle only. Product plans and entitlements
-remain Clarity data; inference credits and telemetry come from Alia.
+remain Clarity data; inference credits and telemetry come from Alia. Kaana is
+the sole hosted inference data plane and its only canonical signed origin is
+`https://kaana.ai`, never a hostname under `oxy.so`.
 
 ## Packages
 
@@ -33,9 +35,11 @@ bun run dev:backend
 bun run dev:frontend
 ```
 
-The API requires `DATABASE_URL`. Chat additionally requires the real
-`CLARITY_ALIA_AGENT_ID`; there is no development placeholder. Redis, Stripe and
-browser-push settings are optional for the corresponding product features.
+The API requires `DATABASE_URL`, the byte-exact canonical
+`CLARITY_ALIA_AGENT_ID`, and Clarity's dedicated Oxy backend credential. The
+credential secret is a provider-managed DigitalOcean App Platform secret; it
+is never stored in the repository, a user bearer or an inference-provider key.
+Redis, Stripe and browser-push settings are optional.
 
 ```bash
 bun run --filter @clarity/backend lint

@@ -17,6 +17,10 @@ router.use(authenticateToken);
  */
 router.post('/', async (req, res) => {
   try {
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const { type, rating, message, email, metadata } = req.body;
 
     if (!type || !message) {
@@ -37,7 +41,7 @@ router.post('/', async (req, res) => {
 
     const [feedback] = await getDb().insert(feedbackTable).values({
       id: randomUUID(),
-      oxyUserId: req.user!.id,
+      oxyUserId: req.user.id,
       type,
       rating: rating ?? null,
       message,
@@ -68,8 +72,12 @@ router.post('/', async (req, res) => {
  */
 router.get('/', async (req, res) => {
   try {
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const feedback = await getDb().select().from(feedbackTable)
-      .where(eq(feedbackTable.oxyUserId, req.user!.id))
+      .where(eq(feedbackTable.oxyUserId, req.user.id))
       .orderBy(desc(feedbackTable.createdAt), desc(feedbackTable.id))
       .limit(50);
 
@@ -86,9 +94,13 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
+    if (!req.user?.id) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
     const [feedback] = await getDb().select().from(feedbackTable).where(and(
       eq(feedbackTable.id, req.params.id),
-      eq(feedbackTable.oxyUserId, req.user!.id),
+      eq(feedbackTable.oxyUserId, req.user.id),
     )).limit(1);
 
     if (!feedback) {

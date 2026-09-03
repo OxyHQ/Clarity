@@ -21,10 +21,10 @@ const SearchPage = () => {
       <Head>
         <title>Clarity | AI Search by Oxy</title>
         <meta name="description" content="Clarity is an AI-powered search engine by Oxy. Get answers with source citations, deep research, and follow-up questions." />
-        <link rel="canonical" href="https://clarity.oxy.so/" />
+        <link rel="canonical" href="https://clarity.surf/" />
         <meta property="og:title" content="Clarity | AI Search by Oxy" />
         <meta property="og:description" content="Clarity is an AI-powered search engine by Oxy. Get answers with source citations, deep research, and follow-up questions." />
-        <meta property="og:image" content="https://clarity.oxy.so/og-image-default.png" />
+        <meta property="og:image" content="https://clarity.surf/og-image-default.png" />
       </Head>
       <ChatPageContent
         messages={messages}

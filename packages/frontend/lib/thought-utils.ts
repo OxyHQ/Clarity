@@ -1,4 +1,4 @@
-import type { ToolInvocation } from '@clarity/shared-types';
+import type { Message, ToolInvocation } from '@clarity/shared-types';
 import { getToolLabel } from '@/lib/sdk';
 
 export interface Source {
@@ -24,6 +24,25 @@ function getDomain(url: string): string {
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function sourceFrom(value: unknown): Source | null {
+  const record = asRecord(value);
+  if (!record || typeof record.url !== 'string' || record.url.length === 0) return null;
+  return {
+    title: typeof record.title === 'string' && record.title.length > 0
+      ? record.title
+      : getDomain(record.url),
+    url: record.url,
+    snippet: typeof record.snippet === 'string' ? record.snippet : '',
+    domain: getDomain(record.url),
+  };
+}
+
 /**
  * Extract unique sources from tool invocations (webSearch, webScraper).
  */
@@ -35,42 +54,40 @@ export function extractSources(toolInvocations?: ToolInvocation[]): Source[] {
 
   for (const inv of toolInvocations) {
     if (inv.state !== 'result' || !inv.result) continue;
+    const result = asRecord(inv.result);
+    if (!result) continue;
 
-    if ((inv.toolName === 'webSearch' || (inv.toolName === 'browse' && inv.result.action === 'search')) && Array.isArray(inv.result.results)) {
-      for (const r of inv.result.results) {
-        if (r.url && !seen.has(r.url)) {
-          seen.add(r.url);
-          sources.push({
-            title: r.title || getDomain(r.url),
-            url: r.url,
-            snippet: r.snippet || '',
-            domain: getDomain(r.url),
-          });
+    if ((inv.toolName === 'webSearch' || (inv.toolName === 'browse' && result.action === 'search')) && Array.isArray(result.results)) {
+      for (const value of result.results) {
+        const source = sourceFrom(value);
+        if (source && !seen.has(source.url)) {
+          seen.add(source.url);
+          sources.push(source);
         }
       }
     }
 
-    if (inv.toolName === 'browse' && inv.result.action === 'read' && inv.result.url) {
-      const url = inv.result.url;
+    if (inv.toolName === 'browse' && result.action === 'read' && typeof result.url === 'string') {
+      const url = result.url;
       if (!seen.has(url)) {
         seen.add(url);
         sources.push({
-          title: inv.result.title || getDomain(url),
+          title: typeof result.title === 'string' ? result.title : getDomain(url),
           url,
-          snippet: inv.result.content ? inv.result.content.slice(0, 200) : '',
+          snippet: typeof result.content === 'string' ? result.content.slice(0, 200) : '',
           domain: getDomain(url),
         });
       }
     }
 
-    if (inv.toolName === 'webScraper' && inv.result.url) {
-      const url = inv.result.url;
+    if (inv.toolName === 'webScraper' && typeof result.url === 'string') {
+      const url = result.url;
       if (!seen.has(url)) {
         seen.add(url);
         sources.push({
-          title: inv.result.title || getDomain(url),
+          title: typeof result.title === 'string' ? result.title : getDomain(url),
           url,
-          snippet: inv.result.content ? inv.result.content.slice(0, 200) : '',
+          snippet: typeof result.content === 'string' ? result.content.slice(0, 200) : '',
           domain: getDomain(url),
         });
       }
@@ -84,7 +101,7 @@ export function extractSources(toolInvocations?: ToolInvocation[]): Source[] {
  * Build an ordered timeline of steps from a message's thinking + tool invocations.
  */
 export function buildSteps(
-  message: { thinking?: string; content?: any; toolInvocations?: ToolInvocation[] },
+  message: Pick<Message, 'thinking' | 'content' | 'toolInvocations'>,
   isStreaming: boolean,
 ): ThoughtStep[] {
   const steps: ThoughtStep[] = [];
@@ -97,6 +114,7 @@ export function buildSteps(
   // 2. Tool invocation steps
   if (message.toolInvocations) {
     for (const inv of message.toolInvocations) {
+      const result = asRecord(inv.result);
       const step: ThoughtStep = {
         type: 'tool',
         label: getToolLabel(inv.toolName),
@@ -105,15 +123,15 @@ export function buildSteps(
       };
 
       // Attach sources for search tools that have results
-      if ((inv.toolName === 'webSearch' || (inv.toolName === 'browse' && inv.result?.action === 'search')) && inv.state === 'result' && inv.result?.results) {
-        step.sources = inv.result.results
-          .filter((r: any) => r.url)
-          .map((r: any) => ({
-            title: r.title || getDomain(r.url),
-            url: r.url,
-            snippet: r.snippet || '',
-            domain: getDomain(r.url),
-          }));
+      if (
+        (inv.toolName === 'webSearch' || (inv.toolName === 'browse' && result?.action === 'search'))
+        && inv.state === 'result'
+        && Array.isArray(result?.results)
+      ) {
+        step.sources = result.results.flatMap((value) => {
+          const source = sourceFrom(value);
+          return source ? [source] : [];
+        });
       }
 
       steps.push(step);
@@ -138,7 +156,7 @@ export function buildSteps(
  */
 export interface AuditEntry {
   id: string;
-  type: 'tool_call' | 'research_phase' | 'agent_delegation' | 'plan_approved' | 'artifact_generated';
+  type: 'tool_call' | 'research_phase' | 'plan_approved' | 'artifact_generated';
   label: string;
   description: string;
   status: 'in_progress' | 'complete';
@@ -150,24 +168,12 @@ export interface AuditEntry {
  * Build a chronological audit timeline from all conversation messages.
  */
 export function buildAuditTimeline(
-  messages: Array<{ id: string; role: string; content?: any; toolInvocations?: ToolInvocation[]; agentInfo?: any; [key: string]: any }>
+  messages: Array<Message & { id: string }>,
 ): AuditEntry[] {
   const entries: AuditEntry[] = [];
 
   for (const msg of messages) {
     if (msg.role !== 'assistant') continue;
-
-    // Agent delegation
-    if (msg.agentInfo) {
-      entries.push({
-        id: `agent-${msg.id}`,
-        type: 'agent_delegation',
-        label: `Agent: ${msg.agentInfo.name}`,
-        description: typeof msg.content === 'string' ? msg.content.slice(0, 80) : '',
-        status: 'complete',
-        messageId: msg.id,
-      });
-    }
 
     // Plan approved
     if (msg.pendingPlan?.approved) {
@@ -186,13 +192,14 @@ export function buildAuditTimeline(
       for (const inv of msg.toolInvocations) {
         const isDone = inv.state === 'result';
         const toolLabel = getToolLabel(inv.toolName);
+        const args = asRecord(inv.args);
 
         let description = '';
-        if (inv.args?.query) {
-          const q = String(inv.args.query);
+        if (typeof args?.query === 'string') {
+          const q = args.query;
           description = q.length > 50 ? q.slice(0, 50) + '...' : q;
-        } else if (inv.args?.url) {
-          const u = String(inv.args.url);
+        } else if (typeof args?.url === 'string') {
+          const u = args.url;
           description = u.length > 50 ? u.slice(0, 50) + '...' : u;
         }
 
@@ -208,11 +215,14 @@ export function buildAuditTimeline(
 
         // Artifact generated from generateFile
         if (inv.toolName === 'generateFile' && isDone && inv.result) {
+          const result = asRecord(inv.result);
           entries.push({
             id: `artifact-${inv.toolCallId}`,
             type: 'artifact_generated',
             label: 'File generated',
-            description: inv.result.filename || inv.result.title || '',
+            description: typeof result?.filename === 'string'
+              ? result.filename
+              : typeof result?.title === 'string' ? result.title : '',
             status: 'complete',
             messageId: msg.id,
           });

@@ -32,15 +32,12 @@ export const conversations = pgTable('clarity_conversations', {
   iconColor: text('icon_color'),
   isFavorite: boolean('is_favorite').notNull().default(false),
   isPublic: boolean('is_public').notNull().default(false),
-  agentId: text('agent_id'),
   ...timestampColumns(),
 }, (table) => [
   unique('clarity_conversations_user_conversation_unique')
     .on(table.oxyUserId, table.conversationId),
   index('clarity_conversations_user_updated_idx')
     .on(table.oxyUserId, table.updatedAt),
-  index('clarity_conversations_user_agent_idx')
-    .on(table.oxyUserId, table.agentId),
   check(
     'clarity_conversations_source_check',
     sql`${table.source} in ('app', 'telegram', 'api', 'web', 'discord', 'whatsapp', 'slack')`,
@@ -57,7 +54,6 @@ export const messages = pgTable('clarity_messages', {
   content: jsonb('content').notNull(),
   vote: text('vote'),
   toolInvocations: jsonb('tool_invocations').notNull().default(sql`'[]'::jsonb`),
-  agentInfo: jsonb('agent_info'),
   audioUrl: text('audio_url'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

@@ -31,7 +31,7 @@ export interface ClarityModelPricing {
 }
 
 /**
- * Public Clarity model DTO (OpenAI-compatible `model` object shape).
+ * Public Clarity model DTO (chat-completions `model` object shape).
  * `owned_by` is always `"clarity"` — provider ownership is never surfaced.
  */
 export interface ClarityModelDTO {

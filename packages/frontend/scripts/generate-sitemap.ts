@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const SITE_URL = 'https://clarity.oxy.so';
+const SITE_URL = 'https://clarity.surf';
 const CURRENT_DATE = new Date().toISOString().split('T')[0];
 
 interface SitemapURL {

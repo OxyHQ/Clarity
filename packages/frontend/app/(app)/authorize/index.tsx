@@ -141,6 +141,16 @@ export default function AuthorizeScreen() {
       return;
     }
 
+    if (!isOxyAuth) {
+      setStatus('needLogin');
+      setMessage(t('authorize.needLogin', { app: appConfig.displayName }));
+      setTimeout(() => {
+        const returnTo = `/authorize?app=${channelType}&token=${token}&channel=${channelType}`;
+        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+      }, 1500);
+      return;
+    }
+
     // Verify token is valid via bot route
     try {
       const res = await apiClient.get<{ valid?: boolean; error?: string }>(`/bots/internal/${channelType}/check-token/${token}`);
@@ -152,16 +162,6 @@ export default function AuthorizeScreen() {
     } catch {
       setStatus('error');
       setMessage(t('authorize.invalidOrExpiredToken'));
-      return;
-    }
-
-    if (!isOxyAuth) {
-      setStatus('needLogin');
-      setMessage(t('authorize.needLogin', { app: appConfig.displayName }));
-      setTimeout(() => {
-        const returnTo = `/authorize?app=${channelType}&token=${token}&channel=${channelType}`;
-        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
-      }, 1500);
       return;
     }
 

@@ -13,7 +13,6 @@ export async function createConversation(input: {
   conversationId: string;
   title: string;
   source: ConversationSource;
-  agentId?: string;
 }): Promise<ConversationRow> {
   const [row] = await getDb().insert(conversations).values({
     id: randomUUID(),
@@ -21,7 +20,6 @@ export async function createConversation(input: {
     conversationId: input.conversationId,
     title: input.title,
     source: input.source,
-    agentId: input.agentId ?? null,
   }).returning();
   if (!row) throw new Error('conversation insert returned no row');
   return row;
@@ -63,13 +61,44 @@ export async function listMessages(
 
 export interface WritableMessage {
   id?: string;
-  role: ProductMessage['role'];
+  role: Exclude<ProductMessage['role'], 'system'>;
   content: ProductMessage['content'];
   vote?: 'up' | 'down';
   toolInvocations?: unknown[];
-  agentInfo?: unknown;
   audioUrl?: string;
   createdAt?: Date | string;
+}
+
+export function toWritableMessage(value: unknown): WritableMessage | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const message = value as Record<string, unknown>;
+  if (message.role !== 'user' && message.role !== 'assistant') return null;
+  if (
+    typeof message.content !== 'string'
+    && (!Array.isArray(message.content) || message.content.some((block) => (
+      !block || typeof block !== 'object' || Array.isArray(block)
+    )))
+  ) return null;
+  if (message.id !== undefined && typeof message.id !== 'string') return null;
+  if (message.vote !== undefined && message.vote !== 'up' && message.vote !== 'down') return null;
+  if (message.toolInvocations !== undefined && !Array.isArray(message.toolInvocations)) return null;
+  if (message.audioUrl !== undefined && typeof message.audioUrl !== 'string') return null;
+  if (
+    message.createdAt !== undefined
+    && !(message.createdAt instanceof Date)
+    && typeof message.createdAt !== 'string'
+  ) return null;
+  return {
+    ...(typeof message.id === 'string' ? { id: message.id } : {}),
+    role: message.role,
+    content: message.content as ProductMessage['content'],
+    ...(message.vote === 'up' || message.vote === 'down' ? { vote: message.vote } : {}),
+    ...(Array.isArray(message.toolInvocations) ? { toolInvocations: message.toolInvocations } : {}),
+    ...(typeof message.audioUrl === 'string' ? { audioUrl: message.audioUrl } : {}),
+    ...(message.createdAt instanceof Date || typeof message.createdAt === 'string'
+      ? { createdAt: message.createdAt }
+      : {}),
+  };
 }
 
 function messageValues(
@@ -86,7 +115,6 @@ function messageValues(
     content: message.content,
     vote: message.vote ?? null,
     toolInvocations: message.toolInvocations ?? [],
-    agentInfo: message.agentInfo ?? null,
     audioUrl: message.audioUrl ?? null,
     createdAt: message.createdAt ? new Date(message.createdAt) : new Date(),
   }));
@@ -101,7 +129,6 @@ async function upsertConversationIn(
     titleOnInsert: string;
     lastMessage?: string;
     source?: ConversationSource;
-    agentId?: string;
   },
 ): Promise<ConversationRow> {
   const changed = {
@@ -116,7 +143,6 @@ async function upsertConversationIn(
     title: input.title ?? input.titleOnInsert,
     ...(input.lastMessage === undefined ? {} : { lastMessage: input.lastMessage }),
     ...(input.source === undefined ? {} : { source: input.source }),
-    agentId: input.agentId ?? null,
   }).onConflictDoUpdate({
     target: [conversations.oxyUserId, conversations.conversationId],
     set: changed,
@@ -133,7 +159,6 @@ export async function replaceConversation(input: {
   titleOnInsert: string;
   lastMessage?: string;
   source?: ConversationSource;
-  agentId?: string;
   messages: WritableMessage[];
 }): Promise<ConversationRow> {
   return getDb().transaction(async (tx) => {

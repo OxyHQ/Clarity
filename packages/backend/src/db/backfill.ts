@@ -181,7 +181,6 @@ async function insertTarget(
         iconColor: optionalText(row.iconColor, 'iconColor'),
         isFavorite: booleanValue(row.isFavorite, false),
         isPublic: booleanValue(row.isPublic, false),
-        agentId: optionalText(row.agentId, 'agentId'),
         createdAt,
         updatedAt,
       }).onConflictDoNothing().returning({ id: conversations.id })).length === 1;
@@ -197,7 +196,6 @@ async function insertTarget(
           : row.content,
         vote: optionalText(row.vote, 'vote'),
         toolInvocations: Array.isArray(row.toolInvocations) ? row.toolInvocations : [],
-        agentInfo: optionalJson(row.agentInfo),
         audioUrl: optionalText(row.audioUrl, 'audioUrl'),
         createdAt,
       }).onConflictDoNothing().returning({ id: messages.id })).length === 1;
@@ -441,6 +439,12 @@ async function countTarget(target: LocalTarget, executor: ClarityExecutor = getD
   return result?.count ?? 0;
 }
 
+async function targetIdSet(target: LocalTarget, executor: ClarityExecutor): Promise<string[]> {
+  const table = targetTables[target];
+  const rows = await executor.select({ id: table.id }).from(table);
+  return rows.map((row) => row.id);
+}
+
 async function importCollection(manifestPath: string, item: CutoverCollection): Promise<void> {
   if (item.disposition.kind !== 'clarity-postgres') return;
   const disposition = item.disposition;
@@ -466,8 +470,9 @@ async function importCollection(manifestPath: string, item: CutoverCollection): 
     if (receipts.length !== item.sourceCount || hashIdSet(receipts.map((row) => row.sourceId)) !== item.sourceIdSha256) {
       throw new Error(`${item.sourceName} receipt reconciliation failed`);
     }
-    if (await countTarget(disposition.targetTable, tx) !== item.sourceCount) {
-      throw new Error(`${item.sourceName} target table is not an exact snapshot`);
+    const targetIds = await targetIdSet(disposition.targetTable, tx);
+    if (targetIds.length !== item.sourceCount || hashIdSet(targetIds) !== item.sourceIdSha256) {
+      throw new Error(`${item.sourceName} target ID set is not an exact snapshot`);
     }
   });
 }

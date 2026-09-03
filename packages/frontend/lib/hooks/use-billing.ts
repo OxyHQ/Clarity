@@ -39,7 +39,7 @@ export interface SubscriptionPlan {
 }
 
 export interface Subscription {
-  _id: string;
+  id: string;
   userId: string;
   stripeCustomerId: string;
   stripeSubscriptionId: string;

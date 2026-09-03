@@ -4,14 +4,13 @@
  * Clarity SST Infrastructure
  *
  * Manages:
- * - DigitalOcean App Platform (API service + static frontend)
- * - DigitalOcean Spaces bucket (file storage)
+ * - DigitalOcean App Platform API service
  *
  * PostgreSQL is supplied as a deployment secret. Valkey is managed externally.
+ * The frontend deploys independently to Cloudflare Pages from GitHub Actions.
  *
- * Auth:
- *   export DIGITALOCEAN_TOKEN=dop_v1_...
- *   export CLOUDFLARE_API_TOKEN=...
+ * Authentication is supplied by operator tooling from the untracked
+ * ~/.config/oxy/tokens/digitalocean.token file; no token value belongs here.
  */
 
 export default $config({
@@ -22,40 +21,12 @@ export default $config({
       removal: input.stage === "production" ? "retain" : "remove",
       providers: {
         digitalocean: "4.63.0",
-        cloudflare: "6.14.0",
       },
     };
   },
 
   async run() {
     const isProd = $app.stage === "production";
-    const region = "ams3";
-
-    // -------------------------------------------------------
-    // DigitalOcean Spaces bucket for file uploads
-    // -------------------------------------------------------
-    const bucket = new digitalocean.SpacesBucket("ClarityBucket", {
-      name: isProd ? "bucket-clarity" : `bucket-clarity-${$app.stage}`,
-      region,
-      acl: "private",
-    });
-
-    // CORS for the bucket
-    new digitalocean.SpacesBucketCorsConfiguration("ClarityBucketCors", {
-      bucket: bucket.id,
-      region,
-      corsRules: [
-        {
-          allowedHeaders: ["*"],
-          allowedMethods: ["GET", "PUT", "POST", "DELETE", "HEAD"],
-          allowedOrigins: isProd
-            ? ["https://clarity.surf", "https://api.clarity.surf"]
-            : ["*"],
-          maxAgeSeconds: 3600,
-        },
-      ],
-    });
-
     // -------------------------------------------------------
     // DigitalOcean App Platform
     // -------------------------------------------------------
@@ -99,7 +70,9 @@ export default $config({
               { key: "REDIS_CA_CERT", value: "${db-valkey.CA_CERT}" },
               // Product agent
               { key: "ALIA_API_URL", value: "https://api.alia.onl" },
-              { key: "CLARITY_ALIA_AGENT_ID", type: "SECRET" },
+              { key: "CLARITY_ALIA_AGENT_ID", value: "01a0646a-078f-7642-95ef-439952f4f3f9" },
+              { key: "OXY_SERVICE_API_KEY", value: "oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78" },
+              { key: "OXY_SERVICE_API_SECRET", type: "SECRET" },
               {
                 key: "WEB_URL",
                 value: isProd
@@ -117,27 +90,6 @@ export default $config({
           },
         ],
 
-        // --- Static frontend ---
-        staticSites: [
-          {
-            name: "clarity-app",
-            github: {
-              repo: "OxyHQ/Clarity",
-              branch: isProd ? "master" : $app.stage,
-              deployOnPush: true,
-            },
-            buildCommand: [
-              "ELECTRON_SKIP_BINARY_DOWNLOAD=1",
-              "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1",
-              "bun run build:frontend",
-            ].join(" "),
-            sourceDir: "/",
-            environmentSlug: "node-js",
-            outputDir: "packages/frontend/dist",
-            catchallDocument: "index.html",
-          },
-        ],
-
         // --- Managed databases (shared, referenced by name) ---
         databases: [
           {
@@ -152,8 +104,7 @@ export default $config({
         // --- Domains ---
         ...(isProd && {
           domains: [
-            { domain: "clarity.surf", type: "PRIMARY", zone: "clarity.surf" },
-            { domain: "api.clarity.surf", type: "ALIAS", zone: "clarity.surf" },
+            { domain: "api.clarity.surf", type: "PRIMARY", zone: "clarity.surf" },
           ],
         }),
 
@@ -168,8 +119,6 @@ export default $config({
 
     return {
       appUrl: app.liveUrl,
-      bucketName: bucket.name,
-      bucketUrn: bucket.urn,
       stage: $app.stage,
     };
   },

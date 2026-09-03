@@ -16,18 +16,6 @@ export interface ToolInvocation {
   result?: unknown;
 }
 
-/**
- * Metadata attached to an assistant message when the conversation delegated to
- * a specialist agent.
- */
-export interface AgentInfo {
-  id: string;
-  name: string;
-  avatar: string | null;
-  handle: string;
-  accessories?: string[];
-}
-
 /** A single block of structured message content. */
 export interface MessageContentBlock {
   type: string;
@@ -104,8 +92,6 @@ export interface Message {
   /** Speaker identity (present for voice-originated messages). */
   speaker?: MessageSpeaker;
   isStreaming?: boolean;
-  /** Present when the message was produced by a delegated specialist agent. */
-  agentInfo?: AgentInfo;
   audioUrl?: string;
   createdAt?: string | Date;
   /** Deep-research progress (present while a research run streams). */
@@ -146,7 +132,6 @@ export interface Conversation {
   iconColor?: string;
   isFavorite?: boolean;
   isPublic?: boolean;
-  agentId?: string;
   createdAt: string | Date;
   updatedAt: string | Date;
   messages?: Message[];

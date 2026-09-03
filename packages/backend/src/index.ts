@@ -68,7 +68,7 @@ server.on('connection', (socket) => {
 
 initSocket(server);
 
-// Public API routes (/v1) - allow all origins (like OpenAI's API)
+// Public API routes (/v1) use the documented cross-origin API contract.
 app.use('/v1', cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -84,9 +84,7 @@ app.use('/v1', (_req, res, next) => {
 
 // Internal routes - restricted to known origins
 const PRODUCTION_ORIGINS = [
-  'https://clarity.oxy.so',
-  'https://console.clarity.oxy.so',
-  'https://gateway.clarity.oxy.so',
+  'https://clarity.surf',
 ];
 
 const DEV_ORIGINS = [
@@ -201,7 +199,7 @@ app.get('/', (_req, res) => {
 });
 
 // Error handler
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   log.general.error({ err }, 'Unhandled Express error');
   if (!res.headersSent) {
     res.status(500).json({ error: 'Something went wrong!' });

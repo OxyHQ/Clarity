@@ -49,7 +49,7 @@ import {
   useDeleteConversation,
   prefetchConversation,
 } from "@/lib/hooks/use-conversations";
-import type { Conversation } from "@clarity/shared-types";
+import type { HydratedConversation } from "@/lib/hooks/use-conversations";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
 import { useColorScheme } from "@/lib/useColorScheme";
@@ -216,16 +216,16 @@ function isYesterday(date: Date): boolean {
 
 interface DateGroup {
   label: string;
-  conversations: Conversation[];
+  conversations: HydratedConversation[];
 }
 
 function groupByDate(
-  conversations: Conversation[],
+  conversations: HydratedConversation[],
   t: (key: string) => string,
 ): DateGroup[] {
-  const today: Conversation[] = [];
-  const yesterday: Conversation[] = [];
-  const earlier: Conversation[] = [];
+  const today: HydratedConversation[] = [];
+  const yesterday: HydratedConversation[] = [];
+  const earlier: HydratedConversation[] = [];
 
   for (const conv of conversations) {
     if (isToday(conv.updatedAt)) {
@@ -496,7 +496,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
   );
 
   const handleNewChat = React.useCallback(async () => {
-    const conv = await createMut.mutateAsync({});
+    const conv = await createMut.mutateAsync();
     router.replace(`/(app)/c/${conv.id}`);
   }, [createMut, router]);
 
@@ -546,7 +546,7 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     [router],
   );
   const handleAccount = React.useCallback(
-    () => showBottomSheet("ManageAccount"),
+    () => showBottomSheet?.("ManageAccount"),
     [showBottomSheet],
   );
   const handleLogout = React.useCallback(() => {

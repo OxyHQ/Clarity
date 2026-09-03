@@ -12,16 +12,17 @@ exact Clarity Alia agent identity have been attested.
 - `GET /v1/models`, `GET /v1/models/:modelId`
 - `GET /models/stats`, `GET /models/stats/:modelId`
 - `GET /notifications/vapid-public-key`
-- `GET /billing/packages`, `GET /billing/credit-price` (proxied to Alia)
 
 ## Chat
 
 - `POST /v1/chat/completions`
 - `POST /clarity/search`
 
-Both call the same fixed Clarity agent in Alia. Direct user sessions are the
-only supported identity today. `POST /internal/trigger` is service-authenticated
-but returns `503` until the canonical service-to-agent delegation exists.
+Both call the same fixed Clarity agent in Alia. Clarity authenticates the human
+at its edge, then calls Alia with the dedicated Clarity backend service token
+and `X-Oxy-User-Id`. The browser bearer is never forwarded. Client-provided
+agent IDs, modes, skills, MCP servers, fallback/reasoning controls and
+system/tool roles are rejected.
 
 ## Product persistence
 
@@ -39,7 +40,8 @@ These resources use Clarity PostgreSQL.
 - `/analytics/usage`, `/analytics/models`, `/analytics/credits`
 - credit-package/custom-credit checkout and `/billing/transactions`
 
-These routes proxy the authenticated user to Alia. Clarity does not maintain a
+These routes delegate the authenticated user with Clarity's backend service
+identity. Clarity does not maintain a
 second inference balance or telemetry ledger.
 
 ## Alia-owned product runtime
@@ -52,7 +54,7 @@ second inference balance or telemetry ledger.
 
 These are explicit, path-by-path proxies and require an Oxy user session. Alia
 returns its own webhook URL so token, HMAC and source-IP validation happens at
-the owning edge without losing request metadata in a relay. Clarity does not
+the owning edge without losing request metadata in an intermediary. Clarity does not
 store a second memory, audit or automation ledger, and exposes no catch-all
 channel-webhook endpoint. Stripe product billing remains on its dedicated
 `/billing/webhook` route.

@@ -5,7 +5,7 @@
 
 import React from 'react';
 
-const SITE_URL = 'https://clarity.oxy.so';
+const SITE_URL = 'https://clarity.surf';
 const SITE_NAME = 'Clarity by Oxy';
 const LOGO_URL = `${SITE_URL}/icon-512.png`;
 
@@ -30,7 +30,7 @@ export function generateOrganizationSchema() {
     'contactPoint': {
       '@type': 'ContactPoint',
       'contactType': 'Customer Support',
-      'email': 'support@clarity.oxy.so',
+      'email': 'support@clarity.surf',
       'availableLanguage': ['en', 'es', 'fr', 'de', 'pt', 'it', 'ja', 'zh', 'ko'],
     },
   };

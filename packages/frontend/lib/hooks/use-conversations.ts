@@ -8,8 +8,13 @@ import type { Message, Conversation, ConversationSource } from '@clarity/shared-
 
 const CONVERSATIONS_STORAGE_KEY = "clarity-conversations";
 
+export type HydratedConversation = Omit<Conversation, 'createdAt' | 'updatedAt'> & {
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 // Fetch all conversations from local storage (offline fallback)
-async function fetchConversations(): Promise<Conversation[]> {
+async function fetchConversations(): Promise<HydratedConversation[]> {
   const stored = await AsyncStorage.getItem(CONVERSATIONS_STORAGE_KEY);
   if (stored) {
     return JSON.parse(stored).map((conv: Conversation) => ({
@@ -91,7 +96,7 @@ export function useConversation(id: string) {
           ...data,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
-        } as Conversation;
+        };
       } catch (error: unknown) {
         // If unauthorized or not found on server, fall back to local storage
         const err = error as { status?: number };
@@ -105,7 +110,7 @@ export function useConversation(id: string) {
                 ...conversation,
                 createdAt: new Date(conversation.createdAt),
                 updatedAt: new Date(conversation.updatedAt),
-              } as Conversation;
+              } as HydratedConversation;
             }
           }
         }
@@ -144,7 +149,10 @@ export function useSaveConversation() {
       messages: Message[];
       title?: string;
     }) => {
-      const lastMessage = messages[messages.length - 1]?.content?.slice(0, 100);
+      const latestContent = messages.at(-1)?.content;
+      const lastMessage = typeof latestContent === 'string'
+        ? latestContent.slice(0, 100)
+        : undefined;
 
       try {
         const data = await client.post<{
@@ -176,8 +184,11 @@ export function useSaveConversation() {
           const conversations = await fetchConversations();
           const existingIndex = conversations.findIndex((c) => c.id === id);
 
-          const offlineTitle = title || messages.find((m) => m.role === "user")?.content?.slice(0, 50) || "New chat";
-          const conversation: Conversation = {
+          const firstUserContent = messages.find((message) => message.role === 'user')?.content;
+          const offlineTitle = title
+            || (typeof firstUserContent === 'string' ? firstUserContent.slice(0, 50) : '')
+            || 'New chat';
+          const conversation: HydratedConversation = {
             id,
             title: offlineTitle,
             lastMessage,
@@ -202,7 +213,7 @@ export function useSaveConversation() {
     onSuccess: (data) => {
       // Update infinite query cache
       queryClient.setQueryData(queryKeys.conversations.all, (oldData: {
-        pages: Array<{ conversations: Conversation[]; nextCursor: string | null; hasMore: boolean }>;
+        pages: Array<{ conversations: HydratedConversation[]; nextCursor: string | null; hasMore: boolean }>;
         pageParams: unknown[];
       } | undefined) => {
         if (!oldData?.pages) {
@@ -221,7 +232,7 @@ export function useSaveConversation() {
 
         // Remove conversation from its current position (if it exists in any page)
         for (let i = 0; i < newPages.length; i++) {
-          const existingIndex = newPages[i].conversations.findIndex((c: Conversation) => c.id === data.id);
+          const existingIndex = newPages[i].conversations.findIndex((c) => c.id === data.id);
           if (existingIndex >= 0) {
             newPages[i] = {
               ...newPages[i],
@@ -284,7 +295,7 @@ export function useDeleteConversation() {
     onSuccess: (id) => {
       // Remove from infinite query cache
       queryClient.setQueryData(queryKeys.conversations.all, (oldData: {
-        pages: Array<{ conversations: Conversation[] }>;
+        pages: Array<{ conversations: HydratedConversation[] }>;
       } | undefined) => {
         if (!oldData?.pages) return oldData;
 
@@ -292,7 +303,7 @@ export function useDeleteConversation() {
           ...oldData,
           pages: oldData.pages.map((page) => ({
             ...page,
-            conversations: page.conversations.filter((c: Conversation) => c.id !== id),
+            conversations: page.conversations.filter((c) => c.id !== id),
           })),
         };
       });
@@ -313,24 +324,20 @@ export function useCreateConversation() {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: async (params?: { agentId?: string }): Promise<Conversation> => {
+    mutationFn: async (): Promise<HydratedConversation> => {
       try {
         const data = await client.post<{
           id: string;
           title: string;
           source?: ConversationSource;
-          agentId?: string;
           createdAt: string;
           updatedAt: string;
-        }>('/conversations/new', {
-          ...(params?.agentId && { agentId: params.agentId }),
-        });
+        }>('/conversations/new');
         return {
           id: data.id,
           title: data.title,
           lastMessage: undefined,
           source: data.source,
-          agentId: data.agentId,
           createdAt: new Date(data.createdAt),
           updatedAt: new Date(data.updatedAt),
           messages: [],
@@ -341,7 +348,7 @@ export function useCreateConversation() {
         if (err?.status === 401) {
           const { generateUUID } = await import('../utils');
           const id = generateUUID();
-          const conversation: Conversation = {
+          const conversation: HydratedConversation = {
             id,
             title: "New chat",
             lastMessage: undefined,
@@ -362,7 +369,7 @@ export function useCreateConversation() {
     onSuccess: (data) => {
       // Add to first page of infinite query cache
       queryClient.setQueryData(queryKeys.conversations.all, (oldData: {
-        pages: Array<{ conversations: Conversation[] }>;
+        pages: Array<{ conversations: HydratedConversation[] }>;
         pageParams: unknown[];
       } | undefined) => {
         if (!oldData?.pages) {

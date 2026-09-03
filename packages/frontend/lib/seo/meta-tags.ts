@@ -27,7 +27,7 @@ export interface MetaTagsConfig {
   alternateLocales?: Array<{ locale: string; url: string }>; // Para hreflang tags
 }
 
-const SITE_URL = 'https://clarity.oxy.so';
+const SITE_URL = 'https://clarity.surf';
 const SITE_NAME = 'Clarity by Oxy';
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-image-default.png`;
 const TWITTER_HANDLE = '@ClarityByOxy'; // Actualizar con tu handle real
@@ -190,7 +190,7 @@ export const META_PRESETS = {
   developers: {
     title: 'API Documentation - Clarity',
     description: 'Build with Clarity. Industry-standard API, comprehensive docs, and code examples to integrate AI into your applications.',
-    keywords: ['chatbot api', 'ai api', 'openai compatible', 'developer api'],
+    keywords: ['chatbot api', 'ai api', 'chat completions', 'developer api'],
     canonicalUrl: `${SITE_URL}/developers/documentation`,
   },
 

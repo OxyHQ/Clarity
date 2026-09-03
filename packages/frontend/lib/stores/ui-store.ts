@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import type { Message } from '@clarity/shared-types';
 
-type RightPanel = 'credits' | 'thought' | 'canvas' | 'agent' | null;
+type RightPanel = 'credits' | 'thought' | 'canvas' | null;
 type SidebarMode = 'search' | 'computer';
 
 export interface CanvasArtifact {
   id: string;
   type: 'code' | 'markdown' | 'table' | 'chart' | 'image';
-  content: any;
+  content: unknown;
   title?: string;
   timestamp: number;
 }
@@ -21,8 +21,6 @@ interface UIState {
   thoughtMessages: Message[];
   shortcutsDialogOpen: boolean;
   canvasArtifacts: CanvasArtifact[];
-  activeAgentSessionId: string | null;
-  activeAgentId: string | null;
 
   // Actions
   toggleSidebar: () => void;
@@ -34,7 +32,6 @@ interface UIState {
   toggleRightPanel: (panel: RightPanel) => void;
   openThoughtPanel: (messageId: string) => void;
   setThoughtMessages: (messages: Message[]) => void;
-  openAgentPanel: (sessionId: string, agentId: string) => void;
   setShortcutsDialogOpen: (open: boolean) => void;
   toggleShortcutsDialog: () => void;
   addCanvasArtifact: (artifact: CanvasArtifact) => void;
@@ -50,8 +47,6 @@ export const useUIStore = create<UIState>((set) => ({
   thoughtMessages: [],
   shortcutsDialogOpen: false,
   canvasArtifacts: [],
-  activeAgentSessionId: null,
-  activeAgentId: null,
 
   toggleSidebar: () =>
     set((state) => ({ sidebarOpen: !state.sidebarOpen })),
@@ -82,9 +77,6 @@ export const useUIStore = create<UIState>((set) => ({
 
   setThoughtMessages: (messages) =>
     set({ thoughtMessages: messages }),
-
-  openAgentPanel: (sessionId, agentId) =>
-    set({ rightPanel: 'agent', activeAgentSessionId: sessionId, activeAgentId: agentId }),
 
   setShortcutsDialogOpen: (open) =>
     set({ shortcutsDialogOpen: open }),

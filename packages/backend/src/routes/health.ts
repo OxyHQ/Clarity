@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { checkPostgres } from '../db/index.js';
 import { getRuntimeReadiness } from '../db/runtime-readiness.js';
 import { getRedisClient } from '../lib/redis.js';
+import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
 
 const router = Router();
 
 async function snapshot() {
   const [databaseReady, readiness] = await Promise.all([checkPostgres(), getRuntimeReadiness()]);
   const cutover = readiness.ready;
-  const agentConfigured = Boolean(process.env.CLARITY_ALIA_AGENT_ID?.trim());
+  const agentConfigured = process.env.CLARITY_ALIA_AGENT_ID === CLARITY_AGENT_MANIFEST.agentId;
   const mem = process.memoryUsage();
   return {
     status: databaseReady && cutover && agentConfigured ? 'healthy' : 'degraded',

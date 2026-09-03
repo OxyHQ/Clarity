@@ -12,6 +12,7 @@ import {
   hashIdSet,
   inventoryPayload,
   sha256,
+  type CutoverManifest,
 } from '../cutover-manifest.js';
 import { closePostgres, connectPostgres } from '../index.js';
 import {
@@ -21,13 +22,14 @@ import {
   listMessages,
   replaceConversation,
 } from '../chat-repository.js';
+import { CLARITY_AGENT_MANIFEST } from '../../lib/clarity-agent-manifest.js';
 
-const databaseUrl = process.env.TEST_DATABASE_URL;
+const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
 const suite = databaseUrl ? describe : describe.skip;
 const workspace = mkdtempSync(join(tmpdir(), 'clarity-pg-cutover-'));
 const manifestPath = join(workspace, 'manifest.json');
 const badManifestPath = join(workspace, 'bad-manifest.json');
-const agentId = 'provisioned-test-agent';
+const agentId = CLARITY_AGENT_MANIFEST.agentId;
 let snapshotHash = '';
 
 function sourceRow(id: string, fields: Record<string, unknown>): Record<string, unknown> {
@@ -100,7 +102,7 @@ function writeManifest(): void {
       },
     };
   });
-  const manifest = {
+  const manifest: CutoverManifest = {
     schemaVersion: 1 as const,
     snapshot: {
       id: 'integration-snapshot',
@@ -118,16 +120,16 @@ function writeManifest(): void {
       billingCreditGrant: { receiptId: 'billing-ok', verifiedAt: '2026-09-02T00:00:00.000Z' },
     },
   };
-  snapshotHash = sha256(canonicalJson(inventoryPayload(manifest as never)));
+  snapshotHash = sha256(canonicalJson(inventoryPayload(manifest)));
   manifest.snapshot.inventorySha256 = snapshotHash;
   writeFileSync(manifestPath, JSON.stringify(manifest));
 }
 
 suite('PostgreSQL backfill and repository integration', () => {
   beforeAll(async () => {
-    const databaseName = new URL(databaseUrl!).pathname.slice(1);
+    const databaseName = new URL(databaseUrl).pathname.slice(1);
     if (databaseName !== 'clarity_ci') throw new Error('integration tests require database clarity_ci');
-    const sql = postgres(databaseUrl!, { max: 1 });
+    const sql = postgres(databaseUrl, { max: 1 });
     await sql.unsafe(`truncate table
       clarity_backfill_receipts,
       clarity_messages,
@@ -162,9 +164,9 @@ suite('PostgreSQL backfill and repository integration', () => {
     suggestion.disposition.dataSha256 = '0'.repeat(64);
     writeFileSync(badManifestPath, JSON.stringify(manifest));
 
-    await expect(runBackfill(badManifestPath, databaseUrl!)).rejects.toThrow('data hash changed');
+    await expect(runBackfill(badManifestPath, databaseUrl)).rejects.toThrow('data hash changed');
 
-    const sql = postgres(databaseUrl!, { max: 1 });
+    const sql = postgres(databaseUrl, { max: 1 });
     const [suggestionCount] = await sql<{ count: number }[]>`
       select count(*)::int as count from clarity_suggestions
     `;
@@ -177,25 +179,11 @@ suite('PostgreSQL backfill and repository integration', () => {
     expect(receiptCount?.count).toBe(0);
   });
 
-  it('imports exact IDs, reruns idempotently, and requires explicit cutover evidence', async () => {
-    await runBackfill(manifestPath, databaseUrl!);
-    await runBackfill(manifestPath, databaseUrl!);
-    await expect(attestCutover({
-      databaseUrl: databaseUrl!,
-      manifestPath,
-      expectedSnapshotHash: snapshotHash,
-      confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
-      agentId: 'wrong-agent',
-    })).rejects.toThrow('does not match runtime evidence');
-    await attestCutover({
-      databaseUrl: databaseUrl!,
-      manifestPath,
-      expectedSnapshotHash: snapshotHash,
-      confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
-      agentId,
-    });
+  it('imports exact IDs and reruns idempotently', async () => {
+    await runBackfill(manifestPath, databaseUrl);
+    await runBackfill(manifestPath, databaseUrl);
 
-    const sql = postgres(databaseUrl!, { max: 1 });
+    const sql = postgres(databaseUrl, { max: 1 });
     const [mapping] = await sql<{ id: string }[]>`
       select id from clarity_plan_features
       where plan_id = 'clarity-test-plan' and feature_id = 'feature-test'
@@ -208,7 +196,47 @@ suite('PostgreSQL backfill and repository integration', () => {
     expect((await listMessages('user-1', 'conversation-1'))[0]?.id).toBe('message-row');
   });
 
+  it('rejects a same-count target substitution even when an old receipt remains', async () => {
+    const sql = postgres(databaseUrl, { max: 1 });
+    await sql`delete from clarity_suggestions where id = 'suggestion-row'`;
+    await sql`insert into clarity_suggestions (
+      id, suggestion_id, title, text, type, scope, language
+    ) values (
+      'substituted-row', 'substituted-suggestion', 'Substituted', 'Wrong row',
+      'welcome', 'global', 'en-US'
+    )`;
+    await sql.end();
+
+    await expect(runBackfill(manifestPath, databaseUrl))
+      .rejects.toThrow('target ID set is not an exact snapshot');
+
+    const cleanup = postgres(databaseUrl, { max: 1 });
+    await cleanup`delete from clarity_suggestions where id = 'substituted-row'`;
+    await cleanup`delete from clarity_backfill_receipts
+      where source_collection = 'source_clarity_suggestions'`;
+    await cleanup.end();
+    await runBackfill(manifestPath, databaseUrl);
+  });
+
+  it('requires explicit evidence before attesting cutover', async () => {
+    await expect(attestCutover({
+      databaseUrl,
+      manifestPath,
+      expectedSnapshotHash: snapshotHash,
+      confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
+      agentId: 'wrong-agent',
+    })).rejects.toThrow('canonical Clarity agent');
+    await attestCutover({
+      databaseUrl,
+      manifestPath,
+      expectedSnapshotHash: snapshotHash,
+      confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
+      agentId,
+    });
+  });
+
   it('rolls back metadata and message replacement together, then cascades deletes', async () => {
+    connectPostgres(databaseUrl);
     await expect(replaceConversation({
       oxyUserId: 'user-1',
       conversationId: 'conversation-1',

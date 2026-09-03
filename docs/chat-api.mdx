@@ -21,13 +21,16 @@ secret, client-supplied agent ID or provider key is not accepted.
   "conversationId": "conversation-42",
   "messages": [{ "id": "message-1", "role": "user", "content": "Research this" }],
   "stream": true,
-  "deepResearch": true,
-  "webSearch": true
+  "deepResearch": true
 }
 ```
 
-The server overwrites any supplied `agentId` with the provisioned
-`CLARITY_ALIA_AGENT_ID`. Conversation and message IDs remain unchanged.
+The edge bearer authenticates the caller but is never forwarded. The backend
+uses the fixed Clarity Oxy service credential plus `X-Oxy-User-Id`; its token is
+accepted only for the exact backend app, credential, project payer and exact
+scope set. Conversation/message IDs and plan-authorized deep research are the
+only dynamic context. Client agent IDs/modes, skills, MCP servers, tool policy,
+fallback/reasoning controls, web-search controls and system/tool roles fail.
 
 ## Streaming
 
@@ -59,7 +62,8 @@ event nor a duplicate credit balance.
 
 ## Failure modes
 
-- no direct Oxy user bearer: `401 oxy_user_session_required`
+- no authenticated inbound Oxy user: `401 oxy_user_session_required`
+- wrong/missing backend service identity: fail closed before Alia
 - no real configured agent: `503 clarity_agent_not_configured`
 - unknown Clarity model ID: `404 model_not_found`
 - Alia unavailable: `502 alia_unavailable`

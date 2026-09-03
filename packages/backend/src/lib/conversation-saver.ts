@@ -9,6 +9,7 @@ import {
   countMessages,
   findConversation,
   replaceConversation,
+  toWritableMessage,
   updateConversationTitle,
   type WritableMessage,
 } from '../db/chat-repository.js';
@@ -20,12 +21,14 @@ const TITLE_EXTRACT_RE = new RegExp(String.raw`\[(${TAG})\](.*?)\[\/\1\]|<(${TAG
 const TITLE_STRIP_RE = new RegExp(String.raw`\[(${TAG})\].*?\[\/\1\]|<(${TAG})>.*?<\/\2>`, 'gi');
 
 /** Extract or generate a conversation title from the AI response, with fallbacks. */
-export function extractConversationTitle(response: string, messages: any[]): string {
+export function extractConversationTitle(response: string, messages: readonly unknown[]): string {
   const m = response.match(TITLE_EXTRACT_RE);
   if (m) return (m[2] || m[4]).trim();
 
   // Prefer the first user message (most descriptive of conversation topic)
-  const firstUserMsg = messages.find((msg: any) => msg.role === 'user')?.content;
+  const firstUserMsg = messages
+    .map(toWritableMessage)
+    .find((message) => message?.role === 'user')?.content;
   if (typeof firstUserMsg === 'string' && firstUserMsg.length > 0) return firstUserMsg.slice(0, 60);
 
   // Fallback: first ~6 words of cleaned response
@@ -43,12 +46,10 @@ export function stripTitleTags(content: string): string {
 export interface SaveConversationParams {
   userId: string;
   conversationId: string;
-  messages: any[];
+  messages: unknown[];
   assistantResponse: string;
-  toolInvocations?: any[];
+  toolInvocations?: unknown[];
   source?: ConversationSource;
-  agentId?: string;
-  agentMessages?: Array<{ role: 'assistant'; content: string; agentInfo: { id: string; name: string; avatar: string | null; handle: string } }>;
 }
 
 /**
@@ -56,25 +57,10 @@ export interface SaveConversationParams {
  * Handles title extraction, tag stripping, and message assembly.
  */
 export async function saveConversation(params: SaveConversationParams): Promise<void> {
-  const { userId, conversationId, messages, assistantResponse, toolInvocations, source, agentId, agentMessages } = params;
+  const { userId, conversationId, messages, assistantResponse, toolInvocations, source } = params;
 
   const allMessages: WritableMessage[] = [
-    ...messages.filter(m => m && m.role).map((m: any) => ({
-      id: m.id,
-      role: m.role,
-      content: m.content,
-      vote: m.vote,
-      toolInvocations: m.toolInvocations,
-      agentInfo: m.agentInfo,
-      audioUrl: m.audioUrl,
-      createdAt: m.createdAt,
-    })),
-    // Insert agent messages before the final assistant response
-    ...(agentMessages || []).map(am => ({
-      role: am.role,
-      content: am.content,
-      agentInfo: am.agentInfo,
-    })),
+    ...messages.map(toWritableMessage).filter((message): message is WritableMessage => message !== null),
     {
       role: 'assistant' as const,
       content: stripTitleTags(assistantResponse),
@@ -90,7 +76,6 @@ export async function saveConversation(params: SaveConversationParams): Promise<
     titleOnInsert: title,
     lastMessage: stripTitleTags(assistantResponse).slice(0, 100),
     source: source || 'app',
-    ...(agentId ? { agentId } : {}),
     messages: allMessages,
   });
 }

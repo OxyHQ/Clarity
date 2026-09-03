@@ -40,7 +40,7 @@ function getWebhookSecret(): string {
 
 function serializeSubscription(subscription: SubscriptionRow) {
   return {
-    _id: subscription.id,
+    id: subscription.id,
     userId: subscription.oxyUserId,
     stripeCustomerId: subscription.stripeCustomerId,
     stripeSubscriptionId: subscription.stripeSubscriptionId,
@@ -106,8 +106,8 @@ async function getOrCreateStripeCustomer(userId: string): Promise<string> {
   return customer.id;
 }
 
-router.get('/packages', async (req: Request, res: Response) => {
-  await proxyAliaJson(req, res, '/billing/packages', { requireUser: false });
+router.get('/packages', authenticateToken, async (req: Request, res: Response) => {
+  await proxyAliaJson(req, res, '/billing/packages');
 });
 
 const createCheckoutSchema = z.object({
@@ -139,8 +139,8 @@ router.post('/checkout/custom-credits', authenticateToken, async (req: Request, 
 });
 
 // Expose the per-credit rate so the frontend can show live pricing
-router.get('/credit-price', async (req: Request, res: Response) => {
-  await proxyAliaJson(req, res, '/billing/credit-price', { requireUser: false });
+router.get('/credit-price', authenticateToken, async (req: Request, res: Response) => {
+  await proxyAliaJson(req, res, '/billing/credit-price');
 });
 
 router.get('/plans', async (req: Request, res: Response) => {
@@ -166,13 +166,11 @@ router.get('/plans', async (req: Request, res: Response) => {
     }
 
     // Load the Clarity product catalogue.
-    let modelMap: Record<string, { displayName: string; description?: string }> = {};
-    try {
-      const clarityModels = await getAllClarityModels();
-      for (const m of clarityModels) {
-        modelMap[m.id] = { displayName: m.name, description: m.description };
-      }
-    } catch { /* ignore */ }
+    const modelMap: Record<string, { displayName: string; description?: string }> = {};
+    const clarityModels = await getAllClarityModels();
+    for (const model of clarityModels) {
+      modelMap[model.id] = { displayName: model.name, description: model.description };
+    }
 
     const plans = dbPlans.map(p => {
       const planId = p.planId;
@@ -186,12 +184,12 @@ router.get('/plans', async (req: Request, res: Response) => {
         if (!mapping) continue;
 
         const category = feat.category;
-        if (!groupMap.has(category)) groupMap.set(category, []);
-
-        groupMap.get(category)!.push({
+        const group = groupMap.get(category) ?? [];
+        group.push({
           label: mapping.displayLabel || feat.label,
           description: mapping.displayDescription || feat.description,
         });
+        groupMap.set(category, group);
       }
 
       // Convert to array, preserving category order from features query
@@ -210,9 +208,12 @@ router.get('/plans', async (req: Request, res: Response) => {
       const modelIds: string[] = p.modelIds || [];
       if (modelIds.length > 0) {
         const modelItems = modelIds
-          .map(id => modelMap[id])
-          .filter(Boolean)
-          .map(m => ({ label: m!.displayName, description: m!.description }));
+          .flatMap((id) => {
+            const model = modelMap[id];
+            return model
+              ? [{ label: model.displayName, description: model.description }]
+              : [];
+          });
 
         if (modelItems.length > 0) {
           const insertAt = features.length > 0 && features[0].category === 'Credits' ? 1 : 0;
@@ -252,8 +253,9 @@ const createSubscriptionSchema = z.object({
 
 router.post('/checkout/subscription', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
     const { planId, billingPeriod, successUrl, cancelUrl } = createSubscriptionSchema.parse(req.body);
-    const userId = req.user!.id;
+    const userId = req.user.id;
 
     const matchingPlans = await getPlans({ planId, isActive: true, isFree: false });
     const plan = matchingPlans[0];
@@ -305,8 +307,9 @@ router.post('/checkout/subscription', authenticateToken, async (req: Request, re
 
 router.get('/subscription', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
     const product = req.query.product as string | undefined;
-    const subscription = await findActiveSubscription(req.user!.id, product);
+    const subscription = await findActiveSubscription(req.user.id, product);
     res.json({ subscription: subscription ? serializeSubscription(subscription) : null });
   } catch (error: unknown) {
     log.credits.error({ err: error }, 'Error fetching subscription');
@@ -316,7 +319,8 @@ router.get('/subscription', authenticateToken, async (req: Request, res: Respons
 
 router.post('/subscription/cancel', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const subscription = await findActiveSubscription(req.user!.id);
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+    const subscription = await findActiveSubscription(req.user.id);
 
     if (!subscription) {
       return res.status(404).json({ error: 'No active subscription found' });
@@ -342,8 +346,9 @@ const changePlanSchema = z.object({
 
 router.post('/subscription/change-plan', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
     const { planId, billingPeriod } = changePlanSchema.parse(req.body);
-    const userId = req.user!.id;
+    const userId = req.user.id;
 
     // Find existing active subscription
     const subscription = await findActiveSubscription(userId);
@@ -447,8 +452,9 @@ router.get('/transactions', authenticateToken, async (req: Request, res: Respons
 
 router.post('/portal', authenticateToken, async (req: Request, res: Response) => {
   try {
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
     const { returnUrl } = req.body;
-    const userId = req.user!.id;
+    const userId = req.user.id;
 
     const customerId = await getOrCreateStripeCustomer(userId);
 
@@ -467,7 +473,8 @@ router.post('/portal', authenticateToken, async (req: Request, res: Response) =>
 // Entitlements: returns allowed models + feature flags for the current user
 router.get('/entitlements', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const entitlements = await getUserEntitlements(req.user!.id);
+    if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
+    const entitlements = await getUserEntitlements(req.user.id);
     res.json(entitlements);
   } catch (error: unknown) {
     log.credits.error({ err: error }, 'Error fetching entitlements');

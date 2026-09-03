@@ -20,21 +20,50 @@ Expo client
 | --- | --- |
 | Clarity | Product model IDs, conversations, suggestions, feedback, notifications, plan catalogue, subscriptions and entitlements |
 | Alia | Agent identity/runtime, tools, search, deep research, memory, citations, inference credits and telemetry |
-| Oxy | Sessions, application identity, inference accounting and canonical request attribution |
-| Kaana | Provider-key custody, deployments, routing, failover and provider execution |
+| Oxy | Sessions, application identity, inference accounting, canonical request attribution and exact route authorization/order |
+| Kaana | Provider-key custody, deployments, provider execution and failover within Oxy's signed order |
 
 Clarity's backend uses PostgreSQL/Drizzle only. It has no provider adapter,
 provider credential, route scoring or direct provider endpoint. Stripe, VAPID,
 Valkey and Oxy session configuration are product/platform credentials and are
 not inference provider keys.
 
+Kaana is the sole hosted inference data plane. Its only canonical signed origin
+is `https://kaana.ai`; Clarity never addresses Kaana directly or through an
+`oxy.so` alias.
+
+## Canonical product identity
+
+Oxy and Alia bootstrap this identity internally. Every value is an opaque
+primary key and must match byte for byte; no runtime may trim, normalize,
+discover by name/list/order, accept a client-supplied binding or choose a
+fallback.
+
+| Record | Canonical value |
+| --- | --- |
+| Clarity project/payer account | `01a0646a-078f-7f53-848d-a0f82d9f7fa6` |
+| Clarity bot account | `01a0646a-078f-7120-a993-a03c180c81b0` |
+| Private Alia agent | `01a0646a-078f-7642-95ef-439952f4f3f9` |
+| Backend service application | `01a0648b-8d73-70ad-8e67-1c07ddc5eb6e` |
+| Backend service credential | `01a0648b-8d74-7240-adba-80707fdfdf9c` |
+| Backend public client ID | `oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78` |
+| Public sign-in application | `01a0646a-2382-74a3-a795-788924d55722` |
+| Public sign-in credential | `01a0646e-2508-7048-8c08-b1f7b3af634f` |
+| Public sign-in client ID | `oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a` |
+
+The agent's `oxyAccountId` is the exact bot-account ID and its application
+binding is the backend service application, whose credential has exactly
+`user:read` and `inference:invoke`. The separate public application has only
+`user:read`. Clarity's agent grant is exactly `web`, `artifacts`, and `memory`;
+it has no browser, shell, files, messaging, automation, delegation, MCP,
+integration or agent-management grant.
+
 ## Fail-closed state
 
-Chat needs a direct Oxy user bearer and a provisioned
-`CLARITY_ALIA_AGENT_ID`. Readiness additionally needs the exact source snapshot
-to have been reconciled and explicitly attested in PostgreSQL. Missing any one
-returns an unavailable/not-ready response; the runtime never invents an agent
-or silently falls back to local inference.
+Clarity authenticates an inbound Oxy user session, but its backend calls Alia
+only with the fixed backend service credential and `X-Oxy-User-Id`. Readiness
+also requires the canonical agent ID, exact service configuration and an
+explicitly attested PostgreSQL snapshot. Missing any one fails closed.
 
 The current branch is a migration candidate only. It does not claim that a
 DigitalOcean PostgreSQL database, the Alia bot/agent, Oxy inference edge, Kaana

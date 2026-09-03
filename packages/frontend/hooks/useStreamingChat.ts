@@ -18,7 +18,7 @@ import { toast } from '@oxyhq/bloom/toast';
 import type { ToolInvocation } from '@clarity/shared-types';
 
 
-export function useStreamingChat(apiUrl: string, activeRole?: any, conversationId?: string, thinkingMode?: boolean, selectedModel?: string, skillId?: string | null, agentId?: string | null) {
+export function useStreamingChat(apiUrl: string, conversationId?: string, selectedModel?: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
@@ -125,54 +125,21 @@ export function useStreamingChat(apiUrl: string, activeRole?: any, conversationI
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      // Build system message with role context if active
-      let systemMessage = '';
-      if (activeRole) {
-        systemMessage = `You are acting in the role of "${activeRole.name}".
-
-Role Description: ${activeRole.description}
-
-Reasoning Approach: ${activeRole.reasoning}
-Writing Style: ${activeRole.writingStyle}
-Tone: ${activeRole.tone}
-Priorities: ${activeRole.priorities.join(', ')}
-
-Use this role to guide your responses, maintaining the specified tone, style, and priorities throughout the conversation.`;
-      }
-
-      // Build messages array with system message if present
-      // Include tool invocations for proper conversation context
       const conversationMessages = [...messagesRef.current, userMessage];
 
-      const formatMessage = (m: Message | { role: string; content: string }) => {
-        const msg: any = {
-          role: m.role,
-          content: m.content,
-        };
-        // Include tool invocations if present for assistant messages
-        if ('toolInvocations' in m && m.role === 'assistant' && m.toolInvocations && m.toolInvocations.length > 0) {
-          msg.toolInvocations = m.toolInvocations.map((inv: ToolInvocation) => ({
-            toolCallId: inv.toolCallId,
-            toolName: inv.toolName,
-            state: inv.state,
-            args: inv.args,
-            result: inv.result,
-          }));
-        }
-        return msg;
-      };
-
-      const messagesToSend = systemMessage
-        ? [
-            { role: 'system', content: systemMessage },
-            ...conversationMessages,
-          ].map(formatMessage)
-        : conversationMessages.map(formatMessage);
+      // The browser sends conversation content only. Agent identity, prompt,
+      // tools, capabilities and reasoning policy are fixed by the backend.
+      const messagesToSend = conversationMessages
+        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .map((message) => ({
+          ...(message.id ? { id: message.id } : {}),
+          role: message.role,
+          content: message.content,
+        }));
 
       // Create abort controller for this request
       abortControllerRef.current = new AbortController();
 
-      const agentMode = useStore.getState().agentMode;
       const deepResearchMode = useStore.getState().deepResearchMode;
 
       const response = await expoFetch(apiUrl, {
@@ -182,11 +149,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
           messages: messagesToSend,
           stream: true,
           ...(conversationId && { conversationId }),
-          ...(thinkingMode && { thinkingMode: true }),
           ...(selectedModel && { model: selectedModel }),
-          ...(skillId && { skillId }),
-          ...(agentId && { agentId }),
-          ...(agentMode && { agentMode: true }),
           ...(deepResearchMode && { deepResearch: true }),
         }),
         signal: abortControllerRef.current.signal,
@@ -377,29 +340,6 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                     currentEventType = '';
                     continue;
                   }
-                  case 'clarity.agent': {
-                    const am = parsed;
-                    setMessages((prev) => {
-                      const updated = [...prev];
-                      const agentMsg: Message = {
-                        id: `agent-${Date.now()}-${am.agentId}`,
-                        role: 'assistant',
-                        content: am.content,
-                        agentInfo: {
-                          id: am.agentId,
-                          name: am.agentName,
-                          avatar: am.agentAvatar,
-                          handle: am.agentHandle,
-                          accessories: am.agentAccessories,
-                        },
-                      };
-                      const lastIdx = updated.length - 1;
-                      updated.splice(lastIdx, 0, agentMsg);
-                      return updated;
-                    });
-                    currentEventType = '';
-                    continue;
-                  }
                   case 'clarity.title': {
                     if (parsed.title && parsed.conversationId) {
                       queryClient.setQueryData(
@@ -515,14 +455,6 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                     currentEventType = '';
                     continue;
                   }
-                  case 'clarity.agent_session': {
-                    if (parsed.sessionId) {
-                      const { useUIStore } = await import('@/lib/stores/ui-store');
-                      useUIStore.getState().openAgentPanel(parsed.sessionId, parsed.agentId || '');
-                    }
-                    currentEventType = '';
-                    continue;
-                  }
                   default:
                     // Unknown named event — skip
                     currentEventType = '';
@@ -530,7 +462,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                 }
               }
 
-              // ── Standard OpenAI data events ──
+              // ── Standard chat-completions data events ──
 
               // Handle structured error events sent via SSE
               if (parsed.error) {
@@ -560,7 +492,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                 return;
               }
 
-              // Handle OpenAI-compatible format
+              // Handle the standard chat-completions format
               const choice = parsed.choices?.[0];
               if (!choice) continue;
 
@@ -589,7 +521,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
               }
 
               // Handle usage/credits info (comes at the end of stream)
-              // New format: clarity_usage (separate from OpenAI usage), fallback to legacy usage
+              // Product usage envelope, with the generic usage envelope accepted at the wire boundary
               const clarityUsage = parsed.clarity_usage || parsed.usage;
               if (clarityUsage && clarityUsage.credits_remaining !== undefined) {
                 queryClient.setQueryData<CreditsInfo>(queryKeys.credits.info, (old) => {
@@ -611,7 +543,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                 }
               }
 
-              // Handle tool calls (OpenAI format: delta.tool_calls)
+              // Handle standard delta.tool_calls
               if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
                 hasToolInvocations = true;
                 for (const tc of delta.tool_calls) {
@@ -696,29 +628,6 @@ Use this role to guide your responses, maintaining the specified tone, style, an
                     useUIStore.getState().setRightPanel('canvas');
                   }
                 }
-              }
-
-              // Handle agent delegation messages (agent mode)
-              if (delta.agent_message) {
-                const am = delta.agent_message;
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const agentMsg: Message = {
-                    id: `agent-${Date.now()}-${am.agentId}`,
-                    role: 'assistant',
-                    content: am.content,
-                    agentInfo: {
-                      id: am.agentId,
-                      name: am.agentName,
-                      avatar: am.agentAvatar,
-                      handle: am.agentHandle,
-                    },
-                  };
-                  // Insert before the last message (Clarity's in-progress response)
-                  const lastIdx = updated.length - 1;
-                  updated.splice(lastIdx, 0, agentMsg);
-                  return updated;
-                });
               }
 
               // Handle error events from server
@@ -814,7 +723,7 @@ Use this role to guide your responses, maintaining the specified tone, style, an
       abortControllerRef.current = null;
       setIsLoading(false);
     }
-  }, [apiUrl, oxyServices, activeRole, queryClient, thinkingMode, selectedModel, skillId, agentId, scheduleFlush, flushPendingUpdates]);
+  }, [apiUrl, oxyServices, queryClient, selectedModel, scheduleFlush, flushPendingUpdates]);
 
   const stop = useCallback(() => {
     if (abortControllerRef.current) {

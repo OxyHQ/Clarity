@@ -51,7 +51,7 @@ export interface SendNotificationOptions {
   body: string;
   priority?: NotificationPriority;
   channels?: NotificationChannel[];
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   triggerId?: string;
   conversationId?: string;
   expiresAt?: Date;
@@ -257,8 +257,11 @@ async function deliverWebPush(userId: string, notification: NotificationRow): Pr
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
           payload,
         );
-      } catch (error: any) {
-        if (error?.statusCode === 410 || error?.statusCode === 404) {
+      } catch (error: unknown) {
+        const statusCode = error && typeof error === 'object' && 'statusCode' in error
+          ? error.statusCode
+          : undefined;
+        if (statusCode === 410 || statusCode === 404) {
           // Subscription expired or invalid — deactivate
           await deactivateWebPushSubscriptionById(sub.id);
           log.general.info({ userId, endpoint: sub.endpoint }, 'Web push subscription expired, deactivated');

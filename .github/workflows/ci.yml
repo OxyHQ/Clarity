@@ -58,6 +58,9 @@ jobs:
           bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=pre --dry-run
           bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=pre
           bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=pre
+          bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=post --dry-run
+          bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=post
+          bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=post
 
       - name: Run API tests
         run: bun run --filter @clarity/backend test

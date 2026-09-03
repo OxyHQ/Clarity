@@ -11,11 +11,10 @@ import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 
 interface UseChatConversationOptions {
   conversationId?: string;
-  thinkingMode?: boolean;
   selectedModel?: string;
 }
 
-export function useChatConversation({ conversationId, thinkingMode, selectedModel }: UseChatConversationOptions = {}) {
+export function useChatConversation({ conversationId, selectedModel }: UseChatConversationOptions = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const scrollViewRef = useRef<GHScrollView>(null);
@@ -37,7 +36,7 @@ export function useChatConversation({ conversationId, thinkingMode, selectedMode
     stop,
     approvePlan,
     rejectPlan,
-  } = useStreamingChat(generateAPIUrl('/v1/chat/completions'), undefined, conversationId, thinkingMode, selectedModel);
+  } = useStreamingChat(generateAPIUrl('/v1/chat/completions'), conversationId, selectedModel);
 
   // Expose streaming state globally so sidebar can show a spinner
   const setStreamingChatId = useStore((s) => s.setStreamingChatId);
@@ -146,7 +145,7 @@ export function useChatConversation({ conversationId, thinkingMode, selectedMode
 
     try {
       // Create conversation on backend and get the ID
-      const newConversation = await createConversationMutation.mutateAsync({});
+      const newConversation = await createConversationMutation.mutateAsync();
 
       // Navigate to the new conversation
       router.replace(`/(app)/c/${newConversation.id}`);

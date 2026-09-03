@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
 
 import { getAllClarityModels, getClarityModel } from '../lib/clarity-models.js';
 
@@ -16,7 +17,7 @@ function serialize(model: NonNullable<ReturnType<typeof getClarityModel>>) {
     supportsVision: model.supportsVision,
     maxTokens: model.maxTokens,
     runtime: 'alia-agent',
-    isAvailable: Boolean(process.env.CLARITY_ALIA_AGENT_ID?.trim()),
+    isAvailable: process.env.CLARITY_ALIA_AGENT_ID === CLARITY_AGENT_MANIFEST.agentId,
   };
 }
 

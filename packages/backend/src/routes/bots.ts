@@ -12,7 +12,7 @@ export function buildAliaBotPath(platform: unknown, suffix: string): string | nu
   return `/bots/${suffix.replace(':platform', encodeURIComponent(channel))}`;
 }
 
-router.get('/internal/:platform/check-token/:token', async (req, res) => {
+router.get('/internal/:platform/check-token/:token', authenticateToken, async (req, res) => {
   const path = buildAliaBotPath(
     req.params.platform,
     `internal/:platform/check-token/${encodeURIComponent(String(req.params.token))}`,
@@ -21,7 +21,7 @@ router.get('/internal/:platform/check-token/:token', async (req, res) => {
     res.status(404).json({ error: 'Unsupported channel.' });
     return;
   }
-  await proxyAliaJson(req, res, path, { requireUser: false });
+  await proxyAliaJson(req, res, path);
 });
 
 router.post('/platform/:platform/link', authenticateToken, async (req, res) => {

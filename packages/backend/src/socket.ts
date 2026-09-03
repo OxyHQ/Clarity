@@ -11,9 +11,7 @@ type AuthenticatedSocket = Socket & { user?: { id: string } };
 
 const ALLOWED_ORIGINS = [
   process.env.WEB_URL || 'http://localhost:3000',
-  'https://clarity.oxy.so',
-  'https://console.clarity.oxy.so',
-  'https://gateway.clarity.oxy.so',
+  'https://clarity.surf',
 ];
 
 let io: Server | null = null;
@@ -32,9 +30,10 @@ export function initSocket(server: http.Server) {
   const pubClient = getRedisClient();
   const subClient = getRedisSubClient();
   if (pubClient && subClient) {
+    const socketServer = io;
     Promise.all([pubClient.connect(), subClient.connect()])
       .then(() => {
-        io!.adapter(createAdapter(pubClient, subClient));
+        socketServer.adapter(createAdapter(pubClient, subClient));
         log.general.info('Socket.IO Redis adapter attached');
       })
       .catch((err) => {

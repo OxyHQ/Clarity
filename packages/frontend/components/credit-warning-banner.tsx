@@ -22,16 +22,10 @@ interface CreditWarningBannerProps {
 }
 
 const CHEAPER_ALTERNATIVES: Record<string, { model: string; name: string; multiplier: number }> = {
-  'clarity-v1':           { model: 'clarity-fast',    name: 'Clarity Fast',     multiplier: 0.5 },
-  'clarity-v1':     { model: 'clarity-fast',    name: 'Clarity Fast',     multiplier: 0.5 },
-  'clarity-v1':    { model: 'clarity-v1',      name: 'Clarity V1',       multiplier: 1 },
-  'clarity-v1':   { model: 'clarity-v1',      name: 'Clarity V1',       multiplier: 1 },
-  'clarity-v1':    { model: 'clarity-v1',      name: 'Clarity V1',       multiplier: 1 },
-  'clarity-v1':{ model: 'clarity-v1',      name: 'Clarity V1',       multiplier: 1 },
-  'clarity-pro':       { model: 'clarity-v1',      name: 'Clarity V1',       multiplier: 1 },
-  'clarity-thinking':  { model: 'clarity-v1',      name: 'Clarity V1',       multiplier: 1 },
-  'clarity-pro-max':   { model: 'clarity-v1',      name: 'Clarity V1',       multiplier: 1 },
-  'clarity-pro': { model: 'clarity-v1', name: 'Clarity V1 Voice', multiplier: 2 },
+  'clarity-v1': { model: 'clarity-fast', name: 'Clarity Fast', multiplier: 0.5 },
+  'clarity-pro': { model: 'clarity-v1', name: 'Clarity V1', multiplier: 1 },
+  'clarity-thinking': { model: 'clarity-v1', name: 'Clarity V1', multiplier: 1 },
+  'clarity-pro-max': { model: 'clarity-v1', name: 'Clarity V1', multiplier: 1 },
 };
 
 export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarningBannerProps) {

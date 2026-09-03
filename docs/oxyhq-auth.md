@@ -55,7 +55,7 @@ import { OxyProvider, useOxy } from '@oxyhq/services';
 
 <OxyProvider
   baseURL="https://api.oxy.so"
-  clientId={process.env.EXPO_PUBLIC_OXY_CLIENT_ID}
+  clientId="oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a"
 >
   <App />
 </OxyProvider>

@@ -10,7 +10,9 @@ import {
   listConversations,
   listMessages,
   replaceConversation,
+  toWritableMessage,
   voteMessage,
+  type WritableMessage,
 } from '../db/chat-repository.js';
 
 const router = Router();
@@ -28,21 +30,18 @@ router.post('/new', authenticateToken, async (req: Request, res: Response) => {
     }
 
     const conversationId = randomUUID();
-    const { source = 'app', agentId } = req.body;
 
     const conversation = await createConversation({
       oxyUserId: req.user.id,
       conversationId,
       title: 'New chat',
-      source,
-      ...(agentId && { agentId }),
+      source: 'app',
     });
 
     res.json({
       id: conversation.conversationId,
       title: conversation.title,
       source: conversation.source,
-      agentId: conversation.agentId,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt
     });
@@ -84,7 +83,6 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
         title: c.title,
         lastMessage: c.lastMessage,
         source: c.source || 'app',
-        agentId: c.agentId,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt
       })),
@@ -119,14 +117,12 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
       title: conversation.title,
       lastMessage: conversation.lastMessage,
       source: conversation.source || 'app',
-      agentId: conversation.agentId,
       messages: storedMessages.map((message) => ({
-        ...(message.messageId ? { id: message.messageId } : {}),
+        id: message.messageId ?? message.id,
         role: message.role,
         content: message.content,
         ...(message.vote ? { vote: message.vote } : {}),
         toolInvocations: message.toolInvocations,
-        ...(message.agentInfo ? { agentInfo: message.agentInfo } : {}),
         ...(message.audioUrl ? { audioUrl: message.audioUrl } : {}),
         createdAt: message.createdAt,
       })),
@@ -146,32 +142,41 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { conversationId, title, messages, source } = req.body;
+    const { conversationId, title, messages } = req.body as Record<string, unknown>;
 
-    if (!conversationId || !messages || !Array.isArray(messages)) {
+    if (
+      typeof conversationId !== 'string'
+      || conversationId.length === 0
+      || conversationId.length > 128
+      || !Array.isArray(messages)
+      || messages.length > 100
+      || (title !== undefined && (typeof title !== 'string' || title.length > 500))
+    ) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
 
-    // Filter out any invalid messages before saving
-    const validMessages = messages.filter((msg: any) =>
-      msg != null && msg.role && msg.content !== undefined
-    );
+    const validMessages = messages.flatMap((message): WritableMessage[] => {
+      const writable = toWritableMessage(message);
+      return writable ? [writable] : [];
+    });
+    if (validMessages.length !== messages.length) {
+      return res.status(400).json({ error: 'Invalid conversation message' });
+    }
 
     // Generate lastMessage from the last valid message
-    const lastMessage = validMessages.length > 0
-      ? validMessages[validMessages.length - 1].content?.slice(0, 100)
-      : undefined;
+    const lastContent = validMessages.at(-1)?.content;
+    const lastMessage = typeof lastContent === 'string' ? lastContent.slice(0, 100) : undefined;
 
-    const firstUserContent = validMessages.find((m: any) => m.role === 'user')?.content;
+    const firstUserContent = validMessages.find((message) => message.role === 'user')?.content;
     const conversation = await replaceConversation({
       oxyUserId: req.user.id,
       conversationId,
-      ...(title ? { title } : {}),
+      ...(typeof title === 'string' && title.length > 0 ? { title } : {}),
       titleOnInsert: typeof firstUserContent === 'string'
         ? firstUserContent.slice(0, 50)
         : 'New chat',
       ...(lastMessage === undefined ? {} : { lastMessage }),
-      ...(source ? { source } : {}),
+      source: 'app',
       messages: validMessages,
     });
 

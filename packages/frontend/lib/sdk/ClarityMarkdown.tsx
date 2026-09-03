@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Platform, Linking, useColorScheme } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import type { ASTNode, RenderRules } from 'react-native-markdown-display';
 import type { ClarityColors } from './types';
 
 // Hardcoded fallback colors for standalone usage (when no color override is passed).
@@ -25,62 +26,62 @@ const HEADING_TEXT = { fontSize: 16, lineHeight: 22 } as const;
 const SANS_FONT = Platform.select({ ios: 'Inter', android: 'Inter', default: 'Inter, sans-serif' })!;
 const MONO_FONT = Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' })!;
 
-function createRules(colors: ClarityColors) {
+function createRules(colors: ClarityColors): RenderRules {
   const { text: textColor, muted, border, primary, mutedForeground } = colors;
 
   return {
-    heading1: (node: Record<string, unknown>, children: React.ReactNode) => (
+    heading1: (node: ASTNode, children: React.ReactNode) => (
       <Text
-        key={node.key as string}
+        key={node.key}
         style={{ marginBottom: 8, marginTop: 12, fontSize: 18, fontWeight: '600', lineHeight: 24, color: textColor }}
       >
         {children}
       </Text>
     ),
-    heading2: (node: Record<string, unknown>, children: React.ReactNode) => (
+    heading2: (node: ASTNode, children: React.ReactNode) => (
       <Text
-        key={node.key as string}
+        key={node.key}
         style={{ marginBottom: 8, marginTop: 12, ...HEADING_TEXT, fontWeight: '600', color: textColor }}
       >
         {children}
       </Text>
     ),
-    heading3: (node: Record<string, unknown>, children: React.ReactNode) => (
+    heading3: (node: ASTNode, children: React.ReactNode) => (
       <Text
-        key={node.key as string}
+        key={node.key}
         style={{ marginBottom: 6, marginTop: 8, ...HEADING_TEXT, fontWeight: '600', color: textColor }}
       >
         {children}
       </Text>
     ),
-    heading4: (node: Record<string, unknown>, children: React.ReactNode) => (
+    heading4: (node: ASTNode, children: React.ReactNode) => (
       <Text
-        key={node.key as string}
+        key={node.key}
         style={{ marginBottom: 6, marginTop: 8, ...HEADING_TEXT, fontWeight: '500', color: textColor }}
       >
         {children}
       </Text>
     ),
-    heading5: (node: Record<string, unknown>, children: React.ReactNode) => (
+    heading5: (node: ASTNode, children: React.ReactNode) => (
       <Text
-        key={node.key as string}
+        key={node.key}
         style={{ marginBottom: 4, marginTop: 8, ...HEADING_TEXT, fontWeight: '500', color: textColor }}
       >
         {children}
       </Text>
     ),
-    heading6: (node: Record<string, unknown>, children: React.ReactNode) => (
+    heading6: (node: ASTNode, children: React.ReactNode) => (
       <Text
-        key={node.key as string}
+        key={node.key}
         style={{ marginBottom: 4, marginTop: 8, ...HEADING_TEXT, fontWeight: '500', color: textColor }}
       >
         {children}
       </Text>
     ),
-    code: (node: Record<string, unknown>, children: React.ReactNode, parent: unknown[]) => {
+    code: (node: ASTNode, children: React.ReactNode, parent: ASTNode[]) => {
       return parent.length > 1 ? (
         <View
-          key={node.key as string}
+          key={node.key}
           style={{
             marginVertical: 8,
             overflow: 'hidden',
@@ -95,7 +96,7 @@ function createRules(colors: ClarityColors) {
         </View>
       ) : (
         <Text
-          key={node.key as string}
+          key={node.key}
           style={{
             backgroundColor: muted,
             paddingHorizontal: 4,
@@ -109,7 +110,7 @@ function createRules(colors: ClarityColors) {
         </Text>
       );
     },
-    list_item: (node: Record<string, unknown>, children: React.ReactNode, parent: Array<{ type?: string; children?: unknown[] }>) => {
+    list_item: (node: ASTNode, children: React.ReactNode, parent: ASTNode[]) => {
       const lastParent = parent[parent.length - 1];
       const isOrdered = lastParent?.type === 'ordered_list';
       const bullet = isOrdered
@@ -117,39 +118,39 @@ function createRules(colors: ClarityColors) {
         : '\u2022';
 
       return (
-        <View key={node.key as string} style={{ flexDirection: 'row', paddingVertical: 2, paddingLeft: 16 }}>
+        <View key={node.key} style={{ flexDirection: 'row', paddingVertical: 2, paddingLeft: 16 }}>
           <Text style={{ marginRight: 8, minWidth: 14, ...BODY_TEXT, color: mutedForeground }}>{bullet}</Text>
           <Text style={{ flex: 1, ...BODY_TEXT, color: textColor }}>{children}</Text>
         </View>
       );
     },
-    ordered_list: (node: Record<string, unknown>, children: React.ReactNode) => (
-      <View key={node.key as string} style={{ marginVertical: 8 }}>{children}</View>
+    ordered_list: (node: ASTNode, children: React.ReactNode) => (
+      <View key={node.key} style={{ marginVertical: 8 }}>{children}</View>
     ),
-    unordered_list: (node: Record<string, unknown>, children: React.ReactNode) => (
-      <View key={node.key as string} style={{ marginVertical: 8 }}>{children}</View>
+    unordered_list: (node: ASTNode, children: React.ReactNode) => (
+      <View key={node.key} style={{ marginVertical: 8 }}>{children}</View>
     ),
-    strong: (node: Record<string, unknown>, children: React.ReactNode) => (
-      <Text key={node.key as string} style={{ fontWeight: '600', ...BODY_TEXT, color: textColor }}>{children}</Text>
+    strong: (node: ASTNode, children: React.ReactNode) => (
+      <Text key={node.key} style={{ fontWeight: '600', ...BODY_TEXT, color: textColor }}>{children}</Text>
     ),
-    link: (node: Record<string, unknown>, children: React.ReactNode) => (
+    link: (node: ASTNode, children: React.ReactNode) => (
       <Text
-        key={node.key as string}
+        key={node.key}
         style={{ color: primary, textDecorationLine: 'underline', ...BODY_TEXT }}
         onPress={() => {
-          const attrs = node.attributes as Record<string, string> | undefined;
-          if (attrs?.href) Linking.openURL(attrs.href);
+          const href = node.attributes.href;
+          if (typeof href === 'string') Linking.openURL(href);
         }}
       >
         {children}
       </Text>
     ),
-    paragraph: (node: Record<string, unknown>, children: React.ReactNode) => (
-      <Text key={node.key as string} style={{ marginBottom: 8, ...BODY_TEXT, color: textColor }}>{children}</Text>
+    paragraph: (node: ASTNode, children: React.ReactNode) => (
+      <Text key={node.key} style={{ marginBottom: 8, ...BODY_TEXT, color: textColor }}>{children}</Text>
     ),
-    blockquote: (node: Record<string, unknown>, children: React.ReactNode) => (
+    blockquote: (node: ASTNode, children: React.ReactNode) => (
       <View
-        key={node.key as string}
+        key={node.key}
         style={{
           marginVertical: 8,
           borderLeftWidth: 4,
@@ -164,9 +165,9 @@ function createRules(colors: ClarityColors) {
         {children}
       </View>
     ),
-    hr: (node: Record<string, unknown>) => (
+    hr: (node: ASTNode) => (
       <View
-        key={node.key as string}
+        key={node.key}
         style={{
           marginVertical: 16,
           height: 1,
@@ -174,8 +175,8 @@ function createRules(colors: ClarityColors) {
         }}
       />
     ),
-    body: (node: Record<string, unknown>, children: React.ReactNode) => {
-      return <View key={node.key as string} style={{ marginBottom: -8 }}>{children}</View>;
+    body: (node: ASTNode, children: React.ReactNode) => {
+      return <View key={node.key} style={{ marginBottom: -8 }}>{children}</View>;
     },
   };
 }

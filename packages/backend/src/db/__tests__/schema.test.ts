@@ -25,7 +25,6 @@ describe('PostgreSQL expand schema', () => {
     const suggestionIndexes = getTableConfig(suggestions).indexes.map((item) => item.config.name);
     expect(conversationIndexes).toEqual(expect.arrayContaining([
       'clarity_conversations_user_updated_idx',
-      'clarity_conversations_user_agent_idx',
     ]));
     expect(messageIndexes).toEqual(expect.arrayContaining([
       'clarity_messages_conversation_created_idx',

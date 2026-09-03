@@ -1,4 +1,4 @@
-# DigitalOcean App Platform spec for clarity-production
+# DigitalOcean App Platform API spec for clarity-production
 # NOTE: Infrastructure is now managed by SST (sst.config.ts).
 # This file is kept as a reference / fallback.
 name: clarity-production
@@ -40,6 +40,10 @@ services:
       - key: ALIA_API_URL
         value: "https://api.alia.onl"
       - key: CLARITY_ALIA_AGENT_ID
+        value: "01a0646a-078f-7642-95ef-439952f4f3f9"
+      - key: OXY_SERVICE_API_KEY
+        value: "oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78"
+      - key: OXY_SERVICE_API_SECRET
         type: SECRET
       - key: WEB_URL
         value: "https://clarity.surf"
@@ -56,20 +60,6 @@ services:
       - key: VAPID_SUBJECT
         value: "mailto:contact@clarity.surf"
 
-static_sites:
-  - name: clarity-app
-    github:
-      repo: OxyHQ/Clarity
-      branch: master
-      deploy_on_push: true
-    build_command: >-
-      ELECTRON_SKIP_BINARY_DOWNLOAD=1 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-      bun run build:frontend
-    source_dir: /
-    environment_slug: node-js
-    output_dir: packages/frontend/dist
-    catchall_document: index.html
-
 databases:
   - name: db-valkey
     engine: REDIS
@@ -78,11 +68,8 @@ databases:
     cluster_name: db-valkey-ams3-04785
 
 domains:
-  - domain: clarity.surf
-    type: PRIMARY
-    zone: clarity.surf
   - domain: api.clarity.surf
-    type: ALIAS
+    type: PRIMARY
     zone: clarity.surf
 
 alerts:

@@ -8,6 +8,7 @@ import config from "@/lib/config";
 import { useEntitlements } from "@/lib/hooks/use-billing";
 import { toast } from "@oxyhq/bloom/toast";
 import { useTranslation } from "@/hooks/useTranslation";
+import type { ClarityModelsResponse } from "@clarity/shared-types";
 
 interface Model {
   id: string;
@@ -19,21 +20,16 @@ interface Model {
 
 // Cache models in memory (they don't change frequently)
 let cachedModels: Model[] | null = null;
+export const CLARITY_THINKING_MODEL_ID = 'clarity-thinking';
 
-/** Returns the latest thinking model ID from cached models, or a fallback. */
+/** The thinking control maps to one exact public model ID. */
 export function getThinkingModelId(): string {
-  if (cachedModels) {
-    const thinkingModels = cachedModels.filter(m => m.id.includes('thinking'));
-    if (thinkingModels.length > 0) {
-      return thinkingModels[thinkingModels.length - 1].id;
-    }
-  }
-  return 'clarity-thinking';
+  return CLARITY_THINKING_MODEL_ID;
 }
 
 /** Check if a model ID is a thinking model. */
 export function isThinkingModel(modelId: string): boolean {
-  return modelId.includes('thinking');
+  return modelId === CLARITY_THINKING_MODEL_ID;
 }
 
 interface ModelSelectorProps {
@@ -101,7 +97,7 @@ export function ModelSelector({
   const router = useRouter();
   const { t } = useTranslation();
   const allowedIds = useMemo(
-    () => new Set(entitlements?.allowedModelIds || ['clarity-fast', 'clarity-v1', 'clarity-v1']),
+    () => new Set(entitlements?.allowedModelIds || ['clarity-fast', 'clarity-v1']),
     [entitlements],
   );
 
@@ -112,13 +108,13 @@ export function ModelSelector({
   useEffect(() => {
     if (!cachedModels) {
       fetch(`${config.apiUrl}/v1/models?chat=true`)
-        .then((res) => res.json())
+        .then((res) => res.json() as Promise<ClarityModelsResponse>)
         .then((data) => {
           const fetchedModels = data.data
-            ?.map((m: any) => ({
+            ?.map((m) => ({
               id: m.id,
               name: m.name,
-              description: m.description,
+              description: m.description ?? '',
               requiredPlan: m.required_plan ?? null,
               isLegacy: m.is_legacy ?? false,
             })) || [];
@@ -185,11 +181,11 @@ export function ModelSelector({
             {legacyModels.length > 0 && (
               <>
                 <DropdownMenu.Separator />
-                <DropdownMenu.Sub>
-                  <DropdownMenu.SubTrigger>
+                <DropdownMenu.Sub key="legacy-models">
+                  <DropdownMenu.SubTrigger key="legacy-models-trigger">
                     <DropdownMenu.ItemTitle>{t('models.legacyModels')}</DropdownMenu.ItemTitle>
                   </DropdownMenu.SubTrigger>
-                  <DropdownMenu.SubContent className="w-64">
+                  <DropdownMenu.SubContent key="legacy-models-content" className="w-64">
                     {legacyModels.map((model) => (
                       <ModelCheckboxItem
                         key={model.id}

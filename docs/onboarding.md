@@ -13,9 +13,10 @@ bun install
 cp packages/backend/.env.example packages/backend/.env
 ```
 
-Set `DATABASE_URL` to a local PostgreSQL database. Set
-`CLARITY_ALIA_AGENT_ID` only to a real provisioned Alia agent. Without it the
-API can run for data work, but chat and readiness remain unavailable.
+Set `DATABASE_URL` to a local PostgreSQL database and the canonical
+`CLARITY_ALIA_AGENT_ID` byte for byte. Chat additionally needs the fixed backend
+`OXY_SERVICE_API_KEY` and an untracked `OXY_SERVICE_API_SECRET`; without them
+readiness remains unavailable.
 
 ## 3. Run
 

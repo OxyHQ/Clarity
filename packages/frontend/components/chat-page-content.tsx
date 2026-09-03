@@ -65,7 +65,7 @@ const MODE_CONFIG: Record<Mode, {
 
 interface ChatPageContentProps {
   messages: Message[];
-  scrollViewRef: React.RefObject<GHScrollView>;
+  scrollViewRef: React.RefObject<GHScrollView | null>;
   isLoading: boolean;
   onSubmit: (value: string, attachments?: Attachment[]) => void;
   onSuggestionPress: (message: string) => void;
