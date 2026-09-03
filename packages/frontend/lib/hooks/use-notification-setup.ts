@@ -34,6 +34,8 @@ export function useNotificationSetup() {
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
       }),
@@ -189,11 +191,11 @@ export function useNotificationSetup() {
 // ── Helpers ──────────────────────────────────────────────────────
 
 /** Convert a base64url-encoded VAPID key to a Uint8Array for PushManager.subscribe */
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const raw = atob(base64);
-  const output = new Uint8Array(raw.length);
+  const output = new Uint8Array(new ArrayBuffer(raw.length));
   for (let i = 0; i < raw.length; ++i) {
     output[i] = raw.charCodeAt(i);
   }

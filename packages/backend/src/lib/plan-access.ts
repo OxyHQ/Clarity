@@ -4,10 +4,10 @@
  * Results are cached per-user with a short TTL.
  */
 
-import { Subscription } from '../models/subscription.js';
-import { getPlans, getPlanFeatures } from './gateway-client.js';
+import { findActiveSubscriptions } from '../db/subscription-repository.js';
+import { getPlans, getPlanFeatures } from './product-catalogue.js';
 
-const FREE_MODEL_IDS = ['clarity-fast', 'clarity-v1', 'clarity-v1'];
+const FREE_MODEL_IDS = ['clarity-fast', 'clarity-v1'];
 
 export interface Entitlements {
   allowedModelIds: string[];
@@ -22,17 +22,14 @@ export async function getUserEntitlements(userId: string): Promise<Entitlements>
   const cached = cache.get(userId);
   if (cached && cached.expires > Date.now()) return cached.data;
 
-  const subscriptions = await Subscription.find({
-    oxyUserId: userId,
-    status: { $in: ['active', 'trialing'] },
-  }).lean();
+  const subscriptions = await findActiveSubscriptions(userId);
 
   const planIds = subscriptions
-    .map(s => s.plan?.planId)
+    .map(s => s.planId)
     .filter(Boolean) as string[];
   if (planIds.length === 0) planIds.push('free');
 
-  // Fetch all plans and filter client-side (providers API returns all plans)
+  // Fetch all product plans and filter client-side during the storage port.
   const [allPlans, allPlanFeatures] = await Promise.all([
     getPlans(),
     Promise.all(planIds.map(id => getPlanFeatures(id))).then(results => results.flat()),
@@ -57,9 +54,12 @@ export async function getUserEntitlements(userId: string): Promise<Entitlements>
     }
   }
 
-  const highestPlan = planIds.includes('free') && planIds.length === 1
-    ? 'free'
-    : planIds.find(id => id !== 'free') || 'free';
+  const highestPlan = plans.reduce<{ planId: string; sortOrder: number }>(
+    (highest, plan) => plan.sortOrder > highest.sortOrder
+      ? { planId: plan.planId, sortOrder: plan.sortOrder }
+      : highest,
+    { planId: 'free', sortOrder: -1 },
+  ).planId;
 
   const result: Entitlements = {
     allowedModelIds: [...modelIds],

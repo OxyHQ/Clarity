@@ -1,226 +1,79 @@
 ---
-title: Clarity
-description: AI-powered search engine by Oxy — cited answers, deep research, and proactive agents.
-order: 0
+title: Clarity architecture
+description: Product state in PostgreSQL and the Clarity agent in Alia.
 ---
 
 # Clarity
 
-AI-powered search engine by [Oxy](https://oxy.so). Clarity answers questions with numbered source citations, runs multi-step deep research, executes autonomous agents under policy controls, and integrates with the rest of the Oxy ecosystem through a manifest-driven service connector protocol.
+Clarity is a product surface, not an inference runtime.
 
-<Badge variant="success">App</Badge> <Badge>SaaS</Badge>
-
-**Live:** [clarity.surf](https://clarity.surf)
-
-## What it is
-
-Clarity is a context-agent platform with three surfaces sharing one runtime:
-
-- **Web + mobile app** — Expo 55 / React Native 0.83 + NativeWind on `clarity.surf`
-- **Public API** — Express + TypeScript, OpenAI-compatible `/v1/chat/completions` endpoint
-- **Autonomy runtime** — trigger engine, context graph, learned-rule store, and risk governance
-
-Every interaction runs the same five-step loop: **classify → recall → retrieve → act → learn.** Read-only actions are autonomous, reversible writes save rollback records, external-impact writes wait for user approval, and destructive actions are blocked outright.
-
-## Architecture
-
-```
-                            +-------------------+
-                            |   Expo App (Web,  |
-     User  ───────────────> |   iOS, Android)   |
-                            +--------+----------+
-                                     |
-                       POST /v1/chat/completions (SSE)
-                                     |
-                            +--------v----------+
-                            |  Express API      |
-                            |  (packages/backend)|
-                            +--+---------+------+
-                               |         |
-               +---------------+         +----------------+
-               |                                          |
-      +--------v---------+                  +-------------v-----------+
-      |  MongoDB         |                  |  AI Providers (routed   |
-      |  (Mongoose)      |                  |  via Clarity model      |
-      +--------+---------+                  |  abstraction)           |
-               |                            +-------------------------+
-      +--------v---------+
-      |  Redis (Valkey)  |     Socket.IO real-time events:
-      |  rate limits,    |     approvals, streaming, notifications
-      |  caching         |
-      +------------------+
+```text
+Expo client
+  -> Express product API
+       -> PostgreSQL (Clarity product state)
+       -> Alia /alia/chat (fixed Clarity agent)
+            -> Oxy inference
+                 -> Kaana
 ```
 
-### Monorepo layout
+| Owner | Responsibilities |
+| --- | --- |
+| Clarity | Product model IDs, conversations, suggestions, feedback, notifications, plan catalogue, subscriptions and entitlements |
+| Alia | Agent identity/runtime, tools, search, deep research, memory, citations, inference credits and telemetry |
+| Oxy | Sessions, application identity, inference accounting, canonical request attribution and exact route authorization/order |
+| Kaana | Provider-key custody, deployments, provider execution and failover within Oxy's signed order |
 
-```
-packages/
-  frontend/      @clarity/frontend       Expo cross-platform client (web + iOS + Android)
-  backend/       @clarity/backend        Express backend + autonomy runtime
-  shared-types/  @clarity/shared-types   Types shared by frontend + backend
-sst.config.ts                            SST infra: DO App Platform, DO Spaces, Cloudflare
-```
+Clarity's backend uses PostgreSQL/Drizzle only. It has no provider adapter,
+provider credential, route scoring or direct provider endpoint. Stripe, VAPID,
+Valkey and Oxy session configuration are product/platform credentials and are
+not inference provider keys.
 
-### Stack
+Kaana is the sole hosted inference data plane. Its only canonical signed origin
+is `https://kaana.ai`; Clarity never addresses Kaana directly or through an
+`oxy.so` alias.
 
-| Layer | Technology |
-|-------|------------|
-| Frontend | Expo 55, React Native 0.83, React 19, NativeWind, Reanimated v4, Zustand, TanStack Query, expo-router |
-| Backend | Express, TypeScript, MongoDB (Mongoose), Socket.IO, Redis (Valkey) |
-| Auth | `@oxyhq/services` (web + native), `@oxyhq/core` (API) |
-| AI providers | Multi-provider abstraction with automatic fallback (provider names are internal only) |
-| Infra | SST 4.x on DigitalOcean App Platform + Spaces, fronted by Cloudflare |
+## Canonical product identity
 
-## Install
+Oxy and Alia bootstrap this identity internally. Every value is an opaque
+primary key and must match byte for byte; no runtime may trim, normalize,
+discover by name/list/order, accept a client-supplied binding or choose a
+fallback.
 
-Clarity is not a published library — it is the source repo for the clarity.surf product. Clone it to run locally:
+| Record | Canonical value |
+| --- | --- |
+| Clarity project/payer account | `01a0646a-078f-7f53-848d-a0f82d9f7fa6` |
+| Clarity bot account | `01a0646a-078f-7120-a993-a03c180c81b0` |
+| Private Alia agent | `01a0646a-078f-7642-95ef-439952f4f3f9` |
+| Backend service application | `01a0648b-8d73-70ad-8e67-1c07ddc5eb6e` |
+| Backend service credential | `01a0648b-8d74-7240-adba-80707fdfdf9c` |
+| Backend public client ID | `oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78` |
+| Public sign-in application | `01a0646a-2382-74a3-a795-788924d55722` |
+| Public sign-in credential | `01a0646e-2508-7048-8c08-b1f7b3af634f` |
+| Public sign-in client ID | `oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a` |
 
-```sh
-git clone https://github.com/OxyHQ/Clarity.git
-cd Clarity
-bun install
-```
+The agent's `oxyAccountId` is the exact bot-account ID and its application
+binding is the backend service application, whose credential has exactly
+`user:read` and `inference:invoke`. The separate public application has only
+`user:read`. Clarity's agent grant is exactly `web`, `artifacts`, and `memory`;
+it has no browser, shell, files, messaging, automation, delegation, MCP,
+integration or agent-management grant.
 
-The repo is a Bun workspace with two packages:
+## Fail-closed state
 
-- `packages/backend` (`@clarity/backend`) — backend
-- `packages/frontend` (`@clarity/frontend`) — Expo client
-- `packages/shared-types` (`@clarity/shared-types`) — shared TypeScript types
+Clarity authenticates an inbound Oxy user session, but its backend calls Alia
+only with the fixed backend service credential and `X-Oxy-User-Id`. Readiness
+also requires the canonical agent ID, exact service configuration and an
+explicitly attested PostgreSQL snapshot. Missing any one fails closed.
 
-## Quick start
+The current branch is a migration candidate only. It does not claim that a
+DigitalOcean PostgreSQL database, the Alia bot/agent, Oxy inference edge, Kaana
+route, Stripe credit grant or production deployment has been provisioned.
 
-### Run locally
+## Read next
 
-```sh
-# Backend (port 3001)
-bun run dev:backend
-
-# Frontend (Expo, opens a tunnel for device testing)
-bun run dev:frontend
-```
-
-Both servers expect a `.env` in `packages/backend/` with MongoDB, Redis, Oxy, and at least one AI provider configured. See `packages/backend/.env.example`.
-
-### Call the public API
-
-The chat endpoint is OpenAI-compatible — drop it into any client that speaks the `/v1/chat/completions` shape:
-
-```ts
-const res = await fetch('https://api.clarity.surf/v1/chat/completions', {
-  method: 'POST',
-  headers: {
-    'Authorization': `Bearer ${CLARITY_SK}`, // clarity_sk_... developer key
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    model: 'clarity-v1',
-    messages: [{ role: 'user', content: 'What did Oxy ship this week?' }],
-    stream: true,
-    deepResearch: true,
-  }),
-});
-
-const reader = res.body!.getReader();
-const decoder = new TextDecoder();
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  process.stdout.write(decoder.decode(value));
-}
-```
-
-Sessions from the Clarity app use a standard OxyHQ `Bearer` token instead of a `clarity_sk_` key — same endpoint, same shape.
-
-## Core concepts
-
-### Model abstraction
-
-Users and developers only ever see **Clarity-branded model IDs** — never the underlying provider. Each Clarity model maps to multiple provider models with automatic fallback, ranked by cost and quality.
-
-| Tier | When to use |
-|------|-------------|
-| `clarity-fast` | Quick lookups, autocomplete, low-credit-cost responses |
-| `clarity-v1` | Default everyday answers with web search + citations |
-| `clarity-pro` | Higher-quality reasoning for complex questions |
-| `clarity-thinking` | Long-horizon multi-step reasoning |
-| `clarity-pro-max` | Top-tier multimodal pro workloads |
-
-Specialised tiers (`clarity-v1-codea`, `clarity-v1-cowork`, `clarity-v1-vision`, `clarity-v1-voice`, `clarity-v1-tts`, `clarity-v1-image`, etc.) target specific surfaces and capabilities. The full catalogue lives in `packages/backend/src/internal/providers/lib/clarity-models.ts`.
-
-Provider names, provider model IDs, and any internal routing details are **never** returned in API responses, error messages, SEO metadata, or analytics — `sanitizeMessage()` and `getClarityModel()` strip them at the edges.
-
-### Search-first answers with citations
-
-The default chat runtime searches the web before answering factual questions. Sources are extracted, ranked, and inlined as numbered references (`[1]`, `[2]`, …). Each numbered reference can be hovered or tapped to reveal the source card streamed via the `clarity.source_card` SSE event.
-
-### Deep research
-
-`deepResearch: true` switches the runtime into a multi-step research mode:
-
-1. **Decompose** the query into sub-questions
-2. **Search in parallel** across providers and the [contact graph](memory-system)
-3. **Extract** relevant passages from each result
-4. **Synthesize** the answer with full citation trail
-
-Progress streams as `clarity.research_progress` events with phase + percent so clients can render a live progress UI.
-
-### Autonomy and risk policy
-
-Every action is classified into one of four risk levels enforced by the runtime:
-
-| Level | Meaning | Behavior |
-|-------|---------|----------|
-| `R0` | Read-only | Fully autonomous |
-| `R1` | Reversible write | Autonomous + rollback record saved |
-| `R2` | External/unknown impact | Requires user approval |
-| `R3` | Destructive | Blocked |
-
-Approvals are real-time. The server emits a `clarity.approval_request` SSE event; the client replies via Socket.IO; the runtime resumes (or aborts) on the `clarity.approval_result`.
-
-### Streaming event contract
-
-All chat responses stream via Server-Sent Events. Standard OpenAI deltas are augmented with named Clarity events (every event carries `eventVersion: 1`):
-
-| Event | Payload | Purpose |
-|-------|---------|---------|
-| `clarity.research_progress` | `{ phase, percent }` | Deep-research progress bar |
-| `clarity.reasoning` | `{ tokens, summary }` | Reasoning trace blocks |
-| `clarity.tool_result` | `{ toolName, output }` | Tool execution payloads |
-| `clarity.source_card` | `{ index, url, title, snippet }` | Numbered citation card |
-| `clarity.title` | `{ title }` | Conversation title (set after first turn) |
-| `clarity.follow_ups` | `{ suggestions: string[] }` | Three follow-up questions |
-| `clarity.plan_preview` | `{ planId, intent, steps[] }` | Multi-step plan preview |
-| `clarity.approval_request` | `{ requestId, toolName, args, severity }` | Pause for user approval |
-| `clarity.approval_result` | `{ requestId, decision }` | Decision: `approved \| denied \| timeout` |
-| `clarity.agent_session` | `{ agentSessionId }` | Autonomous session was created |
-| `clarity.model_switch` | `{ from, to, reason }` | Runtime fallback notification |
-
-### Oxy service connector
-
-Clarity integrates with the rest of the Oxy ecosystem (and future third-party services) via a **manifest-driven protocol**. Services register an `OxyService` document in MongoDB declaring their tools, events, and optional context endpoint. Clarity reads the manifest at chat time, generates AI-SDK `tool()` wrappers with Zod schemas, and forwards the user's OxyHQ JWT to the service — no code changes required in Clarity itself to onboard a new service.
-
-Event webhooks flow back the other way: services post to `/webhooks/oxy/:serviceId` with HMAC-signed payloads to trigger notifications, context updates, or autonomous agent sessions.
-
-### Memory and context graph
-
-Two complementary persistence layers shape every response:
-
-- **User memory profile** — long-term preferences and facts (`UserMemory` model)
-- **Context graph** — `ContextSource` quality scores, `ContextNode` entities, `ContextEdge` relationships, `RetrievalStrategy` per-intent ordering, `LearningRule` corrections
-
-Every chat run updates source quality (success/failure + latency), upserts message-to-response graph nodes, and persists user corrections (`Correction: …`, `Remember: …`) as high-priority rules.
-
-## Topics
-
-- **[API Reference](api-reference)** — full endpoint catalogue: `/v1/chat/completions`, models, triggers, notifications, webhooks
-- **[Memory System](memory-system)** — `UserMemory`, context graph, learning rules, rollback records
-- **[Proactive Intelligence](proactive-intelligence)** — trigger engine, autonomy runtime, governance, approvals
-- **[Deployment](deployment)** — SST + DigitalOcean + Cloudflare infra-as-code
-- **[Onboarding](onboarding)** — full developer onboarding walkthrough
-- **[Agents](agents)** — execution loop, intents, governance levels
-- **[Developers Portal](developers-portal)** — apps, API keys, scopes, usage analytics
-- **[OxyHQ Auth](oxyhq-auth)** — which OxyHQ package to use per surface
-
-## Repository
-
-Source: [github.com/OxyHQ/Clarity](https://github.com/OxyHQ/Clarity)
+- [API reference](api-reference)
+- [Chat API](chat-api)
+- [Model IDs](model-abstraction)
+- [Migration and cutover](postgres-alia-migration)
+- [Deployment](deployment)
+- [Oxy authentication](oxyhq-auth)

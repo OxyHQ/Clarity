@@ -1,8 +1,5 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 import { type PropsWithChildren } from 'react';
-import { getSsoCallbackBootstrapScript } from '@oxyhq/core';
-
-const SSO_CALLBACK_BOOTSTRAP_SCRIPT = getSsoCallbackBootstrapScript();
 
 /**
  * Root HTML component for static rendering
@@ -15,11 +12,6 @@ export default function Root({ children }: PropsWithChildren) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-
-        {/* Oxy SSO callback bootstrap — must run before the SPA hydrates so the
-            SDK can intercept and consume `/__oxy/sso-callback`. */}
-        <script dangerouslySetInnerHTML={{ __html: SSO_CALLBACK_BOOTSTRAP_SCRIPT }} />
-
 
         {/* Viewport and mobile optimization */}
         <meta
@@ -45,7 +37,7 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Open Graph / Facebook Meta Tags for social sharing */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://clarity.oxy.so/" />
+        <meta property="og:url" content="https://clarity.surf/" />
         <meta property="og:title" content="Clarity" />
         <meta
           property="og:description"
@@ -55,7 +47,7 @@ export default function Root({ children }: PropsWithChildren) {
 
         {/* Twitter Card Meta Tags */}
         <meta property="twitter:card" content="summary_large_image" />
-        <meta property="twitter:url" content="https://clarity.oxy.so/" />
+        <meta property="twitter:url" content="https://clarity.surf/" />
         <meta property="twitter:title" content="Clarity" />
         <meta
           property="twitter:description"
@@ -99,7 +91,7 @@ export default function Root({ children }: PropsWithChildren) {
               '@context': 'https://schema.org',
               '@type': 'WebApplication',
               name: 'Clarity',
-              url: 'https://clarity.oxy.so',
+              url: 'https://clarity.surf',
               description:
                 'Clarity is an AI-powered search engine by Oxy. Get comprehensive answers with cited sources.',
               applicationCategory: 'BusinessApplication',

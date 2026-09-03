@@ -2,8 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxyhq/services';
 import { useApiClient } from '../api/use-api-client';
 
-interface Notification {
-  _id: string;
+export interface Notification {
+  id: string;
   type: string;
   title: string;
   body: string;

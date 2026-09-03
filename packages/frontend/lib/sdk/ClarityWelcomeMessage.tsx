@@ -9,6 +9,8 @@ export type { WelcomeSuggestion };
 export type SearchCategory = 'all' | 'academic' | 'news' | 'code' | 'social';
 
 export interface ClarityWelcomeMessageProps {
+  greeting?: string;
+  subtitle?: string;
   suggestions?: WelcomeSuggestion[];
   onSuggestionPress?: (text: string) => void;
   selectedCategory?: SearchCategory;
@@ -83,6 +85,8 @@ function SuggestionCard({
 }
 
 export function ClarityWelcomeMessage({
+  greeting,
+  subtitle,
   suggestions = [],
   onSuggestionPress,
   selectedCategory = 'all',
@@ -90,6 +94,17 @@ export function ClarityWelcomeMessage({
 }: ClarityWelcomeMessageProps) {
   return (
     <View className="flex w-full flex-col">
+      {(greeting || subtitle) && (
+        <View className="mb-5 gap-1">
+          {greeting && (
+            <Text className="text-2xl font-semibold text-foreground">{greeting}</Text>
+          )}
+          {subtitle && (
+            <Text className="text-base text-muted-foreground">{subtitle}</Text>
+          )}
+        </View>
+      )}
+
       {/* Category tabs — floating pills, not in a bordered container */}
       {onCategoryChange && (
         <View className="flex-row items-center gap-1">

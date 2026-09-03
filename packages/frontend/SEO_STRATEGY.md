@@ -87,7 +87,7 @@ Available SEO helper files (for advanced usage when needed):
 | multilingual ai chatbot | 8K | Low | Medium |
 | ai assistant with memory | 12K | Low-Medium | High |
 | chatbot for developers | 14K | Medium | Medium |
-| openai api alternative | 6K | Low | Medium |
+| chat completion api alternative | 6K | Low | Medium |
 
 ### Comparison Keywords (High Conversion)
 - "clarity vs chatgpt" (growing)
@@ -136,7 +136,7 @@ export default function MyPage() {
         title="Unique and descriptive title"
         description="Description of 155-160 characters"
         keywords={['keyword1', 'keyword2']}
-        canonicalUrl="https://clarity.oxy.so/my-page"
+        canonicalUrl="https://clarity.surf/my-page"
       />
       {/* content */}
     </>
@@ -218,7 +218,7 @@ export function generateOGImageURL(params: {
   title: string;
   subtitle?: string;
 }) {
-  return `https://clarity.oxy.so/api/og?title=${encodeURIComponent(params.title)}`;
+  return `https://clarity.surf/api/og?title=${encodeURIComponent(params.title)}`;
 }
 ```
 
@@ -238,9 +238,9 @@ Your app already has i18n with `i18n-js`. Now you need multilingual SEO.
   {...META_PRESETS.aiChat}
   locale="en-US"
   alternateLocales={[
-    { locale: 'es-ES', url: 'https://clarity.oxy.so/es/ai-chat' },
-    { locale: 'fr-FR', url: 'https://clarity.oxy.so/fr/ai-chat' },
-    { locale: 'de-DE', url: 'https://clarity.oxy.so/de/ai-chat' },
+    { locale: 'es-ES', url: 'https://clarity.surf/es/ai-chat' },
+    { locale: 'fr-FR', url: 'https://clarity.surf/fr/ai-chat' },
+    { locale: 'de-DE', url: 'https://clarity.surf/de/ai-chat' },
   ]}
 />
 ```
@@ -249,17 +249,17 @@ Your app already has i18n with `i18n-js`. Now you need multilingual SEO.
 
 **Option A: Subdirectories** (Recommended)
 ```
-https://clarity.oxy.so/          (English, default)
-https://clarity.oxy.so/es/       (Spanish)
-https://clarity.oxy.so/fr/       (French)
-https://clarity.oxy.so/de/       (German)
+https://clarity.surf/          (English, default)
+https://clarity.surf/es/       (Spanish)
+https://clarity.surf/fr/       (French)
+https://clarity.surf/de/       (German)
 ```
 
 **Option B: Subdomains**
 ```
-https://clarity.oxy.so/          (English)
-https://es.clarity.oxy.so/       (Spanish)
-https://fr.clarity.oxy.so/       (French)
+https://clarity.surf/          (English)
+https://es.clarity.surf/       (Spanish)
+https://fr.clarity.surf/       (French)
 ```
 
 **Implementation with Expo Router**:
@@ -344,7 +344,7 @@ export const unstable_settings = {
 ### Google Search Console
 
 1. Verify ownership at: https://search.google.com/search-console
-2. Submit sitemap: `https://clarity.oxy.so/sitemap.xml`
+2. Submit sitemap: `https://clarity.surf/sitemap.xml`
 3. Monitor:
    - Impressions and clicks
    - CTR by query
@@ -468,7 +468,7 @@ export function Breadcrumbs({ items }: { items: Array<{name: string, href: strin
 
 ```tsx
 // packages/frontend/app/+html.tsx
-<link rel="canonical" href="https://clarity.oxy.so/" />
+<link rel="canonical" href="https://clarity.surf/" />
 ```
 
 ---
@@ -519,7 +519,7 @@ export function Breadcrumbs({ items }: { items: Array<{name: string, href: strin
 4. **Guest Posting**
    - Write for AI/Tech blogs
    - Topic: "Future of conversational AI"
-   - Backlink to clarity.oxy.so
+   - Backlink to clarity.surf
 
 5. **Open Source**
    - Release SDKs on GitHub

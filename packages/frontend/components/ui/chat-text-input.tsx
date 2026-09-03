@@ -156,7 +156,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
             !fillContainer && props.multiline && !disableAutoHeight && {
               minHeight,
               maxHeight,
-              overflow: 'auto',
+              overflow: 'scroll',
               ...(Platform.OS === 'web' ? { fieldSizing: 'content' } : {}),
             },
             fillContainer && { flex: 1, height: '100%' },

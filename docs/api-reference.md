@@ -1,267 +1,67 @@
-# Clarity API Reference
-
-Last updated: 2026-03-07
-
-## Base URL
-
-`https://api.clarity.oxy.so`
-
-## Authentication
-
-Use one of:
-
-- `Authorization: Bearer <session-token>`
-- `Authorization: Bearer clarity_sk_<api-key>`
-
-## Models
-
-### `GET /v1/models`
-List available Clarity models.
-
-Query params:
-- `category` (optional): `general | coding | vision | audio | multimodal | voice`
-- `chat` (optional): `true` to return chat-visible models only
-
-Response shape:
-
-```json
-{
-  "object": "list",
-  "data": [
-    {
-      "id": "clarity-v1",
-      "object": "model",
-      "owned_by": "clarity",
-      "name": "Clarity V1",
-      "category": "general",
-      "is_default": true,
-      "is_available": true,
-      "capabilities": {
-        "tools": true,
-        "vision": true,
-        "max_tokens": 8192
-      },
-      "pricing": {
-        "credit_multiplier": 1
-      }
-    }
-  ]
-}
-```
-
-### `GET /v1/models/:modelId`
-Return one model descriptor.
-
-## Chat Completions
-
-### `POST /v1/chat/completions`
-Unified runtime for app, Codea, and Cowork.
-
-Minimal request:
-
-```json
-{
-  "model": "clarity-v1",
-  "messages": [
-    { "role": "user", "content": "Prepare my meeting with Sarah" }
-  ],
-  "stream": true
-}
-```
-
-Supported extras (selected):
-- `conversationId`
-- `thinkingMode`
-- `agentMode`
-- `deepResearch`
-- `tools`
-- `stream_options.include_usage`
+# API reference
 
-### `POST /clarity/search`
-Same runtime and behavior as `/v1/chat/completions`.
+The source of truth is the mounted routers in `packages/backend/src/index.ts`.
+Examples below require an Oxy user session unless marked public.
+Except for health, every route remains `503` until the PostgreSQL snapshot and
+exact Clarity Alia agent identity have been attested.
 
-## SSE Event Contract (streaming)
+## Public and health
 
-All named events include `eventVersion: 1`.
+- `GET /`
+- `GET /health`, `GET /health/live`, `GET /health/ready`
+- `GET /v1/models`, `GET /v1/models/:modelId`
+- `GET /models/stats`, `GET /models/stats/:modelId`
+- `GET /notifications/vapid-public-key`
 
-### `clarity.plan_preview`
+## Chat
 
-```json
-{
-  "eventVersion": 1,
-  "planId": "plan-chatcmpl-...",
-  "intent": "meeting_prep",
-  "confidence": 0.8,
-  "steps": ["Check calendar", "Check email", "Check notes"]
-}
-```
+- `POST /v1/chat/completions`
+- `POST /clarity/search`
 
-### `clarity.approval_request`
+Both call the same fixed Clarity agent in Alia. Clarity authenticates the human
+at its edge, then calls Alia with the dedicated Clarity backend service token
+and `X-Oxy-User-Id`. The browser bearer is never forwarded. Client-provided
+agent IDs, modes, skills, MCP servers, fallback/reasoning controls and
+system/tool roles are rejected.
 
-```json
-{
-  "eventVersion": 1,
-  "requestId": "...",
-  "agentId": "...",
-  "toolName": "sendTelegram",
-  "args": {},
-  "description": "External impact action",
-  "severity": "high",
-  "timeout": 60000
-}
-```
+## Product persistence
 
-### `clarity.approval_result`
+- conversations: list, get, create/save, vote and delete under `/conversations`
+- suggestions: list, welcome, create, update, delete, search and usage under `/suggestions`
+- notifications and push registrations under `/notifications`
+- feedback under `/feedback`
+- product plans, subscriptions, portal, webhook and entitlements under `/billing`
 
-```json
-{
-  "eventVersion": 1,
-  "requestId": "...",
-  "decision": "approved"
-}
-```
+These resources use Clarity PostgreSQL.
 
-`decision` is `approved | denied | timeout`.
+## Alia-owned accounting
 
-### `clarity.research_progress`
-Progress updates for deep research.
+- `/credits` and `/credits/usage`
+- `/analytics/usage`, `/analytics/models`, `/analytics/credits`
+- credit-package/custom-credit checkout and `/billing/transactions`
 
-### `clarity.agent_session`
-Announces autonomous agent session creation from chat.
+These routes delegate the authenticated user with Clarity's backend service
+identity. Clarity does not maintain a
+second inference balance or telemetry ledger.
 
-### `clarity.reasoning`
-Reasoning tokens/summary blocks.
+## Alia-owned product runtime
 
-### `clarity.tool_result`
-Tool execution result payload.
+- memory profile, search, import/export and settings under `/memory`
+- agent audit summary, threats and export under `/audit`
+- authenticated trigger CRUD, executions and manual runs under `/triggers`
+- public token check and authenticated account link for the allowlisted
+  Telegram/Discord channel bots under `/bots`
 
-### `clarity.title`
-Conversation title updates.
+These are explicit, path-by-path proxies and require an Oxy user session. Alia
+returns its own webhook URL so token, HMAC and source-IP validation happens at
+the owning edge without losing request metadata in an intermediary. Clarity does not
+store a second memory, audit or automation ledger, and exposes no catch-all
+channel-webhook endpoint. Stripe product billing remains on its dedicated
+`/billing/webhook` route.
 
-### `clarity.model_switch`
-Runtime model switch notification.
+## Compatibility removals
 
-## Triggers API
-
-### `GET /triggers`
-List current user triggers.
-
-### `POST /triggers`
-Create trigger.
-
-Required fields:
-- `name`
-- `type`: `schedule | webhook | integration_event`
-- `action.prompt`
-
-### `PATCH /triggers/:id`
-Update trigger.
-
-### `DELETE /triggers/:id`
-Delete trigger.
-
-### `POST /triggers/:id/run`
-Manual run.
-
-### `GET /triggers/:id/executions`
-Execution history.
-
-### `POST /triggers/webhook/:token`
-Run webhook trigger by token.
-
-## Oxy Service Events
-
-### `POST /webhooks/oxy/:serviceId`
-Accepts service events with optional signature verification.
-
-Runtime behavior:
-- Idempotent by `eventId`.
-- Creates persistent `AgentSession` before autonomous queueing.
-- Falls back to notification if autonomous execution fails.
-
-## Notifications API
-
-### `GET /notifications`
-List user notifications (paginated).
-
-Query params:
-- `status` (optional): `pending | sent | read | dismissed`
-- `type` (optional): notification type filter
-- `limit` (optional, default `30`, max `100`)
-- `offset` (optional, default `0`)
-
-### `GET /notifications/unread-count`
-Returns `{ count: number }`.
-
-### `PATCH /notifications/:id/read`
-Mark single notification as read.
-
-### `POST /notifications/read-all`
-Mark all notifications as read.
-
-### `PATCH /notifications/:id/dismiss`
-Dismiss a notification.
-
-### Push Token Management
-
-#### `POST /notifications/push-token`
-Register an Expo push token (mobile).
-
-Body: `{ token, platform?, deviceId? }`
-
-#### `DELETE /notifications/push-token`
-Deactivate an Expo push token.
-
-Body: `{ token }`
-
-### Web Push (Browser)
-
-#### `GET /notifications/vapid-public-key`
-Returns VAPID public key for browser push subscription. **No auth required.**
-
-Response: `{ publicKey: string }`
-
-#### `POST /notifications/web-push-subscription`
-Register a browser push subscription.
-
-Body: `{ endpoint, keys: { p256dh, auth } }`
-
-#### `DELETE /notifications/web-push-subscription`
-Deactivate a browser push subscription.
-
-Body: `{ endpoint }`
-
-### Real-time (Socket.IO)
-
-Connect to `config.apiUrl` via Socket.IO websocket. On connect, emit `subscribe-notifications` with userId. Listen for `notification` events to invalidate caches.
-
-## Codea Endpoints
-
-### `GET /codea/user`
-Entitlement payload.
-
-### `GET /codea/token`
-Token/quota metadata.
-
-### `GET /codea/mcp_registry`
-MCP policy metadata.
-
-### `GET /codea/me`
-Current user summary.
-
-## Removed Endpoints (no compatibility layer)
-
-These now return `410 Gone`:
-
-- `POST /v1/resolve-model`
-- `POST /v1/report-usage`
-- `POST /codea/resolve-model`
-- `POST /codea/report-usage`
-
-Also removed:
-- All `/automations*` endpoints.
-
-## Error Contract
-
-- User-facing errors are sanitized.
-- Public responses include only Clarity model identifiers.
+`POST /v1/resolve-model` and `POST /v1/report-usage` return `410`. Routing and
+usage reporting are internal to Alia/Oxy/Kaana. Old Clarity-local developer
+keys are not accepted; machine/service agent calls remain fail closed until the
+Oxy/Alia delegation contract is provisioned.

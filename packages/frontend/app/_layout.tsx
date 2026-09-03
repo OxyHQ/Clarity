@@ -75,7 +75,7 @@ function RootLayout() {
       >
         <OxyProvider
           baseURL={OXY_API_URL}
-          clientId={process.env.EXPO_PUBLIC_OXY_CLIENT_ID}
+          clientId="oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a"
           authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
         >
           <AppContent />

@@ -1,140 +1,83 @@
-# Deployment Guide
+# Deployment
 
-Last updated: 2026-04-10
+No production deployment is performed or asserted by this migration branch.
 
-This guide covers production deployment for Clarity. Infrastructure is defined as code using [SST](https://sst.dev) with DigitalOcean and Cloudflare providers.
+The frontend is deployed to Cloudflare Pages by `.github/workflows/deploy.yml`
+and is currently reachable at `https://clarity.surf`. The App Platform and SST
+declarations cover only the product API at `https://api.clarity.surf`; they do
+not declare a second frontend or an unused Spaces bucket.
 
-## Infrastructure as Code (SST)
+## Required secrets and bindings
 
-All infrastructure is defined in `sst.config.ts` at the repo root. SST manages:
+- `DATABASE_URL`: dedicated Clarity PostgreSQL database
+- `CLARITY_ALIA_AGENT_ID`: real provisioned Clarity bot/agent record
+- `ALIA_API_URL`: Alia product API origin
+- `OXY_SERVICE_API_KEY`: exact public client ID of the Clarity backend app
+- `OXY_SERVICE_API_SECRET`: provider-managed DigitalOcean App Platform secret;
+  its value is never checked into source or supplied as a plain deployment value
+- Stripe secrets only when local product subscription checkout is enabled
+- VAPID secrets only when browser push is enabled
+- Redis/Valkey only for cache and burst limiting
 
-- **DO App Platform**: API service + static frontend
-- **DO Spaces**: File storage bucket (`bucket-clarity`)
-- **Domains**: clarity.surf, api.clarity.surf
+Provider credentials are forbidden here. They live in Kaana's encrypted
+PostgreSQL/KMS custody. A product/service credential is a different identity
+boundary and must not be described as a provider key. Kaana's only canonical
+signed origin is `https://kaana.ai`; neither Clarity nor Alia may substitute an
+`oxy.so` alias.
 
-Shared resources (MongoDB, Valkey) are referenced by cluster name but managed externally across all Oxy apps.
+The exact deployment identity is: project/payer
+`01a0646a-078f-7f53-848d-a0f82d9f7fa6`, bot account
+`01a0646a-078f-7120-a993-a03c180c81b0`, private Alia agent
+`01a0646a-078f-7642-95ef-439952f4f3f9`, backend app
+`01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`, and backend credential
+`01a0648b-8d74-7240-adba-80707fdfdf9c`. Match primary keys byte for byte and
+never discover or rebind them by name, list order or fallback. The public
+sign-in app `01a0646a-2382-74a3-a795-788924d55722` remains separate and has
+only `user:read`; it must never authenticate backend inference.
 
-### Prerequisites
+## Health contract
 
-```bash
-bun add -d sst    # Already in devDependencies
-```
+- `GET /health/live`: process is running.
+- `GET /health/ready`: PostgreSQL is connected, the exact data snapshot has a
+  `cutover` attestation, `CLARITY_ALIA_AGENT_ID` matches the canonical agent
+  byte for byte, and the exact backend service credential is configured.
 
-Set credentials:
+App Platform must use `/health/ready` as the readiness/deployment gate. A live
+but unattested process is deliberately not production-ready. The same check is
+enforced in front of every product HTTP route and every Socket.IO handshake, so
+a direct origin cannot bypass load-balancer health.
 
-```bash
-export DIGITALOCEAN_TOKEN=dop_v1_...
-export SPACES_ACCESS_KEY_ID=...
-export SPACES_SECRET_ACCESS_KEY=...
-export CLOUDFLARE_API_TOKEN=...
-```
+## Before enabling traffic
 
-### Deploy
+1. Provision PostgreSQL and run all `pre` migrations with an exact target name.
+2. Complete and reconcile the source inventory/backfill.
+3. Reconcile the checked-in bootstrap manifest into Alia: exact bot/agent IDs,
+   backend-app binding, `prompts/base.md` hash and exactly the grants `web`,
+   `artifacts`, `memory`.
+4. Populate the backend service secret in DigitalOcean App Platform and verify
+   its minted token has
+   only `user:read` + `inference:invoke`, the fixed backend app/credential IDs,
+   and the Clarity project as `ownerAccountId`.
+5. Prove an authenticated Clarity turn reaches Alia, Oxy and Kaana with one
+   correlation trail.
+6. Prove deep research returns progress, tools and citations through the
+   translated `clarity.*` stream.
+7. Prove a Clarity subscription event updates local product entitlement and
+   grants inference credit in Alia exactly once.
+8. Attest the exact snapshot using the documented confirmation command.
+9. Deploy and verify the running revision, image/spec, health payload and an
+   authenticated live request.
+10. Once no previous image remains, run and re-run the `post` migrations that
+    remove the retired per-conversation agent metadata.
 
-```bash
-# Deploy to production
-bunx sst deploy --stage production
+Alia owns channel bot registrations and webhook validation. Clarity exposes
+only the allowlisted Telegram/Discord token-check and user-link endpoints used
+by its authorization screen. `EXPO_PUBLIC_TELEGRAM_BOT_USERNAME` is an optional
+public link and stays blank until that canonical Alia channel bot is provisioned;
+it is not a secret and no fallback username is invented.
 
-# Deploy a dev/preview environment
-bunx sst deploy --stage dev
-
-# Remove a non-production stage
-bunx sst remove --stage dev
-```
-
-### Stages
-
-| Stage | Behavior |
-|-------|----------|
-| `production` | 2x API instances, retains resources on removal, domains configured |
-| Any other | 1x API instance, removes all resources on cleanup, no custom domains |
-
-### Local Development
-
-```bash
-bunx sst dev    # Starts multiplexer with linked resources
-```
-
-## Preconditions
-
-- MongoDB cluster reachable from API (shared `db-oxy` cluster).
-- Oxy auth service reachable.
-- Valkey (Redis) available for caching and rate limiting.
-
-## Database Naming
-
-Use per-app, per-env database naming:
-
-- `clarity-development`
-- `clarity-staging`
-- `clarity-production`
-
-Set database name via `mongoose.connect(..., { dbName })`.
-
-## Minimum Environment (API)
-
-These are configured in `sst.config.ts` and injected via DO App Platform:
-
-```bash
-PORT=8080
-NODE_ENV=production
-WEB_URL=https://clarity.surf
-MONGODB_URI=<from db-oxy cluster>
-REDIS_URL=<from db-valkey cluster>
-SERVICE_SECRET=<strong-secret>       # Set as SECRET in DO dashboard
-```
-
-## Optional but Recommended
-
-```bash
-# S3/Spaces (auto-configured by SST)
-AWS_REGION=ams3
-AWS_ACCESS_KEY_ID=<secret>
-AWS_SECRET_ACCESS_KEY=<secret>
-AWS_ENDPOINT_URL=https://ams3.digitaloceanspaces.com
-AWS_S3_BUCKET=bucket-clarity
-
-# Stripe
-STRIPE_SECRET_KEY=<secret>
-STRIPE_WEBHOOK_SECRET=<secret>
-
-# LiveKit
-LIVEKIT_URL=wss://livekit.oxy.so
-LIVEKIT_API_KEY=<secret>
-LIVEKIT_API_SECRET=<secret>
-```
-
-## Startup Behavior
-
-On API boot, the server automatically:
-
-- Connects MongoDB.
-- Initializes Socket.IO.
-- Starts trigger scheduler (`/triggers` runtime).
-- Starts async worker if queue is configured.
-- Seeds built-in skills/suggestions/bots.
-- Warms model-routing caches.
-
-## Health Checks
-
-- `GET /health`
-- `GET /v1/models` (verifies auth + model abstraction path)
-
-## Post-Deploy Validation
-
-1. Chat stream works on `/v1/chat/completions`.
-2. `clarity.plan_preview` SSE is emitted for stream requests with autonomy context.
-3. Trigger create/run works via `/triggers`.
-4. Oxy webhook accepts and deduplicates `eventId`.
-5. Approval flow emits `clarity.approval_request/result` for `R2` actions.
-6. Removed endpoints return `410` (`/v1/resolve-model`, `/v1/report-usage`, `/codea/resolve-model`, `/codea/report-usage`).
-
-## Rollback Strategy
-
-- Use `bunx sst deploy --stage production` to redeploy.
-- For DO App Platform, rollback is also available via the DO dashboard.
-- For runtime actions, `R1` writes are tracked in `RollbackRecord` with expiration window.
-
-## Legacy Reference
-
-The `.do/app.yaml` file is kept as a reference for the DO App Platform spec but is no longer the source of truth. All infrastructure changes should go through `sst.config.ts`.
+Both checked-in deployment declarations mark `OXY_SERVICE_API_SECRET` as a
+provider-managed `SECRET` without embedding its value. That declaration does
+not prove the live app has been populated. Do not enable traffic until an
+operator reads back the secret binding metadata and the readiness/canary checks
+above pass.

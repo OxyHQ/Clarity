@@ -188,13 +188,15 @@ export function sanitizeResponseMessages(
 
     if (typeof message.content === "string") return message;
 
-    const sanitizedContent = message.content.filter((content) =>
-      content.type === "tool-call"
-        ? toolResultIds.includes(content.toolCallId)
-        : content.type === "text"
-          ? content.text.length > 0
-          : true,
-    );
+    const sanitizedContent = message.content.filter((content) => {
+      if (content.type === "tool-call") {
+        return typeof content.toolCallId === "string" && toolResultIds.includes(content.toolCallId);
+      }
+      if (content.type === "text") {
+        return typeof content.text === "string" && content.text.length > 0;
+      }
+      return true;
+    });
 
     return {
       ...message,

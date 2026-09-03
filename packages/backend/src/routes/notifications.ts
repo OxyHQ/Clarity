@@ -1,11 +1,14 @@
 import { Router } from 'express';
-import mongoose from 'mongoose';
 import Expo from 'expo-server-sdk';
-import { Notification } from '../models/notification.js';
-import { PushToken } from '../models/push-token.js';
-import { WebPushSubscription } from '../models/web-push-subscription.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { getUnreadCount, markAsRead, markAllAsRead, dismissNotification } from '../lib/notification-service.js';
+import {
+  deactivatePushToken,
+  deactivateWebPushSubscription,
+  listNotifications,
+  upsertPushToken,
+  upsertWebPushSubscription,
+} from '../db/notification-repository.js';
 import { VAPID_PUBLIC_KEY } from '../lib/web-push.js';
 import { log } from '../lib/logger.js';
 import type { Request, Response } from 'express';
@@ -29,26 +32,18 @@ router.get('/', async (req: Request, res: Response) => {
     const userId = req.user.id as string;
 
     const { status, type, limit = '30', offset = '0' } = req.query;
-    const filter: Record<string, any> = { oxyUserId: userId };
-
-    if (status && typeof status === 'string') {
-      filter.status = status;
-    }
-    if (type && typeof type === 'string') {
-      filter.type = type;
-    }
-
-    const [notifications, total, unreadCount] = await Promise.all([
-      Notification.find(filter)
-        .sort({ createdAt: -1 })
-        .skip(Number(offset))
-        .limit(Math.min(Number(limit), 100))
-        .lean(),
-      Notification.countDocuments(filter),
+    const [listed, unreadCount] = await Promise.all([
+      listNotifications({
+        oxyUserId: userId,
+        ...(typeof status === 'string' ? { status } : {}),
+        ...(typeof type === 'string' ? { type } : {}),
+        offset: Number(offset),
+        limit: Math.min(Number(limit), 100),
+      }),
       getUnreadCount(userId),
     ]);
 
-    res.json({ notifications, total, unreadCount });
+    res.json({ notifications: listed.rows, total: listed.total, unreadCount });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error listing notifications');
     res.status(500).json({ error: 'Failed to list notifications' });
@@ -130,27 +125,10 @@ router.post('/push-token', async (req: Request, res: Response) => {
     }
 
     // Upsert: if user already registered this token, just reactivate it
-    const pushToken = await PushToken.findOneAndUpdate(
-      {
-        oxyUserId: new mongoose.Types.ObjectId(userId),
-        token,
-      },
-      {
-        $set: {
-          active: true,
-          ...(deviceId && { deviceId }),
-          ...(platform && { platform }),
-        },
-        $setOnInsert: {
-          oxyUserId: new mongoose.Types.ObjectId(userId),
-          token,
-        },
-      },
-      { upsert: true, new: true },
-    );
+    const pushToken = await upsertPushToken({ oxyUserId: userId, token, deviceId, platform });
 
-    log.general.info({ userId, tokenId: pushToken._id }, 'Push token registered');
-    res.json({ success: true, id: pushToken._id });
+    log.general.info({ userId, tokenId: pushToken.id }, 'Push token registered');
+    res.json({ success: true, id: pushToken.id });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error registering push token');
     res.status(500).json({ error: 'Failed to register push token' });
@@ -168,15 +146,9 @@ router.delete('/push-token', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Push token is required' });
     }
 
-    const result = await PushToken.updateOne(
-      {
-        oxyUserId: new mongoose.Types.ObjectId(userId),
-        token,
-      },
-      { $set: { active: false } },
-    );
+    const deactivated = await deactivatePushToken(userId, token);
 
-    if (result.matchedCount === 0) {
+    if (!deactivated) {
       return res.status(404).json({ error: 'Push token not found' });
     }
 
@@ -204,26 +176,15 @@ router.post('/web-push-subscription', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Subscription keys (p256dh, auth) are required' });
     }
 
-    const subscription = await WebPushSubscription.findOneAndUpdate(
-      {
-        oxyUserId: new mongoose.Types.ObjectId(userId),
-        endpoint,
-      },
-      {
-        $set: {
-          active: true,
-          keys: { p256dh: keys.p256dh, auth: keys.auth },
-        },
-        $setOnInsert: {
-          oxyUserId: new mongoose.Types.ObjectId(userId),
-          endpoint,
-        },
-      },
-      { upsert: true, new: true },
-    );
+    const subscription = await upsertWebPushSubscription({
+      oxyUserId: userId,
+      endpoint,
+      p256dh: keys.p256dh,
+      auth: keys.auth,
+    });
 
-    log.general.info({ userId, subscriptionId: subscription._id }, 'Web push subscription registered');
-    res.json({ success: true, id: subscription._id });
+    log.general.info({ userId, subscriptionId: subscription.id }, 'Web push subscription registered');
+    res.json({ success: true, id: subscription.id });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error registering web push subscription');
     res.status(500).json({ error: 'Failed to register web push subscription' });
@@ -241,15 +202,9 @@ router.delete('/web-push-subscription', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Subscription endpoint is required' });
     }
 
-    const result = await WebPushSubscription.updateOne(
-      {
-        oxyUserId: new mongoose.Types.ObjectId(userId),
-        endpoint,
-      },
-      { $set: { active: false } },
-    );
+    const deactivated = await deactivateWebPushSubscription(userId, endpoint);
 
-    if (result.matchedCount === 0) {
+    if (!deactivated) {
       return res.status(404).json({ error: 'Subscription not found' });
     }
 

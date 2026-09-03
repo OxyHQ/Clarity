@@ -25,7 +25,7 @@ import {
   useConversations,
   useDeleteConversation,
 } from "@/lib/hooks/use-conversations";
-import type { Conversation } from "@clarity/shared-types";
+import type { HydratedConversation } from "@/lib/hooks/use-conversations";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
@@ -154,7 +154,7 @@ const ThreadItem = React.memo(function ThreadItem({
   onNavigate,
   onDelete,
 }: {
-  conversation: Conversation;
+  conversation: HydratedConversation;
   onNavigate: (id: string) => void;
   onDelete: (id: string) => void;
 }) {

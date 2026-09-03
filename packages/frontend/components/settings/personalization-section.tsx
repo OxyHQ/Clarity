@@ -10,7 +10,6 @@ import {
   Briefcase,
   User as UserIcon,
   Languages,
-  Mic,
   ChevronDown,
 } from "lucide-react-native";
 import { PersonalityStylePicker } from "./personality-style-picker";
@@ -46,7 +45,6 @@ export function PersonalizationSection() {
 
   const [language, setLanguage] = useState("");
   const [tone, setTone] = useState("");
-  const [voice, setVoice] = useState("");
   const [occupation, setOccupation] = useState("");
   const [location, setLocation] = useState("");
   const [bio, setBio] = useState("");
@@ -56,7 +54,6 @@ export function PersonalizationSection() {
     if (memory) {
       setLanguage(memory.preferences?.language || "");
       setTone(memory.preferences?.tone || "");
-      setVoice(memory.preferences?.voice || "");
       setOccupation(memory.context?.occupation || "");
       setLocation(memory.context?.location || "");
       setBio(memory.context?.bio || "");
@@ -68,7 +65,6 @@ export function PersonalizationSection() {
     if (memory) {
       setLanguage(memory.preferences?.language || "");
       setTone(memory.preferences?.tone || "");
-      setVoice(memory.preferences?.voice || "");
       setOccupation(memory.context?.occupation || "");
       setLocation(memory.context?.location || "");
       setBio(memory.context?.bio || "");
@@ -76,8 +72,6 @@ export function PersonalizationSection() {
     }
   };
 
-  // FLAG: /memory/preferences and /memory/context are dead backend endpoints.
-  // This save is a no-op on the backend until those routes are implemented.
   const handleSave = async () => {
     if (!isAuthenticated) return;
 
@@ -86,7 +80,6 @@ export function PersonalizationSection() {
       await client.put('/memory/preferences', {
         language,
         tone,
-        voice,
         interests: interests
           .split(",")
           .map((i) => i.trim())
@@ -148,49 +141,6 @@ export function PersonalizationSection() {
 
       {/* Personality Style */}
       <PersonalityStylePicker selectedStyle={tone} onSelectStyle={setTone} />
-
-      {/* Voice Preference */}
-      <View className="gap-1.5">
-        <View className="flex-row items-center gap-2">
-          <Mic size={18} className="text-primary" />
-          <Text className="text-sm font-semibold">{t("settings.voicePreference.title")}</Text>
-        </View>
-        <Text className="text-xs text-muted-foreground">
-          {t("settings.voicePreference.description")}
-        </Text>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Pressable className={`${inputClass} flex-row items-center justify-between`}>
-              <Text className="text-foreground text-sm">
-                {voice === "male"
-                  ? t("settings.voicePreference.male")
-                  : voice === "female"
-                    ? t("settings.voicePreference.female")
-                    : t("settings.voicePreference.female")}
-              </Text>
-              <ChevronDown size={16} className="text-muted-foreground" />
-            </Pressable>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            <DropdownMenu.CheckboxItem
-              key="female"
-              value={(!voice || voice === "female") ? "on" : "off"}
-              onValueChange={() => setVoice("female")}
-            >
-              <DropdownMenu.ItemIndicator />
-              <DropdownMenu.ItemTitle>{t("settings.voicePreference.female")}</DropdownMenu.ItemTitle>
-            </DropdownMenu.CheckboxItem>
-            <DropdownMenu.CheckboxItem
-              key="male"
-              value={voice === "male" ? "on" : "off"}
-              onValueChange={() => setVoice("male")}
-            >
-              <DropdownMenu.ItemIndicator />
-              <DropdownMenu.ItemTitle>{t("settings.voicePreference.male")}</DropdownMenu.ItemTitle>
-            </DropdownMenu.CheckboxItem>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      </View>
 
       {/* Occupation */}
       <View className="gap-1.5">

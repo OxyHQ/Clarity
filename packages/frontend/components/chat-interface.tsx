@@ -31,7 +31,7 @@ import {
 } from "@/lib/sdk";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useStore } from "@/lib/globalStore";
-import type { ToolInvocation } from "@clarity/shared-types";
+import type { Message as ProductMessage } from "@clarity/shared-types";
 import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
 import { ResearchProgressCard } from "@/lib/sdk";
 import type { ResearchProgress as ResearchProgressData } from "@/lib/sdk";
@@ -47,22 +47,14 @@ type MessagePart = {
   [key: string]: unknown;
 };
 
-type Message = {
+type Message = ProductMessage & {
   id: string;
-  role: "user" | "assistant" | "system" | "function" | "data" | "tool";
-  content?: string | Array<{ type: string; [key: string]: unknown }>;
-  thinking?: string;
   parts?: MessagePart[];
-  toolInvocations?: ToolInvocation[];
-  source?: "text" | "voice";
-  speaker?: "primary" | "cohost";
-  isStreaming?: boolean;
-  audioUrl?: string;
 };
 
 type ChatInterfaceProps = {
-  messages: Message[];
-  scrollViewRef: React.RefObject<GHScrollView>;
+  messages: ProductMessage[];
+  scrollViewRef: React.RefObject<GHScrollView | null>;
   isLoading?: boolean;
   conversationLoading?: boolean;
   onSuggestionPress?: (message: string) => void;
@@ -169,11 +161,14 @@ const CompletedSteps = React.memo(function CompletedSteps({
           const isRunning = t.state === "call" || t.state === "partial-call";
 
           let description = "";
-          if (t.args?.url) {
-            const url = String(t.args.url);
+          const args = t.args && typeof t.args === 'object' && !Array.isArray(t.args)
+            ? t.args as Record<string, unknown>
+            : null;
+          if (typeof args?.url === 'string') {
+            const url = args.url;
             description = url.length > 40 ? url.substring(0, 40) + "..." : url;
-          } else if (t.args?.query) {
-            const q = String(t.args.query);
+          } else if (typeof args?.query === 'string') {
+            const q = args.query;
             description = `"${q.length > 30 ? q.substring(0, 30) + "..." : q}"`;
           }
 
@@ -558,15 +553,17 @@ export const ChatInterface = React.memo(function ChatInterface({
   }, [messages.length]);
 
   const filteredMessages = useMemo(
-    () => messages.filter((m) => m != null && m.role),
-    [messages]
+    () => messages.filter(
+      (message): message is Message => typeof message.id === "string" && message.id.length > 0,
+    ),
+    [messages],
   );
 
   // Sync messages to the UI store so ThoughtPanel can access them
   const rightPanel = useUIStore((s) => s.rightPanel);
   useEffect(() => {
     if (rightPanel === "thought") {
-      setThoughtMessages(messages as never[]);
+      setThoughtMessages(messages);
     }
   }, [messages, setThoughtMessages, rightPanel]);
 

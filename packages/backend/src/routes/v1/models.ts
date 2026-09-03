@@ -1,10 +1,9 @@
 import { Router } from 'express';
 import { log } from '../../lib/logger.js';
 import {
-  getAllClarityModels,
   getClarityModel,
-  getClarityModelsByCategory,
   getDefaultModelForCategory,
+  getDefaultClarityModel,
   getAvailableModels,
   type ModelCategory,
   type ClarityModelWithAvailability,
@@ -66,7 +65,9 @@ router.get('/', async (req, res) => {
       clarityModels = clarityModels.filter(m => m.category === category);
     }
 
-    const defaultModel = category ? await getDefaultModelForCategory(category) : null;
+    const defaultModel = category
+      ? getDefaultModelForCategory(category)
+      : getClarityModel(getDefaultClarityModel());
 
     const data = clarityModels.map(model =>
       serializeModel(model, model.id === defaultModel?.id)
@@ -104,7 +105,7 @@ router.get('/', async (req, res) => {
  */
 router.get('/:modelId', async (req, res) => {
   try {
-    const model = await getClarityModel(req.params.modelId);
+    const model = getAvailableModels().find((candidate) => candidate.id === req.params.modelId);
 
     if (!model) {
       res.status(404).json({
@@ -118,7 +119,7 @@ router.get('/:modelId', async (req, res) => {
       return;
     }
 
-    res.json(serializeModel({ ...model, isAvailable: true, isLegacy: false }));
+    res.json(serializeModel(model));
   } catch (e: unknown) {
     log.v1.error({ err: e }, 'Error');
     res.status(500).json({

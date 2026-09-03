@@ -1,10 +1,19 @@
 import { Router, Request, Response } from 'express';
-import { generateText } from 'ai';
 import { z } from 'zod';
-import { Suggestion } from '../models/suggestion.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
-import { resolveModel, getAIModel, getDefaultClarityModel } from '../lib/chat-core.js';
+import { completeAsClarityAgent, fetchAliaJson } from '../lib/alia-agent-client.js';
 import { log } from '../lib/logger.js';
+import {
+  createSuggestion,
+  deleteOwnSuggestion,
+  incrementSuggestionUsage,
+  listOwnSuggestions,
+  listSuggestions,
+  listWelcomePool,
+  searchSuggestions,
+  updateOwnSuggestion,
+  type SuggestionPatch,
+} from '../db/suggestion-repository.js';
 
 const aiSuggestionSchema = z.object({
   title: z.string().min(1),
@@ -20,14 +29,20 @@ const aiSuggestionSchema = z.object({
 });
 
 const router = Router();
+type SearchSuggestion = Awaited<ReturnType<typeof searchSuggestions>>[number];
+
+function routeParam(req: Request, key: string): string {
+  const value = req.params[key];
+  return Array.isArray(value) ? value[0] : value;
+}
 
 // ============== IN-MEMORY CACHE ==============
 
-const cache = new Map<string, { data: any; expiresAt: number }>();
+const cache = new Map<string, { data: SearchSuggestion[]; expiresAt: number }>();
 const CACHE_MAX_SIZE = 500;
 const SEARCH_CACHE_TTL = 3 * 60 * 1000; // 3 min — autocomplete results
 
-function cacheGet(key: string): any | null {
+function cacheGet(key: string): SearchSuggestion[] | null {
   const entry = cache.get(key);
   if (!entry) return null;
   if (entry.expiresAt < Date.now()) {
@@ -37,7 +52,7 @@ function cacheGet(key: string): any | null {
   return entry.data;
 }
 
-function cacheSet(key: string, data: any, ttl: number): void {
+function cacheSet(key: string, data: SearchSuggestion[], ttl: number): void {
   // Evict oldest if full
   if (cache.size >= CACHE_MAX_SIZE) {
     const oldest = cache.keys().next().value;
@@ -54,17 +69,19 @@ setInterval(() => {
   }
 }, 2 * 60 * 1000);
 
-/**
- * Helper: resolve user language. User memory was removed during Clarity pruning;
- * always returns the default locale.
- */
-async function getUserLanguage(_userId?: string): Promise<string> {
-  return 'en-US';
+interface AliaMemoryProfile {
+  preferences?: { language?: string; tone?: string; interests?: string[] };
+  context?: { occupation?: string; location?: string };
 }
 
-/** Filter condition to exclude expired suggestions */
-function notExpiredFilter() {
-  return { $or: [{ expiresAt: null }, { expiresAt: { $exists: false } }, { expiresAt: { $gt: new Date() } }] };
+async function getUserProfile(userId?: string): Promise<AliaMemoryProfile> {
+  if (!userId) return {};
+  try {
+    return await fetchAliaJson<AliaMemoryProfile>(userId, '/memory');
+  } catch (error: unknown) {
+    log.general.warn({ err: error }, 'Alia memory unavailable for suggestion personalization');
+    return {};
+  }
 }
 
 /**
@@ -75,31 +92,17 @@ function notExpiredFilter() {
 router.post('/list', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { type, category, limit = 200, offset = 0 } = req.body || {};
-    const language = await getUserLanguage(req.user?.id);
+    const profile = await getUserProfile(req.user?.id);
+    const language = profile.preferences?.language || 'en-US';
 
-    const filter: Record<string, unknown> = {
+    const suggestions = await listSuggestions({
       language,
-      $and: [
-        notExpiredFilter(),
-        { $or: [
-          { scope: 'global' },
-          ...(req.user?.id ? [{ scope: 'personal', oxyUserId: req.user.id }] : []),
-        ]},
-      ],
-    };
-
-    if (type && typeof type === 'string') {
-      filter.type = type;
-    }
-    if (category && typeof category === 'string' && category !== 'all') {
-      filter.category = category;
-    }
-
-    const suggestions = await Suggestion.find(filter)
-      .sort({ priority: -1, usageCount: -1, title: 1 })
-      .skip(Number(offset) || 0)
-      .limit(Math.min(Number(limit) || 200, 500))
-      .lean();
+      ...(type === 'welcome' || type === 'autocomplete' ? { type } : {}),
+      ...(typeof category === 'string' ? { category } : {}),
+      ...(req.user?.id ? { oxyUserId: req.user.id } : {}),
+      offset: Number(offset) || 0,
+      limit: Math.min(Number(limit) || 200, 500),
+    });
 
     res.json({ suggestions });
   } catch (error: unknown) {
@@ -116,45 +119,23 @@ router.post('/list', optionalAuth, async (req: Request, res: Response) => {
 router.post('/welcome', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { count = 4 } = req.body || {};
-    const language = await getUserLanguage(req.user?.id);
-
-    // Base query: global welcome suggestions in user's language (exclude expired)
-    const filter: Record<string, unknown> = {
-      type: 'welcome',
-      language,
-      $and: [
-        notExpiredFilter(),
-        { $or: [
-          { scope: 'global' },
-          ...(req.user?.id ? [{ scope: 'personal', oxyUserId: req.user.id }] : []),
-        ]},
-      ],
-    };
+    const profile = await getUserProfile(req.user?.id);
+    const language = profile.preferences?.language || 'en-US';
 
     const requestedCount = Math.min(Number(count) || 4, 20);
 
     // Fetch a larger pool to randomly pick from
-    let pool = await Suggestion.find(filter)
-      .sort({ priority: -1 })
-      .limit(requestedCount * 5)
-      .lean();
+    let pool = await listWelcomePool(language, req.user?.id, requestedCount * 5);
 
     // Fallback to en-US if no suggestions found for user's language
     if (pool.length === 0 && language !== 'en-US') {
-      pool = await Suggestion.find({ ...filter, language: 'en-US' })
-        .sort({ priority: -1 })
-        .limit(requestedCount * 5)
-        .lean();
+      pool = await listWelcomePool('en-US', req.user?.id, requestedCount * 5);
     }
 
-    // User memory personalization removed during Clarity pruning.
-    // Shuffle the pool randomly for all users.
-    {
-      // Unauthenticated: shuffle the pool randomly
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
+    // Shuffle the eligible, user-scoped pool without inferring order from IDs.
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
     }
 
     // Pick requested count from the (scored or shuffled) pool
@@ -176,9 +157,7 @@ router.post('/me', authenticateToken, async (req: Request, res: Response) => {
     if (!req.user?.id) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
-    const suggestions = await Suggestion.find({ oxyUserId: req.user.id, scope: 'personal' })
-      .sort({ createdAt: -1 })
-      .lean();
+    const suggestions = await listOwnSuggestions(req.user.id);
     res.json({ suggestions });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error listing user suggestions');
@@ -203,9 +182,9 @@ router.post('/create', authenticateToken, async (req: Request, res: Response) =>
     }
 
     // Generate suggestionId
-    let suggestionId = `user-${title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40)}-${Date.now().toString(36).slice(-4)}`;
+    const suggestionId = `user-${title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40)}-${Date.now().toString(36).slice(-4)}`;
 
-    const suggestion = await Suggestion.create({
+    const suggestion = await createSuggestion({
       suggestionId,
       title,
       text,
@@ -215,9 +194,9 @@ router.post('/create', authenticateToken, async (req: Request, res: Response) =>
       triggerWords: triggerWords || [],
       tags: tags || [],
       scope: 'personal',
-      language: await getUserLanguage(req.user.id),
+      language: (await getUserProfile(req.user.id)).preferences?.language || 'en-US',
       isBuiltIn: false,
-      isAIGenerated: false,
+      isAiGenerated: false,
       oxyUserId: req.user.id,
       ...(expiresAt ? { expiresAt: new Date(expiresAt) } : {}),
     });
@@ -239,20 +218,24 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
     if (!req.user?.id) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+    const userId = req.user.id;
 
-    const { count = 6, types = ['welcome', 'autocomplete'] } = req.body;
+    const requestedCount = Number(req.body?.count ?? 6);
+    const count = Number.isInteger(requestedCount)
+      ? Math.min(Math.max(requestedCount, 1), 12)
+      : 6;
+    const requestedTypes = Array.isArray(req.body?.types) ? req.body.types : [];
+    const types = requestedTypes.filter((value: unknown): value is 'welcome' | 'autocomplete' =>
+      value === 'welcome' || value === 'autocomplete'
+    );
+    if (types.length === 0) types.push('welcome', 'autocomplete');
 
-    // User memory removed during Clarity pruning; use defaults.
-    const language = 'en-US';
-    const interests: string[] = [];
-    const tone = 'friendly';
-    const occupation = '';
-    const location = '';
-
-    // Provider fallback retry loop
-    const MAX_PROVIDER_RETRIES = 3;
-    const skipProviders = new Set<string>();
-    let result: Awaited<ReturnType<typeof generateText>> | null = null;
+    const profile = await getUserProfile(userId);
+    const language = profile.preferences?.language || 'en-US';
+    const interests = profile.preferences?.interests ?? [];
+    const tone = profile.preferences?.tone || 'friendly';
+    const occupation = profile.context?.occupation || '';
+    const location = profile.context?.location || '';
 
     // Build compact user profile string (only non-empty fields)
     const profileParts = [
@@ -263,24 +246,14 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
       `tone:${tone}`,
     ].filter(Boolean).join(' | ');
 
-    for (let attempt = 0; attempt < MAX_PROVIDER_RETRIES; attempt++) {
-      const resolved = await resolveModel('clarity-fast', skipProviders);
-      if (!resolved) {
-        if (attempt === 0) {
-          return res.status(503).json({ error: 'No AI models available' });
-        }
-        break;
-      }
-
-      try {
-        const model = getAIModel(resolved.keyConfig);
-        result = await generateText({
-          model,
-          abortSignal: AbortSignal.timeout(30000),
-          messages: [
-            {
-              role: 'user',
-              content: `Generate ${count} unique prompt suggestions as a JSON array.
+    const responseText = await completeAsClarityAgent({
+      userId,
+      clarityModelId: 'clarity-fast',
+      signal: AbortSignal.timeout(30_000),
+      messages: [
+        {
+          role: 'user',
+          content: `Generate ${count} unique prompt suggestions as a JSON array.
 User profile: ${profileParts}
 
 Rules:
@@ -300,24 +273,9 @@ Examples:
 - {"title":"Creative Writing","text":"Write a short story about an unexpected friendship","type":"welcome","category":"creative","language":"en-US","triggerWords":["write"],"tags":["writing","creative"],"occupations":[],"interests":[]}
 
 Return ONLY a valid JSON array, no other text.`,
-            },
-          ],
-          temperature: 0.8,
-          maxRetries: 0,
-        });
-        break;
-      } catch (providerError: unknown) {
-        log.general.error({ err: providerError, provider: resolved.provider, attempt }, 'Provider failed for suggestion generation');
-        skipProviders.add(resolved.provider);
-        if (attempt >= MAX_PROVIDER_RETRIES - 1) throw providerError;
-      }
-    }
-
-    if (!result) {
-      return res.status(503).json({ error: 'No AI models available' });
-    }
-
-    const responseText = result.text || '';
+        },
+      ],
+    });
 
     // Parse and validate JSON array from response
     let rawParsed: unknown[];
@@ -335,8 +293,7 @@ Return ONLY a valid JSON array, no other text.`,
     // Validate each item with Zod, skip invalid ones
     const validated = rawParsed
       .map(item => aiSuggestionSchema.safeParse(item))
-      .filter(r => r.success)
-      .map(r => r.data!);
+      .flatMap((result) => result.success ? [result.data] : []);
 
     // Create suggestion documents
     const created = [];
@@ -351,7 +308,7 @@ Return ONLY a valid JSON array, no other text.`,
       const suggestionId = `ai-${slug}-${Date.now().toString(36).slice(-4)}-${i}`;
 
       try {
-        const suggestion = await Suggestion.create({
+        const suggestion = await createSuggestion({
           suggestionId,
           title: item.title,
           text: item.text,
@@ -365,8 +322,8 @@ Return ONLY a valid JSON array, no other text.`,
           scope: 'personal',
           language: item.language || language,
           isBuiltIn: false,
-          isAIGenerated: true,
-          oxyUserId: req.user!.id,
+          isAiGenerated: true,
+          oxyUserId: userId,
         });
         created.push(suggestion);
       } catch (err: unknown) {
@@ -393,32 +350,26 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const suggestion = await Suggestion.findOne({
-      suggestionId: req.params.id,
-      oxyUserId: req.user.id,
-      isBuiltIn: false,
-    });
-
-    if (!suggestion) {
-      return res.status(404).json({ error: 'Suggestion not found' });
-    }
-
     const allowedFields = [
       'title', 'text', 'description', 'type', 'category',
       'triggerWords', 'tags', 'expiresAt',
     ];
 
+    const patch: SuggestionPatch = {};
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         if (field === 'expiresAt') {
-          suggestion.set('expiresAt', req.body[field] ? new Date(req.body[field]) : null);
+          patch.expiresAt = req.body[field] ? new Date(req.body[field]) : null;
         } else {
-          suggestion.set(field, req.body[field]);
+          (patch as Record<string, unknown>)[field] = req.body[field];
         }
       }
     }
 
-    await suggestion.save();
+    const suggestion = await updateOwnSuggestion(routeParam(req, 'id'), req.user.id, patch);
+    if (!suggestion) {
+      return res.status(404).json({ error: 'Suggestion not found' });
+    }
     res.json({ suggestion });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error updating suggestion');
@@ -436,13 +387,9 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const result = await Suggestion.deleteOne({
-      suggestionId: req.params.id,
-      oxyUserId: req.user.id,
-      isBuiltIn: false,
-    });
+    const deleted = await deleteOwnSuggestion(routeParam(req, 'id'), req.user.id);
 
-    if (result.deletedCount === 0) {
+    if (!deleted) {
       return res.status(404).json({ error: 'Suggestion not found' });
     }
 
@@ -466,48 +413,36 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
     }
 
     const trimmed = query.trim().toLowerCase();
-    const language = await getUserLanguage(req.user?.id);
-    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const profile = await getUserProfile(req.user?.id);
+    const language = profile.preferences?.language || 'en-US';
     const limitNum = Math.min(Number(limit) || 6, 20);
-
-    const searchOr = [
-      { triggerWords: { $regex: `^${escaped}`, $options: 'i' } },
-      { title: { $regex: escaped, $options: 'i' } },
-      { text: { $regex: escaped, $options: 'i' } },
-    ];
 
     // 1. Global results — search all languages, cache by query+language (sort order depends on pref)
     const globalCacheKey = `search:${trimmed}:${language}`;
     let globalResults = cacheGet(globalCacheKey);
     if (!globalResults) {
-      globalResults = await Suggestion.find({
+      globalResults = await searchSuggestions({
+        query: trimmed,
         scope: 'global',
-        $and: [notExpiredFilter(), { $or: searchOr }],
-      })
-        .sort({ priority: -1, usageCount: -1 })
-        .limit(limitNum * 2)
-        .select('suggestionId title text language triggerWords')
-        .lean();
+        limit: limitNum * 2,
+      });
       cacheSet(globalCacheKey, globalResults, SEARCH_CACHE_TTL);
     }
 
     // 2. Personal results — only for authenticated users, not cached
-    let personalResults: any[] = [];
+    let personalResults: SearchSuggestion[] = [];
     if (req.user?.id) {
-      personalResults = await Suggestion.find({
+      personalResults = await searchSuggestions({
+        query: trimmed,
         scope: 'personal',
         oxyUserId: req.user.id,
-        $and: [notExpiredFilter(), { $or: searchOr }],
-      })
-        .sort({ priority: -1, usageCount: -1 })
-        .limit(limitNum)
-        .select('suggestionId title text language triggerWords')
-        .lean();
+        limit: limitNum,
+      });
     }
 
     // 3. Merge: personal first, then global, dedupe, prioritize user's language
     const seen = new Set<string>();
-    const candidates = [];
+    const candidates: SearchSuggestion[] = [];
     for (const s of [...personalResults, ...globalResults]) {
       if (!seen.has(s.suggestionId)) {
         seen.add(s.suggestionId);
@@ -515,7 +450,7 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
       }
     }
     // Sort: user's preferred language first, then others
-    candidates.sort((a: any, b: any) => {
+    candidates.sort((a, b) => {
       const aMatch = a.language === language ? 0 : 1;
       const bMatch = b.language === language ? 0 : 1;
       return aMatch - bMatch;
@@ -535,10 +470,7 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
  */
 router.post('/:id/use', optionalAuth, async (req: Request, res: Response) => {
   try {
-    await Suggestion.updateOne(
-      { suggestionId: req.params.id },
-      { $inc: { usageCount: 1 } }
-    );
+    await incrementSuggestionUsage(routeParam(req, 'id'));
     res.json({ success: true });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error recording suggestion usage');

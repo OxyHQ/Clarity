@@ -4,10 +4,15 @@
  * Used by both the internal chat endpoint and the v1/chat-completions endpoint.
  */
 
-import { generateText } from 'ai';
-import { Conversation, type ConversationSource } from '../models/conversation.js';
-import { Message } from '../models/message.js';
-import { resolveModel, getAIModel } from './chat-core.js';
+import type { ConversationSource } from '@clarity/shared-types';
+import {
+  countMessages,
+  findConversation,
+  replaceConversation,
+  toWritableMessage,
+  updateConversationTitle,
+  type WritableMessage,
+} from '../db/chat-repository.js';
 import { log } from './logger.js';
 
 // Known translations of "TITLE" that LLMs may produce
@@ -16,12 +21,14 @@ const TITLE_EXTRACT_RE = new RegExp(String.raw`\[(${TAG})\](.*?)\[\/\1\]|<(${TAG
 const TITLE_STRIP_RE = new RegExp(String.raw`\[(${TAG})\].*?\[\/\1\]|<(${TAG})>.*?<\/\2>`, 'gi');
 
 /** Extract or generate a conversation title from the AI response, with fallbacks. */
-export function extractConversationTitle(response: string, messages: any[]): string {
+export function extractConversationTitle(response: string, messages: readonly unknown[]): string {
   const m = response.match(TITLE_EXTRACT_RE);
   if (m) return (m[2] || m[4]).trim();
 
   // Prefer the first user message (most descriptive of conversation topic)
-  const firstUserMsg = messages.find((msg: any) => msg.role === 'user')?.content;
+  const firstUserMsg = messages
+    .map(toWritableMessage)
+    .find((message) => message?.role === 'user')?.content;
   if (typeof firstUserMsg === 'string' && firstUserMsg.length > 0) return firstUserMsg.slice(0, 60);
 
   // Fallback: first ~6 words of cleaned response
@@ -39,12 +46,10 @@ export function stripTitleTags(content: string): string {
 export interface SaveConversationParams {
   userId: string;
   conversationId: string;
-  messages: any[];
+  messages: unknown[];
   assistantResponse: string;
-  toolInvocations?: any[];
+  toolInvocations?: unknown[];
   source?: ConversationSource;
-  agentId?: string;
-  agentMessages?: Array<{ role: 'assistant'; content: string; agentInfo: { id: string; name: string; avatar: string | null; handle: string } }>;
 }
 
 /**
@@ -52,22 +57,12 @@ export interface SaveConversationParams {
  * Handles title extraction, tag stripping, and message assembly.
  */
 export async function saveConversation(params: SaveConversationParams): Promise<void> {
-  const { userId, conversationId, messages, assistantResponse, toolInvocations, source, agentId, agentMessages } = params;
+  const { userId, conversationId, messages, assistantResponse, toolInvocations, source } = params;
 
-  const allMessages = [
-    ...messages.filter(m => m && m.role).map((m: any) => ({
-      role: m.role,
-      content: m.content,
-      toolInvocations: m.toolInvocations,
-    })),
-    // Insert agent messages before the final assistant response
-    ...(agentMessages || []).map(am => ({
-      role: am.role,
-      content: am.content,
-      agentInfo: am.agentInfo,
-    })),
+  const allMessages: WritableMessage[] = [
+    ...messages.map(toWritableMessage).filter((message): message is WritableMessage => message !== null),
     {
-      role: 'assistant',
+      role: 'assistant' as const,
       content: stripTitleTags(assistantResponse),
       ...(toolInvocations && toolInvocations.length > 0 && { toolInvocations }),
     },
@@ -75,71 +70,29 @@ export async function saveConversation(params: SaveConversationParams): Promise<
 
   const title = extractConversationTitle(assistantResponse, messages);
 
-  // Update conversation metadata
-  await Conversation.findOneAndUpdate(
-    { oxyUserId: userId, conversationId },
-    {
-      $set: {
-        lastMessage: stripTitleTags(assistantResponse).slice(0, 100),
-      },
-      $setOnInsert: {
-        oxyUserId: userId,
-        conversationId,
-        title,
-        source: source || 'app',
-        ...(agentId && { agentId }),
-      },
-    },
-    { upsert: true },
-  );
-
-  // Replace messages in separate collection
-  await Message.deleteMany({ conversationId, oxyUserId: userId });
-  if (allMessages.length > 0) {
-    await Message.insertMany(
-      allMessages.map(m => ({
-        conversationId,
-        oxyUserId: userId,
-        role: m.role,
-        content: m.content,
-        ...('toolInvocations' in m && m.toolInvocations ? { toolInvocations: m.toolInvocations } : {}),
-        ...('agentInfo' in m && m.agentInfo ? { agentInfo: m.agentInfo } : {}),
-        createdAt: new Date(),
-      })),
-      { ordered: false },
-    );
-  }
+  await replaceConversation({
+    oxyUserId: userId,
+    conversationId,
+    titleOnInsert: title,
+    lastMessage: stripTitleTags(assistantResponse).slice(0, 100),
+    source: source || 'app',
+    messages: allMessages,
+  });
 }
 
 /**
- * Generate a conversation title using a cheap model.
- * Returns the title string (or null on failure). Does NOT write to DB.
- * Can be called in parallel with the main LLM response since it only needs the user message.
+ * Generate a stable local fallback title without opening a second inference
+ * path. The Alia stream's `alia.title` event is authoritative when present.
  */
 export async function generateTitle(userMessage: string): Promise<string | null> {
-  const resolved = await resolveModel('clarity-fast');
-  if (!resolved) {
-    log.chat.warn('Title generation skipped: no model available for clarity-fast');
-    return null;
-  }
-
-  try {
-    const model = getAIModel(resolved.keyConfig);
-    const result = await generateText({
-      model,
-      messages: [
-        { role: 'system', content: 'Generate a concise conversation title (max 6 words) in the same language as the user message. Return ONLY the title, no quotes or trailing punctuation.' },
-        { role: 'user', content: userMessage },
-      ],
-      maxOutputTokens: 30,
-    });
-
-    const title = result.text.trim().replace(/^["']|["']$/g, '').replace(/\.+$/, '');
-    return (title.length > 0 && title.length < 100) ? title : null;
-  } catch (err) {
-    log.chat.error({ err }, 'Title generation LLM call failed');
-    return null;
-  }
+  const title = userMessage
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .slice(0, 8)
+    .join(' ')
+    .slice(0, 80);
+  return title || null;
 }
 
 /**
@@ -153,17 +106,14 @@ export async function generateConversationTitle(
   userMessage: string,
 ): Promise<void> {
   try {
-    const conv = await Conversation.findOne({ oxyUserId: userId, conversationId });
+    const conv = await findConversation(userId, conversationId);
     if (!conv || conv.isManualTitle) return;
-    const messageCount = await Message.countDocuments({ conversationId });
+    const messageCount = await countMessages(userId, conversationId);
     if (messageCount > 3) return;
 
     const title = await generateTitle(userMessage);
     if (title) {
-      await Conversation.updateOne(
-        { oxyUserId: userId, conversationId },
-        { $set: { title } },
-      );
+      await updateConversationTitle(userId, conversationId, title, true);
       log.chat.info({ conversationId, title }, 'Auto-generated conversation title');
     }
   } catch (err) {

@@ -14,6 +14,7 @@ import {
   useMarkAsRead,
   useMarkAllAsRead,
   useDismissNotification,
+  type Notification,
 } from "@/lib/hooks/use-notifications";
 
 const TYPE_ICONS: Record<string, typeof Zap> = {
@@ -97,9 +98,9 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleNotificationPress = useCallback((notification: any) => {
+  const handleNotificationPress = useCallback((notification: Notification) => {
     if (notification.status !== 'read') {
-      markAsRead.mutate(notification._id);
+      markAsRead.mutate(notification.id);
     }
     // If the notification has a conversationId, navigate to that conversation
     if (notification.conversationId) {
@@ -187,19 +188,19 @@ export default function NotificationsScreen() {
           <Bell size={32} className="text-muted-foreground mb-3" />
           <Text className="text-base font-medium text-foreground mb-1">No notifications yet</Text>
           <Text className="text-sm text-muted-foreground text-center">
-            Set up triggers and routines to get proactive updates from Clarity.
+            Agent activity and product notifications will appear here.
           </Text>
         </View>
       ) : (
         <View className="py-2">
-          {notifications.map((notification: any) => {
+          {notifications.map((notification) => {
             const Icon = TYPE_ICONS[notification.type] || Bell;
             const isUnread = notification.status !== 'read' && notification.status !== 'dismissed';
             const priorityBorder = PRIORITY_COLORS[notification.priority] || PRIORITY_COLORS.normal;
 
             return (
               <Pressable
-                key={notification._id}
+                key={notification.id}
                 onPress={() => handleNotificationPress(notification)}
                 className={`px-6 py-4 border-b border-border border-l-2 ${priorityBorder} ${isUnread ? 'bg-muted/20' : ''} active:bg-muted/40`}
               >
@@ -219,7 +220,7 @@ export default function NotificationsScreen() {
                         <Pressable
                           onPress={(e) => {
                             e.stopPropagation();
-                            dismiss.mutate(notification._id);
+                            dismiss.mutate(notification.id);
                           }}
                           className="p-1"
                           hitSlop={8}

@@ -46,7 +46,7 @@ function DropdownMenu({
   const onOpenChangeRef = React.useRef(onOpenChange);
   onOpenChangeRef.current = onOpenChange;
 
-  const closeRef = React.useRef<() => void>();
+  const closeRef = React.useRef<(() => void) | undefined>(undefined);
   if (!closeRef.current) {
     closeRef.current = () => {
       setInternalOpen(false);
@@ -55,7 +55,8 @@ function DropdownMenu({
   }
 
   React.useEffect(() => {
-    const cb = closeRef.current!;
+    const cb = closeRef.current;
+    if (!cb) return;
     openMenus.add(cb);
     return () => { openMenus.delete(cb); };
   }, []);

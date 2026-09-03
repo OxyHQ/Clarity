@@ -565,7 +565,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
                 {t("login.termsPrefix")}
               </Text>
               <Pressable
-                onPress={() => Linking.openURL("https://clarity.oxy.so/terms")}
+                onPress={() => Linking.openURL("https://clarity.surf/terms")}
               >
                 <Text className="text-xs text-primary">
                   {t("login.termsOfService")}
@@ -575,7 +575,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
                 {t("login.termsAnd")}
               </Text>
               <Pressable
-                onPress={() => Linking.openURL("https://clarity.oxy.so/privacy")}
+                onPress={() => Linking.openURL("https://clarity.surf/privacy")}
               >
                 <Text className="text-xs text-primary">
                   {t("login.privacyPolicy")}

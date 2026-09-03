@@ -5,12 +5,10 @@ import Head from 'expo-router/head';
 import { AuthContainer, AuthLogo } from '@/components/auth';
 import { useAuth, useOxy } from '@oxyhq/services';
 import { useApiClient } from '@/lib/api/use-api-client';
-import config from '@/lib/config';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Separator } from '@/components/ui/separator';
-import { io as socketIO } from 'socket.io-client';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useColorScheme } from '@/lib/useColorScheme';
 
@@ -71,6 +69,7 @@ export default function AuthorizeScreen() {
   const app = (params.app as AppType) || 'codea';
   const channel = params.channel as string | undefined;
   const appConfig = getAppConfig(app);
+  const telegramBotUsername = process.env.EXPO_PUBLIC_TELEGRAM_BOT_USERNAME?.trim();
 
   const [status, setStatus] = useState<Status>('loading');
   const [message, setMessage] = useState('');
@@ -142,6 +141,16 @@ export default function AuthorizeScreen() {
       return;
     }
 
+    if (!isOxyAuth) {
+      setStatus('needLogin');
+      setMessage(t('authorize.needLogin', { app: appConfig.displayName }));
+      setTimeout(() => {
+        const returnTo = `/authorize?app=${channelType}&token=${token}&channel=${channelType}`;
+        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+      }, 1500);
+      return;
+    }
+
     // Verify token is valid via bot route
     try {
       const res = await apiClient.get<{ valid?: boolean; error?: string }>(`/bots/internal/${channelType}/check-token/${token}`);
@@ -153,16 +162,6 @@ export default function AuthorizeScreen() {
     } catch {
       setStatus('error');
       setMessage(t('authorize.invalidOrExpiredToken'));
-      return;
-    }
-
-    if (!isOxyAuth) {
-      setStatus('needLogin');
-      setMessage(t('authorize.needLogin', { app: appConfig.displayName }));
-      setTimeout(() => {
-        const returnTo = `/authorize?app=${channelType}&token=${token}&channel=${channelType}`;
-        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
-      }, 1500);
       return;
     }
 
@@ -211,29 +210,6 @@ export default function AuthorizeScreen() {
       setStatus('authorize');
     }
   }, [isAuthenticated, authLoading, app, channel, params, router, handleChannelAuth, appConfig.isChannel]);
-
-  // Real-time socket subscription for Telegram token linking
-  useEffect(() => {
-    const token = params.token as string | undefined;
-    if (app !== 'telegram' || !token) return;
-
-    const socket = socketIO(config.apiUrl, {
-      transports: ['websocket'],
-    });
-
-    socket.on('connect', () => {
-      socket.emit('subscribe-telegram-token', token);
-    });
-
-    socket.on('telegram-linked', () => {
-      setStatus('success');
-      setMessage(t('authorize.linkSuccess', { app: 'Telegram' }));
-    });
-
-    return () => {
-      socket.disconnect();
-    };
-  }, [app, params.token]);
 
   const handleCancel = () => {
     const { callback } = params;
@@ -408,11 +384,10 @@ export default function AuthorizeScreen() {
                     {message}
                   </Text>
                 </View>
-                {message.includes('expired') ? (
+                {message.includes('expired') && app === 'telegram' && telegramBotUsername ? (
                   <Button
                     onPress={() => {
-                      const botUsername = process.env.EXPO_PUBLIC_TELEGRAM_BOT_USERNAME || 'clarity_oxybot';
-                      const botUrl = `https://t.me/${botUsername}?start=link`;
+                      const botUrl = `https://t.me/${telegramBotUsername}?start=link`;
                       if (Platform.OS === 'web') {
                         window.open(botUrl, '_blank');
                       } else {

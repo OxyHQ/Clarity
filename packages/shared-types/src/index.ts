@@ -18,7 +18,6 @@ export type {
 
 export type {
   ToolInvocation,
-  AgentInfo,
   MessageContentBlock,
   MessageSource,
   MessageSpeaker,

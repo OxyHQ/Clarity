@@ -4,7 +4,7 @@
  * Uses pino for production-grade JSON logging with:
  * - Automatic pretty printing in development
  * - JSON output in production (for log aggregators)
- * - Sensitive data redaction (API keys, tokens)
+ * - Sensitive data redaction (credentials and tokens)
  * - Subsystem child loggers
  *
  * Inspired by OpenClaw's logging patterns, adapted for server-side production use.
@@ -72,23 +72,17 @@ export function createLogger(subsystem: string) {
 }
 
 /**
- * Sanitize a string by removing potential API keys and tokens.
+ * Sanitize a string by removing potential credentials and tokens.
  * Inspired by ZeroClaw's scrub_secret_patterns for comprehensive coverage.
  * Use as a safety net before logging user-facing messages.
  */
 export function sanitizeForLog(value: string): string {
   return value
-    // OpenAI keys
+    // Common opaque secret prefix
     .replace(/sk-[a-zA-Z0-9_-]{20,}/g, 'sk-[REDACTED]')
-    // Anthropic keys
-    .replace(/sk-ant-[a-zA-Z0-9_-]+/g, 'sk-ant-[REDACTED]')
-    // Clarity internal keys
-    .replace(/clarity_sk_[a-zA-Z0-9_-]+/g, 'clarity_sk_[REDACTED]')
     // Slack tokens
     .replace(/xoxb-[a-zA-Z0-9_-]+/g, 'xoxb-[REDACTED]')
     .replace(/xoxp-[a-zA-Z0-9_-]+/g, 'xoxp-[REDACTED]')
-    // Google AI keys (AIza prefix)
-    .replace(/AIza[a-zA-Z0-9_-]{35,}/g, 'AIza[REDACTED]')
     // Bearer tokens
     .replace(/Bearer\s+[a-zA-Z0-9._-]+/gi, 'Bearer [REDACTED]')
     // Generic key- prefix
@@ -98,29 +92,12 @@ export function sanitizeForLog(value: string): string {
 // Pre-built loggers for common subsystems
 export const log = {
   auth: createLogger('auth'),
-  providers: createLogger('providers'),
   chat: createLogger('chat'),
   credits: createLogger('credits'),
   rateLimit: createLogger('rate-limit'),
-  health: createLogger('health'),
-  fallback: createLogger('fallback'),
-  keys: createLogger('keys'),
-  automations: createLogger('automations'),
-  organization: createLogger('organization'),
-  skills: createLogger('skills'),
-  codea: createLogger('codea'),
-  memory: createLogger('memory'),
-  developer: createLogger('developer'),
   webhook: createLogger('webhook'),
-  telegram: createLogger('telegram'),
-  channels: createLogger('channels'),
   seed: createLogger('seed'),
-  tools: createLogger('tools'),
   v1: createLogger('v1'),
-  models: createLogger('models'),
-  canvas: createLogger('canvas'),
-  agents: createLogger('agents'),
-  triggers: createLogger('triggers'),
   general: rootLogger,
 };
 

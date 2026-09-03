@@ -1,81 +1,49 @@
-# Clarity App
+# Clarity frontend
 
-Expo app for web, iOS, and Android.
+Expo app for web, iOS, and Android. The app presents Clarity product model IDs
+and consumes Clarity's API; it does not call inference providers or Kaana
+directly.
 
-## Current Focus
+## Runtime boundaries
 
-- Unified streaming chat client for the shared autonomy runtime.
-- Trigger management UI (backed by `/triggers`).
-- Agent activity + approval actions in real time.
-- Memory, settings, billing, and organization features.
+- Chat streams from `/v1/chat/completions`. The Clarity API fixes the
+  provisioned Alia agent and translates Alia events to `clarity.*` events.
+- Conversations, product plans, entitlements, suggestions, feedback, and
+  notifications are Clarity PostgreSQL resources.
+- Memory, agent audit, trigger execution, inference credits, and inference
+  telemetry are Alia resources reached through explicit Clarity API routes.
+- Agent permission editing remains unavailable until Alia publishes an
+  agent-scoped settings contract; the UI states that limitation instead of
+  pretending to save unsupported fields.
 
-## Key Runtime Integrations
+## Existing screens
 
-### Chat Streaming
+- `app/(app)/index.tsx` — new conversation
+- `app/(app)/c/[id]/index.tsx` — conversation
+- `app/(app)/history.tsx` — history
+- `app/(app)/notifications.tsx` — notification feed
+- `app/(app)/settings/*` — account, general, usage, personalization, security,
+  and feedback
 
-`useStreamingChat` consumes named SSE events from `/v1/chat/completions`:
-
-- `clarity.reasoning`
-- `clarity.tool_result`
-- `clarity.plan_preview`
-- `clarity.approval_request`
-- `clarity.approval_result`
-- `clarity.research_progress`
-- `clarity.model_switch`
-- `clarity.agent_session`
-- `clarity.title`
-
-All payloads include `eventVersion: 1`.
-
-### Agent Approval UX
-
-`agent-panel` + `use-agent-activity` handle:
-
-- Approval request display
-- Approve/deny actions
-- Socket emission via `agent-approval-response`
-
-### Trigger UI
-
-Screen path remains `app/(app)/automations.tsx`, but the data source is now `/triggers` only.
-
-## Main Routes
-
-- `app/(app)/index.tsx` - entry chat
-- `app/(app)/c/[id].tsx` - conversation view
-- `app/(app)/agents.tsx` - agent directory
-- `app/(app)/agents/[id].tsx` - agent detail/activity
-- `app/(app)/automations.tsx` - trigger list and controls
-- `app/(app)/notifications.tsx` - notification feed
-- `app/(app)/settings/*` - settings area
+The API exposes authenticated Alia trigger routes for compatibility, but this
+checkout has no trigger-management screen. Webhook delivery uses the Alia URL
+returned when a trigger is created.
 
 ## Development
 
 ```bash
-# from repo root
 bun run dev:frontend
-
-# from packages/frontend
-bun start
 ```
 
-Platform targets:
+From this package:
 
 ```bash
+bun start
 bun run web
 bun run ios
 bun run android
 ```
 
-## API Config
-
-Configured in `packages/frontend/lib/config.ts`.
-
-Expected production API:
-
-- `https://api.clarity.oxy.so`
-
-## Notes
-
-- No `/automations` API calls remain in the app client.
-- Public model selection uses Clarity model IDs only.
+API configuration lives in `lib/config.ts`; the production product API is
+`https://api.clarity.surf`. This source declaration does not prove that DNS or
+a production App Platform deployment exists.

@@ -4,9 +4,9 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 interface Memory {
   _id: string;
-  key: string;
-  value: string;
-  category?: string;
+  title: string;
+  summary: string;
+  type: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -16,16 +16,8 @@ export interface UserMemory {
   preferences: {
     language?: string;
     tone?: string;
-    voice?: string;
     responseLength?: 'short' | 'medium' | 'long';
     interests?: string[];
-    defaultAgentPermissions?: Record<string, boolean>;
-    securityPreferences?: {
-      requireApproval?: boolean;
-      approvalTimeout?: number;
-      autoDenyOnTimeout?: boolean;
-    };
-    [key: string]: unknown;
   };
   context: {
     occupation?: string;
@@ -33,6 +25,11 @@ export interface UserMemory {
     bio?: string;
     timezone?: string;
   };
+  settings?: {
+    autoSaveEnabled?: boolean;
+    recallEnabled?: boolean;
+  };
+  writingStyle?: Record<string, unknown>;
 }
 
 interface UserDataState {
