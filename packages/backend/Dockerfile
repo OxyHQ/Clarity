@@ -55,6 +55,7 @@ RUN bun install --frozen-lockfile --production
 # Copy built output from builder
 COPY --from=builder /build/packages/shared-types/dist ./packages/shared-types/dist
 COPY --from=builder /build/packages/backend/dist ./packages/backend/dist
+COPY --from=builder /build/packages/backend/drizzle ./packages/backend/drizzle
 
 # Allow non-root user to write temp files
 RUN chown -R node:node /app
@@ -63,10 +64,10 @@ RUN chown -R node:node /app
 USER node
 
 ENV NODE_ENV=production
-EXPOSE 3000
+EXPOSE 3001
 
-# Health check for orchestrators (k8s, DO App Platform)
+# Local image health check. ECS/ALB uses the same live endpoint.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/health/live || exit 1
+  CMD curl -f http://localhost:3001/health/live || exit 1
 
 CMD ["node", "packages/backend/dist/index.js"]

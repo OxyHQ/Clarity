@@ -1,0 +1,117 @@
+name: Deploy Clarity Backend to AWS
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-clarity-backend
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REGISTRY: 237343248947.dkr.ecr.us-west-2.amazonaws.com
+  ECR_REPOSITORY: oxy/clarity
+  CLUSTER: oxy-cluster
+  DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.DEPLOY_SHA }}
+          fetch-depth: 2
+
+      - name: Verify current main before building
+        run: bash .github/scripts/require-current-main.sh
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6
+        with:
+          role-to-assume: arn:aws:iam::237343248947:role/oxy-clarity-github-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Sync application-owned secrets to SSM
+        env:
+          SYNC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SYNC_CLARITY_INTROSPECTION_CACHE_HMAC_KEY: ${{ secrets.CLARITY_INTROSPECTION_CACHE_HMAC_KEY }}
+          SYNC_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          SYNC_STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          SYNC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          SYNC_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          app_secrets="DATABASE_URL CLARITY_INTROSPECTION_CACHE_HMAC_KEY STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY"
+          for key in $app_secrets; do
+            value="$(printenv "SYNC_$key" || true)"
+            if [[ -z "$value" || "$value" == "-" ]]; then
+              echo "::warning::Skipping empty or placeholder secret $key; SSM unchanged."
+              continue
+            fi
+            parameter="/oxy/clarity/$key"
+            aws ssm put-parameter \
+              --name "$parameter" \
+              --value "$value" \
+              --type SecureString \
+              --overwrite \
+              >/dev/null
+            echo "Synced $parameter"
+          done
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Build and push immutable image
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: packages/backend/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.DEPLOY_SHA }}
+          cache-from: type=gha,scope=clarity-backend
+          cache-to: type=gha,mode=max,scope=clarity-backend
+          provenance: true
+          sbom: true
+
+      - name: Verify current main before production changes
+        run: bash .github/scripts/require-current-main.sh
+
+      - name: Deploy API
+        env:
+          SERVICE: clarity-api
+          CONTAINER_NAME: clarity-api
+          IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}@${{ steps.build.outputs.digest }}
+          PRE_DEPLOY_TASK_COMMAND_JSON: '["node","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=pre"]'
+          POST_DEPLOY_TASK_COMMAND_JSON: '["node","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=post"]'
+        run: bash .github/scripts/deploy-ecs-service.sh
+
+      - name: Smoke API
+        env:
+          CLARITY_API_URL: https://api.clarity.surf
+        run: bash .github/scripts/smoke-clarity.sh
+
+      - name: Deploy crawler worker
+        env:
+          SERVICE: clarity-worker
+          CONTAINER_NAME: clarity-worker
+          IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}@${{ steps.build.outputs.digest }}
+        run: bash .github/scripts/deploy-ecs-service.sh

@@ -2,7 +2,7 @@ import * as esbuild from 'esbuild';
 import { cp } from 'fs/promises';
 
 await esbuild.build({
-  entryPoints: { index: 'src/index.ts', worker: 'src/worker.ts' },
+  entryPoints: { index: 'src/index.ts', worker: 'src/worker.ts', 'db/migrate': 'src/db/migrate.ts' },
   bundle: true,
   platform: 'node',
   target: 'node20',

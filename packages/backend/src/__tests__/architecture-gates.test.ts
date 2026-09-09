@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -68,22 +68,32 @@ describe('architecture gates', () => {
 
     const layout = readFileSync(join(repoRoot, 'packages', 'frontend', 'app', '_layout.tsx'), 'utf8');
     expect(layout).toContain(`clientId="${CLARITY_AGENT_MANIFEST.publicApplication.clientId}"`);
-    const appPlatform = readFileSync(join(repoRoot, '.do', 'app.yaml'), 'utf8');
-    const sst = readFileSync(join(repoRoot, 'sst.config.ts'), 'utf8');
-    const deployments = `${appPlatform}\n${sst}`;
-    expect(deployments).toContain(CLARITY_AGENT_MANIFEST.agentId);
-    expect(deployments).toContain(CLARITY_AGENT_MANIFEST.backendApplication.clientId);
-    expect(appPlatform).toContain('- key: OXY_SERVICE_API_SECRET\n        type: SECRET');
-    expect(sst).toContain('{ key: "OXY_SERVICE_API_SECRET", type: "SECRET" }');
-    const worker = sst.slice(sst.indexOf('name: "clarity-worker"'));
-    expect(worker).toContain('{ key: "OXY_API_URL", value: "https://api.oxy.so" }');
-    expect(worker).toContain(`{ key: "OXY_SERVICE_API_KEY", value: "${CLARITY_AGENT_MANIFEST.backendApplication.clientId}" }`);
-    expect(worker).toContain('{ key: "OXY_SERVICE_API_SECRET", type: "SECRET" }');
-    expect(worker).not.toMatch(/OXY_SERVICE_API_SECRET["']?,?\s*value:/);
-    expect(worker).toContain('{ key: "OXY_API_URL", value: "https://api.oxy.so" }');
-    expect(worker).toContain(`{ key: "OXY_SERVICE_API_KEY", value: "${CLARITY_AGENT_MANIFEST.backendApplication.clientId}" }`);
-    expect(worker).toContain('{ key: "OXY_SERVICE_API_SECRET", type: "SECRET" }');
-    expect(deployments).not.toMatch(/OXY_SERVICE_API_SECRET["']?,?\s*value:/);
+    const deployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'), 'utf8');
+    const deployScript = readFileSync(join(repoRoot, '.github', 'scripts', 'deploy-ecs-service.sh'), 'utf8');
+    expect(deployment).toContain('AWS_REGION: us-west-2');
+    expect(deployment).toContain("workflows: [CI]");
+    expect(deployment).toContain("cancel-in-progress: false");
+    expect(deployment).toContain('arn:aws:iam::237343248947:role/oxy-clarity-github-deploy');
+    expect(deployment).toContain('SERVICE: clarity-api');
+    expect(deployment).toContain('CONTAINER_NAME: clarity-api');
+    expect(deployment).toContain('SERVICE: clarity-worker');
+    expect(deployment).toContain('https://api.clarity.surf');
+    expect(deployment).not.toMatch(/OXY_SERVICE_API_SECRET\s*:/);
+    expect(deployment).not.toMatch(/toJSON\(secrets\)/);
+    expect(deployment).toMatch(/IMAGE_URI: .*@\$\{\{ steps\.build\.outputs\.digest \}\}/);
+    expect(deployScript).toContain('Provision it in oxy-infra first');
+    expect(deployScript).toContain('Rolling $SERVICE back');
+    expect(deployScript).not.toContain('--force-new-deployment');
+  });
+
+  it('has one AWS backend deployment path and no stale App Platform or SST declarations', () => {
+    const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
+      devDependencies?: Record<string, string>;
+    };
+    expect(existsSync(join(repoRoot, '.do', 'app.yaml'))).toBe(false);
+    expect(existsSync(join(repoRoot, 'sst.config.ts'))).toBe(false);
+    expect(packageJson.devDependencies).not.toHaveProperty('sst');
+    expect(existsSync(join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'))).toBe(true);
   });
 
   it('contains no MongoDB/Mongoose code, dependency, environment, or deployment binding', () => {
@@ -98,8 +108,7 @@ describe('architecture gates', () => {
     const scanFiles = [
       ...filesUnder(join(packageRoot, 'src')).filter((file) => file.endsWith('.ts')),
       join(packageRoot, '.env.example'),
-      join(repoRoot, '.do', 'app.yaml'),
-      join(repoRoot, 'sst.config.ts'),
+      join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
     ].filter((file) => !file.endsWith('architecture-gates.test.ts'));
     const source = scanFiles.map((file) => readFileSync(file, 'utf8')).join('\n');
     expect(source).not.toMatch(/\b(?:mongoose|mongodb|MONGODB_URI)\b/i);
@@ -129,8 +138,7 @@ describe('architecture gates', () => {
     const scanFiles = [
       ...filesUnder(join(packageRoot, 'src')).filter((file) => file.endsWith('.ts')),
       join(packageRoot, '.env.example'),
-      join(repoRoot, '.do', 'app.yaml'),
-      join(repoRoot, 'sst.config.ts'),
+      join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
     ].filter((file) => !file.endsWith('architecture-gates.test.ts'));
     const source = scanFiles.map((file) => `${relativeToRepo(file)}\n${readFileSync(file, 'utf8')}`).join('\n');
 
