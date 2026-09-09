@@ -1,9 +1,38 @@
-# Caching headers for Cloudflare Pages
-# Note: When _worker.js (Advanced Mode) is active, these headers are set by the
-# worker. This file serves as documentation and fallback if the worker is removed.
+# Caching headers for Cloudflare's asset pipeline. Workers static assets reads
+# this file as deploy configuration and keeps it out of the uploaded assets, the
+# same way Pages did — wrangler 4.130.0 lists `_headers` among the paths it
+# ignores when building the manifest, and sends its contents alongside it.
+#
+# These are NOT documentation or a fallback, whatever the old comment here
+# said. This file, not worker/index.js, is what sets these headers in
+# production: `run_worker_first` is unset, so a request matching an existing
+# asset is answered by the router and never reaches the Worker script. The
+# Worker runs only on a miss, which is where it turns the SPA fallback into a
+# real 404. Measured on the Inbox migration — `wrangler dev` reports
+# `Parsed 1 valid header rule` and serves the header on a real asset.
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
 /_expo/static/*
   Cache-Control: public, max-age=31536000, immutable
+
+# EVERY response, and the reason this rule has to exist at all: Cloudflare Pages
+# added these two headers to every response it served, automatically, with
+# nothing in this repository asking for them. Workers Static Assets does not, so
+# without this rule the move to a Worker would drop both from clarity.surf —
+# silently, because no build, deploy or test here reads a response header.
+#
+# Measured on a Pages hostname whose project has no `_headers` rule for them
+# either, which is what shows they come from the platform rather than from any
+# project:
+#
+#   oxy-auth.pages.dev  referrer-policy: strict-origin-when-cross-origin
+#                       x-content-type-options: nosniff
+#
+# `nosniff` is the one that matters: without it a browser may disregard a
+# declared Content-Type and sniff the bytes instead, which turns any response
+# carrying attacker-influenced content into a possible script.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

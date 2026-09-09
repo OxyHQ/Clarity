@@ -96,6 +96,58 @@ describe('architecture gates', () => {
     expect(existsSync(join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'))).toBe(true);
   });
 
+  it('serves the frontend from a Worker with no Pages default hostname', () => {
+    // A Pages project ALWAYS serves `<project>.pages.dev` and Cloudflare offers
+    // no way to switch it off, so the frontend had a second, byte-identical copy
+    // at `clarity.pages.dev` that PRODUCTION_ORIGINS below does not admit: it
+    // rendered the shell and failed every API call. `workers_dev = false` is
+    // what makes `clarity.surf` the only name that reaches the deployment, so
+    // this gate holds the Worker shape rather than the Pages shape.
+    const frontendRoot = join(repoRoot, 'packages', 'frontend');
+    const wrangler = readFileSync(join(frontendRoot, 'wrangler.toml'), 'utf8');
+    expect(wrangler).toMatch(/^name = "clarity"$/m);
+    expect(wrangler).toMatch(/^main = "worker\/index\.js"$/m);
+    expect(wrangler).toMatch(/^workers_dev = false$/m);
+    expect(wrangler).toMatch(/^directory = "\.\/dist"$/m);
+    expect(wrangler).toMatch(/^binding = "ASSETS"$/m);
+    expect(wrangler).toMatch(/^not_found_handling = "single-page-application"$/m);
+    expect(wrangler).toMatch(/^pattern = "clarity\.surf"$/m);
+    expect(wrangler).toMatch(/^custom_domain = true$/m);
+
+    // The script has to be the Worker `main`. Under `public/` it is inert AND
+    // uploaded as a public asset, and `_redirects` is a Pages-only file.
+    expect(existsSync(join(frontendRoot, 'worker', 'index.js'))).toBe(true);
+    expect(existsSync(join(frontendRoot, 'public', '_worker.js'))).toBe(false);
+    expect(existsSync(join(frontendRoot, 'public', '_redirects'))).toBe(false);
+
+    // Comments stripped first: the workflow explains at length why it does not
+    // use `cloudflare/wrangler-action`, and a gate that reads prose would fail
+    // on the explanation instead of on a reintroduction.
+    const frontendDeployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy.yml'), 'utf8')
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('#'))
+      .join('\n');
+    expect(frontendDeployment).toContain('cd packages/frontend && bunx wrangler@4 deploy');
+    expect(frontendDeployment).not.toMatch(/pages deploy|pages\/projects|production_branch/);
+
+    // The deploy runs OUR wrangler, pinned. `cloudflare/wrangler-action` installs
+    // its own into the working tree mid-deploy, which is how run 34063685022
+    // failed here on 2026-09-06 (`Fail extracting tarball for "wrangler"`) and
+    // how Homiio lost production on 2026-08-09. It also picks its package
+    // manager from a lockfile beside `workingDirectory`, and this monorepo's
+    // lockfile is at the root, so npm gets `workspace:*` and cannot resolve it.
+    // Unpinned, `bunx wrangler` would re-resolve the latest major on every
+    // deploy and change the deploy path with no diff.
+    expect(frontendDeployment).not.toContain('wrangler-action');
+    expect(frontendDeployment).not.toMatch(/bunx wrangler(?!@4\b)/);
+
+    // The Worker deploy is the frontend's alone. The backend is ECS, and a
+    // Cloudflare credential must never turn up on that path.
+    const backendDeployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'), 'utf8');
+    expect(backendDeployment).not.toMatch(/CLOUDFLARE_|wrangler/);
+    expect(readFileSync(join(packageRoot, 'src', 'index.ts'), 'utf8')).not.toContain('pages.dev');
+  });
+
   it('contains no MongoDB/Mongoose code, dependency, environment, or deployment binding', () => {
     const packageJson = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
     const dependencies = {

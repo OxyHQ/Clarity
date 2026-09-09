@@ -5,10 +5,19 @@ Clarity's backend deployment target is two ECS Fargate services in `us-west-2`:
 immutable ARM64 image from `oxy/clarity` in ECR. AWS resources, including RDS,
 ECS, ALB, DNS targets, SSM bindings and IAM, are owned by `oxy-infra`.
 
-The frontend is deployed to Cloudflare Pages by `.github/workflows/deploy.yml`
-and is currently reachable at `https://clarity.surf`. That workflow remains
-independent of the backend workflow. The API origin is
-`https://api.clarity.surf`.
+The frontend is deployed to a Cloudflare Worker by `.github/workflows/deploy.yml`
+and is reachable at `https://clarity.surf`. That workflow remains independent of
+the backend workflow. The API origin is `https://api.clarity.surf`.
+
+It is a Worker rather than a Pages project because a Pages project always serves
+`<project>.pages.dev` and Cloudflare offers no way to switch that off, which put
+a second copy of the app on a hostname that `PRODUCTION_ORIGINS` does not admit.
+`packages/frontend/wrangler.toml` declares `workers_dev = false`, the `./dist`
+assets, the SPA fallback and `clarity.surf` as a custom domain, so a deploy
+cannot disagree with the config. `packages/frontend/worker/index.js` is the
+Worker script: the SPA fallback answers any miss with `index.html`, and that
+script returns a real 404 for a missing hashed bundle instead of `text/html` a
+browser would reject.
 
 `.github/workflows/deploy-aws.yml` runs only after Clarity's `CI` workflow
 succeeds for the current `main` commit. It builds one digest-pinned image,

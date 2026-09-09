@@ -1,0 +1,35 @@
+# The Clarity web app is a Worker, not a Pages project.
+#
+# WHY: a Pages project ALWAYS serves `<project>.pages.dev` and Cloudflare offers
+# no way to switch it off — `wrangler pages project` has only `list`, `create`
+# and `delete`. Alia measured the consequence before migrating: `alia.onl` and
+# `alia-app.pages.dev` served byte-identical deployments, and the second was in
+# no CORS allowlist, so it rendered the shell and failed every call it made.
+# Clarity is in exactly that position — `PRODUCTION_ORIGINS` in
+# `packages/backend/src/index.ts` is `https://clarity.surf` and nothing else, so
+# `clarity.pages.dev` is a second copy of the app that cannot reach the API.
+# `workers_dev = false` leaves `clarity.surf` as the only name that reaches this
+# deployment.
+name = "clarity"
+main = "worker/index.js"
+compatibility_date = "2026-09-09"
+
+workers_dev = false
+
+# `expo export --platform web` emits ONE index.html plus hashed assets — a
+# client-routed SPA, not per-route static HTML — so deep links need the
+# fallback. The Worker script above is what stops that fallback answering a
+# stale `.js` URL with `text/html`; it reads the assets through this binding.
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+# The only way in. `clarity.surf` is the zone apex; Cloudflare writes the
+# flattened record for a custom domain, so no CNAME is declared by hand. This is
+# also why the apex must carry no pre-existing DNS record at cutover: a Worker
+# custom domain refuses a hostname that already has externally managed records
+# (code 100117), and the proxied record Pages uses today is exactly that.
+[[routes]]
+pattern = "clarity.surf"
+custom_domain = true
