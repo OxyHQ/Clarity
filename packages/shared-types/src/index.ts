@@ -43,6 +43,29 @@ export type {
 } from './model.js';
 
 export type {
+  JobWorkplaceType,
+  JobEmploymentType,
+  JobSalaryInterval,
+  JobLifecycleStatus,
+  JobSourceType,
+  JobFieldSource,
+  JobSearchMode,
+  JobEvidence,
+  JobLocation,
+  JobSalary,
+  JobEmployer,
+  JobSource,
+  JobPosting,
+  JobSearchResult,
+  JobSalaryFilter,
+  JobSearchRequest,
+  JobSearchResponse,
+  JobIngestResult,
+  JobReportReason,
+  JobReportRequest,
+} from './jobs.js';
+
+export type {
   ResearchSource,
   ResearchProgress,
   ReasoningEvent,

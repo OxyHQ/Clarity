@@ -35,6 +35,12 @@ const staticRoutes: SitemapURL[] = [
     priority: 0.8,
   },
   {
+    loc: '/jobs',
+    lastmod: CURRENT_DATE,
+    changefreq: 'daily',
+    priority: 0.9,
+  },
+  {
     loc: '/library',
     lastmod: CURRENT_DATE,
     changefreq: 'weekly',

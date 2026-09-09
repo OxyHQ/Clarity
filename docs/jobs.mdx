@@ -1,0 +1,330 @@
+---
+title: Clarity Jobs
+description: The Oxy-wide employment search vertical built on Clarity's crawling, extraction and hybrid ranking.
+---
+
+# Clarity Jobs
+
+> **Clarity finds jobs. Mention makes jobs social. Employers may pay for
+> publishing and tooling, never for ranking.**
+
+Clarity Jobs is a vertical over the existing search platform, not a second
+engine. Discovery, crawling, JSON-LD extraction, chunking, embeddings, lexical
+and semantic ranking, verified sites, removals and quotas are all the same
+machinery documented in [the API reference](api-reference); Jobs adds a
+`JobPosting` normalizer, a structured projection, a lifecycle policy, a
+conservative dedupe strategy and a typed API.
+
+Every other Oxy product consumes Jobs through `@clarity.surf/sdk`. No product
+may run its own crawler, employment extractor, semantic job index or competing
+global jobs ranker.
+
+## Ownership
+
+| Owner | Responsibilities |
+| --- | --- |
+| Clarity | Discovery of public listings, crawl/index lifecycle, `JobPosting` extraction, the normalized projection, dedupe, lexical/semantic/hybrid ranking, structured filters, provenance, expiry, the `clarity.surf/jobs` portal, and the Jobs API/SDK |
+| The publisher | The canonical listing itself. Clarity never becomes a second source of truth for an externally authored role |
+| Mention and other products | Social distribution, first-party authoring, applications and employer workflow |
+
+Clarity owns no applicant tracking, no CV or candidate store, no application
+inbox and no interview state. It indexes public information about openings.
+
+## Naming: `jobs` is employment
+
+The asynchronous crawl/index task used to be called a *job*. It is now an
+**index operation**, and `jobs` means employment everywhere:
+
+| Concept | SDK | REST |
+| --- | --- | --- |
+| Crawl/index work | `clarity.operations.get/cancel/wait` | `GET /v1/operations/:id`, `POST /v1/operations/:id/cancel` |
+| Employment listings | `clarity.jobs.search/get/byUrl/ingest` | `POST /v1/jobs/search`, `GET /v1/jobs/:id`, … |
+
+`ResolveResult.jobId` became `operationId`. The internal table is still
+`clarity_crawl_jobs`; renaming storage would buy nothing and the public contract
+is what was ambiguous. The rename is a clean cut — there is no alias.
+
+## Extraction
+
+`job` is a first-class `DocumentType`. A page whose JSON-LD carries a
+`schema.org/JobPosting` — directly, in an array, or inside `@graph` — is
+classified as a job document, and `src/search/jobs/extract.ts` normalizes:
+
+title, description, hiring organization (name, URL, logo), employment type,
+`datePosted`, `validThrough`, job locations, applicant location requirements,
+base salary (currency, min/max, unit), identifier/requisition id, direct-apply
+flag, qualifications, responsibilities, skills, education and experience
+requirements, industry, occupational category, and the listing/apply URL.
+
+Two rules hold everywhere:
+
+- **Nothing is invented.** A field the source did not state is absent. An
+  unmappable `employmentType`, a salary without a currency or a unit, an
+  unparseable date — all dropped rather than guessed.
+- **Everything carries provenance.** Each normalized field records whether it
+  came from JSON-LD (`json_ld`) or from an ingestion payload (`api`), with the
+  extraction timestamp, in `field_evidence`.
+
+Workplace type is derived only from explicit structured signals:
+
+| `jobLocationType` | Physical `jobLocation` | Result |
+| --- | --- | --- |
+| `TELECOMMUTE` | none | `remote` |
+| `TELECOMMUTE` | one or more | `hybrid` |
+| absent | one or more | `onsite` |
+| absent | none | *(unset)* |
+
+Countries resolve to ISO 3166-1 alpha-2 only when the source value is a code or
+a recognized country name. Macro-regions (`europe`, `european_union`,
+`north_america`, `south_america`, `latin_america`, `africa`, `asia`,
+`middle_east`, `oceania`) expand into a documented country list; Clarity never
+infers that an unlisted country belongs to a region.
+
+## The projection
+
+`clarity_job_postings` is a **search representation**, keyed
+`(document_id, source_key)` and derived from the document it points at. It is
+not an ATS and not a second source of truth. Re-crawling converges; it never
+appends.
+
+Filterable columns cover employer identity, locations (raw JSON plus country /
+region / locality arrays), workplace type, employment types, salary (source
+amount, currency and interval, plus an annualized pair used *only* for
+cross-interval filtering — Clarity never converts currencies), skills, dates,
+status and source provenance. A per-listing `search_vector` gives jobs their own
+lexical field; semantic relevance reuses the document's chunk embeddings.
+
+No column in the projection can express a commercial relationship, and the
+ranking contract test asserts that.
+
+## Lifecycle
+
+Listings expire faster than ordinary documents, so absence is a signal.
+
+| Status | Cause |
+| --- | --- |
+| `active` | Seen recently and not past `validThrough` |
+| `expired` | The source's `validThrough` has passed |
+| `closed` | The source withdrew it: HTTP 404/410, the page no longer carries a `JobPosting`, or a publisher close signal |
+| `removed` | The underlying document was removed or blocked |
+| `stale` | No declared expiry and not re-observed for **45 days** |
+
+Only `active` is returned by default; expired and closed listings are never
+implied. They stay retrievable with an explicit `statuses` filter, and the
+portal labels a non-active listing rather than hiding the fact.
+
+The policy is enforced twice: the worker sweeps stored statuses every 15
+minutes (and re-queues due job documents for verification on the same cadence,
+under the owner that originally requested them), and the same predicate is
+re-evaluated at query time so nothing can surface as active between sweeps.
+
+## Canonicalization and deduplication
+
+One opening commonly appears on the employer's careers site, an ATS, a job board
+and a first-party product. Clarity groups them and shows one, **without ever
+discarding a source**.
+
+Two listings join a cluster only when they share at least one signature:
+
+1. **identifier** — same employer *and* same requisition id.
+2. **listing_url** — same listing or apply URL after stripping tracking
+   parameters, `www.`, scheme and trailing slash.
+3. **content** — same employer *and* normalized title *and* primary location
+   *and* description fingerprint.
+
+A similar title is never sufficient on its own. Signatures live in their own
+table and clustering only sets `cluster_id`, so a wrong grouping is undone by
+deleting signature rows or clearing the column — no listing is destroyed.
+
+The displayed copy is elected by evidence, not by product: the employer's own
+domain first, then a public ATS host, then a Clarity-verified site, then
+anything else, tie-broken by first-seen time then id. Every other member is
+returned as `otherSources`; `includeDuplicates: true` returns them as separate
+results.
+
+## Search
+
+```http
+POST /v1/jobs/search
+Authorization: Bearer <oxy_sk credential>   # scope clarity:search
+```
+
+Free text runs lexical, semantic or hybrid (reciprocal-rank fusion, the default)
+relevance, so `frontend engineer working on React Native mobile apps` can match
+a role titled *Mobile Software Engineer*. Omitting `query` browses by filters
+and freshness. When the embedding route is unavailable, hybrid degrades to
+lexical and says so in `degraded`; explicit `semantic` fails with `503`.
+
+Filters: `locations` (country name/code, city, region, or macro-region),
+`workplaceTypes`, `employmentTypes`, `employers` (name or domain),
+`sourceDomains`, `skills`, `salary` (`min`/`max`/`currency`/`interval`),
+`publishedAfter`/`publishedBefore`, `statuses`, `includeDuplicates`, `limit` and
+an opaque `cursor`.
+
+Results are complete normalized listings — employer, locations, workplace type,
+employment types, salary when stated, dates, status, source and evidence — so no
+consumer has to reconstruct a role from a generic snippet.
+
+Other routes: `GET /v1/jobs/:id`, `GET /v1/jobs/by-url?url=…`,
+`POST /v1/jobs/:id/report`, `GET /v1/jobs/stats` (corpus health) and
+`GET /v1/jobs/capability` (the agent tool descriptor). The unauthenticated
+portal surface mirrors the read routes and the report route under `/jobs`.
+
+## Ranking contract
+
+Organic position comes from exactly these signals:
+
+- lexical relevance to the explicit query
+- semantic relevance
+- freshness
+- listing completeness
+- duplicate suppression
+
+Structured filters are constraints applied *before* ranking; they narrow the
+candidate set and never boost a listing inside it.
+
+These may never influence organic position:
+
+- what an employer paid Mention, Oxy or Clarity
+- employer subscription tier, commercial licensing tier or advertising spend
+- Mercaria activity or unrelated Mention engagement
+- private applicant behaviour or inferred sensitive traits
+
+**There is no `pay more → rank higher` path.** If Jobs is monetized later,
+payment may buy tooling, APIs, verified ingestion, crawl quota or employer
+workflow — not relevance.
+
+This is enforced structurally, not by convention.
+`packages/backend/src/search/jobs/__tests__/ranking-contract.test.ts` fails the
+build if a ranking module references a commercial token, imports a table outside
+the search set, names a product table in SQL, gains a commercial column, or
+carries a viewer identity.
+
+## Abuse and safety
+
+Jobs is a fraud-heavy category, so several mechanisms already narrow the surface:
+
+- removed and blocked documents drop out of the corpus, and their listings
+  become `removed`
+- duplicate grouping suppresses syndicated and mass-copied bodies
+- stale and expired listings leave active results on a documented schedule
+- every result names the source domain, so a reader can judge provenance
+- a verified domain proves who controls a host, never that a listing on it is
+  legitimate — Clarity does not treat verification as a trust signal for content
+
+Readers can report a listing from the portal, or through the API:
+
+```http
+POST /jobs/:id/report            # anonymous portal surface
+POST /v1/jobs/:id/report         # credentialed, scope clarity:search
+{ "reason": "scam", "detail": "Asks for payment up front." }
+```
+
+Reasons are `scam`, `already_filled`, `duplicate`, `misleading`,
+`discriminatory` and `other`. `clarity_job_reports` deliberately has **no
+reporter column** — no user id, no address, no device — and a report is an
+operator signal only. Reports are not a permitted ranking input, the ranking
+modules cannot reach the table, and the ranking-contract test enforces both.
+
+Not yet built: Clarity has no threat-intelligence blocklist of known scam or
+malware URLs, and no detector for suspicious mass-generated listings beyond
+duplicate suppression. Neither has a source of truth in this repository today;
+treat reports and the removal path as the current controls.
+
+## Privacy
+
+The portal's `/jobs` routes carry no session and no user identity, so searching
+or opening a listing cannot disclose a named user to an employer. Clarity stores
+no recruiter-facing browsing history, ingests no private application data, and
+infers no sensitive traits. Corpus telemetry is aggregate: active listings,
+counts by status and source type, salary coverage, grouping and cluster counts —
+never per viewer.
+
+## Sources and ingestion
+
+1. **Public web** — any page exposing valid `JobPosting` structured data:
+   careers sites, Greenhouse, Lever, Ashby, Workable, other public ATS pages and
+   permitted boards. Nothing assumes an ATS.
+2. **Verified sites** — an employer verifies its careers domain through the
+   existing site flow and Clarity keeps it recrawled.
+3. **First-party publishers** — a product that just published, updated or closed
+   a listing hands it to Clarity instead of waiting for a crawl:
+
+```http
+POST /v1/jobs/ingest
+Idempotency-Key: <publisher key>
+Authorization: Bearer <oxy_sk credential>   # scope clarity:index
+
+{ "url": "https://mention.earth/jobs/7", "jobPosting": { "@type": "JobPosting", … } }
+```
+
+A structured payload requires a **verified Clarity site for the URL's host**, so
+no caller can inject a listing onto a domain it does not own, and the payload
+goes through the same normalizer a crawl would use. Clarity also queues a
+verification crawl of the public page, which stays the canonical source. A bare
+`{ "url": … }` is simply an index request; `{ "url": …, "closed": true }`
+withdraws the listing.
+
+This is the boundary `OxyHQ/Mention#952` consumes. Mention keeps authoring,
+applications and employer permissions; it writes nothing into Clarity's
+database.
+
+## SDK
+
+```ts
+import { ClarityClient } from '@clarity.surf/sdk';
+
+const clarity = new ClarityClient({ apiKey: process.env.CLARITY_API_KEY });
+
+const results = await clarity.jobs.search({
+  query: 'React Native developer',
+  locations: ['europe'],
+  workplaceTypes: ['remote'],
+  employmentTypes: ['full_time'],
+  salary: { min: 60_000, currency: 'EUR', interval: 'year' },
+  publishedAfter: '2026-09-01T00:00:00Z',
+  limit: 25,
+});
+
+for (const job of results.data) {
+  console.info(job.title, job.employer.name, job.source.canonicalUrl);
+}
+```
+
+`clarity.jobs.get(id)`, `clarity.jobs.byUrl(url)`, `clarity.jobs.ingest(...)`,
+`clarity.jobs.report(id, { reason })`, `clarity.jobs.stats()` and
+`clarity.jobs.capability()` complete the namespace.
+
+## Agents
+
+`GET /jobs/capability` returns a tool descriptor — name, endpoint, parameter
+schema, the permitted ranking signals, and the grounding rules — that Clarity's
+Alia agent registers so a request like *"find remote React Native jobs in Europe
+posted this week"* becomes a structured query. The descriptor states the rule
+explicitly: a field missing from a result was not stated by the source and must
+never be inferred, and the canonical source must always be shown.
+
+## Portal
+
+`clarity.surf/jobs` is a first-class vertical: query and location inputs,
+workplace/employment/recency/salary filters, cursor pagination, and explicit
+loading, error, empty and degraded states. Cards show title, employer, workplace
+type, location, salary when stated, age, an evidence-grounded excerpt and the
+source domain. The detail view leads with attribution — *Clarity indexed this
+listing from `<domain>`; Clarity is not the employer and does not receive
+applications* — and links out to the original. Clarity never presents itself as
+the employer or the publisher of a listing it merely indexed.
+
+## Operations
+
+```bash
+# Apply the Jobs projection migration
+DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
+  --target-database=clarity_ci --phase=pre
+
+# Corpus health
+curl -H "Authorization: Bearer $CLARITY_API_KEY" https://api.clarity.surf/v1/jobs/stats
+```
+
+The worker performs lifecycle maintenance and recrawl scheduling on its normal
+loop; no separate scheduler is required.

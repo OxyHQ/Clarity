@@ -27,6 +27,7 @@ import memoryRouter from './routes/memory.js';
 import auditRouter from './routes/audit.js';
 import triggersRouter from './routes/triggers.js';
 import botsRouter from './routes/bots.js';
+import jobsRouter from './routes/jobs.js';
 // Socket.io
 import { initSocket } from './socket.js';
 
@@ -169,6 +170,7 @@ app.use('/memory', memoryRouter);
 app.use('/audit', auditRouter);
 app.use('/triggers', triggersRouter);
 app.use('/bots', botsRouter);
+app.use('/jobs', jobsRouter);
 app.use('/internal', internalRouter);
 
 // Root route
@@ -193,6 +195,7 @@ app.get('/', (_req, res) => {
       '/audit',
       '/triggers',
       '/bots',
+      '/jobs',
       '/internal',
     ]
   });

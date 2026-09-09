@@ -24,6 +24,29 @@ and `X-Oxy-User-Id`. The browser bearer is never forwarded. Client-provided
 agent IDs, modes, skills, MCP servers, fallback/reasoning controls and
 system/tool roles are rejected.
 
+## Search platform and Jobs
+
+Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
+
+- `POST /v1/search`, `GET /v1/news`, `GET /v1/documents/:id`, `GET /v1/documents/by-url`
+- `POST /v1/index/urls`, `POST /v1/resolve`, `/v1/sites…`, `GET /v1/usage`, `GET /v1/quotas`
+- `GET /v1/operations/:id`, `POST /v1/operations/:id/cancel` — asynchronous
+  crawl/index work. This namespace used to be `/v1/jobs`; `jobs` now means
+  employment everywhere, and `ResolveResult.jobId` is `operationId`.
+- `POST /v1/jobs/search`, `GET /v1/jobs/:id`, `GET /v1/jobs/by-url`,
+  `POST /v1/jobs/:id/report`, `GET /v1/jobs/stats`, `GET /v1/jobs/capability` —
+  employment search (`clarity:search`).
+- `POST /v1/jobs/ingest` — the publisher boundary (`clarity:index`). A
+  structured `JobPosting` payload requires a verified site for the URL's host.
+
+The unauthenticated portal surface behind `clarity.surf/jobs` mirrors the read
+routes at `POST /jobs/search`, `GET /jobs/:id`, `GET /jobs/by-url`,
+`POST /jobs/:id/report`, `GET /jobs/stats` and `GET /jobs/capability`. It
+carries no user identity by
+design, so searching or viewing a listing never discloses a named user to an
+employer. See [Clarity Jobs](jobs) for the ranking contract, lifecycle policy
+and deduplication rules.
+
 ## Product persistence
 
 - conversations: list, get, create/save, vote and delete under `/conversations`

@@ -237,7 +237,8 @@
     "writingStyle": "Writing Style",
     "security": "Security",
     "discover": "Discover",
-    "finance": "Finance"
+    "finance": "Finance",
+    "jobs": "Jobs"
   },
   "sidebar": {
     "newChat": "New Chat",
@@ -271,7 +272,85 @@
     "logOut": "Log out",
     "settings": "Settings",
     "termsOfService": "Terms of Service",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "jobs": "Jobs"
+  },
+  "jobs": {
+    "title": "Jobs",
+    "heading": "Find work across the public web",
+    "subheading": "Clarity indexes public job postings and normalizes them. The employer's own listing stays the source.",
+    "queryPlaceholder": "Role, skill or keyword",
+    "locationPlaceholder": "City, country or region",
+    "salaryPlaceholder": "Min salary / year",
+    "searchAction": "Search",
+    "loadMore": "Load more",
+    "loadingMore": "Loading...",
+    "retry": "Try again",
+    "emptyTitle": "No matching jobs",
+    "emptyBody": "Try a broader query, fewer filters or a wider location.",
+    "errorTitle": "Jobs search is unavailable",
+    "errorBody": "Clarity could not reach the jobs index. Your filters were kept.",
+    "detailErrorTitle": "This listing could not be loaded",
+    "detailErrorBody": "It may have been withdrawn by its source, or the link is no longer valid.",
+    "degraded": "Semantic matching is temporarily unavailable, so these results are keyword-only.",
+    "sourceOn": "Listed on %{domain}",
+    "alsoPublished": "· also on %{count} more",
+    "indexedNotice": "Clarity indexed this listing from %{domain}. Clarity is not the employer and does not receive applications.",
+    "viewOriginal": "View the original listing",
+    "otherSources": "Also published on",
+    "descriptionHeading": "About the role",
+    "skillsHeading": "Skills",
+    "qualificationsHeading": "Qualifications",
+    "responsibilitiesHeading": "Responsibilities",
+    "postedToday": "Posted today",
+    "disclaimer": "Clarity Jobs shows public postings only. Searching or opening a listing never identifies you to an employer.",
+    "report": "Report this listing",
+    "reportThanks": "Thanks — this report has been sent to Clarity's operators.",
+    "reportError": "The report could not be sent. Please try again.",
+    "reportNotice": "Reports are reviewed by Clarity operators. They never change where a listing appears in results.",
+    "reportReason": {
+      "scam": "Looks like a scam",
+      "already_filled": "Already filled",
+      "duplicate": "Duplicate listing",
+      "misleading": "Misleading details",
+      "discriminatory": "Discriminatory",
+      "other": "Something else"
+    },
+    "workplace": {
+      "remote": "Remote",
+      "hybrid": "Hybrid",
+      "onsite": "On-site"
+    },
+    "employment": {
+      "full_time": "Full-time",
+      "part_time": "Part-time",
+      "contract": "Contract",
+      "temporary": "Temporary",
+      "internship": "Internship",
+      "volunteer": "Volunteer",
+      "per_diem": "Per diem",
+      "other": "Other"
+    },
+    "interval": {
+      "hour": "hour",
+      "day": "day",
+      "week": "week",
+      "month": "month",
+      "year": "year"
+    },
+    "recency": {
+      "any": "Any time",
+      "day": "Past 24 hours",
+      "week": "Past week",
+      "month": "Past month"
+    },
+    "status": {
+      "active": "",
+      "expired": "This listing passed the expiry date its source declared.",
+      "closed": "The source withdrew this listing.",
+      "removed": "This listing was removed from Clarity's index.",
+      "stale": "This listing has not been seen at its source recently."
+    }
   },
   "finance": {
     "title": "Finance",

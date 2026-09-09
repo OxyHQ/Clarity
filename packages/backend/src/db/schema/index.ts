@@ -407,7 +407,7 @@ export const searchDocuments = pgTable('clarity_search_documents', {
   index('clarity_search_documents_published_idx').on(table.publishedAt),
   index('clarity_search_documents_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
   check('clarity_search_documents_status_check', sql`${table.status} in ('discovered', 'fetching', 'extracted', 'indexed', 'blocked', 'failed', 'removed')`),
-  check('clarity_search_documents_type_check', sql`${table.documentType} in ('page', 'article', 'news', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other')`),
+  check('clarity_search_documents_type_check', sql`${table.documentType} in ('page', 'article', 'news', 'job', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other')`),
 ]);
 
 export const searchDocumentAliases = pgTable('clarity_search_document_aliases', {
@@ -565,3 +565,142 @@ export const searchUsageRollups = pgTable('clarity_search_usage_rollups', {
   name: 'clarity_search_usage_rollups_pk',
   columns: [table.ownerAccountId, table.applicationId, table.credentialId, table.operation, table.periodStart],
 })]);
+
+/**
+ * Clarity Jobs — the normalized employment projection.
+ *
+ * A row is a SEARCH REPRESENTATION of one public listing, derived from the
+ * `search_documents` row it points at. The canonical external page stays
+ * authoritative for externally authored listings; Clarity never becomes a
+ * second source of truth, an applicant tracker or a candidate store. No column
+ * here may express a commercial relationship — ranking must remain unable to
+ * read one. See `docs/jobs.mdx`.
+ */
+export const jobClusters = pgTable('clarity_job_clusters', {
+  id: text('id').primaryKey(),
+  /** The member Clarity shows; every other member stays queryable. */
+  canonicalJobPostingId: text('canonical_job_posting_id'),
+  memberCount: integer('member_count').notNull().default(1),
+  ...timestampColumns(),
+}, (table) => [
+  check('clarity_job_clusters_member_count_check', sql`${table.memberCount} > 0`),
+]);
+
+export const jobPostings = pgTable('clarity_job_postings', {
+  id: text('id').primaryKey(),
+  documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  /** Requisition id, listing URL or ordinal — stable within one document. */
+  sourceKey: text('source_key').notNull(),
+  clusterId: text('cluster_id').references(() => jobClusters.id, { onDelete: 'set null' }),
+
+  canonicalUrl: text('canonical_url').notNull(),
+  applyUrl: text('apply_url'),
+  title: text('title').notNull(),
+  normalizedTitle: text('normalized_title').notNull(),
+  description: text('description'),
+  descriptionFingerprint: text('description_fingerprint'),
+
+  employerName: text('employer_name').notNull(),
+  employerUrl: text('employer_url'),
+  employerDomain: text('employer_domain'),
+  employerLogoUrl: text('employer_logo_url'),
+  employerKey: text('employer_key'),
+
+  locations: jsonb('locations').notNull().default(sql`'[]'::jsonb`),
+  locationCountries: text('location_countries').array().notNull().default(sql`'{}'::text[]`),
+  locationRegions: text('location_regions').array().notNull().default(sql`'{}'::text[]`),
+  locationLocalities: text('location_localities').array().notNull().default(sql`'{}'::text[]`),
+  applicantLocationRequirements: text('applicant_location_requirements').array().notNull().default(sql`'{}'::text[]`),
+  workplaceType: text('workplace_type'),
+  employmentTypes: text('employment_types').array().notNull().default(sql`'{}'::text[]`),
+
+  salaryMin: doublePrecision('salary_min'),
+  salaryMax: doublePrecision('salary_max'),
+  salaryCurrency: text('salary_currency'),
+  salaryInterval: text('salary_interval'),
+  /** Source amount at the documented working-time factors, for filtering only. */
+  salaryAnnualMin: doublePrecision('salary_annual_min'),
+  salaryAnnualMax: doublePrecision('salary_annual_max'),
+
+  skills: text('skills').array().notNull().default(sql`'{}'::text[]`),
+  qualifications: text('qualifications'),
+  responsibilities: text('responsibilities'),
+  educationRequirements: text('education_requirements'),
+  experienceRequirements: text('experience_requirements'),
+  industry: text('industry'),
+  occupationalCategory: text('occupational_category'),
+  identifier: text('identifier'),
+  directApply: boolean('direct_apply'),
+
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  validThrough: timestamp('valid_through', { withTimezone: true }),
+  status: text('status').notNull().default('active'),
+  closureReason: text('closure_reason'),
+  closedAt: timestamp('closed_at', { withTimezone: true }),
+
+  sourceType: text('source_type').notNull().default('web'),
+  sourceDomain: text('source_domain').notNull(),
+  /** Oxy application that handed Clarity a first-party listing, if any. */
+  submittedByApplicationId: text('submitted_by_application_id'),
+  fieldEvidence: jsonb('field_evidence').notNull().default(sql`'{}'::jsonb`),
+
+  searchVector: tsvector('search_vector').notNull(),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  ...timestampColumns(),
+}, (table) => [
+  unique('clarity_job_postings_document_source_unique').on(table.documentId, table.sourceKey),
+  index('clarity_job_postings_status_published_idx').on(table.status, table.publishedAt),
+  index('clarity_job_postings_status_last_seen_idx').on(table.status, table.lastSeenAt),
+  index('clarity_job_postings_valid_through_idx').on(table.validThrough),
+  index('clarity_job_postings_cluster_idx').on(table.clusterId),
+  index('clarity_job_postings_employer_idx').on(table.employerKey),
+  index('clarity_job_postings_source_domain_idx').on(table.sourceDomain),
+  index('clarity_job_postings_canonical_url_idx').on(table.canonicalUrl),
+  index('clarity_job_postings_search_idx').using('gin', table.searchVector),
+  index('clarity_job_postings_countries_idx').using('gin', table.locationCountries),
+  index('clarity_job_postings_employment_types_idx').using('gin', table.employmentTypes),
+  index('clarity_job_postings_skills_idx').using('gin', table.skills),
+  index('clarity_job_postings_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
+  check('clarity_job_postings_status_check', sql`${table.status} in ('active', 'expired', 'closed', 'removed', 'stale')`),
+  check('clarity_job_postings_workplace_check', sql`${table.workplaceType} is null or ${table.workplaceType} in ('remote', 'hybrid', 'onsite')`),
+  check('clarity_job_postings_source_type_check', sql`${table.sourceType} in ('web', 'verified_site', 'first_party')`),
+  check('clarity_job_postings_salary_interval_check', sql`${table.salaryInterval} is null or ${table.salaryInterval} in ('hour', 'day', 'week', 'month', 'year')`),
+  check('clarity_job_postings_salary_currency_check', sql`${table.salaryCurrency} is null or ${table.salaryCurrency} ~ '^[A-Z]{3}$'`),
+]);
+
+/**
+ * Grouping evidence. Deleting a row unlinks that evidence without destroying
+ * the listing, which is what makes a dedupe decision reversible.
+ */
+export const jobPostingSignatures = pgTable('clarity_job_posting_signatures', {
+  jobPostingId: text('job_posting_id').notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
+  signature: text('signature').notNull(),
+  kind: text('kind').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ name: 'clarity_job_posting_signatures_pk', columns: [table.jobPostingId, table.signature] }),
+  index('clarity_job_posting_signatures_signature_idx').on(table.signature),
+  check('clarity_job_posting_signatures_kind_check', sql`${table.kind} in ('identifier', 'listing_url', 'content')`),
+]);
+
+/**
+ * Reader reports about a listing (scam, already filled, misleading, …).
+ *
+ * Deliberately carries NO reporter identity: no user id, no address, no device.
+ * A report is an operator signal, never an automatic demotion — reports are not
+ * a permitted ranking input, and the Jobs ranker cannot read this table.
+ */
+export const jobReports = pgTable('clarity_job_reports', {
+  id: text('id').primaryKey(),
+  jobPostingId: text('job_posting_id').notNull().references(() => jobPostings.id, { onDelete: 'cascade' }),
+  reason: text('reason').notNull(),
+  detail: text('detail'),
+  status: text('status').notNull().default('open'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('clarity_job_reports_status_created_idx').on(table.status, table.createdAt),
+  index('clarity_job_reports_posting_idx').on(table.jobPostingId),
+  check('clarity_job_reports_reason_check', sql`${table.reason} in ('scam', 'already_filled', 'duplicate', 'misleading', 'discriminatory', 'other')`),
+  check('clarity_job_reports_status_check', sql`${table.status} in ('open', 'reviewed', 'actioned', 'dismissed')`),
+]);

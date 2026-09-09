@@ -4,13 +4,20 @@ import { and, eq, lt, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxyhq/core/server';
 
 import { closePostgres, connectPostgres, getDb } from './db/index.js';
-import { crawlJobs, crawlPages, fetchAttempts, searchChunks, searchDocuments, searchUsageEvents } from './db/schema/index.js';
+import { crawlJobs, crawlPages, fetchAttempts, searchDocuments, searchUsageEvents } from './db/schema/index.js';
 import { extractDocument } from './search/extractor.js';
-import { CLARITY_EMBEDDING_MODEL, createOxyEmbeddings } from './lib/oxy-embeddings.js';
+import { chunkText, embedChunks, replaceDocumentChunks } from './search/chunking.js';
+import { extractJobPostings } from './search/jobs/extract.js';
+import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/lifecycle.js';
+import { closeJobPostingsForDocument, projectJobPostings } from './search/jobs/projection.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
 const maxBodyBytes = 5 * 1024 * 1024;
+const extractorVersion = 'readability-0.6.0';
+/** How often stored job statuses are reconciled with the lifecycle policy. */
+const jobMaintenanceIntervalMs = 15 * 60 * 1000;
+const jobRecrawlBatchSize = 50;
 
 export async function leaseNextPage() {
   return getDb().transaction(async (tx) => {
@@ -36,6 +43,14 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
   });
   try {
     const result = await safeFetch(page.url, { headers: { 'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)', accept: 'text/html,application/xhtml+xml' }, maxRedirects: 5, headersTimeoutMs: 15_000 });
+    // A listing that answers 404/410 has been withdrawn by its source. Record
+    // the removal instead of indexing the error page.
+    if (result.status === 404 || result.status === 410) {
+      result.response.destroy();
+      await recordGoneDocument(page, result.finalUrl, result.status, attemptId, startedAt);
+      return;
+    }
+    if (result.status >= 400) { result.response.destroy(); throw new Error(`http_status_${result.status}`); }
     const contentType = Array.isArray(result.headers['content-type']) ? result.headers['content-type'][0] : result.headers['content-type'];
     if (!contentType?.includes('text/html')) { result.response.destroy(); throw new Error('unsupported_content_type'); }
     const chunks: Buffer[] = [];
@@ -51,6 +66,10 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
     const canonicalUrl = extracted.canonicalUrl || result.finalUrl;
     const contentHash = createHash('sha256').update(extracted.mainContent || '').digest('hex');
     const textChunks = extracted.noindex ? [] : chunkText(extracted.mainContent || '');
+    const observedAt = new Date();
+    const postings = extracted.noindex
+      ? []
+      : extractJobPostings(extracted.structuredData, canonicalUrl, observedAt.toISOString(), 'json_ld');
     let embeddings: number[][] | undefined;
     if (textChunks.length > 0) {
       try {
@@ -63,17 +82,33 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
       }
     }
     await getDb().transaction(async (tx) => {
-      const [document] = await tx.insert(searchDocuments).values({ id: crypto.randomUUID(), requestedUrl: page.url, finalUrl: result.finalUrl, canonicalUrl, status: extracted.noindex ? 'blocked' : 'indexed', documentType: extracted.documentType, contentHash, httpStatus: result.status, etag: header(result.headers.etag), lastModified: header(result.headers['last-modified']), contentType, language: extracted.language, title: extracted.title, description: extracted.description, mainContent: extracted.mainContent, structuredData: extracted.structuredData, fieldEvidence: extracted.evidence, imageUrl: extracted.imageUrl, faviconUrl: extracted.faviconUrl, noindex: extracted.noindex, nofollow: extracted.nofollow, fetchedAt: new Date(), indexedAt: extracted.noindex ? undefined : new Date() }).onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: { finalUrl: result.finalUrl, status: extracted.noindex ? 'blocked' : 'indexed', documentType: extracted.documentType, contentHash, httpStatus: result.status, etag: header(result.headers.etag), lastModified: header(result.headers['last-modified']), contentType, language: extracted.language, title: extracted.title, description: extracted.description, mainContent: extracted.mainContent, structuredData: extracted.structuredData, fieldEvidence: extracted.evidence, imageUrl: extracted.imageUrl, faviconUrl: extracted.faviconUrl, noindex: extracted.noindex, nofollow: extracted.nofollow, fetchedAt: new Date(), indexedAt: extracted.noindex ? undefined : new Date(), updatedAt: new Date() } }).returning();
-      await tx.delete(searchChunks).where(eq(searchChunks.documentId, document.id));
-      if (textChunks.length > 0) await tx.insert(searchChunks).values(textChunks.map((item, position) => ({
-        id: crypto.randomUUID(), documentId: document.id, position, startOffset: item.start,
-        endOffset: item.end, text: item.text, searchVector: sql`to_tsvector('simple', ${item.text})`,
-        embedding: embeddings?.[position], embeddingModel: embeddings ? CLARITY_EMBEDDING_MODEL : undefined,
-        extractorVersion: 'readability-0.6.0',
-      })));
+      const [job] = await tx.select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
+      const documentStatus = extracted.noindex ? 'blocked' : 'indexed';
+      const nextFetchAt = postings.length > 0
+        ? new Date(observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000)
+        : null;
+      const mutable = {
+        siteId: job.siteId, finalUrl: result.finalUrl, status: documentStatus, documentType: extracted.documentType,
+        contentHash, httpStatus: result.status, etag: header(result.headers.etag), lastModified: header(result.headers['last-modified']),
+        contentType, language: extracted.language, title: extracted.title, description: extracted.description,
+        mainContent: extracted.mainContent, structuredData: extracted.structuredData, fieldEvidence: extracted.evidence,
+        imageUrl: extracted.imageUrl, faviconUrl: extracted.faviconUrl, noindex: extracted.noindex, nofollow: extracted.nofollow,
+        fetchedAt: observedAt, indexedAt: extracted.noindex ? undefined : observedAt, nextFetchAt,
+      };
+      const [document] = await tx.insert(searchDocuments)
+        .values({ id: crypto.randomUUID(), requestedUrl: page.url, canonicalUrl, ...mutable })
+        .onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: { ...mutable, updatedAt: observedAt } })
+        .returning();
+      await replaceDocumentChunks(tx, document.id, textChunks, embeddings, extractorVersion);
+      await projectJobPostings(tx, {
+        documentId: document.id,
+        documentStatus,
+        postings,
+        sourceType: job.siteId ? 'verified_site' : 'web',
+        observedAt,
+      });
       await tx.update(crawlPages).set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
       await tx.update(crawlJobs).set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
-      const [job] = await tx.select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
       if (!extracted.noindex) await tx.insert(searchUsageEvents).values({ id: crypto.randomUUID(), ownerAccountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId, operation: 'page_indexed' });
       await tx.update(fetchAttempts).set({ status: 'succeeded', httpStatus: result.status, bytesReceived: bytes, durationMs: Date.now() - startedAt, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
       await finishJobIfComplete(tx, page.jobId);
@@ -89,6 +124,27 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
   }
 }
 
+/** The source withdrew this URL: remove the document and close its listings. */
+async function recordGoneDocument(
+  page: typeof crawlPages.$inferSelect,
+  finalUrl: string,
+  status: number,
+  attemptId: string,
+  startedAt: number,
+): Promise<void> {
+  await getDb().transaction(async (tx) => {
+    const [document] = await tx.update(searchDocuments)
+      .set({ status: 'removed', httpStatus: status, finalUrl, fetchedAt: new Date(), nextFetchAt: null, updatedAt: new Date() })
+      .where(or(eq(searchDocuments.requestedUrl, page.url), eq(searchDocuments.canonicalUrl, page.url)))
+      .returning({ id: searchDocuments.id });
+    if (document) await closeJobPostingsForDocument(tx, document.id, 'http_gone');
+    await tx.update(crawlPages).set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'http_gone', updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
+    await tx.update(crawlJobs).set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
+    await tx.update(fetchAttempts).set({ status: 'succeeded', httpStatus: status, durationMs: Date.now() - startedAt, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
+    await finishJobIfComplete(tx, page.jobId);
+  });
+}
+
 async function finishJobIfComplete(tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0], jobId: string) {
   const [{ pending }] = await tx.select({ pending: sql<number>`count(*) filter (where ${crawlPages.status} not in ('succeeded', 'failed'))::int` }).from(crawlPages).where(eq(crawlPages.jobId, jobId));
   if (pending === 0) {
@@ -97,29 +153,91 @@ async function finishJobIfComplete(tx: Parameters<Parameters<ReturnType<typeof g
   }
 }
 
-function chunkText(text: string): Array<{ start: number; end: number; text: string }> {
-  const result: Array<{ start: number; end: number; text: string }> = [];
-  for (let start = 0; start < text.length; start += 1600) {
-    const end = Math.min(start + 2000, text.length);
-    result.push({ start, end, text: text.slice(start, end) });
-  }
-  return result;
+/**
+ * Re-queues job documents that are due for verification, under the same owner
+ * that originally requested them, so a listing's disappearance is noticed.
+ */
+interface DueJobDocument extends Record<string, unknown> {
+  documentId: string;
+  url: string;
+  ownerAccountId: string;
+  applicationId: string;
+  credentialId: string | null;
+  siteId: string | null;
 }
-async function embedChunks(texts: string[]): Promise<number[][]> {
-  const embeddings: number[][] = [];
-  for (let start = 0; start < texts.length; start += 128) {
-    embeddings.push(...await createOxyEmbeddings(texts.slice(start, start + 128)));
+
+export async function enqueueJobRecrawls(): Promise<number> {
+  const due = await getDb().execute<DueJobDocument>(sql`
+    select ${searchDocuments.id} as "documentId", ${searchDocuments.canonicalUrl} as url,
+      origin.owner_account_id as "ownerAccountId", origin.application_id as "applicationId",
+      origin.credential_id as "credentialId", origin.site_id as "siteId"
+    from ${searchDocuments}
+    join lateral (
+      select ${crawlJobs.ownerAccountId} as owner_account_id, ${crawlJobs.applicationId} as application_id,
+        ${crawlJobs.credentialId} as credential_id, ${crawlJobs.siteId} as site_id
+      from ${crawlPages} join ${crawlJobs} on ${crawlJobs.id} = ${crawlPages.jobId}
+      where ${crawlPages.url} = ${searchDocuments.requestedUrl}
+      order by ${crawlPages.createdAt} desc limit 1
+    ) as origin on true
+    where ${searchDocuments.documentType} = 'job'
+      and ${searchDocuments.status} = 'indexed'
+      and ${searchDocuments.nextFetchAt} is not null
+      and ${searchDocuments.nextFetchAt} <= now()
+    limit ${jobRecrawlBatchSize}`);
+  if (due.length === 0) return 0;
+
+  const batches = new Map<string, DueJobDocument[]>();
+  for (const row of due) {
+    const key = `${row.ownerAccountId}|${row.applicationId}|${row.credentialId ?? ''}|${row.siteId ?? ''}`;
+    batches.set(key, [...(batches.get(key) ?? []), row]);
   }
-  return embeddings;
+  const cycle = new Date(Date.now() + JOB_RECRAWL_INTERVAL_SECONDS * 1000);
+  await getDb().transaction(async (tx) => {
+    for (const rows of batches.values()) {
+      const [first] = rows;
+      const urls = [...new Set(rows.map((row) => row.url))];
+      const [operation] = await tx.insert(crawlJobs).values({
+        id: crypto.randomUUID(), ownerAccountId: first.ownerAccountId, applicationId: first.applicationId,
+        credentialId: first.credentialId, siteId: first.siteId, kind: 'recrawl',
+        idempotencyKey: `job-recrawl:${new Date().toISOString()}:${crypto.randomUUID()}`,
+        requestedUrls: urls, pagesDiscovered: urls.length,
+      }).returning();
+      await tx.insert(crawlPages)
+        .values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'recrawl' })))
+        .onConflictDoNothing();
+    }
+    await tx.update(searchDocuments)
+      .set({ nextFetchAt: cycle, updatedAt: new Date() })
+      .where(sql`${searchDocuments.id} in (${sql.join(due.map((row) => sql`${row.documentId}`), sql`, `)})`);
+  });
+  return due.length;
 }
+
 function header(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value; }
+
+async function runJobMaintenance(): Promise<void> {
+  try {
+    const sweep = await sweepJobLifecycle();
+    const recrawls = await enqueueJobRecrawls();
+    console.info('Job corpus maintenance completed', { ...sweep, recrawls });
+  } catch (error) {
+    console.error('Job corpus maintenance failed', {
+      error: error instanceof Error ? error.message : 'unknown maintenance failure',
+    });
+  }
+}
 
 async function main() {
   if (!connectPostgres(process.env.DATABASE_URL)) throw new Error('DATABASE_URL is required');
   let stopping = false;
+  let nextMaintenanceAt = 0;
   process.once('SIGTERM', () => { stopping = true; });
   process.once('SIGINT', () => { stopping = true; });
   while (!stopping) {
+    if (Date.now() >= nextMaintenanceAt) {
+      nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
+      await runJobMaintenance();
+    }
     const page = await leaseNextPage();
     if (page) await processPage(page);
     else await new Promise((resolve) => setTimeout(resolve, 1000));

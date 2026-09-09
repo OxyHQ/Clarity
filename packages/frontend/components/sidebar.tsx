@@ -25,6 +25,7 @@ import {
   Clock,
   Monitor,
   Compass,
+  Briefcase,
   LogIn,
   UserPlus,
 } from "lucide-react-native";
@@ -541,6 +542,10 @@ const SearchSidebar = React.memo(function SearchSidebar() {
     () => router.push("/(app)/discover"),
     [router],
   );
+  const handleJobs = React.useCallback(
+    () => router.push("/(app)/jobs"),
+    [router],
+  );
   const handleSettings = React.useCallback(
     () => router.push("/(app)/settings"),
     [router],
@@ -639,6 +644,12 @@ const SearchSidebar = React.memo(function SearchSidebar() {
             icon={Compass}
             label={t("sidebar.discover")}
             onPress={handleDiscover}
+            collapsed
+          />
+          <NavItem
+            icon={Briefcase}
+            label={t("sidebar.jobs")}
+            onPress={handleJobs}
             collapsed
           />
         </View>
@@ -749,6 +760,11 @@ const SearchSidebar = React.memo(function SearchSidebar() {
           icon={Compass}
           label={t("sidebar.discover")}
           onPress={handleDiscover}
+        />
+        <NavItem
+          icon={Briefcase}
+          label={t("sidebar.jobs")}
+          onPress={handleJobs}
         />
       </View>
 

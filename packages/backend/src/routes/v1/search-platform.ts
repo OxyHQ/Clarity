@@ -10,11 +10,20 @@ import {
 import { authenticateResource, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
+import {
+  canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike, excerpt,
+} from '../../search/query-primitives.js';
+import { CLARITY_JOBS_CAPABILITY } from '../../search/jobs/capability.js';
+import {
+  JobsError, getJobPostingById, getJobPostingByUrl, jobCorpusStats, jobSearchSchema, searchJobs,
+} from '../../search/jobs/service.js';
+import { closeJobPostingsForDocument, ingestJobPosting } from '../../search/jobs/projection.js';
+import { jobReportSchema, reportJobPosting } from '../../search/jobs/reports.js';
 
 const router = Router();
 router.use(authenticateResource);
 
-const documentTypes = ['page', 'article', 'news', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other'] as const;
+const documentTypes = ['page', 'article', 'news', 'job', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other'] as const;
 const searchSchema = z.object({
   query: z.string().trim().min(1).max(500),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).default('hybrid'),
@@ -69,8 +78,10 @@ async function rankedSearch(input: SearchInput, embedding: number[] | undefined,
   const filters: SQL[] = [sql`${searchDocuments.status} = 'indexed'`, sql`${searchDocuments.noindex} = false`];
   if (input.types?.length) filters.push(sql`${searchDocuments.documentType} in (${sql.join(input.types.map((type) => sql`${type}`), sql`, `)})`);
   if (input.language) filters.push(sql`${searchDocuments.language} = ${input.language}`);
-  if (input.publishedAfter) filters.push(sql`${searchDocuments.publishedAt} >= ${input.publishedAfter}`);
-  if (input.publishedBefore) filters.push(sql`${searchDocuments.publishedAt} <= ${input.publishedBefore}`);
+  // A raw `sql` parameter carries no column type, so bind timestamps as ISO
+  // text with an explicit cast rather than handing the driver a Date.
+  if (input.publishedAfter) filters.push(sql`${searchDocuments.publishedAt} >= ${input.publishedAfter.toISOString()}::timestamptz`);
+  if (input.publishedBefore) filters.push(sql`${searchDocuments.publishedAt} <= ${input.publishedBefore.toISOString()}::timestamptz`);
   if (input.domains?.length) {
     const domains = input.domains.map((domain) => new URL(`https://${domain}`).hostname.toLowerCase());
     filters.push(sql`(${sql.join(domains.map((domain) => sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`), sql` or `)})`);
@@ -108,8 +119,8 @@ router.post('/index/urls', requireResourceScope('clarity:index'), async (req, re
   if (!input) return;
   const idempotencyKey = requireIdempotency(req, res);
   if (!idempotencyKey) return;
-  const job = await createUrlJob(req, input.urls.map(canonicalizePublicUrl), idempotencyKey);
-  res.status(202).json(publicJob(job));
+  const operation = await createIndexOperation(req, input.urls.map(canonicalizePublicUrl), idempotencyKey);
+  res.status(202).json(publicOperation(operation));
 });
 
 router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) => {
@@ -119,14 +130,14 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   const rows = await getDb().select().from(searchDocuments).where(inArray(searchDocuments.canonicalUrl, urls));
   const byUrl = new Map(rows.map((row) => [row.canonicalUrl, row]));
   const missing = urls.filter((url) => !byUrl.has(url));
-  let jobId: string | undefined;
+  let operationId: string | undefined;
   if (missing.length) {
     const idempotencyKey = req.header('idempotency-key') || `resolve:${crypto.randomUUID()}`;
-    jobId = (await createUrlJob(req, missing, idempotencyKey)).id;
+    operationId = (await createIndexOperation(req, missing, idempotencyKey)).id;
   }
   res.status(missing.length ? 202 : 200).json({ data: urls.map((url) => {
     const document = byUrl.get(url);
-    return document ? { url, document: publicDocument(document), status: document.status } : { url, jobId, status: 'queued' };
+    return document ? { url, document: publicDocument(document), status: document.status } : { url, operationId, status: 'queued' };
   }) });
 });
 
@@ -177,25 +188,160 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
   if (!principal || !idempotencyKey) return;
   const [site] = await getDb().select().from(searchSites).where(and(eq(searchSites.id, String(req.params.id)), eq(searchSites.ownerAccountId, principal.accountId))).limit(1);
   if (!site) { sendError(res, 404, 'site_not_found', 'Site not found', req); return; }
-  const [job] = await getDb().insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, siteId: site.id, kind: 'site', idempotencyKey, requestedUrls: [site.origin] }).onConflictDoUpdate({ target: [crawlJobs.ownerAccountId, crawlJobs.applicationId, crawlJobs.idempotencyKey], set: { updatedAt: sql`now()` } }).returning();
-  res.status(202).json(publicJob(job));
+  const [operation] = await getDb().insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, siteId: site.id, kind: 'site', idempotencyKey, requestedUrls: [site.origin] }).onConflictDoUpdate({ target: [crawlJobs.ownerAccountId, crawlJobs.applicationId, crawlJobs.idempotencyKey], set: { updatedAt: sql`now()` } }).returning();
+  res.status(202).json(publicOperation(operation));
 });
 
-router.get('/jobs/:id', requireResourceScope('clarity:index'), async (req, res) => {
+// Asynchronous crawl/index work is an INDEX OPERATION. The `/v1/jobs` namespace
+// belongs to the employment vertical below; the two must never overlap.
+router.get('/operations/:id', requireResourceScope('clarity:index'), async (req, res) => {
   const principal = req.resourcePrincipal;
   if (!principal) return;
-  const [job] = await getDb().select().from(crawlJobs).where(and(eq(crawlJobs.id, String(req.params.id)), eq(crawlJobs.ownerAccountId, principal.accountId))).limit(1);
-  if (!job) { sendError(res, 404, 'job_not_found', 'Job not found', req); return; }
-  res.json(publicJob(job));
+  const [operation] = await getDb().select().from(crawlJobs).where(and(eq(crawlJobs.id, String(req.params.id)), eq(crawlJobs.ownerAccountId, principal.accountId))).limit(1);
+  if (!operation) { sendError(res, 404, 'operation_not_found', 'Index operation not found', req); return; }
+  res.json(publicOperation(operation));
 });
 
-router.post('/jobs/:id/cancel', requireResourceScope('clarity:index'), async (req, res) => {
+router.post('/operations/:id/cancel', requireResourceScope('clarity:index'), async (req, res) => {
   const principal = req.resourcePrincipal;
   if (!principal) return;
-  const [job] = await getDb().update(crawlJobs).set({ status: 'cancelled', finishedAt: new Date(), updatedAt: new Date() }).where(and(eq(crawlJobs.id, String(req.params.id)), eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running']))).returning();
-  if (!job) { sendError(res, 409, 'job_not_cancellable', 'Job is missing or already terminal', req); return; }
-  res.json(publicJob(job));
+  const [operation] = await getDb().update(crawlJobs).set({ status: 'cancelled', finishedAt: new Date(), updatedAt: new Date() }).where(and(eq(crawlJobs.id, String(req.params.id)), eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running']))).returning();
+  if (!operation) { sendError(res, 409, 'operation_not_cancellable', 'Index operation is missing or already terminal', req); return; }
+  res.json(publicOperation(operation));
 });
+
+// ---------------------------------------------------------------------------
+// Clarity Jobs — the employment vertical. `/v1/jobs` is jobs in the human
+// sense; asynchronous crawl work lives under `/v1/operations`.
+// ---------------------------------------------------------------------------
+
+const ingestJobSchema = z.object({
+  url: z.string().url(),
+  /** `schema.org/JobPosting` JSON-LD, exactly as the publisher emits it. */
+  jobPosting: z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]).optional(),
+  /** Set when the publisher has closed the listing. */
+  closed: z.boolean().default(false),
+});
+
+router.post('/jobs/search', requireResourceScope('clarity:search'), async (req, res) => {
+  const input = parse(jobSearchSchema, req, res);
+  if (!input) return;
+  try {
+    const response = await searchJobs(input);
+    await recordUsage(req, 'search');
+    res.json(response);
+  } catch (error) {
+    sendJobsError(error, req, res);
+  }
+});
+
+router.get('/jobs/capability', requireResourceScope('clarity:search'), (_req, res) => res.json(CLARITY_JOBS_CAPABILITY));
+
+router.get('/jobs/stats', requireResourceScope('clarity:search'), async (_req, res) => res.json(await jobCorpusStats()));
+
+router.get('/jobs/by-url', requireResourceScope('clarity:search'), async (req, res) => {
+  if (typeof req.query.url !== 'string') { sendError(res, 400, 'invalid_request', 'url is required', req); return; }
+  try {
+    const job = await getJobPostingByUrl(req.query.url);
+    if (!job) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+    res.json(job);
+  } catch (error) {
+    sendJobsError(error, req, res);
+  }
+});
+
+/** Abuse report. Recorded without a reporter identity and never used in rank. */
+router.post('/jobs/:id/report', requireResourceScope('clarity:search'), async (req, res) => {
+  const input = parse(jobReportSchema, req, res);
+  if (!input) return;
+  const accepted = await reportJobPosting(String(req.params.id), input);
+  if (!accepted) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+  res.status(202).json({ status: 'received' });
+});
+
+router.get('/jobs/:id', requireResourceScope('clarity:search'), async (req, res) => {
+  const job = await getJobPostingById(String(req.params.id));
+  if (!job) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+  res.json(job);
+});
+
+/**
+ * Publisher boundary. A first-party product (or an employer) hands Clarity a
+ * listing it just published, updated or closed instead of waiting for a crawl.
+ * A structured payload requires a verified site for the listing's host, so no
+ * caller can inject a listing onto a domain it does not own; a bare URL is
+ * simply an ordinary index request.
+ */
+router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, res) => {
+  const input = parse(ingestJobSchema, req, res);
+  const principal = req.resourcePrincipal;
+  if (!input || !principal) return;
+  let canonicalUrl: string;
+  try {
+    canonicalUrl = canonicalizePublicUrl(input.url);
+  } catch {
+    sendError(res, 400, 'invalid_request', 'url must be a public HTTP(S) URL', req);
+    return;
+  }
+
+  if (input.closed || input.jobPosting) {
+    const site = await findVerifiedSite(principal.accountId, canonicalUrl);
+    if (!site) {
+      sendError(res, 403, 'site_not_verified', 'The listing host is not a verified Clarity site owned by this account', req);
+      return;
+    }
+    if (input.closed) {
+      const [document] = await getDb().select({ id: searchDocuments.id }).from(searchDocuments)
+        .where(eq(searchDocuments.canonicalUrl, canonicalUrl)).limit(1);
+      if (!document) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+      await closeJobPostingsForDocument(getDb(), document.id, 'source_closed');
+      res.json({ url: canonicalUrl, status: 'closed' });
+      return;
+    }
+    let ingested: { jobPostingIds: string[] };
+    try {
+      ingested = await ingestJobPosting({
+        canonicalUrl,
+        structuredData: Array.isArray(input.jobPosting) ? input.jobPosting : [input.jobPosting],
+        siteId: site.id,
+        submittedByApplicationId: principal.applicationId,
+        observedAt: new Date(),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'no_job_posting') {
+        sendError(res, 400, 'job_posting_invalid', 'jobPosting must contain a schema.org JobPosting with a title and hiringOrganization', req);
+        return;
+      }
+      throw error;
+    }
+    // Confirm the public page against the payload; the source stays canonical.
+    const operation = await createIndexOperation(req, [canonicalUrl], req.header('idempotency-key') || `job-ingest:${crypto.randomUUID()}`);
+    const job = await getJobPostingById(ingested.jobPostingIds[0]);
+    res.status(202).json({ url: canonicalUrl, ...(job ? { job } : {}), operationId: operation.id, status: 'indexed' });
+    return;
+  }
+
+  const operation = await createIndexOperation(req, [canonicalUrl], req.header('idempotency-key') || `job-ingest:${crypto.randomUUID()}`);
+  res.status(202).json({ url: canonicalUrl, operationId: operation.id, status: 'queued' });
+});
+
+async function findVerifiedSite(accountId: string, url: string) {
+  const host = new URL(url).hostname.toLowerCase();
+  const sites = await getDb().select().from(searchSites)
+    .where(and(eq(searchSites.ownerAccountId, accountId), eq(searchSites.status, 'active')));
+  return sites.find((site) => {
+    const origin = new URL(site.origin).hostname.toLowerCase();
+    return host === origin || host.endsWith(`.${origin}`);
+  });
+}
+
+function sendJobsError(error: unknown, req: Request, res: Response): void {
+  if (error instanceof JobsError) {
+    sendError(res, error.status, error.code, error.message, req);
+    return;
+  }
+  throw error;
+}
 
 router.get('/usage', requireResourceScope('clarity:usage:read'), async (req, res) => {
   const principal = req.resourcePrincipal;
@@ -206,13 +352,13 @@ router.get('/usage', requireResourceScope('clarity:usage:read'), async (req, res
 
 router.get('/quotas', requireResourceScope('clarity:usage:read'), (_req, res) => res.json({ searchesPerMonth: 10_000, fetchesPerMonth: 5_000, sites: 1, activeCrawls: 2, pagesPerCrawl: 5_000, requestsPerMinuteCredential: 60, requestsPerMinuteApplication: 300 }));
 
-async function createUrlJob(req: Request, urls: string[], idempotencyKey: string) {
+export async function createIndexOperation(req: Request, urls: string[], idempotencyKey: string) {
   const principal = req.resourcePrincipal;
   if (!principal) throw new Error('Resource principal missing after authentication');
   return getDb().transaction(async (tx) => {
-    const [job] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length }).onConflictDoUpdate({ target: [crawlJobs.ownerAccountId, crawlJobs.applicationId, crawlJobs.idempotencyKey], set: { updatedAt: sql`now()` } }).returning();
-    await tx.insert(crawlPages).values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: job.id, url, discoverySource: 'api' }))).onConflictDoNothing();
-    return job;
+    const [operation] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length }).onConflictDoUpdate({ target: [crawlJobs.ownerAccountId, crawlJobs.applicationId, crawlJobs.idempotencyKey], set: { updatedAt: sql`now()` } }).returning();
+    await tx.insert(crawlPages).values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'api' }))).onConflictDoNothing();
+    return operation;
   });
 }
 
@@ -236,36 +382,11 @@ function requireIdempotency(req: Request, res: Response): string | undefined {
   return undefined;
 }
 
-function canonicalizePublicUrl(value: string): string {
-  const url = new URL(value);
-  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Only public HTTP(S) URLs are supported');
-  url.hash = '';
-  url.hostname = url.hostname.toLowerCase();
-  if ((url.protocol === 'https:' && url.port === '443') || (url.protocol === 'http:' && url.port === '80')) url.port = '';
-  return url.toString();
-}
-
 function publicDocument(row: typeof searchDocuments.$inferSelect) {
   return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: row.faviconUrl ?? undefined, indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
 }
-function publicJob(row: typeof crawlJobs.$inferSelect) { return { id: row.id, kind: row.kind, status: row.status, pagesDiscovered: row.pagesDiscovered, pagesCompleted: row.pagesCompleted, ...(row.errorCode ? { error: { code: row.errorCode, detail: row.errorDetail ?? undefined } } : {}), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() }; }
+function publicOperation(row: typeof crawlJobs.$inferSelect) { return { id: row.id, kind: row.kind, status: row.status, pagesDiscovered: row.pagesDiscovered, pagesCompleted: row.pagesCompleted, ...(row.errorCode ? { error: { code: row.errorCode, detail: row.errorDetail ?? undefined } } : {}), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() }; }
 function publicSite(row: typeof searchSites.$inferSelect) { return { id: row.id, origin: row.origin, verifiedDomainId: row.verifiedDomainId, status: row.status, crawlEnabled: row.crawlEnabled, recrawlIntervalSeconds: row.recrawlIntervalSeconds, maxPagesPerCrawl: row.maxPagesPerCrawl, sitemapUrls: row.sitemapUrls, feedUrls: row.feedUrls, nextCrawlAt: row.nextCrawlAt?.toISOString() }; }
-function excerpt(value: string | null): string | undefined { return value ? `${value.slice(0, 300)}${value.length > 300 ? '…' : ''}` : undefined; }
-function escapeLike(value: string): string { return value.replace(/[\\%_]/g, '\\$&'); }
-function encodeSearchCursor(offset: number): string { return Buffer.from(JSON.stringify({ offset })).toString('base64url'); }
-function decodeSearchCursor(value?: string): number | undefined {
-  if (!value) return 0;
-  try {
-    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
-    if (typeof parsed !== 'object' || parsed === null || !('offset' in parsed)) return undefined;
-    const offset = parsed.offset;
-    return typeof offset === 'number' && Number.isSafeInteger(offset) && offset >= 0 && offset <= 10_000 ? offset : undefined;
-  } catch (error) {
-    if (error instanceof SyntaxError) return undefined;
-    throw error;
-  }
-}
-
 async function verifyDomainOwnership(accountId: string, verifiedDomainId: string, originHost: string): Promise<boolean> {
   const serviceToken = await getClarityServiceToken();
   const response = await fetch(`${(process.env.OXY_API_URL || 'https://api.oxy.so').replace(/\/$/, '')}/auth/resources/domains/verify`, {

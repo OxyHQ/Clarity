@@ -24,7 +24,8 @@ the sole hosted inference data plane and its only canonical signed origin is
 | --- | --- |
 | `@clarity/frontend` | Expo app for web, iOS and Android |
 | `@clarity/backend` | Express product API and Alia agent proxy |
-| `@clarity/shared-types` | Conversation, model and streaming DTOs |
+| `@clarity/shared-types` | Conversation, model, streaming and Jobs DTOs |
+| `@clarity.surf/sdk` | Public SDK for Search, Jobs, Indexing and News |
 
 ## Local development
 
@@ -56,6 +57,7 @@ does not claim any production cutover or deployment.
 - [`docs/index.mdx`](docs/index.mdx) — ownership and current architecture
 - [`docs/api-reference.md`](docs/api-reference.md) — mounted API surface
 - [`docs/chat-api.mdx`](docs/chat-api.mdx) — chat and SSE translation
+- [`docs/jobs.mdx`](docs/jobs.mdx) — the Clarity Jobs employment vertical
 - [`docs/model-abstraction.mdx`](docs/model-abstraction.mdx) — exact product IDs
 - [`docs/deployment.md`](docs/deployment.md) — fail-closed deployment gates
 - [`docs/onboarding.md`](docs/onboarding.md) — developer setup

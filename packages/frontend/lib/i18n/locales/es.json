@@ -237,7 +237,8 @@
     "writingStyle": "Writing Style",
     "security": "Security",
     "discover": "Discover",
-    "finance": "Finance"
+    "finance": "Finance",
+    "jobs": "Empleo"
   },
   "sidebar": {
     "newChat": "New Chat",
@@ -271,7 +272,85 @@
     "logOut": "Log out",
     "settings": "Settings",
     "termsOfService": "Terms of Service",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "jobs": "Empleo"
+  },
+  "jobs": {
+    "title": "Empleo",
+    "heading": "Encuentra trabajo en la web pública",
+    "subheading": "Clarity indexa ofertas de empleo públicas y las normaliza. La oferta original del empleador sigue siendo la fuente.",
+    "queryPlaceholder": "Puesto, habilidad o palabra clave",
+    "locationPlaceholder": "Ciudad, país o región",
+    "salaryPlaceholder": "Salario mín. / año",
+    "searchAction": "Buscar",
+    "loadMore": "Cargar más",
+    "loadingMore": "Cargando...",
+    "retry": "Reintentar",
+    "emptyTitle": "Sin ofertas coincidentes",
+    "emptyBody": "Prueba con una búsqueda más amplia, menos filtros o una ubicación mayor.",
+    "errorTitle": "La búsqueda de empleo no está disponible",
+    "errorBody": "Clarity no pudo consultar el índice de empleo. Tus filtros se han conservado.",
+    "detailErrorTitle": "No se pudo cargar esta oferta",
+    "detailErrorBody": "Puede que la fuente la haya retirado o que el enlace ya no sea válido.",
+    "degraded": "La coincidencia semántica no está disponible temporalmente; estos resultados son solo por palabras clave.",
+    "sourceOn": "Publicada en %{domain}",
+    "alsoPublished": "· también en %{count} más",
+    "indexedNotice": "Clarity indexó esta oferta desde %{domain}. Clarity no es el empleador y no recibe candidaturas.",
+    "viewOriginal": "Ver la oferta original",
+    "otherSources": "También publicada en",
+    "descriptionHeading": "Sobre el puesto",
+    "skillsHeading": "Habilidades",
+    "qualificationsHeading": "Requisitos",
+    "responsibilitiesHeading": "Responsabilidades",
+    "postedToday": "Publicada hoy",
+    "disclaimer": "Clarity Jobs solo muestra ofertas públicas. Buscar o abrir una oferta nunca te identifica ante el empleador.",
+    "report": "Denunciar esta oferta",
+    "reportThanks": "Gracias: hemos enviado esta denuncia al equipo de Clarity.",
+    "reportError": "No se pudo enviar la denuncia. Inténtalo de nuevo.",
+    "reportNotice": "El equipo de Clarity revisa las denuncias. Nunca cambian la posición de una oferta en los resultados.",
+    "reportReason": {
+      "scam": "Parece una estafa",
+      "already_filled": "Ya está cubierta",
+      "duplicate": "Oferta duplicada",
+      "misleading": "Información engañosa",
+      "discriminatory": "Discriminatoria",
+      "other": "Otro motivo"
+    },
+    "workplace": {
+      "remote": "Remoto",
+      "hybrid": "Híbrido",
+      "onsite": "Presencial"
+    },
+    "employment": {
+      "full_time": "Jornada completa",
+      "part_time": "Media jornada",
+      "contract": "Contrato",
+      "temporary": "Temporal",
+      "internship": "Prácticas",
+      "volunteer": "Voluntariado",
+      "per_diem": "Por días",
+      "other": "Otro"
+    },
+    "interval": {
+      "hour": "hora",
+      "day": "día",
+      "week": "semana",
+      "month": "mes",
+      "year": "año"
+    },
+    "recency": {
+      "any": "Cualquier fecha",
+      "day": "Últimas 24 horas",
+      "week": "Última semana",
+      "month": "Último mes"
+    },
+    "status": {
+      "active": "",
+      "expired": "Esta oferta superó la fecha de caducidad declarada por su fuente.",
+      "closed": "La fuente retiró esta oferta.",
+      "removed": "Esta oferta se eliminó del índice de Clarity.",
+      "stale": "Esta oferta no se ha vuelto a observar en su fuente recientemente."
+    }
   },
   "finance": {
     "title": "Finance",

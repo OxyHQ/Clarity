@@ -1,6 +1,8 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 
+import { hasJobPosting } from './jobs/extract.js';
+
 export interface ExtractedDocument {
   title?: string;
   description?: string;
@@ -9,7 +11,7 @@ export interface ExtractedDocument {
   canonicalUrl?: string;
   imageUrl?: string;
   faviconUrl?: string;
-  documentType: 'page' | 'article' | 'news' | 'product' | 'video' | 'event' | 'recipe' | 'profile' | 'documentation' | 'other';
+  documentType: 'page' | 'article' | 'news' | 'job' | 'product' | 'video' | 'event' | 'recipe' | 'profile' | 'documentation' | 'other';
   structuredData: unknown[];
   evidence: Record<string, { source: string; selector?: string; extractedAt: string }>;
   noindex: boolean;
@@ -71,6 +73,7 @@ function classify(values: unknown[]): ExtractedDocument['documentType'] {
     const type = (value as Record<string, unknown>)['@type'];
     return Array.isArray(type) ? type.filter((item): item is string => typeof item === 'string') : typeof type === 'string' ? [type] : [];
   }).map((type) => type.toLowerCase());
+  if (hasJobPosting(values)) return 'job';
   if (types.some((type) => type.includes('newsarticle'))) return 'news';
   if (types.some((type) => type.includes('article'))) return 'article';
   if (types.some((type) => type.includes('product'))) return 'product';

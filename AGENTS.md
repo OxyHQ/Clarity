@@ -27,6 +27,16 @@ named Alia bot/agent. Chat flows `Clarity -> Alia -> Oxy inference -> Kaana`.
   authenticated user's `X-Oxy-User-Id`. Never forward a human bearer. The token
   must identify the exact backend app, credential, project payer and exact
   `user:read` + `inference:invoke` scope set.
+- Clarity Jobs indexes PUBLIC job postings. No applicant tracking, CV store,
+  candidate profile or application data, and no route that could disclose a
+  named user to an employer. Never present Clarity as the employer or source of
+  a listing it only indexed.
+- No commercial signal — payment, subscription tier, ad spend, licensing tier,
+  Mercaria or Mention engagement — may reach job ranking, in any weighting.
+  `src/search/jobs/__tests__/ranking-contract.test.ts` enforces this
+  structurally; extend it rather than working around it.
+- `jobs` means employment. Asynchronous crawl/index work is an *operation*
+  (`clarity.operations`, `/v1/operations/:id`).
 
 Platform credentials such as Stripe, VAPID, Valkey and Oxy identity are not
 inference-provider credentials. Keep that distinction in architecture gates.
@@ -56,8 +66,11 @@ tests. See `docs/postgres-alia-migration.md` for backfill and cutover commands.
 
 - `docs/index.mdx` — current architecture and ownership.
 - `docs/chat-api.mdx` — user-session chat and streaming boundary.
+- `docs/jobs.mdx` — Jobs vertical: extraction, projection, lifecycle, dedupe,
+  ranking contract, ingestion boundary and portal.
 - `docs/postgres-alia-migration.md` — rehearsal, reconciliation and cutover.
 - `packages/backend/src/db/schema/index.ts` — product schema.
 - `packages/backend/src/lib/alia-agent-client.ts` — fixed-agent proxy.
+- `packages/backend/src/search/jobs/` — Jobs extraction, projection and search.
 - `packages/backend/src/__tests__/architecture-gates.test.ts` — forbidden
   dependency/config regression gate.

@@ -1,7 +1,8 @@
 import type {
-  ClarityErrorBody, CreateSiteRequest, Document, IndexUrlsRequest, Job, NewsRequest, NewsStory,
-  Page, Quotas, RequestOptions, ResolveRequest, ResolveResult, SearchRequest, SearchResponse, Site,
-  UpdateSiteRequest, UsageBucket,
+  ClarityErrorBody, CreateSiteRequest, Document, IndexOperation, IndexUrlsRequest, JobCorpusStats,
+  JobIngestRequest, JobIngestResult, JobPosting, JobReportRequest, JobSearchRequest, JobSearchResponse, JobsCapability,
+  NewsRequest, NewsStory, Page, Quotas, RequestOptions, ResolveRequest, ResolveResult, SearchRequest,
+  SearchResponse, Site, UpdateSiteRequest, UsageBucket,
 } from './types.js';
 
 export class ClarityError extends Error {
@@ -51,7 +52,7 @@ export class ClarityClient {
   };
 
   readonly indexing = {
-    urls: (request: IndexUrlsRequest, options: RequestOptions) => this.request<Job>('POST', '/v1/index/urls', request, options),
+    urls: (request: IndexUrlsRequest, options: RequestOptions) => this.request<IndexOperation>('POST', '/v1/index/urls', request, options),
     resolve: (request: ResolveRequest, options?: RequestOptions) => this.request<{ data: ResolveResult[] }>('POST', '/v1/resolve', request, options),
   };
 
@@ -59,20 +60,45 @@ export class ClarityClient {
     list: (cursor?: string, options?: RequestOptions) => this.request<Page<Site>>('GET', `/v1/sites${query({ cursor })}`, undefined, options),
     create: (request: CreateSiteRequest, options: RequestOptions) => this.request<Site>('POST', '/v1/sites', request, options),
     update: (id: string, request: UpdateSiteRequest, options: RequestOptions) => this.request<Site>('PATCH', `/v1/sites/${encodeURIComponent(id)}`, request, options),
-    crawl: (id: string, options: RequestOptions) => this.request<Job>('POST', `/v1/sites/${encodeURIComponent(id)}/crawls`, {}, options),
-    removeDocument: (id: string, documentId: string, options: RequestOptions) => this.request<Job>('POST', `/v1/sites/${encodeURIComponent(id)}/removals`, { documentId }, options),
+    crawl: (id: string, options: RequestOptions) => this.request<IndexOperation>('POST', `/v1/sites/${encodeURIComponent(id)}/crawls`, {}, options),
+    removeDocument: (id: string, documentId: string, options: RequestOptions) => this.request<IndexOperation>('POST', `/v1/sites/${encodeURIComponent(id)}/removals`, { documentId }, options),
   };
 
-  readonly jobs = {
-    get: (id: string, options?: RequestOptions) => this.request<Job>('GET', `/v1/jobs/${encodeURIComponent(id)}`, undefined, options),
-    cancel: (id: string, options: RequestOptions) => this.request<Job>('POST', `/v1/jobs/${encodeURIComponent(id)}/cancel`, {}, options),
-    wait: async (id: string, options: RequestOptions & { intervalMs?: number } = {}): Promise<Job> => {
+  /** Asynchronous crawl/index work. Employment listings are `jobs`. */
+  readonly operations = {
+    get: (id: string, options?: RequestOptions) => this.request<IndexOperation>('GET', `/v1/operations/${encodeURIComponent(id)}`, undefined, options),
+    cancel: (id: string, options: RequestOptions) => this.request<IndexOperation>('POST', `/v1/operations/${encodeURIComponent(id)}/cancel`, {}, options),
+    wait: async (id: string, options: RequestOptions & { intervalMs?: number } = {}): Promise<IndexOperation> => {
       while (true) {
-        const job = await this.request<Job>('GET', `/v1/jobs/${encodeURIComponent(id)}`, undefined, options);
-        if (['succeeded', 'partial', 'failed', 'cancelled'].includes(job.status)) return job;
+        const operation = await this.request<IndexOperation>('GET', `/v1/operations/${encodeURIComponent(id)}`, undefined, options);
+        if (['succeeded', 'partial', 'failed', 'cancelled'].includes(operation.status)) return operation;
         await delay(options.intervalMs ?? 1000, options.signal);
       }
     },
+  };
+
+  /**
+   * Clarity Jobs — employment search over public listings.
+   *
+   * Result order comes from relevance, freshness, listing completeness and
+   * duplicate suppression. Nothing an employer pays for can change it.
+   */
+  readonly jobs = {
+    search: (request: JobSearchRequest, options?: RequestOptions) =>
+      this.request<JobSearchResponse>('POST', '/v1/jobs/search', request, options),
+    get: (id: string, options?: RequestOptions) =>
+      this.request<JobPosting>('GET', `/v1/jobs/${encodeURIComponent(id)}`, undefined, options),
+    byUrl: (url: string, options?: RequestOptions) =>
+      this.request<JobPosting>('GET', `/v1/jobs/by-url${query({ url })}`, undefined, options),
+    /** Hand Clarity a listing that was just published, updated or closed. */
+    ingest: (request: JobIngestRequest, options: RequestOptions) =>
+      this.request<JobIngestResult>('POST', '/v1/jobs/ingest', request, options),
+    /** Report a listing. Anonymous, and never a ranking input. */
+    report: (id: string, request: JobReportRequest, options?: RequestOptions) =>
+      this.request<{ status: 'received' }>('POST', `/v1/jobs/${encodeURIComponent(id)}/report`, request, options),
+    stats: (options?: RequestOptions) => this.request<JobCorpusStats>('GET', '/v1/jobs/stats', undefined, options),
+    /** Tool descriptor for agents that must ground employment facts. */
+    capability: (options?: RequestOptions) => this.request<JobsCapability>('GET', '/v1/jobs/capability', undefined, options),
   };
 
   readonly usage = {

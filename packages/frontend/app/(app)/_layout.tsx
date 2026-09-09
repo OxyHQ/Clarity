@@ -15,7 +15,7 @@ import { useNotificationSetup } from '@/lib/hooks/use-notification-setup';
 const VISIBLE_ROUTES = new Set(['c/[id]/index', 'settings/index']);
 
 // Routes that handle their own top safe area insets
-const SELF_INSET_ROUTES = new Set(['index', 'c/[id]/index', 'settings', 'history', 'discover', 'finance']);
+const SELF_INSET_ROUTES = new Set(['index', 'c/[id]/index', 'settings', 'history', 'discover', 'finance', 'jobs/index', 'jobs/[id]']);
 
 const SIDEBAR_WIDTH_EXPANDED = 256;
 const SIDEBAR_WIDTH_COLLAPSED = 48;
@@ -104,6 +104,20 @@ export default function AppLayout() {
                   options={{
                     drawerLabel: i18n.t('nav.finance'),
                     title: i18n.t('nav.finance'),
+                  }}
+                />
+                <Drawer.Screen
+                  name="jobs/index"
+                  options={{
+                    drawerLabel: i18n.t('nav.jobs'),
+                    title: i18n.t('nav.jobs'),
+                  }}
+                />
+                <Drawer.Screen
+                  name="jobs/[id]"
+                  options={{
+                    drawerLabel: i18n.t('nav.jobs'),
+                    title: i18n.t('nav.jobs'),
                   }}
                 />
                 <Drawer.Screen

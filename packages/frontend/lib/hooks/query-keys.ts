@@ -42,6 +42,10 @@ export const queryKeys = {
     info: ['referral-info'] as const,
     history: ['referral-history'] as const,
   },
+  jobs: {
+    search: (request: unknown) => ['jobs', 'search', request] as const,
+    detail: (id: string) => ['jobs', 'detail', id] as const,
+  },
   suggestions: {
     welcome: ['suggestions', 'welcome'] as const,
     search: (query: string) => ['suggestions', 'search', query] as const,
