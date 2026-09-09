@@ -34,7 +34,10 @@ async function main(): Promise<void> {
   await runMigrations({
     databaseUrl,
     migrationsFolder: join(packageRoot, 'drizzle'),
-    extensions: [],
+    extensions: [
+      { name: 'vector', reason: '1024-dimensional document chunk embeddings and HNSW indexes' },
+      { name: 'pg_trgm', reason: 'fuzzy title and URL search indexes' },
+    ],
     run,
     expectedDatabase,
     dryRun: isDryRun(argv),
