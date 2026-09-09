@@ -21,6 +21,24 @@ jobs:
       - name: Build web
         run: bun run build:frontend
 
+      # Cloudflare stores the production branch on the project, so the rename to
+      # `main` is not complete until that setting moves too: an untouched
+      # project would keep calling `master` production and publish the deploy
+      # below as a PREVIEW, silently freezing clarity.surf. Pin it here rather
+      # than in a dashboard nobody remembers to open.
+      - name: Pin the Cloudflare Pages production branch
+        env:
+          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          curl -sS --fail-with-body -X PATCH \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/clarity" \
+            -H "Authorization: Bearer ${CF_API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"production_branch":"main"}' > /dev/null
+          echo "Cloudflare Pages project 'clarity' now treats main as production."
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
