@@ -18,6 +18,7 @@
     "db:migrate": "bun src/db/migrate.ts",
     "db:backfill": "bun src/db/backfill.ts",
     "db:attest-cutover": "bun src/db/attest-cutover.ts",
+    "import:oxy-link-previews": "bun src/scripts/import-oxy-link-previews.ts",
     "agent:bootstrap-manifest": "bun src/scripts/render-clarity-agent-bootstrap.ts"
   },
   "dependencies": {
