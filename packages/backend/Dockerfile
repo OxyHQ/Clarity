@@ -63,10 +63,10 @@ RUN chown -R node:node /app
 USER node
 
 ENV NODE_ENV=production
-EXPOSE 3000
+EXPOSE 3001
 
-# Health check for orchestrators (k8s, DO App Platform)
+# Local image health check. ECS/ALB uses the same live endpoint.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:3000/health/live || exit 1
+  CMD curl -f http://localhost:3001/health/live || exit 1
 
 CMD ["node", "packages/backend/dist/index.js"]
