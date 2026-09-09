@@ -37,9 +37,9 @@ bun run dev:frontend
 
 The API requires `DATABASE_URL`, the byte-exact canonical
 `CLARITY_ALIA_AGENT_ID`, and Clarity's dedicated Oxy backend credential. The
-credential secret is a provider-managed DigitalOcean App Platform secret; it
-is never stored in the repository, a user bearer or an inference-provider key.
-Redis, Stripe and browser-push settings are optional.
+credential secret belongs in the production platform's managed secret store;
+it is never stored in the repository, a user bearer or an inference-provider
+key. Redis, Stripe and browser-push settings are optional.
 
 ```bash
 bun run --filter @clarity/backend lint

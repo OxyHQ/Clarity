@@ -46,4 +46,4 @@ bun run android
 
 API configuration lives in `lib/config.ts`; the production product API is
 `https://api.clarity.surf`. This source declaration does not prove that DNS or
-a production App Platform deployment exists.
+a production API deployment exists.
