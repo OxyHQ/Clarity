@@ -26,4 +26,9 @@ describe('parseLegacyLinkPreviewExport', () => {
   it('rejects tampered records', () => {
     expect(() => parseLegacyLinkPreviewExport(exportText().replace('"title":"A"', '"title":"B"'))).toThrow('checksum');
   });
+
+  it('rejects invalid fields even when their checksum is valid', () => {
+    const invalid = record.replace('"createdAt":"2025-01-01T00:00:00.000Z"', '"createdAt":"yesterday"');
+    expect(() => parseLegacyLinkPreviewExport(exportText(invalid))).toThrow('Malformed');
+  });
 });

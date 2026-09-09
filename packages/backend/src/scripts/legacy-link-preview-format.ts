@@ -27,6 +27,15 @@ export interface LegacyLinkPreviewManifest {
   recordsSha256: string;
 }
 
+function isNullableString(value: unknown): value is string | null {
+  return typeof value === 'string' || value === null;
+}
+
+function isTimestamp(value: unknown, nullable = false): value is string | null {
+  return (nullable && value === null)
+    || (typeof value === 'string' && Number.isFinite(Date.parse(value)));
+}
+
 export function parseLegacyLinkPreviewExport(input: string): {
   manifest: LegacyLinkPreviewManifest;
   records: LegacyLinkPreviewRecord[];
@@ -61,9 +70,16 @@ export function parseLegacyLinkPreviewExport(input: string): {
       || typeof record.id !== 'string'
       || typeof record.requestedUrl !== 'string'
       || typeof record.canonicalUrl !== 'string'
+      || !isNullableString(record.title)
+      || !isNullableString(record.description)
+      || !isNullableString(record.siteName)
+      || !isNullableString(record.faviconUrl)
+      || !isNullableString(record.imageUrl)
       || typeof record.resolverVersion !== 'number'
-      || typeof record.createdAt !== 'string'
-      || typeof record.updatedAt !== 'string'
+      || !Number.isSafeInteger(record.resolverVersion)
+      || !isTimestamp(record.resolvedAt, true)
+      || !isTimestamp(record.createdAt)
+      || !isTimestamp(record.updatedAt)
     ) {
       throw new Error(`Malformed link preview record at line ${index + 2}`);
     }
