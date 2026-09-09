@@ -50,6 +50,13 @@
       "when": 1788909409621,
       "tag": "0006_moaning_swordsman",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788915337757,
+      "tag": "0007_public_rictor",
+      "breakpoints": true
     }
   ]
 }

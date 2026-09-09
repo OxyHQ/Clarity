@@ -4,9 +4,10 @@ import { and, eq, lt, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxyhq/core/server';
 
 import { closePostgres, connectPostgres, getDb } from './db/index.js';
-import { crawlJobs, crawlPages, fetchAttempts, searchChunks, searchDocuments, searchUsageEvents } from './db/schema/index.js';
+import { crawlJobs, crawlPages, fetchAttempts, searchChunks, searchDocuments } from './db/schema/index.js';
 import { extractDocument } from './search/extractor.js';
 import { CLARITY_EMBEDDING_MODEL, createOxyEmbeddings } from './lib/oxy-embeddings.js';
+import { consumeUsage, effectiveQuota } from './search/quotas.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
@@ -20,6 +21,12 @@ export async function leaseNextPage() {
       or(sql`${crawlPages.leaseExpiresAt} is null`, lt(crawlPages.leaseExpiresAt, new Date())),
     )).orderBy(crawlPages.availableAt).limit(1).for('update', { skipLocked: true });
     if (!page) return undefined;
+    const [job] = await tx.select({ ownerAccountId: crawlJobs.ownerAccountId }).from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
+    if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${job.ownerAccountId}:concurrent_fetches`}, 0))`);
+    const concurrencyLimit = await effectiveQuota(tx, job.ownerAccountId, 'concurrent_fetches');
+    const [active] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlPages).innerJoin(crawlJobs, eq(crawlPages.jobId, crawlJobs.id)).where(and(eq(crawlJobs.ownerAccountId, job.ownerAccountId), eq(crawlPages.status, 'fetching')));
+    if (active.quantity >= concurrencyLimit) return undefined;
     const [leased] = await tx.update(crawlPages).set({ status: 'fetching', leaseOwner: workerId, leaseExpiresAt: sql`now() + interval '${sql.raw(String(leaseSeconds))} seconds'`, heartbeatAt: new Date(), attemptCount: page.attemptCount + 1, updatedAt: new Date() }).where(eq(crawlPages.id, page.id)).returning();
     await tx.update(crawlJobs).set({ status: 'running', startedAt: sql`coalesce(${crawlJobs.startedAt}, now())`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
     return leased;
@@ -29,10 +36,20 @@ export async function leaseNextPage() {
 export async function processPage(page: typeof crawlPages.$inferSelect): Promise<void> {
   const startedAt = Date.now();
   const attemptId = crypto.randomUUID();
+  const [job] = await getDb().select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
+  if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
+  const principal = { accountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId ?? undefined };
+  const fetchUsage = await consumeUsage({ principal, operation: 'fetch_started', idempotencyKey: `crawl-page:${page.id}:attempt:${page.attemptCount}` });
+  if (!fetchUsage.accepted) {
+    await getDb().transaction(async (tx) => {
+      await tx.update(crawlPages).set({ status: 'failed', leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'fetch_quota_exceeded', lastErrorDetail: 'The monthly fetch quota has been exhausted', updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
+      await tx.update(crawlJobs).set({ errorCode: 'fetch_quota_exceeded', errorDetail: 'The monthly fetch quota has been exhausted', updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
+      await finishJobIfComplete(tx, page.jobId);
+    });
+    return;
+  }
   await getDb().transaction(async (tx) => {
-    const [job] = await tx.select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
     await tx.insert(fetchAttempts).values({ id: attemptId, crawlPageId: page.id, attempt: page.attemptCount, fetchMode: 'http', status: 'running' });
-    await tx.insert(searchUsageEvents).values({ id: crypto.randomUUID(), ownerAccountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId, operation: 'fetch_started' });
   });
   try {
     const result = await safeFetch(page.url, { headers: { 'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)', accept: 'text/html,application/xhtml+xml' }, maxRedirects: 5, headersTimeoutMs: 15_000 });
@@ -73,11 +90,10 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
       })));
       await tx.update(crawlPages).set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
       await tx.update(crawlJobs).set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
-      const [job] = await tx.select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
-      if (!extracted.noindex) await tx.insert(searchUsageEvents).values({ id: crypto.randomUUID(), ownerAccountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId, operation: 'page_indexed' });
       await tx.update(fetchAttempts).set({ status: 'succeeded', httpStatus: result.status, bytesReceived: bytes, durationMs: Date.now() - startedAt, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
       await finishJobIfComplete(tx, page.jobId);
     });
+    if (!extracted.noindex) await consumeUsage({ principal, operation: 'page_indexed', idempotencyKey: `crawl-page:${page.id}:indexed` });
   } catch (error) {
     const retry = page.attemptCount < 3;
     const detail = error instanceof Error ? error.message.slice(0, 500) : 'unknown fetch failure';

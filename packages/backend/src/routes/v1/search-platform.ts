@@ -5,14 +5,26 @@ import { z } from 'zod';
 import { getDb } from '../../db/index.js';
 import {
   crawlJobs, crawlPages, newsStories, newsStoryArticles, searchDocuments, searchSites,
-  searchChunks, searchUsageEvents, searchUsageRollups,
+  searchChunks, searchUsageRollups,
 } from '../../db/schema/index.js';
 import { authenticateResource, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
+import { consumeRequestRate, consumeUsage, effectiveQuota, SANDBOX_QUOTAS, type QuotaMetric } from '../../search/quotas.js';
 
 const router = Router();
 router.use(authenticateResource);
+router.use(async (req, res, next) => {
+  const principal = req.resourcePrincipal;
+  if (!principal) return;
+  const result = await consumeRequestRate(principal);
+  if (!result.accepted) {
+    if (result.retryAfterSeconds) res.setHeader('Retry-After', String(result.retryAfterSeconds));
+    sendError(res, 429, 'rate_limit_exceeded', 'The request rate limit has been exceeded', req);
+    return;
+  }
+  next();
+});
 
 const documentTypes = ['page', 'article', 'news', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other'] as const;
 const searchSchema = z.object({
@@ -36,6 +48,13 @@ const createSiteSchema = z.object({
 router.post('/search', requireResourceScope('clarity:search'), async (req, res) => {
   const input = parse(searchSchema, req, res);
   if (!input) return;
+  const principal = req.resourcePrincipal;
+  if (!principal) return;
+  const usage = await consumeUsage({ principal, operation: 'search' });
+  if (!usage.accepted) {
+    sendError(res, 429, 'monthly_quota_exceeded', 'The monthly search quota has been exhausted', req, { metric: 'search_month', limit: usage.limit, used: usage.used });
+    return;
+  }
   let queryEmbedding: number[] | undefined;
   let degraded: { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' } | undefined;
   if (input.mode !== 'lexical') {
@@ -55,7 +74,6 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
   const ids = ranks.slice(0, input.limit).map((row) => row.documentId);
   const documents = ids.length ? await getDb().select().from(searchDocuments).where(inArray(searchDocuments.id, ids)) : [];
   const documentsById = new Map(documents.map((row) => [row.id, row]));
-  await recordUsage(req, 'search');
   const data = ranks.slice(0, input.limit).flatMap((rank) => {
     const row = documentsById.get(rank.documentId);
     return row ? [{ ...publicDocument(row), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score: Number(rank.score) }] : [];
@@ -109,6 +127,7 @@ router.post('/index/urls', requireResourceScope('clarity:index'), async (req, re
   const idempotencyKey = requireIdempotency(req, res);
   if (!idempotencyKey) return;
   const job = await createUrlJob(req, input.urls.map(canonicalizePublicUrl), idempotencyKey);
+  if (!job) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
   res.status(202).json(publicJob(job));
 });
 
@@ -122,7 +141,9 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   let jobId: string | undefined;
   if (missing.length) {
     const idempotencyKey = req.header('idempotency-key') || `resolve:${crypto.randomUUID()}`;
-    jobId = (await createUrlJob(req, missing, idempotencyKey)).id;
+    const job = await createUrlJob(req, missing, idempotencyKey);
+    if (!job) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
+    jobId = job.id;
   }
   res.status(missing.length ? 202 : 200).json({ data: urls.map((url) => {
     const document = byUrl.get(url);
@@ -167,7 +188,17 @@ router.post('/sites', requireResourceScope('clarity:sites:manage'), async (req, 
     sendError(res, 403, 'domain_not_verified', 'The origin is not a verified Oxy domain owned by this account', req);
     return;
   }
-  const [site] = await getDb().insert(searchSites).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, origin, verifiedDomainId: input.verifiedDomainId, sitemapUrls: input.sitemapUrls, feedUrls: input.feedUrls }).onConflictDoUpdate({ target: [searchSites.ownerAccountId, searchSites.origin], set: { updatedAt: sql`now()` } }).returning();
+  const site = await getDb().transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:sites`}, 0))`);
+    const [existing] = await tx.select().from(searchSites).where(and(eq(searchSites.ownerAccountId, principal.accountId), eq(searchSites.origin, origin))).limit(1);
+    if (existing) return existing;
+    const limit = await effectiveQuota(tx, principal.accountId, 'sites');
+    const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(searchSites).where(and(eq(searchSites.ownerAccountId, principal.accountId), sql`${searchSites.status} <> 'removed'`));
+    if (current.quantity >= limit) return undefined;
+    const [created] = await tx.insert(searchSites).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, origin, verifiedDomainId: input.verifiedDomainId, sitemapUrls: input.sitemapUrls, feedUrls: input.feedUrls }).returning();
+    return created;
+  });
+  if (!site) { sendError(res, 429, 'site_quota_exceeded', 'The verified site quota has been exhausted', req); return; }
   res.status(201).json(publicSite(site));
 });
 
@@ -177,7 +208,17 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
   if (!principal || !idempotencyKey) return;
   const [site] = await getDb().select().from(searchSites).where(and(eq(searchSites.id, String(req.params.id)), eq(searchSites.ownerAccountId, principal.accountId))).limit(1);
   if (!site) { sendError(res, 404, 'site_not_found', 'Site not found', req); return; }
-  const [job] = await getDb().insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, siteId: site.id, kind: 'site', idempotencyKey, requestedUrls: [site.origin] }).onConflictDoUpdate({ target: [crawlJobs.ownerAccountId, crawlJobs.applicationId, crawlJobs.idempotencyKey], set: { updatedAt: sql`now()` } }).returning();
+  const job = await getDb().transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
+    const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
+    if (existing) return existing;
+    const limit = await effectiveQuota(tx, principal.accountId, 'active_crawls');
+    const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
+    if (current.quantity >= limit) return undefined;
+    const [created] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, siteId: site.id, kind: 'site', idempotencyKey, requestedUrls: [site.origin] }).returning();
+    return created;
+  });
+  if (!job) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
   res.status(202).json(publicJob(job));
 });
 
@@ -204,22 +245,29 @@ router.get('/usage', requireResourceScope('clarity:usage:read'), async (req, res
   res.json({ data });
 });
 
-router.get('/quotas', requireResourceScope('clarity:usage:read'), (_req, res) => res.json({ searchesPerMonth: 10_000, fetchesPerMonth: 5_000, sites: 1, activeCrawls: 2, pagesPerCrawl: 5_000, requestsPerMinuteCredential: 60, requestsPerMinuteApplication: 300 }));
+router.get('/quotas', requireResourceScope('clarity:usage:read'), async (req, res) => {
+  const principal = req.resourcePrincipal;
+  if (!principal) return;
+  const entries = await Promise.all((Object.keys(SANDBOX_QUOTAS) as QuotaMetric[]).map(async (metric) => [metric, await effectiveQuota(getDb(), principal.accountId, metric)] as const));
+  const quota = Object.fromEntries(entries) as Record<QuotaMetric, number>;
+  res.json({ searchesPerMonth: quota.search_month, fetchesPerMonth: quota.fetch_month, sites: quota.sites, activeCrawls: quota.active_crawls, pagesPerCrawl: quota.pages_per_crawl, requestsPerMinuteCredential: quota.requests_minute_credential, requestsPerMinuteApplication: quota.requests_minute_application, concurrentFetches: quota.concurrent_fetches });
+});
 
 async function createUrlJob(req: Request, urls: string[], idempotencyKey: string) {
   const principal = req.resourcePrincipal;
   if (!principal) throw new Error('Resource principal missing after authentication');
   return getDb().transaction(async (tx) => {
-    const [job] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length }).onConflictDoUpdate({ target: [crawlJobs.ownerAccountId, crawlJobs.applicationId, crawlJobs.idempotencyKey], set: { updatedAt: sql`now()` } }).returning();
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
+    const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
+    if (existing) return existing;
+    const activeLimit = await effectiveQuota(tx, principal.accountId, 'active_crawls');
+    const pagesLimit = await effectiveQuota(tx, principal.accountId, 'pages_per_crawl');
+    const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
+    if (current.quantity >= activeLimit || urls.length > pagesLimit) return undefined;
+    const [job] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length }).returning();
     await tx.insert(crawlPages).values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: job.id, url, discoverySource: 'api' }))).onConflictDoNothing();
     return job;
   });
-}
-
-async function recordUsage(req: Request, operation: 'search') {
-  const principal = req.resourcePrincipal;
-  if (!principal) return;
-  await getDb().insert(searchUsageEvents).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, operation });
 }
 
 function parse<T>(schema: z.ZodType<T>, req: Request, res: Response): T | undefined {
