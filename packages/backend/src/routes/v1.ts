@@ -5,6 +5,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { sessionRateLimit } from '../middleware/session-rate-limit.js';
 import { fetchAliaJson } from '../lib/alia-agent-client.js';
 import { log } from '../lib/logger.js';
+import searchPlatformRouter from './v1/search-platform.js';
 
 const router = Router();
 
@@ -18,6 +19,7 @@ router.get('/', (_req, res) => {
 
 // Public routes (no auth required)
 router.use('/models', modelsRouter);
+router.use(searchPlatformRouter);
 
 // Apply canonical Oxy user authentication to all other v1 routes.
 router.use(authenticateToken);

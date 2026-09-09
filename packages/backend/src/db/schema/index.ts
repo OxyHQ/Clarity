@@ -1,7 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  bigint,
   check,
+  customType,
+  doublePrecision,
   foreignKey,
   index,
   integer,
@@ -11,7 +14,10 @@ import {
   text,
   timestamp,
   unique,
+  vector,
 } from 'drizzle-orm/pg-core';
+
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
 
 const timestampColumns = () => ({
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -340,3 +346,222 @@ export const backfillReceipts = pgTable('clarity_backfill_receipts', {
     columns: [table.sourceCollection, table.sourceId],
   }),
 ]);
+
+export const searchSites = pgTable('clarity_search_sites', {
+  id: text('id').primaryKey(),
+  ownerAccountId: text('owner_account_id').notNull(),
+  origin: text('origin').notNull(),
+  verifiedDomainId: text('verified_domain_id').notNull(),
+  status: text('status').notNull().default('active'),
+  crawlEnabled: boolean('crawl_enabled').notNull().default(true),
+  recrawlIntervalSeconds: integer('recrawl_interval_seconds').notNull().default(86400),
+  maxPagesPerCrawl: integer('max_pages_per_crawl').notNull().default(5000),
+  robotsText: text('robots_text'),
+  robotsFetchedAt: timestamp('robots_fetched_at', { withTimezone: true }),
+  sitemapUrls: text('sitemap_urls').array().notNull().default(sql`'{}'::text[]`),
+  feedUrls: text('feed_urls').array().notNull().default(sql`'{}'::text[]`),
+  nextCrawlAt: timestamp('next_crawl_at', { withTimezone: true }),
+  ...timestampColumns(),
+}, (table) => [
+  unique('clarity_search_sites_account_origin_unique').on(table.ownerAccountId, table.origin),
+  index('clarity_search_sites_next_crawl_idx').on(table.status, table.nextCrawlAt),
+  check('clarity_search_sites_status_check', sql`${table.status} in ('active', 'paused', 'removed')`),
+  check('clarity_search_sites_interval_check', sql`${table.recrawlIntervalSeconds} >= 900`),
+  check('clarity_search_sites_max_pages_check', sql`${table.maxPagesPerCrawl} between 1 and 500000`),
+]);
+
+export const searchDocuments = pgTable('clarity_search_documents', {
+  id: text('id').primaryKey(),
+  siteId: text('site_id').references(() => searchSites.id, { onDelete: 'set null' }),
+  requestedUrl: text('requested_url').notNull(),
+  finalUrl: text('final_url'),
+  canonicalUrl: text('canonical_url').notNull(),
+  status: text('status').notNull().default('discovered'),
+  documentType: text('document_type').notNull().default('other'),
+  contentHash: text('content_hash'),
+  httpStatus: integer('http_status'),
+  etag: text('etag'),
+  lastModified: text('last_modified'),
+  contentType: text('content_type'),
+  language: text('language'),
+  title: text('title'),
+  description: text('description'),
+  mainContent: text('main_content'),
+  structuredData: jsonb('structured_data').notNull().default(sql`'[]'::jsonb`),
+  fieldEvidence: jsonb('field_evidence').notNull().default(sql`'{}'::jsonb`),
+  publisherName: text('publisher_name'),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  modifiedAt: timestamp('modified_at', { withTimezone: true }),
+  imageUrl: text('image_url'),
+  faviconUrl: text('favicon_url'),
+  tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
+  noindex: boolean('noindex').notNull().default(false),
+  nofollow: boolean('nofollow').notNull().default(false),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }),
+  indexedAt: timestamp('indexed_at', { withTimezone: true }),
+  nextFetchAt: timestamp('next_fetch_at', { withTimezone: true }),
+  ...timestampColumns(),
+}, (table) => [
+  unique('clarity_search_documents_canonical_unique').on(table.canonicalUrl),
+  index('clarity_search_documents_site_status_idx').on(table.siteId, table.status),
+  index('clarity_search_documents_published_idx').on(table.publishedAt),
+  index('clarity_search_documents_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
+  check('clarity_search_documents_status_check', sql`${table.status} in ('discovered', 'fetching', 'extracted', 'indexed', 'blocked', 'failed', 'removed')`),
+  check('clarity_search_documents_type_check', sql`${table.documentType} in ('page', 'article', 'news', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other')`),
+]);
+
+export const searchDocumentAliases = pgTable('clarity_search_document_aliases', {
+  url: text('url').primaryKey(),
+  documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  kind: text('kind').notNull(),
+  discoveredAt: timestamp('discovered_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [index('clarity_search_document_aliases_document_idx').on(table.documentId)]);
+
+export const searchAuthors = pgTable('clarity_search_authors', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  url: text('url'),
+  sameAs: text('same_as').array().notNull().default(sql`'{}'::text[]`),
+});
+
+export const searchDocumentAuthors = pgTable('clarity_search_document_authors', {
+  documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  authorId: text('author_id').notNull().references(() => searchAuthors.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull().default(0),
+  evidence: jsonb('evidence').notNull().default(sql`'{}'::jsonb`),
+}, (table) => [primaryKey({ name: 'clarity_search_document_authors_pk', columns: [table.documentId, table.authorId] })]);
+
+export const searchOutgoingLinks = pgTable('clarity_search_outgoing_links', {
+  id: text('id').primaryKey(),
+  sourceDocumentId: text('source_document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  targetUrl: text('target_url').notNull(),
+  anchorText: text('anchor_text'),
+  rel: text('rel').array().notNull().default(sql`'{}'::text[]`),
+  discoverySource: text('discovery_source').notNull().default('html'),
+}, (table) => [index('clarity_search_outgoing_links_source_idx').on(table.sourceDocumentId)]);
+
+export const searchChunks = pgTable('clarity_search_chunks', {
+  id: text('id').primaryKey(),
+  documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull(),
+  startOffset: integer('start_offset').notNull(),
+  endOffset: integer('end_offset').notNull(),
+  text: text('text').notNull(),
+  searchVector: tsvector('search_vector').notNull(),
+  embedding: vector('embedding', { dimensions: 1024 }),
+  embeddingModel: text('embedding_model'),
+  extractorVersion: text('extractor_version').notNull(),
+  ...timestampColumns(),
+}, (table) => [
+  unique('clarity_search_chunks_document_position_unique').on(table.documentId, table.position),
+  index('clarity_search_chunks_fts_idx').using('gin', table.searchVector),
+  index('clarity_search_chunks_embedding_hnsw_idx').using('hnsw', table.embedding.op('vector_cosine_ops')),
+]);
+
+export const crawlJobs = pgTable('clarity_crawl_jobs', {
+  id: text('id').primaryKey(),
+  ownerAccountId: text('owner_account_id').notNull(),
+  applicationId: text('application_id').notNull(),
+  credentialId: text('credential_id'),
+  siteId: text('site_id').references(() => searchSites.id, { onDelete: 'set null' }),
+  kind: text('kind').notNull(),
+  status: text('status').notNull().default('queued'),
+  idempotencyKey: text('idempotency_key').notNull(),
+  requestedUrls: text('requested_urls').array().notNull().default(sql`'{}'::text[]`),
+  pagesDiscovered: integer('pages_discovered').notNull().default(0),
+  pagesCompleted: integer('pages_completed').notNull().default(0),
+  errorCode: text('error_code'),
+  errorDetail: text('error_detail'),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+  ...timestampColumns(),
+}, (table) => [
+  unique('clarity_crawl_jobs_idempotency_unique').on(table.ownerAccountId, table.applicationId, table.idempotencyKey),
+  index('clarity_crawl_jobs_account_status_idx').on(table.ownerAccountId, table.status),
+  check('clarity_crawl_jobs_status_check', sql`${table.status} in ('queued', 'running', 'succeeded', 'partial', 'failed', 'cancelled')`),
+  check('clarity_crawl_jobs_kind_check', sql`${table.kind} in ('urls', 'site', 'recrawl', 'removal')`),
+]);
+
+export const crawlPages = pgTable('clarity_crawl_pages', {
+  id: text('id').primaryKey(),
+  jobId: text('job_id').notNull().references(() => crawlJobs.id, { onDelete: 'cascade' }),
+  url: text('url').notNull(),
+  discoverySource: text('discovery_source').notNull(),
+  status: text('status').notNull().default('queued'),
+  attemptCount: integer('attempt_count').notNull().default(0),
+  availableAt: timestamp('available_at', { withTimezone: true }).notNull().defaultNow(),
+  leaseOwner: text('lease_owner'),
+  leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }),
+  heartbeatAt: timestamp('heartbeat_at', { withTimezone: true }),
+  lastErrorCode: text('last_error_code'),
+  lastErrorDetail: text('last_error_detail'),
+  ...timestampColumns(),
+}, (table) => [
+  unique('clarity_crawl_pages_job_url_unique').on(table.jobId, table.url),
+  index('clarity_crawl_pages_lease_idx').on(table.status, table.availableAt, table.leaseExpiresAt),
+]);
+
+export const fetchAttempts = pgTable('clarity_fetch_attempts', {
+  id: text('id').primaryKey(),
+  crawlPageId: text('crawl_page_id').notNull().references(() => crawlPages.id, { onDelete: 'cascade' }),
+  attempt: integer('attempt').notNull(),
+  fetchMode: text('fetch_mode').notNull(),
+  status: text('status').notNull(),
+  httpStatus: integer('http_status'),
+  bytesReceived: bigint('bytes_received', { mode: 'number' }),
+  durationMs: integer('duration_ms'),
+  redirectChain: jsonb('redirect_chain').notNull().default(sql`'[]'::jsonb`),
+  errorCode: text('error_code'),
+  errorDetail: text('error_detail'),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+}, (table) => [unique('clarity_fetch_attempts_page_attempt_unique').on(table.crawlPageId, table.attempt)]);
+
+export const newsStories = pgTable('clarity_news_stories', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  summary: text('summary'),
+  language: text('language'),
+  firstPublishedAt: timestamp('first_published_at', { withTimezone: true }).notNull(),
+  lastPublishedAt: timestamp('last_published_at', { withTimezone: true }).notNull(),
+  sourceCount: integer('source_count').notNull().default(1),
+  publisherDiversity: integer('publisher_diversity').notNull().default(1),
+  rankingScore: doublePrecision('ranking_score').notNull().default(0),
+  ...timestampColumns(),
+}, (table) => [index('clarity_news_stories_rank_idx').on(table.lastPublishedAt, table.rankingScore)]);
+
+export const newsStoryArticles = pgTable('clarity_news_story_articles', {
+  storyId: text('story_id').notNull().references(() => newsStories.id, { onDelete: 'cascade' }),
+  documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  similarity: doublePrecision('similarity').notNull(),
+}, (table) => [primaryKey({ name: 'clarity_news_story_articles_pk', columns: [table.storyId, table.documentId] })]);
+
+export const searchUsageEvents = pgTable('clarity_search_usage_events', {
+  id: text('id').primaryKey(),
+  ownerAccountId: text('owner_account_id').notNull(),
+  applicationId: text('application_id').notNull(),
+  credentialId: text('credential_id'),
+  operation: text('operation').notNull(),
+  idempotencyKey: text('idempotency_key'),
+  quantity: integer('quantity').notNull().default(1),
+  occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  unique('clarity_search_usage_idempotency_unique').on(table.ownerAccountId, table.operation, table.idempotencyKey),
+  index('clarity_search_usage_account_time_idx').on(table.ownerAccountId, table.occurredAt),
+  check('clarity_search_usage_operation_check', sql`${table.operation} in ('search', 'fetch_started', 'page_indexed', 'browser_render')`),
+  check('clarity_search_usage_quantity_check', sql`${table.quantity} > 0`),
+]);
+
+export const searchUsageRollups = pgTable('clarity_search_usage_rollups', {
+  ownerAccountId: text('owner_account_id').notNull(),
+  applicationId: text('application_id').notNull(),
+  credentialId: text('credential_id').notNull().default(''),
+  operation: text('operation').notNull(),
+  periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+  periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+  quantity: bigint('quantity', { mode: 'number' }).notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [primaryKey({
+  name: 'clarity_search_usage_rollups_pk',
+  columns: [table.ownerAccountId, table.applicationId, table.credentialId, table.operation, table.periodStart],
+})]);

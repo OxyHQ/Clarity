@@ -2,12 +2,12 @@ import * as esbuild from 'esbuild';
 import { cp } from 'fs/promises';
 
 await esbuild.build({
-  entryPoints: ['src/index.ts'],
+  entryPoints: { index: 'src/index.ts', worker: 'src/worker.ts' },
   bundle: true,
   platform: 'node',
   target: 'node20',
   format: 'esm',
-  outfile: 'dist/index.js',
+  outdir: 'dist',
   // Keep node_modules external except @oxyhq/* (their ESM builds have broken imports)
   plugins: [{
     name: 'externalize-except-oxyhq',

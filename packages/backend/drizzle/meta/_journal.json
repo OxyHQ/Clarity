@@ -43,6 +43,13 @@
       "when": 1788408068448,
       "tag": "0005_ambitious_sprite",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788909409621,
+      "tag": "0006_moaning_swordsman",
+      "breakpoints": true
     }
   ]
 }

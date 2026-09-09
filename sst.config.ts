@@ -73,6 +73,7 @@ export default $config({
               { key: "CLARITY_ALIA_AGENT_ID", value: "01a0646a-078f-7642-95ef-439952f4f3f9" },
               { key: "OXY_SERVICE_API_KEY", value: "oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78" },
               { key: "OXY_SERVICE_API_SECRET", type: "SECRET" },
+              { key: "CLARITY_INTROSPECTION_CACHE_HMAC_KEY", type: "SECRET" },
               {
                 key: "WEB_URL",
                 value: isProd
@@ -86,6 +87,33 @@ export default $config({
               { key: "VAPID_PUBLIC_KEY", type: "SECRET" },
               { key: "VAPID_PRIVATE_KEY", type: "SECRET" },
               { key: "VAPID_SUBJECT", value: "mailto:contact@clarity.surf" },
+            ],
+          },
+        ],
+
+        workers: [
+          {
+            name: "clarity-worker",
+            github: {
+              repo: "OxyHQ/Clarity",
+              branch: isProd ? "master" : $app.stage,
+              deployOnPush: true,
+            },
+            buildCommand: [
+              "ELECTRON_SKIP_BINARY_DOWNLOAD=1",
+              "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1",
+              "bun run build:backend",
+            ].join(" "),
+            runCommand: "bun run --filter @clarity/backend start:worker",
+            sourceDir: "/",
+            environmentSlug: "node-js",
+            instanceSizeSlug: isProd ? "apps-s-2vcpu-4gb" : "apps-s-1vcpu-1gb",
+            instanceCount: 1,
+            envs: [
+              { key: "DATABASE_URL", type: "SECRET" },
+              { key: "OXY_API_URL", value: "https://api.oxy.so" },
+              { key: "OXY_SERVICE_API_KEY", value: "oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78" },
+              { key: "OXY_SERVICE_API_SECRET", type: "SECRET" },
             ],
           },
         ],
