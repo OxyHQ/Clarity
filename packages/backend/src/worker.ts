@@ -6,6 +6,7 @@ import { safeFetch } from '@oxyhq/core/server';
 import { closePostgres, connectPostgres, getDb } from './db/index.js';
 import { crawlJobs, crawlPages, fetchAttempts, searchChunks, searchDocuments, searchUsageEvents } from './db/schema/index.js';
 import { extractDocument } from './search/extractor.js';
+import { CLARITY_EMBEDDING_MODEL, createOxyEmbeddings } from './lib/oxy-embeddings.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
@@ -49,11 +50,27 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
     const extracted = extractDocument(html, result.finalUrl);
     const canonicalUrl = extracted.canonicalUrl || result.finalUrl;
     const contentHash = createHash('sha256').update(extracted.mainContent || '').digest('hex');
+    const textChunks = extracted.noindex ? [] : chunkText(extracted.mainContent || '');
+    let embeddings: number[][] | undefined;
+    if (textChunks.length > 0) {
+      try {
+        embeddings = await embedChunks(textChunks.map((item) => item.text));
+      } catch (error) {
+        console.error('Embedding generation failed; document remains lexically searchable', {
+          crawlPageId: page.id,
+          error: error instanceof Error ? error.message : 'unknown embedding failure',
+        });
+      }
+    }
     await getDb().transaction(async (tx) => {
       const [document] = await tx.insert(searchDocuments).values({ id: crypto.randomUUID(), requestedUrl: page.url, finalUrl: result.finalUrl, canonicalUrl, status: extracted.noindex ? 'blocked' : 'indexed', documentType: extracted.documentType, contentHash, httpStatus: result.status, etag: header(result.headers.etag), lastModified: header(result.headers['last-modified']), contentType, language: extracted.language, title: extracted.title, description: extracted.description, mainContent: extracted.mainContent, structuredData: extracted.structuredData, fieldEvidence: extracted.evidence, imageUrl: extracted.imageUrl, faviconUrl: extracted.faviconUrl, noindex: extracted.noindex, nofollow: extracted.nofollow, fetchedAt: new Date(), indexedAt: extracted.noindex ? undefined : new Date() }).onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: { finalUrl: result.finalUrl, status: extracted.noindex ? 'blocked' : 'indexed', documentType: extracted.documentType, contentHash, httpStatus: result.status, etag: header(result.headers.etag), lastModified: header(result.headers['last-modified']), contentType, language: extracted.language, title: extracted.title, description: extracted.description, mainContent: extracted.mainContent, structuredData: extracted.structuredData, fieldEvidence: extracted.evidence, imageUrl: extracted.imageUrl, faviconUrl: extracted.faviconUrl, noindex: extracted.noindex, nofollow: extracted.nofollow, fetchedAt: new Date(), indexedAt: extracted.noindex ? undefined : new Date(), updatedAt: new Date() } }).returning();
       await tx.delete(searchChunks).where(eq(searchChunks.documentId, document.id));
-      const text = extracted.mainContent || '';
-      if (!extracted.noindex && text) await tx.insert(searchChunks).values(chunkText(text).map((item, position) => ({ id: crypto.randomUUID(), documentId: document.id, position, startOffset: item.start, endOffset: item.end, text: item.text, searchVector: sql`to_tsvector('simple', ${item.text})`, extractorVersion: 'readability-0.6.0' })));
+      if (textChunks.length > 0) await tx.insert(searchChunks).values(textChunks.map((item, position) => ({
+        id: crypto.randomUUID(), documentId: document.id, position, startOffset: item.start,
+        endOffset: item.end, text: item.text, searchVector: sql`to_tsvector('simple', ${item.text})`,
+        embedding: embeddings?.[position], embeddingModel: embeddings ? CLARITY_EMBEDDING_MODEL : undefined,
+        extractorVersion: 'readability-0.6.0',
+      })));
       await tx.update(crawlPages).set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
       await tx.update(crawlJobs).set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
       const [job] = await tx.select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
@@ -87,6 +104,13 @@ function chunkText(text: string): Array<{ start: number; end: number; text: stri
     result.push({ start, end, text: text.slice(start, end) });
   }
   return result;
+}
+async function embedChunks(texts: string[]): Promise<number[][]> {
+  const embeddings: number[][] = [];
+  for (let start = 0; start < texts.length; start += 128) {
+    embeddings.push(...await createOxyEmbeddings(texts.slice(start, start + 128)));
+  }
+  return embeddings;
 }
 function header(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value; }
 

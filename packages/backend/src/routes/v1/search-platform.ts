@@ -1,14 +1,15 @@
-import { and, desc, eq, ilike, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
 import { getDb } from '../../db/index.js';
 import {
   crawlJobs, crawlPages, newsStories, newsStoryArticles, searchDocuments, searchSites,
-  searchUsageEvents, searchUsageRollups,
+  searchChunks, searchUsageEvents, searchUsageRollups,
 } from '../../db/schema/index.js';
 import { authenticateResource, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
+import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
 
 const router = Router();
 router.use(authenticateResource);
@@ -18,7 +19,7 @@ const searchSchema = z.object({
   query: z.string().trim().min(1).max(500),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).default('hybrid'),
   types: z.array(z.enum(documentTypes)).max(documentTypes.length).optional(),
-  domains: z.array(z.string().min(1)).max(50).optional(),
+  domains: z.array(z.string().trim().max(253).regex(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i)).max(50).optional(),
   language: z.string().max(35).optional(),
   publishedAfter: z.coerce.date().optional(),
   publishedBefore: z.coerce.date().optional(),
@@ -35,28 +36,72 @@ const createSiteSchema = z.object({
 router.post('/search', requireResourceScope('clarity:search'), async (req, res) => {
   const input = parse(searchSchema, req, res);
   if (!input) return;
-  if (input.mode === 'semantic') {
-    sendError(res, 503, 'semantic_unavailable', 'Semantic search is unavailable until an embedding route is active', req);
-    return;
+  let queryEmbedding: number[] | undefined;
+  let degraded: { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' } | undefined;
+  if (input.mode !== 'lexical') {
+    try {
+      [queryEmbedding] = await createOxyEmbeddings([input.query]);
+    } catch {
+      if (input.mode === 'semantic') {
+        sendError(res, 503, 'semantic_unavailable', 'Semantic search is temporarily unavailable', req);
+        return;
+      }
+      degraded = { from: 'hybrid', to: 'lexical', reason: 'embedding_route_unavailable' };
+    }
   }
-  const filters = [eq(searchDocuments.status, 'indexed'), eq(searchDocuments.noindex, false), or(
-    ilike(searchDocuments.title, `%${escapeLike(input.query)}%`),
-    ilike(searchDocuments.description, `%${escapeLike(input.query)}%`),
-    ilike(searchDocuments.mainContent, `%${escapeLike(input.query)}%`),
-  )];
-  if (input.types?.length) filters.push(inArray(searchDocuments.documentType, input.types));
-  if (input.language) filters.push(eq(searchDocuments.language, input.language));
+  const offset = decodeSearchCursor(input.cursor);
+  if (offset === undefined) { sendError(res, 400, 'invalid_cursor', 'The search cursor is invalid', req); return; }
+  const ranks = await rankedSearch(input, queryEmbedding, offset);
+  const ids = ranks.slice(0, input.limit).map((row) => row.documentId);
+  const documents = ids.length ? await getDb().select().from(searchDocuments).where(inArray(searchDocuments.id, ids)) : [];
+  const documentsById = new Map(documents.map((row) => [row.id, row]));
+  await recordUsage(req, 'search');
+  const data = ranks.slice(0, input.limit).flatMap((rank) => {
+    const row = documentsById.get(rank.documentId);
+    return row ? [{ ...publicDocument(row), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score: Number(rank.score) }] : [];
+  });
+  res.json({ data, mode: input.mode, ...(degraded ? { degraded } : {}), ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}) });
+});
+
+type SearchInput = z.infer<typeof searchSchema>;
+
+async function rankedSearch(input: SearchInput, embedding: number[] | undefined, offset: number) {
+  const filters: SQL[] = [sql`${searchDocuments.status} = 'indexed'`, sql`${searchDocuments.noindex} = false`];
+  if (input.types?.length) filters.push(sql`${searchDocuments.documentType} in (${sql.join(input.types.map((type) => sql`${type}`), sql`, `)})`);
+  if (input.language) filters.push(sql`${searchDocuments.language} = ${input.language}`);
   if (input.publishedAfter) filters.push(sql`${searchDocuments.publishedAt} >= ${input.publishedAfter}`);
   if (input.publishedBefore) filters.push(sql`${searchDocuments.publishedAt} <= ${input.publishedBefore}`);
-  if (input.domains?.length) filters.push(sql`${searchDocuments.canonicalUrl} similar to ${domainsPattern(input.domains)}`);
-  const cursor = decodeCursor(input.cursor);
-  if (cursor) filters.push(lt(searchDocuments.id, cursor));
-  const rows = await getDb().select().from(searchDocuments).where(and(...filters)).orderBy(desc(searchDocuments.id)).limit(input.limit + 1);
-  await recordUsage(req, 'search');
-  const hasMore = rows.length > input.limit;
-  const data = rows.slice(0, input.limit).map((row) => ({ ...publicDocument(row), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score: 1 }));
-  res.json({ data, mode: input.mode, ...(input.mode === 'hybrid' ? { degraded: { from: 'hybrid', to: 'lexical', reason: 'embedding_route_unavailable' } } : {}), ...(hasMore ? { nextCursor: encodeCursor(rows[input.limit - 1].id) } : {}) });
-});
+  if (input.domains?.length) {
+    const domains = input.domains.map((domain) => new URL(`https://${domain}`).hostname.toLowerCase());
+    filters.push(sql`(${sql.join(domains.map((domain) => sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`), sql` or `)})`);
+  }
+  const where = sql.join(filters, sql` and `);
+  const lexical = sql`
+    select ${searchChunks.documentId} as document_id,
+      row_number() over (order by max(ts_rank_cd(${searchChunks.searchVector}, websearch_to_tsquery('simple', ${input.query}))) + greatest(similarity(coalesce(${searchDocuments.title}, ''), ${input.query}), similarity(coalesce(${searchDocuments.description}, ''), ${input.query})) desc, ${searchChunks.documentId}) as rank
+    from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
+    where ${where} and (${searchChunks.searchVector} @@ websearch_to_tsquery('simple', ${input.query}) or coalesce(${searchDocuments.title}, '') % ${input.query} or coalesce(${searchDocuments.description}, '') % ${input.query})
+    group by ${searchChunks.documentId}
+    order by rank limit 100`;
+  const semantic = embedding ? sql`
+    select ${searchChunks.documentId} as document_id,
+      row_number() over (order by min(${searchChunks.embedding} <=> ${JSON.stringify(embedding)}::vector) asc, ${searchChunks.documentId}) as rank
+    from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
+    where ${where} and ${searchChunks.embedding} is not null
+    group by ${searchChunks.documentId}
+    order by rank limit 100` : undefined;
+  const statement = input.mode === 'hybrid' && semantic ? sql`
+    with lexical as (${lexical}), semantic as (${semantic}), fused as (
+      select coalesce(lexical.document_id, semantic.document_id) as document_id,
+        coalesce(1.0 / (60 + lexical.rank), 0) + coalesce(1.0 / (60 + semantic.rank), 0) as score
+      from lexical full outer join semantic on lexical.document_id = semantic.document_id
+    ) select document_id as "documentId", score from fused order by score desc, document_id limit ${input.limit + 1} offset ${offset}` : input.mode === 'semantic' && semantic ? sql`
+    with semantic as (${semantic}) select document_id as "documentId", 1.0 / (60 + rank) as score
+    from semantic order by score desc, document_id limit ${input.limit + 1} offset ${offset}` : sql`
+    with lexical as (${lexical}) select document_id as "documentId", 1.0 / (60 + rank) as score
+    from lexical order by score desc, document_id limit ${input.limit + 1} offset ${offset}`;
+  return getDb().execute<{ documentId: string; score: number }>(statement);
+}
 
 router.post('/index/urls', requireResourceScope('clarity:index'), async (req, res) => {
   const input = parse(urlsSchema, req, res);
@@ -207,9 +252,19 @@ function publicJob(row: typeof crawlJobs.$inferSelect) { return { id: row.id, ki
 function publicSite(row: typeof searchSites.$inferSelect) { return { id: row.id, origin: row.origin, verifiedDomainId: row.verifiedDomainId, status: row.status, crawlEnabled: row.crawlEnabled, recrawlIntervalSeconds: row.recrawlIntervalSeconds, maxPagesPerCrawl: row.maxPagesPerCrawl, sitemapUrls: row.sitemapUrls, feedUrls: row.feedUrls, nextCrawlAt: row.nextCrawlAt?.toISOString() }; }
 function excerpt(value: string | null): string | undefined { return value ? `${value.slice(0, 300)}${value.length > 300 ? '…' : ''}` : undefined; }
 function escapeLike(value: string): string { return value.replace(/[\\%_]/g, '\\$&'); }
-function domainsPattern(domains: string[]): string { return `https?://(${domains.map((domain) => domain.replace(/[.%]/g, '\\$&')).join('|')})(/|:).*`; }
-function encodeCursor(value: string): string { return Buffer.from(value).toString('base64url'); }
-function decodeCursor(value?: string): string | undefined { if (!value) return undefined; try { return Buffer.from(value, 'base64url').toString('utf8'); } catch { return undefined; } }
+function encodeSearchCursor(offset: number): string { return Buffer.from(JSON.stringify({ offset })).toString('base64url'); }
+function decodeSearchCursor(value?: string): number | undefined {
+  if (!value) return 0;
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
+    if (typeof parsed !== 'object' || parsed === null || !('offset' in parsed)) return undefined;
+    const offset = parsed.offset;
+    return typeof offset === 'number' && Number.isSafeInteger(offset) && offset >= 0 && offset <= 10_000 ? offset : undefined;
+  } catch (error) {
+    if (error instanceof SyntaxError) return undefined;
+    throw error;
+  }
+}
 
 async function verifyDomainOwnership(accountId: string, verifiedDomainId: string, originHost: string): Promise<boolean> {
   const serviceToken = await getClarityServiceToken();

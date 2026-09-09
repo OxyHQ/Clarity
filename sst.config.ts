@@ -111,6 +111,9 @@ export default $config({
             instanceCount: 1,
             envs: [
               { key: "DATABASE_URL", type: "SECRET" },
+              { key: "OXY_API_URL", value: "https://api.oxy.so" },
+              { key: "OXY_SERVICE_API_KEY", value: "oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78" },
+              { key: "OXY_SERVICE_API_SECRET", type: "SECRET" },
             ],
           },
         ],

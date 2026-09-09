@@ -75,6 +75,14 @@ describe('architecture gates', () => {
     expect(deployments).toContain(CLARITY_AGENT_MANIFEST.backendApplication.clientId);
     expect(appPlatform).toContain('- key: OXY_SERVICE_API_SECRET\n        type: SECRET');
     expect(sst).toContain('{ key: "OXY_SERVICE_API_SECRET", type: "SECRET" }');
+    const worker = sst.slice(sst.indexOf('name: "clarity-worker"'));
+    expect(worker).toContain('{ key: "OXY_API_URL", value: "https://api.oxy.so" }');
+    expect(worker).toContain(`{ key: "OXY_SERVICE_API_KEY", value: "${CLARITY_AGENT_MANIFEST.backendApplication.clientId}" }`);
+    expect(worker).toContain('{ key: "OXY_SERVICE_API_SECRET", type: "SECRET" }');
+    expect(worker).not.toMatch(/OXY_SERVICE_API_SECRET["']?,?\s*value:/);
+    expect(worker).toContain('{ key: "OXY_API_URL", value: "https://api.oxy.so" }');
+    expect(worker).toContain(`{ key: "OXY_SERVICE_API_KEY", value: "${CLARITY_AGENT_MANIFEST.backendApplication.clientId}" }`);
+    expect(worker).toContain('{ key: "OXY_SERVICE_API_SECRET", type: "SECRET" }');
     expect(deployments).not.toMatch(/OXY_SERVICE_API_SECRET["']?,?\s*value:/);
   });
 
