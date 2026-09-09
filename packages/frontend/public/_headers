@@ -3,10 +3,13 @@
 # same way Pages did — wrangler 4.130.0 lists `_headers` among the paths it
 # ignores when building the manifest, and sends its contents alongside it.
 #
-# This file, not worker/index.js, is what sets these headers in production.
-# `run_worker_first` is unset, so a request that matches an existing asset is
-# answered by the router and never reaches the Worker script; the Worker runs
-# only on a miss, which is where it turns the SPA fallback into a real 404.
+# These are NOT documentation or a fallback, whatever the old comment here
+# said. This file, not worker/index.js, is what sets these headers in
+# production: `run_worker_first` is unset, so a request matching an existing
+# asset is answered by the router and never reaches the Worker script. The
+# Worker runs only on a miss, which is where it turns the SPA fallback into a
+# real 404. Measured on the Inbox migration — `wrangler dev` reports
+# `Parsed 1 valid header rule` and serves the header on a real asset.
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate

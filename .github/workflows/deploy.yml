@@ -37,9 +37,9 @@ jobs:
       #
       # DEPLOYED WITH `bunx wrangler@4`, NOT `cloudflare/wrangler-action@v3`.
       # Do not "modernise" this back to the action. The action installs its own
-      # wrangler into the working tree mid-deploy, and that install is how this
-      # step has actually failed. Clarity's own run 34063685022 (2026-09-06)
-      # died there:
+      # wrangler into the working tree mid-deploy, and that install is the only
+      # thing that has ever failed this step — once in 78 runs, which is rare
+      # and total rather than recurring. Run 34063685022 (2026-09-06):
       #
       #   [command] /home/runner/.bun/bin/bun i wrangler@3.90.0
       #   error: Fail extracting tarball for "wrangler"
