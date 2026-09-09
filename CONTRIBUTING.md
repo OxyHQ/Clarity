@@ -2,7 +2,7 @@
 
 The organisation-wide process is in the
 [Oxy contribution guide](https://github.com/OxyHQ/.github/blob/main/CONTRIBUTING.md).
-Clarity targets `master`.
+Clarity targets `main`.
 
 ## Prerequisites
 

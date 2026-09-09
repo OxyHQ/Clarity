@@ -48,7 +48,7 @@ bun run --filter @clarity/backend test
 bun run build:backend
 ```
 
-The default branch is `master`. Migration and cutover instructions are in
+The default branch is `main`. Migration and cutover instructions are in
 [`docs/postgres-alia-migration.md`](docs/postgres-alia-migration.md); the branch
 does not claim any production cutover or deployment.
 

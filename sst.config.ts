@@ -41,7 +41,7 @@ export default $config({
             name: "clarity-api",
             github: {
               repo: "OxyHQ/Clarity",
-              branch: isProd ? "master" : $app.stage,
+              branch: isProd ? "main" : $app.stage,
               deployOnPush: true,
             },
             buildCommand: [
@@ -96,7 +96,7 @@ export default $config({
             name: "clarity-worker",
             github: {
               repo: "OxyHQ/Clarity",
-              branch: isProd ? "master" : $app.stage,
+              branch: isProd ? "main" : $app.stage,
               deployOnPush: true,
             },
             buildCommand: [

@@ -2,7 +2,7 @@ name: Deploy
 
 on:
   push:
-    branches: [master]
+    branches: [main]
 
 jobs:
   deploy-frontend:
@@ -26,4 +26,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy packages/frontend/dist --project-name clarity --branch master
+          command: pages deploy packages/frontend/dist --project-name clarity --branch main
