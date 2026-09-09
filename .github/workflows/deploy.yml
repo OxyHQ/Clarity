@@ -6,7 +6,7 @@ on:
 
 jobs:
   deploy-frontend:
-    name: Deploy Frontend to Cloudflare Pages
+    name: Deploy the web app to Cloudflare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,27 +21,23 @@ jobs:
       - name: Build web
         run: bun run build:frontend
 
-      # Cloudflare stores the production branch on the project, so the rename to
-      # `main` is not complete until that setting moves too: an untouched
-      # project would keep calling `master` production and publish the deploy
-      # below as a PREVIEW, silently freezing clarity.surf. Pin it here rather
-      # than in a dashboard nobody remembers to open.
-      - name: Pin the Cloudflare Pages production branch
-        env:
-          CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CF_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -euo pipefail
-          curl -sS --fail-with-body -X PATCH \
-            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT_ID}/pages/projects/clarity" \
-            -H "Authorization: Bearer ${CF_API_TOKEN}" \
-            -H 'Content-Type: application/json' \
-            -d '{"production_branch":"main"}' > /dev/null
-          echo "Cloudflare Pages project 'clarity' now treats main as production."
-
-      - name: Deploy to Cloudflare Pages
+      # A WORKER, not a Pages project. A Pages project always serves
+      # `<project>.pages.dev` with no way to turn it off, which put a second,
+      # CORS-less copy of Clarity on the internet — `PRODUCTION_ORIGINS` in
+      # packages/backend/src/index.ts admits `https://clarity.surf` and nothing
+      # else. `workers_dev = false` in packages/frontend/wrangler.toml leaves
+      # `clarity.surf` as the only way in.
+      #
+      # The Pages production-branch PATCH that used to sit here is gone with the
+      # project: Pages stored the production branch on the project and published
+      # anything else as a preview, which a Worker has no equivalent of.
+      # Everything the deploy needs — the assets directory, the SPA fallback,
+      # the custom domain — is declared in wrangler.toml rather than passed
+      # here, so a deploy cannot disagree with the config.
+      - name: Deploy the Worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy packages/frontend/dist --project-name clarity --branch main
+          workingDirectory: packages/frontend
+          command: deploy

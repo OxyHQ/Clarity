@@ -1,6 +1,12 @@
-# Caching headers for Cloudflare Pages
-# Note: When _worker.js (Advanced Mode) is active, these headers are set by the
-# worker. This file serves as documentation and fallback if the worker is removed.
+# Caching headers for Cloudflare's asset pipeline. Workers static assets reads
+# this file as deploy configuration and keeps it out of the uploaded assets, the
+# same way Pages did — wrangler 4.130.0 lists `_headers` among the paths it
+# ignores when building the manifest, and sends its contents alongside it.
+#
+# This file, not worker/index.js, is what sets these headers in production.
+# `run_worker_first` is unset, so a request that matches an existing asset is
+# answered by the router and never reaches the Worker script; the Worker runs
+# only on a miss, which is where it turns the SPA fallback into a real 404.
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
