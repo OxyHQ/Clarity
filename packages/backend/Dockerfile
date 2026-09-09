@@ -6,11 +6,11 @@
 # --- Stage 1: Builder ---
 FROM node:22-bookworm-slim AS builder
 
-# Install Bun
-RUN apt-get update && apt-get install -y --no-install-recommends curl unzip && \
-    curl -fsSL https://bun.sh/install | bash && \
-    ln -s /root/.bun/bin/bun /usr/local/bin/bun && \
-    rm -rf /var/lib/apt/lists/*
+# Bun comes from its own published image at the version `packageManager` and CI
+# pin. The previous `curl | bash` install failed OPEN: a failed download left
+# `bash` reading nothing and exiting 0, `ln -s` happily created a dangling
+# symlink, and the build only died four lines later with `bun: not found`.
+COPY --from=oven/bun:1.3.14 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /build
 
@@ -34,13 +34,13 @@ RUN bun run --filter @clarity/shared-types build && \
 # --- Stage 2: Production Runtime ---
 FROM node:22-bookworm-slim AS runtime
 
-# Install curl for health checks and Bun for dependency install
+# curl serves the image health check below; Bun installs production deps.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl unzip && \
-    curl -fsSL https://bun.sh/install | bash && \
-    ln -s /root/.bun/bin/bun /usr/local/bin/bun && \
+    apt-get install -y --no-install-recommends curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+COPY --from=oven/bun:1.3.14 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
