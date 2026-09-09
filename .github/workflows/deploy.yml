@@ -34,10 +34,34 @@ jobs:
       # Everything the deploy needs — the assets directory, the SPA fallback,
       # the custom domain — is declared in wrangler.toml rather than passed
       # here, so a deploy cannot disagree with the config.
+      #
+      # DEPLOYED WITH `bunx wrangler@4`, NOT `cloudflare/wrangler-action@v3`.
+      # Do not "modernise" this back to the action. The action installs its own
+      # wrangler into the working tree mid-deploy, and that install is how this
+      # step has actually failed. Clarity's own run 34063685022 (2026-09-06)
+      # died there:
+      #
+      #   [command] /home/runner/.bun/bin/bun i wrangler@3.90.0
+      #   error: Fail extracting tarball for "wrangler"
+      #   ##[error] 🚨 Action failed
+      #
+      # Homiio took a production outage from the identical error on 2026-08-09
+      # — run 31292337344 published nothing and left a stale bundle running
+      # against a changed API — and moved off the action in #291; Mercaria's
+      # AGENTS.md forbids it outright. The action also picks its package manager
+      # by looking for a lockfile beside its `workingDirectory`, and in this
+      # monorepo the lockfile is at the ROOT: aiming it at `packages/frontend`
+      # would make it fall back to npm, which cannot resolve `workspace:*` at
+      # all. Alia's canvas deploy hit exactly that.
+      #
+      # PINNED TO A MAJOR on purpose. Unpinned, `bunx wrangler` re-resolves the
+      # latest major on every deploy, changing the deploy path with no diff to
+      # show for it. wrangler.toml was validated against 4.130.0.
+      #
+      # wrangler reads its credentials from the environment, which is why these
+      # are `env:` rather than arguments.
       - name: Deploy the Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: packages/frontend
-          command: deploy
+        run: cd packages/frontend && bunx wrangler@4 deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

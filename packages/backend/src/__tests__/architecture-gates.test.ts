@@ -120,10 +120,26 @@ describe('architecture gates', () => {
     expect(existsSync(join(frontendRoot, 'public', '_worker.js'))).toBe(false);
     expect(existsSync(join(frontendRoot, 'public', '_redirects'))).toBe(false);
 
-    const frontendDeployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy.yml'), 'utf8');
-    expect(frontendDeployment).toContain('workingDirectory: packages/frontend');
-    expect(frontendDeployment).toContain('command: deploy');
+    // Comments stripped first: the workflow explains at length why it does not
+    // use `cloudflare/wrangler-action`, and a gate that reads prose would fail
+    // on the explanation instead of on a reintroduction.
+    const frontendDeployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy.yml'), 'utf8')
+      .split('\n')
+      .filter((line) => !line.trimStart().startsWith('#'))
+      .join('\n');
+    expect(frontendDeployment).toContain('cd packages/frontend && bunx wrangler@4 deploy');
     expect(frontendDeployment).not.toMatch(/pages deploy|pages\/projects|production_branch/);
+
+    // The deploy runs OUR wrangler, pinned. `cloudflare/wrangler-action` installs
+    // its own into the working tree mid-deploy, which is how run 34063685022
+    // failed here on 2026-09-06 (`Fail extracting tarball for "wrangler"`) and
+    // how Homiio lost production on 2026-08-09. It also picks its package
+    // manager from a lockfile beside `workingDirectory`, and this monorepo's
+    // lockfile is at the root, so npm gets `workspace:*` and cannot resolve it.
+    // Unpinned, `bunx wrangler` would re-resolve the latest major on every
+    // deploy and change the deploy path with no diff.
+    expect(frontendDeployment).not.toContain('wrangler-action');
+    expect(frontendDeployment).not.toMatch(/bunx wrangler(?!@4\b)/);
 
     // The Worker deploy is the frontend's alone. The backend is ECS, and a
     // Cloudflare credential must never turn up on that path.
