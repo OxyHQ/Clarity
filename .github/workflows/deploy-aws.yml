@@ -49,30 +49,20 @@ jobs:
         env:
           SYNC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
           SYNC_CLARITY_INTROSPECTION_CACHE_HMAC_KEY: ${{ secrets.CLARITY_INTROSPECTION_CACHE_HMAC_KEY }}
-          SYNC_REDIS_URL: ${{ secrets.REDIS_URL }}
           SYNC_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           SYNC_STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           SYNC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           SYNC_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
         run: |
           set -euo pipefail
-          shared_secrets="REDIS_URL"
           app_secrets="DATABASE_URL CLARITY_INTROSPECTION_CACHE_HMAC_KEY STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY"
-          for key in $shared_secrets $app_secrets; do
+          for key in $app_secrets; do
             value="$(printenv "SYNC_$key" || true)"
             if [[ -z "$value" || "$value" == "-" ]]; then
               echo "::warning::Skipping empty or placeholder secret $key; SSM unchanged."
               continue
             fi
-            if [[ "$key" == REDIS_URL && "$value" != *".usw2.cache.amazonaws.com"* ]]; then
-              echo "::warning::Skipping REDIS_URL because it is not the us-west-2 Valkey endpoint."
-              continue
-            fi
-            if [[ " $shared_secrets " == *" $key "* ]]; then
-              parameter="/oxy/_shared/$key"
-            else
-              parameter="/oxy/clarity/$key"
-            fi
+            parameter="/oxy/clarity/$key"
             aws ssm put-parameter \
               --name "$parameter" \
               --value "$value" \
