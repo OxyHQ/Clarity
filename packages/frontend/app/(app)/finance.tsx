@@ -5,7 +5,9 @@ import {
   Pressable,
   TextInput,
   useWindowDimensions,
+  type ViewStyle,
 } from "react-native";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Text } from "@/components/ui/text";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -18,6 +20,8 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react-native";
+import { useMarketQuotes } from "@/lib/hooks/use-market";
+import { marketCardView, type MarketCardView } from "@/lib/market-format";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
@@ -71,6 +75,32 @@ interface SectorItem {
   change: string;
   positive: boolean;
 }
+
+/* ================================================================
+   Live data — the only real numbers on this page
+   ================================================================ */
+
+/**
+ * The assets Clarity quotes, by their CANONICAL upstream id. The backend
+ * resolves an exact id, symbol or name and never a search rank, so these are
+ * written the way the source names them rather than the way a person types
+ * them. Equities are not among them: nothing in Clarity's market data serves a
+ * licensed equity feed, and half-faking one is what the rest of this page
+ * already does.
+ */
+const CRYPTO_ASSETS = ["bitcoin", "ethereum", "solana", "faircoin"] as const;
+
+/**
+ * What to call an asset before its quote arrives — and if it never does. A
+ * quote that lands supplies its own name; this is only ever a label, never a
+ * price.
+ */
+const CRYPTO_LABELS: Record<(typeof CRYPTO_ASSETS)[number], string> = {
+  bitcoin: "Bitcoin",
+  ethereum: "Ethereum",
+  solana: "Solana",
+  faircoin: "FairCoin",
+};
 
 /* ================================================================
    Mock Data
@@ -194,6 +224,166 @@ const MOVERS_MAP: Record<SidebarTab, MoverItem[]> = {
   losers: LOSERS,
   active: ACTIVE,
 };
+
+/* ================================================================
+   Crypto quotes (live)
+   ================================================================ */
+
+function CryptoQuoteCard({
+  view,
+  label,
+  isLargeScreen,
+}: {
+  view: MarketCardView;
+  label: string;
+  isLargeScreen: boolean;
+}) {
+  const { t } = useTranslation();
+  const style: ViewStyle = isLargeScreen
+    ? { width: "23.5%", minWidth: 160 }
+    : { width: "47.5%" };
+
+  if (view.state === "loading") {
+    return (
+      <View
+        className="bg-card rounded-xl border border-border p-4 gap-2"
+        style={style}
+      >
+        <Text className="text-xs font-medium text-muted-foreground">{label}</Text>
+        <Skeleton className="h-6 w-24 rounded-md" />
+        <Skeleton className="h-3 w-16 rounded-md" />
+      </View>
+    );
+  }
+
+  if (view.state === "error") {
+    return (
+      <View
+        className="bg-card rounded-xl border border-border p-4 gap-1"
+        style={style}
+      >
+        <Text className="text-xs font-medium text-muted-foreground">{label}</Text>
+        <Text className="text-base font-semibold text-muted-foreground">
+          {t("finance.crypto.unavailable")}
+        </Text>
+        <Text className="text-xs text-muted-foreground">
+          {t("finance.crypto.unavailableBody")}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View
+      className="bg-card rounded-xl border border-border p-4 gap-1"
+      style={style}
+    >
+      <Text className="text-xs font-medium text-muted-foreground">
+        {view.name} · {view.symbol}
+      </Text>
+      {view.state === "unpriced" ? (
+        <>
+          <Text className="text-base font-semibold text-muted-foreground">
+            {t("finance.crypto.unpriced")}
+          </Text>
+          <Text className="text-xs text-muted-foreground">
+            {t("finance.crypto.unpricedBody")}
+          </Text>
+        </>
+      ) : (
+        <>
+          <Text className="text-lg font-semibold text-foreground">
+            {view.price}
+          </Text>
+          {view.changePct ? (
+            <View className="flex-row items-center gap-1">
+              {view.direction === "up" ? (
+                <TrendingUp size={12} color="#22c55e" />
+              ) : view.direction === "down" ? (
+                <TrendingDown size={12} color="#ef4444" />
+              ) : null}
+              <Text
+                className={cn(
+                  "text-sm font-medium",
+                  view.direction === "up"
+                    ? "text-green-500"
+                    : view.direction === "down"
+                      ? "text-red-500"
+                      : "text-muted-foreground",
+                )}
+              >
+                {view.changePct}
+              </Text>
+            </View>
+          ) : null}
+        </>
+      )}
+      {/* A pool-indexed price has to say where it came from and how old it is. */}
+      <Text className="text-[10px] text-muted-foreground mt-1" numberOfLines={2}>
+        {t("finance.crypto.quotedBy", {
+          source: view.source,
+          updated: view.updatedAt,
+        })}
+      </Text>
+    </View>
+  );
+}
+
+function CryptoQuotes({ isLargeScreen }: { isLargeScreen: boolean }) {
+  const { t, locale } = useTranslation();
+  const quotes = useMarketQuotes(CRYPTO_ASSETS);
+
+  // The clock a card ages its quote against is the moment this data arrived,
+  // not a fresh reading taken during render: React Query already re-renders on
+  // every refetch, and a `Date.now()` read in a memoized position would freeze
+  // at whichever render the compiler kept.
+  const now = new Date(quotes.dataUpdatedAt || Date.now());
+
+  return (
+    <View className="gap-3">
+      <Text className="text-base font-semibold text-foreground">
+        {t("finance.crypto.heading")}
+      </Text>
+      <View className="flex-row flex-wrap gap-3">
+        {CRYPTO_ASSETS.map((asset) => (
+          <CryptoQuoteCard
+            key={asset}
+            label={CRYPTO_LABELS[asset]}
+            isLargeScreen={isLargeScreen}
+            view={marketCardView({
+              result: quotes.data?.results.find(
+                (result) => result.requested === asset,
+              ),
+              isPending: quotes.isPending,
+              isError: quotes.isError,
+              locale,
+              now,
+            })}
+          />
+        ))}
+      </View>
+      {quotes.isError ? (
+        <View className="flex-row items-center gap-3">
+          <Text className="flex-1 text-xs text-muted-foreground">
+            {t("finance.crypto.errorBody")}
+          </Text>
+          <Pressable
+            onPress={() => quotes.refetch()}
+            accessibilityRole="button"
+            className="h-8 rounded-lg border border-input px-3 items-center justify-center"
+          >
+            <Text className="text-xs font-medium text-foreground">
+              {t("finance.crypto.retry")}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+      <Text className="text-xs text-muted-foreground">
+        {t("finance.crypto.notice")}
+      </Text>
+    </View>
+  );
+}
 
 /* ================================================================
    Accordion Item
@@ -483,6 +673,9 @@ export default function FinanceScreen() {
         >
           {/* ── Main Content ── */}
           <View className="flex-1 gap-6">
+            {/* Crypto — served by Clarity's own market surface */}
+            <CryptoQuotes isLargeScreen={isLargeScreen} />
+
             {/* Top Assets */}
             <View className="gap-3">
               <Text className="text-base font-semibold text-foreground">

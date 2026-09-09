@@ -9,6 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "generate-sitemap": "bun scripts/generate-sitemap.ts",
+    "test": "vitest run",
     "prebuild": "bun run generate-sitemap",
     "build": "bun x setup-skia-web public && bun x expo export --platform web",
     "build:production": "NODE_ENV=production bun x setup-skia-web public && bun x expo export --platform web --clear",
@@ -122,6 +123,7 @@
     "patch-package": "^8.0.1",
     "react-test-renderer": "19.1.0",
     "tsx": "^4.23.1",
+    "vitest": "^4.1.10",
     "typescript": "~6.0.3"
   },
   "optionalDependencies": {

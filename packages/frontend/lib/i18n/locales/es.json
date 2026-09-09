@@ -362,7 +362,18 @@
     "losers": "Losers",
     "active": "Active",
     "sectors": "Equity Sectors",
-    "searchPlaceholder": "Ask about markets, stocks, or crypto..."
+    "searchPlaceholder": "Ask about markets, stocks, or crypto...",
+    "crypto": {
+      "heading": "Cripto",
+      "unavailable": "No disponible",
+      "unavailableBody": "Clarity no pudo obtener esta cotización.",
+      "unpriced": "Sin precio",
+      "unpricedBody": "La fuente no publica ahora mismo un precio utilizable.",
+      "quotedBy": "Cotizado por %{source}, %{updated}",
+      "errorBody": "Clarity no pudo conectar con la fuente de datos de mercado.",
+      "retry": "Reintentar",
+      "notice": "Precios en vivo, actualizados cada minuto. FairCoin se valora con la lectura indexada del pool WFAIR/USDC en Base, no con una cotización de mercado. Clarity solo cotiza criptomonedas: las cifras de acciones, índices y sectores de esta página son de muestra."
+    }
   },
   "discover": {
     "title": "Discover",

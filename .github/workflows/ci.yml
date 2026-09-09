@@ -65,6 +65,9 @@ jobs:
       - name: Run API tests
         run: bun run --filter @clarity/backend test
 
+      - name: Run frontend tests
+        run: bun run --filter @clarity/frontend test
+
   build-api:
     name: Build API
     runs-on: ubuntu-latest

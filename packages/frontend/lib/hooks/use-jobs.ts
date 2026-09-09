@@ -2,7 +2,7 @@ import { keepPreviousData, useInfiniteQuery, useMutation, useQuery } from '@tans
 
 import type { JobPosting, JobReportRequest, JobSearchRequest, JobSearchResponse } from '@clarity/shared-types';
 
-import config from '../config';
+import { requestPublicApi } from '../api/public-request';
 import { queryKeys } from './query-keys';
 
 /**
@@ -10,23 +10,11 @@ import { queryKeys } from './query-keys';
  * user identity, which is what keeps searching or opening a listing invisible
  * to the employer.
  */
-async function requestJobs<T>(path: string, init: RequestInit): Promise<T> {
-  const response = await fetch(`${config.apiUrl}${path}`, {
-    ...init,
-    headers: { accept: 'application/json', ...(init.body ? { 'content-type': 'application/json' } : {}) },
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined;
-    throw new Error(body?.error?.message ?? `Clarity Jobs request failed with ${response.status}`);
-  }
-  return await response.json() as T;
-}
-
 export function useJobSearch(request: JobSearchRequest, enabled = true) {
   return useInfiniteQuery({
     queryKey: queryKeys.jobs.search(request),
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) => requestJobs<JobSearchResponse>('/jobs/search', {
+    queryFn: ({ pageParam, signal }) => requestPublicApi<JobSearchResponse>('/jobs/search', {
       method: 'POST',
       body: JSON.stringify({ ...request, ...(pageParam ? { cursor: pageParam } : {}) }),
       signal,
@@ -41,7 +29,7 @@ export function useJobSearch(request: JobSearchRequest, enabled = true) {
 export function useJobPosting(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.jobs.detail(id ?? ''),
-    queryFn: ({ signal }) => requestJobs<JobPosting>(`/jobs/${encodeURIComponent(id ?? '')}`, { method: 'GET', signal }),
+    queryFn: ({ signal }) => requestPublicApi<JobPosting>(`/jobs/${encodeURIComponent(id ?? '')}`, { method: 'GET', signal }),
     enabled: Boolean(id),
     staleTime: 60_000,
   });
@@ -53,7 +41,7 @@ export function useJobPosting(id: string | undefined) {
  */
 export function useReportJobPosting(id: string | undefined) {
   return useMutation({
-    mutationFn: (request: JobReportRequest) => requestJobs<{ status: string }>(
+    mutationFn: (request: JobReportRequest) => requestPublicApi<{ status: string }>(
       `/jobs/${encodeURIComponent(id ?? '')}/report`,
       { method: 'POST', body: JSON.stringify(request) },
     ),

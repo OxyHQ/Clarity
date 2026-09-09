@@ -28,6 +28,7 @@ import auditRouter from './routes/audit.js';
 import triggersRouter from './routes/triggers.js';
 import botsRouter from './routes/bots.js';
 import jobsRouter from './routes/jobs.js';
+import marketRouter from './routes/market.js';
 // Socket.io
 import { initSocket } from './socket.js';
 
@@ -171,6 +172,7 @@ app.use('/audit', auditRouter);
 app.use('/triggers', triggersRouter);
 app.use('/bots', botsRouter);
 app.use('/jobs', jobsRouter);
+app.use('/market', marketRouter);
 app.use('/internal', internalRouter);
 
 // Root route
