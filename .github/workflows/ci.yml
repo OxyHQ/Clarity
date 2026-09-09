@@ -55,8 +55,8 @@ jobs:
         env:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
         run: |
-          bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=pre --dry-run
-          bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=pre
+          bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=all --dry-run
+          bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=all
           bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=pre
           bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=post --dry-run
           bun run --filter @clarity/backend db:migrate -- --target-database=clarity_ci --phase=post
