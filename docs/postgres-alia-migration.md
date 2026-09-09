@@ -109,14 +109,16 @@ agent or backend service configuration also closes those gates.
 
 - live source database/collection inventory and exact export are not available
   in this repository;
-- DigitalOcean PostgreSQL and `DATABASE_URL` are not proven provisioned;
+- the production PostgreSQL database and `DATABASE_URL` are not proven
+  provisioned;
 - source now targets the declared `api.clarity.surf` product API, but no DNS
-  answer or deployed App Platform revision has been observed for that origin;
+  answer or deployed production revision has been observed for that origin;
 - the canonical bot/agent/backend-app IDs are pinned, but no dated evidence
   proves Alia has reconciled the manifest, prompt hash, app binding and exact
   `web`/`artifacts`/`memory` grants;
-- the declarations accept the backend service credential as a
-  DigitalOcean-managed secret, but no read-back proves that the live app has it;
+- the declarations accept the backend service credential from the production
+  platform's managed secret store, but no read-back proves that the live app
+  has it;
 - the pre-existing Codea/Cowork developer authorization endpoints remain
   explicit `410` responses until a canonical Oxy application-delegation
   replacement is designed; this migration does not claim that flow works;

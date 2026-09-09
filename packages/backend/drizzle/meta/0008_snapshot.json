@@ -1,6 +1,6 @@
 {
-  "id": "07d8f764-3c6c-4984-a27d-9dbb6b47a353",
-  "prevId": "c4794e3c-ba26-4f52-adce-e317ac803149",
+  "id": "4ae648d8-9fca-4ba3-8cdf-461570ae1a8a",
+  "prevId": "07d8f764-3c6c-4984-a27d-9dbb6b47a353",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1076,6 +1076,833 @@
       },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.clarity_job_clusters": {
+      "name": "clarity_job_clusters",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "canonical_job_posting_id": {
+          "name": "canonical_job_posting_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "member_count": {
+          "name": "member_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "clarity_job_clusters_member_count_check": {
+          "name": "clarity_job_clusters_member_count_check",
+          "value": "\"clarity_job_clusters\".\"member_count\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.clarity_job_posting_signatures": {
+      "name": "clarity_job_posting_signatures",
+      "schema": "",
+      "columns": {
+        "job_posting_id": {
+          "name": "job_posting_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "signature": {
+          "name": "signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "clarity_job_posting_signatures_signature_idx": {
+          "name": "clarity_job_posting_signatures_signature_idx",
+          "columns": [
+            {
+              "expression": "signature",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "clarity_job_posting_signatures_job_posting_id_clarity_job_postings_id_fk": {
+          "name": "clarity_job_posting_signatures_job_posting_id_clarity_job_postings_id_fk",
+          "tableFrom": "clarity_job_posting_signatures",
+          "tableTo": "clarity_job_postings",
+          "columnsFrom": [
+            "job_posting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "clarity_job_posting_signatures_pk": {
+          "name": "clarity_job_posting_signatures_pk",
+          "columns": [
+            "job_posting_id",
+            "signature"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "clarity_job_posting_signatures_kind_check": {
+          "name": "clarity_job_posting_signatures_kind_check",
+          "value": "\"clarity_job_posting_signatures\".\"kind\" in ('identifier', 'listing_url', 'content')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.clarity_job_postings": {
+      "name": "clarity_job_postings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_key": {
+          "name": "source_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cluster_id": {
+          "name": "cluster_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "canonical_url": {
+          "name": "canonical_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "apply_url": {
+          "name": "apply_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "normalized_title": {
+          "name": "normalized_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "description_fingerprint": {
+          "name": "description_fingerprint",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "employer_name": {
+          "name": "employer_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "employer_url": {
+          "name": "employer_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "employer_domain": {
+          "name": "employer_domain",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "employer_logo_url": {
+          "name": "employer_logo_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "employer_key": {
+          "name": "employer_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locations": {
+          "name": "locations",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "location_countries": {
+          "name": "location_countries",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "location_regions": {
+          "name": "location_regions",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "location_localities": {
+          "name": "location_localities",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "applicant_location_requirements": {
+          "name": "applicant_location_requirements",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "workplace_type": {
+          "name": "workplace_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "employment_types": {
+          "name": "employment_types",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "salary_min": {
+          "name": "salary_min",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_max": {
+          "name": "salary_max",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_currency": {
+          "name": "salary_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_interval": {
+          "name": "salary_interval",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_annual_min": {
+          "name": "salary_annual_min",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "salary_annual_max": {
+          "name": "salary_annual_max",
+          "type": "double precision",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "skills": {
+          "name": "skills",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::text[]"
+        },
+        "qualifications": {
+          "name": "qualifications",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "responsibilities": {
+          "name": "responsibilities",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "education_requirements": {
+          "name": "education_requirements",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "experience_requirements": {
+          "name": "experience_requirements",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "industry": {
+          "name": "industry",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occupational_category": {
+          "name": "occupational_category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "identifier": {
+          "name": "identifier",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_apply": {
+          "name": "direct_apply",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_through": {
+          "name": "valid_through",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "closure_reason": {
+          "name": "closure_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'web'"
+        },
+        "source_domain": {
+          "name": "source_domain",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "submitted_by_application_id": {
+          "name": "submitted_by_application_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "field_evidence": {
+          "name": "field_evidence",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "search_vector": {
+          "name": "search_vector",
+          "type": "tsvector",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_seen_at": {
+          "name": "first_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "clarity_job_postings_status_published_idx": {
+          "name": "clarity_job_postings_status_published_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_postings_status_last_seen_idx": {
+          "name": "clarity_job_postings_status_last_seen_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_seen_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_postings_valid_through_idx": {
+          "name": "clarity_job_postings_valid_through_idx",
+          "columns": [
+            {
+              "expression": "valid_through",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_postings_cluster_idx": {
+          "name": "clarity_job_postings_cluster_idx",
+          "columns": [
+            {
+              "expression": "cluster_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_postings_employer_idx": {
+          "name": "clarity_job_postings_employer_idx",
+          "columns": [
+            {
+              "expression": "employer_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_postings_source_domain_idx": {
+          "name": "clarity_job_postings_source_domain_idx",
+          "columns": [
+            {
+              "expression": "source_domain",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_postings_canonical_url_idx": {
+          "name": "clarity_job_postings_canonical_url_idx",
+          "columns": [
+            {
+              "expression": "canonical_url",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_postings_search_idx": {
+          "name": "clarity_job_postings_search_idx",
+          "columns": [
+            {
+              "expression": "search_vector",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "clarity_job_postings_countries_idx": {
+          "name": "clarity_job_postings_countries_idx",
+          "columns": [
+            {
+              "expression": "location_countries",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "clarity_job_postings_employment_types_idx": {
+          "name": "clarity_job_postings_employment_types_idx",
+          "columns": [
+            {
+              "expression": "employment_types",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "clarity_job_postings_skills_idx": {
+          "name": "clarity_job_postings_skills_idx",
+          "columns": [
+            {
+              "expression": "skills",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "clarity_job_postings_title_trgm_idx": {
+          "name": "clarity_job_postings_title_trgm_idx",
+          "columns": [
+            {
+              "expression": "title",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "gin_trgm_ops"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "clarity_job_postings_document_id_clarity_search_documents_id_fk": {
+          "name": "clarity_job_postings_document_id_clarity_search_documents_id_fk",
+          "tableFrom": "clarity_job_postings",
+          "tableTo": "clarity_search_documents",
+          "columnsFrom": [
+            "document_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "clarity_job_postings_cluster_id_clarity_job_clusters_id_fk": {
+          "name": "clarity_job_postings_cluster_id_clarity_job_clusters_id_fk",
+          "tableFrom": "clarity_job_postings",
+          "tableTo": "clarity_job_clusters",
+          "columnsFrom": [
+            "cluster_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "clarity_job_postings_document_source_unique": {
+          "name": "clarity_job_postings_document_source_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "document_id",
+            "source_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "clarity_job_postings_status_check": {
+          "name": "clarity_job_postings_status_check",
+          "value": "\"clarity_job_postings\".\"status\" in ('active', 'expired', 'closed', 'removed', 'stale')"
+        },
+        "clarity_job_postings_workplace_check": {
+          "name": "clarity_job_postings_workplace_check",
+          "value": "\"clarity_job_postings\".\"workplace_type\" is null or \"clarity_job_postings\".\"workplace_type\" in ('remote', 'hybrid', 'onsite')"
+        },
+        "clarity_job_postings_source_type_check": {
+          "name": "clarity_job_postings_source_type_check",
+          "value": "\"clarity_job_postings\".\"source_type\" in ('web', 'verified_site', 'first_party')"
+        },
+        "clarity_job_postings_salary_interval_check": {
+          "name": "clarity_job_postings_salary_interval_check",
+          "value": "\"clarity_job_postings\".\"salary_interval\" is null or \"clarity_job_postings\".\"salary_interval\" in ('hour', 'day', 'week', 'month', 'year')"
+        },
+        "clarity_job_postings_salary_currency_check": {
+          "name": "clarity_job_postings_salary_currency_check",
+          "value": "\"clarity_job_postings\".\"salary_currency\" is null or \"clarity_job_postings\".\"salary_currency\" ~ '^[A-Z]{3}$'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.clarity_job_reports": {
+      "name": "clarity_job_reports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "job_posting_id": {
+          "name": "job_posting_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "detail": {
+          "name": "detail",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "clarity_job_reports_status_created_idx": {
+          "name": "clarity_job_reports_status_created_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clarity_job_reports_posting_idx": {
+          "name": "clarity_job_reports_posting_idx",
+          "columns": [
+            {
+              "expression": "job_posting_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "clarity_job_reports_job_posting_id_clarity_job_postings_id_fk": {
+          "name": "clarity_job_reports_job_posting_id_clarity_job_postings_id_fk",
+          "tableFrom": "clarity_job_reports",
+          "tableTo": "clarity_job_postings",
+          "columnsFrom": [
+            "job_posting_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "clarity_job_reports_reason_check": {
+          "name": "clarity_job_reports_reason_check",
+          "value": "\"clarity_job_reports\".\"reason\" in ('scam', 'already_filled', 'duplicate', 'misleading', 'discriminatory', 'other')"
+        },
+        "clarity_job_reports_status_check": {
+          "name": "clarity_job_reports_status_check",
+          "value": "\"clarity_job_reports\".\"status\" in ('open', 'reviewed', 'actioned', 'dismissed')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.clarity_messages": {
@@ -2701,7 +3528,7 @@
         },
         "clarity_search_documents_type_check": {
           "name": "clarity_search_documents_type_check",
-          "value": "\"clarity_search_documents\".\"document_type\" in ('page', 'article', 'news', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other')"
+          "value": "\"clarity_search_documents\".\"document_type\" in ('page', 'article', 'news', 'job', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other')"
         }
       },
       "isRLSEnabled": false

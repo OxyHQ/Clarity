@@ -566,6 +566,35 @@ export const searchUsageRollups = pgTable('clarity_search_usage_rollups', {
   columns: [table.ownerAccountId, table.applicationId, table.credentialId, table.operation, table.periodStart],
 })]);
 
+export const searchQuotaGrants = pgTable('clarity_search_quota_grants', {
+  id: text('id').primaryKey(),
+  ownerAccountId: text('owner_account_id').notNull(),
+  metric: text('metric').notNull(),
+  additionalLimit: integer('additional_limit').notNull(),
+  reason: text('reason').notNull(),
+  grantedBy: text('granted_by').notNull(),
+  startsAt: timestamp('starts_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('clarity_search_quota_grants_account_metric_idx').on(table.ownerAccountId, table.metric, table.expiresAt),
+  check('clarity_search_quota_grants_metric_check', sql`${table.metric} in ('search_month', 'fetch_month', 'sites', 'active_crawls', 'pages_per_crawl', 'requests_minute_credential', 'requests_minute_application', 'concurrent_fetches')`),
+  check('clarity_search_quota_grants_limit_check', sql`${table.additionalLimit} > 0`),
+]);
+
+export const searchRateLimitBuckets = pgTable('clarity_search_rate_limit_buckets', {
+  dimension: text('dimension').notNull(),
+  dimensionId: text('dimension_id').notNull(),
+  bucketStart: timestamp('bucket_start', { withTimezone: true }).notNull(),
+  quantity: integer('quantity').notNull().default(0),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+}, (table) => [
+  primaryKey({ name: 'clarity_search_rate_limit_buckets_pk', columns: [table.dimension, table.dimensionId, table.bucketStart] }),
+  index('clarity_search_rate_limit_buckets_expiry_idx').on(table.expiresAt),
+  check('clarity_search_rate_limit_buckets_dimension_check', sql`${table.dimension} in ('credential', 'application')`),
+  check('clarity_search_rate_limit_buckets_quantity_check', sql`${table.quantity} > 0`),
+]);
+
 /**
  * Clarity Jobs — the normalized employment projection.
  *

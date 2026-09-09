@@ -165,6 +165,10 @@ Results are complete normalized listings — employer, locations, workplace type
 employment types, salary when stated, dates, status, source and evidence — so no
 consumer has to reconstruct a role from a generic snippet.
 
+A credentialed job search draws on the same monthly search quota and per-minute
+request rate as `/v1/search`, and answers `429 monthly_quota_exceeded` when the
+allowance is spent. Quota is capacity, never relevance.
+
 Other routes: `GET /v1/jobs/:id`, `GET /v1/jobs/by-url?url=…`,
 `POST /v1/jobs/:id/report`, `GET /v1/jobs/stats` (corpus health) and
 `GET /v1/jobs/capability` (the agent tool descriptor). The unauthenticated
