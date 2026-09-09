@@ -183,6 +183,8 @@ describe('Clarity Alia agent boundary', () => {
 
   it('proxies only the selected Alia path with the exact service identity and delegated user', async () => {
     process.env.ALIA_API_URL = 'https://alia.example.test';
+    const mintedServiceToken = serviceToken();
+    vi.mocked(OxyServices.prototype.getServiceToken).mockResolvedValue(mintedServiceToken);
     const fetchMock = vi.fn(async () => new globalThis.Response('{"ok":true}', {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -210,7 +212,7 @@ describe('Clarity Alia agent boundary', () => {
       expect.objectContaining({
         method: 'PUT',
         headers: expect.objectContaining({
-          Authorization: `Bearer ${serviceToken()}`,
+          Authorization: `Bearer ${mintedServiceToken}`,
           'X-Oxy-User-Id': 'oxy-user-1',
         }),
         body: '{"tone":"direct"}',
