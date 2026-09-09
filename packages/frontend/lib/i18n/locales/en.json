@@ -362,7 +362,18 @@
     "losers": "Losers",
     "active": "Active",
     "sectors": "Equity Sectors",
-    "searchPlaceholder": "Ask about markets, stocks, or crypto..."
+    "searchPlaceholder": "Ask about markets, stocks, or crypto...",
+    "crypto": {
+      "heading": "Crypto",
+      "unavailable": "Unavailable",
+      "unavailableBody": "Clarity could not reach this quote.",
+      "unpriced": "No price",
+      "unpricedBody": "The source reports no usable price right now.",
+      "quotedBy": "Quoted by %{source}, %{updated}",
+      "errorBody": "Clarity could not reach the market data upstream.",
+      "retry": "Try again",
+      "notice": "Live prices, refreshed every minute. FairCoin is priced from an indexed reading of the WFAIR/USDC pool on Base, not an exchange listing. Clarity quotes cryptocurrencies only: the stock, index and sector figures on this page are placeholders."
+    }
   },
   "discover": {
     "title": "Discover",

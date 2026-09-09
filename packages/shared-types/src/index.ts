@@ -69,6 +69,15 @@ export type {
 } from './jobs.js';
 
 export type {
+  MarketSeriesPoint,
+  MarketQuoteSummary,
+  MarketQuote,
+  MarketQuoteError,
+  MarketQuoteResult,
+  MarketQuotesResponse,
+} from './market.js';
+
+export type {
   ResearchSource,
   ResearchProgress,
   ReasoningEvent,

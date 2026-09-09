@@ -63,6 +63,22 @@ for one returns `asset_not_found` rather than the nearest-named coin. Quotes are
 cached in Redis for a minute, so a page read by many people costs one upstream
 call.
 
+The Finance page reads the same module through a PUBLIC door, because a quote is
+public information in the same way a job posting is and a browser holding a user
+session has no resource credential to present:
+
+- `GET /market/quotes?assets=bitcoin,faircoin&currency=usd` — up to eight assets
+  in one request, each with its own outcome. One upstream being down for FairCoin
+  returns FairCoin's error beside Bitcoin's price rather than failing the batch.
+- `GET /market/capability` — the same statement of what is and is not served.
+
+Both carry no credential and no user identity; burst protection is keyed by
+address in its own bucket, so reading Finance never rate-limits Jobs. The public
+door answers SUMMARIES — a price with its provenance and no chart history — since
+a card draws no chart and a coin's full daily series is thousands of points. The
+two are separate types (`MarketQuoteSummary`, `MarketQuote`) so that a door which
+does not serve history can never be mistaken for an asset that has none.
+
 The unauthenticated portal surface behind `clarity.surf/jobs` mirrors the read
 routes at `POST /jobs/search`, `GET /jobs/:id`, `GET /jobs/by-url`,
 `POST /jobs/:id/report`, `GET /jobs/stats` and `GET /jobs/capability`. It

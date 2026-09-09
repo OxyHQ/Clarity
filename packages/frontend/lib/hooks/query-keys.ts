@@ -46,6 +46,9 @@ export const queryKeys = {
     search: (request: unknown) => ['jobs', 'search', request] as const,
     detail: (id: string) => ['jobs', 'detail', id] as const,
   },
+  market: {
+    quotes: (assets: readonly string[]) => ['market', 'quotes', ...assets] as const,
+  },
   suggestions: {
     welcome: ['suggestions', 'welcome'] as const,
     search: (query: string) => ['suggestions', 'search', query] as const,

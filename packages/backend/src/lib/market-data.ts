@@ -34,6 +34,7 @@
  * CoinGecko tool — not from a live response.
  */
 
+import type { MarketQuote, MarketSeriesPoint } from '@clarity/shared-types';
 import { z } from 'zod';
 
 import { log } from './logger.js';
@@ -70,30 +71,6 @@ const FAIRCOIN_PERIODS = ['24h', '7d', '30d', '1y', 'all'] as const;
 const FAIRCOIN_ALIASES: ReadonlySet<string> = new Set(['fair', 'faircoin', 'wfair']);
 
 const FAIRCOIN_CURRENCY = 'usd';
-
-/** `[msSinceEpoch, price]`, oldest first. */
-export type MarketSeriesPoint = [number, number];
-
-export interface MarketQuote {
-  /** Canonical upstream id: a CoinGecko coin id, or `faircoin`. */
-  asset: string;
-  name: string;
-  symbol: string;
-  currency: string;
-  /** `null` only when the source itself reports it has no usable price. */
-  price: number | null;
-  changePct: number | null;
-  changeAbs: number | null;
-  marketCap: number | null;
-  volume24h: number | null;
-  /** Pool liquidity. Only a pool-priced asset has one; `null` everywhere else. */
-  liquidityUsd: number | null;
-  /** Where the number came from, verbatim from the source that produced it. */
-  source: string;
-  /** When the source produced it, not when Clarity served it. */
-  updatedAt: string;
-  series: Record<string, MarketSeriesPoint[]>;
-}
 
 export class MarketDataError extends Error {
   constructor(readonly status: number, readonly code: string, message: string) {
