@@ -38,6 +38,9 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   employment search (`clarity:search`).
 - `POST /v1/jobs/ingest` — the publisher boundary (`clarity:index`). A
   structured `JobPosting` payload requires a verified site for the URL's host.
+- `GET/POST /v1/jobs/feeds`, `DELETE /v1/jobs/feeds/:id` (`clarity:index`) —
+  the keyless public boards and RSS feeds Clarity polls for listings. Sources
+  are rows, not a hardcoded list, and none holds a credential.
 
 The unauthenticated portal surface behind `clarity.surf/jobs` mirrors the read
 routes at `POST /jobs/search`, `GET /jobs/:id`, `GET /jobs/by-url`,

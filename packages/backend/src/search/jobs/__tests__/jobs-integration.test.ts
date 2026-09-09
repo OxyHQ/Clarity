@@ -321,6 +321,7 @@ suite('Clarity Jobs corpus', () => {
       canonicalUrl: firstPartyUrl,
       structuredData: [payload],
       siteId: firstPartySiteId,
+      sourceType: 'first_party',
       submittedByApplicationId: 'application-under-test',
       observedAt: now,
     });
@@ -330,6 +331,7 @@ suite('Clarity Jobs corpus', () => {
       canonicalUrl: firstPartyUrl,
       structuredData: [payload],
       siteId: firstPartySiteId,
+      sourceType: 'first_party',
       submittedByApplicationId: 'application-under-test',
       observedAt: now,
     });

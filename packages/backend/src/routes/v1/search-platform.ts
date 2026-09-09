@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { getDb } from '../../db/index.js';
 import {
-  crawlJobs, crawlPages, newsStories, newsStoryArticles, searchDocuments, searchSites,
+  crawlJobs, crawlPages, jobFeeds, newsStories, newsStoryArticles, searchDocuments, searchSites,
   searchChunks, searchUsageRollups,
 } from '../../db/schema/index.js';
 import { authenticateResource, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
@@ -20,6 +20,7 @@ import {
 } from '../../search/jobs/service.js';
 import { closeJobPostingsForDocument, ingestJobPosting } from '../../search/jobs/projection.js';
 import { jobReportSchema, reportJobPosting } from '../../search/jobs/reports.js';
+import { JOB_FEED_IDENTIFIER_MEANING, JOB_FEED_KINDS, jobFeedUrl } from '../../search/jobs/feeds/endpoints.js';
 
 const router = Router();
 router.use(authenticateResource);
@@ -349,6 +350,7 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
         canonicalUrl,
         structuredData: Array.isArray(input.jobPosting) ? input.jobPosting : [input.jobPosting],
         siteId: site.id,
+        sourceType: 'first_party',
         submittedByApplicationId: principal.applicationId,
         observedAt: new Date(),
       });
@@ -393,6 +395,51 @@ function sendJobsError(error: unknown, req: Request, res: Response): void {
   }
   throw error;
 }
+
+// Registered public job feeds. Sources are data, not a hardcoded list, so
+// adding a company's board is a row rather than a deploy. Every supported kind
+// is a keyless public endpoint — no credential is stored or accepted here.
+const registerJobFeedSchema = z.object({
+  kind: z.enum(JOB_FEED_KINDS),
+  identifier: z.string().trim().min(1).max(2_048),
+  label: z.string().trim().max(200).optional(),
+  pollIntervalSeconds: z.number().int().min(900).max(604_800).default(21_600),
+});
+
+router.get('/jobs/feeds', requireResourceScope('clarity:index'), async (_req, res) => {
+  const rows = await getDb().select().from(jobFeeds).orderBy(jobFeeds.kind, jobFeeds.identifier).limit(500);
+  res.json({ data: rows.map(publicJobFeed), identifierMeaning: JOB_FEED_IDENTIFIER_MEANING });
+});
+
+router.post('/jobs/feeds', requireResourceScope('clarity:index'), async (req, res) => {
+  const input = parse(registerJobFeedSchema, req, res);
+  if (!input) return;
+  try {
+    // Resolve now so a malformed identifier fails at registration rather than
+    // silently fetching the wrong board on the next poll.
+    jobFeedUrl(input.kind, input.identifier);
+  } catch (error) {
+    sendError(res, 400, 'invalid_request', error instanceof Error ? error.message : 'Invalid feed identifier', req);
+    return;
+  }
+  const [row] = await getDb().insert(jobFeeds)
+    .values({ id: crypto.randomUUID(), kind: input.kind, identifier: input.identifier, label: input.label, pollIntervalSeconds: input.pollIntervalSeconds })
+    .onConflictDoUpdate({
+      target: [jobFeeds.kind, jobFeeds.identifier],
+      set: { label: input.label, pollIntervalSeconds: input.pollIntervalSeconds, enabled: true, updatedAt: new Date() },
+    })
+    .returning();
+  res.status(201).json(publicJobFeed(row));
+});
+
+router.delete('/jobs/feeds/:id', requireResourceScope('clarity:index'), async (req, res) => {
+  // Disabled, not deleted: the listings it already produced keep their
+  // provenance, and re-registering the same source resumes rather than restarts.
+  const [row] = await getDb().update(jobFeeds).set({ enabled: false, updatedAt: new Date() })
+    .where(eq(jobFeeds.id, String(req.params.id))).returning();
+  if (!row) { sendError(res, 404, 'job_feed_not_found', 'Job feed not found', req); return; }
+  res.json(publicJobFeed(row));
+});
 
 router.get('/usage', requireResourceScope('clarity:usage:read'), async (req, res) => {
   const principal = req.resourcePrincipal;
@@ -444,6 +491,14 @@ function publicDocument(row: typeof searchDocuments.$inferSelect) {
   return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: row.faviconUrl ?? undefined, indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
 }
 function publicOperation(row: typeof crawlJobs.$inferSelect) { return { id: row.id, kind: row.kind, status: row.status, pagesDiscovered: row.pagesDiscovered, pagesCompleted: row.pagesCompleted, ...(row.errorCode ? { error: { code: row.errorCode, detail: row.errorDetail ?? undefined } } : {}), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() }; }
+function publicJobFeed(row: typeof jobFeeds.$inferSelect) {
+  return {
+    id: row.id, kind: row.kind, identifier: row.identifier, label: row.label ?? undefined,
+    enabled: row.enabled, pollIntervalSeconds: row.pollIntervalSeconds,
+    lastPolledAt: row.lastPolledAt?.toISOString(), lastStatus: row.lastStatus ?? undefined,
+    lastError: row.lastError ?? undefined, listingsSeen: row.listingsSeen,
+  };
+}
 function publicSite(row: typeof searchSites.$inferSelect) { return { id: row.id, origin: row.origin, verifiedDomainId: row.verifiedDomainId, status: row.status, crawlEnabled: row.crawlEnabled, recrawlIntervalSeconds: row.recrawlIntervalSeconds, maxPagesPerCrawl: row.maxPagesPerCrawl, sitemapUrls: row.sitemapUrls, feedUrls: row.feedUrls, nextCrawlAt: row.nextCrawlAt?.toISOString() }; }
 async function verifyDomainOwnership(accountId: string, verifiedDomainId: string, originHost: string): Promise<boolean> {
   const serviceToken = await getClarityServiceToken();

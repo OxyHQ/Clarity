@@ -41,7 +41,45 @@ export type JobSalaryInterval = 'hour' | 'day' | 'week' | 'month' | 'year';
 export type JobLifecycleStatus = 'active' | 'expired' | 'closed' | 'removed' | 'stale';
 
 /** Where a listing entered the corpus from. Never a ranking input. */
-export type JobSourceType = 'web' | 'verified_site' | 'first_party';
+export type JobSourceType = 'web' | 'verified_site' | 'first_party' | 'feed';
+
+/**
+ * A keyless public listing endpoint Clarity polls: an ATS board API, an
+ * aggregator's open JSON API, or an RSS/Atom feed. No source requires a
+ * credential — Clarity registers with nobody to read a public board.
+ */
+export type JobFeedKind =
+  | 'greenhouse'
+  | 'lever'
+  | 'ashby'
+  | 'workable'
+  | 'recruitee'
+  | 'smartrecruiters'
+  | 'remoteok'
+  | 'remotive'
+  | 'arbeitnow'
+  | 'rss';
+
+export interface JobFeed {
+  id: string;
+  kind: JobFeedKind;
+  /** Board token, company slug or feed URL, depending on `kind`. */
+  identifier: string;
+  label?: string;
+  enabled: boolean;
+  pollIntervalSeconds: number;
+  lastPolledAt?: string;
+  lastStatus?: 'ok' | 'error';
+  lastError?: string;
+  listingsSeen: number;
+}
+
+export interface RegisterJobFeedRequest {
+  kind: JobFeedKind;
+  identifier: string;
+  label?: string;
+  pollIntervalSeconds?: number;
+}
 
 /** Which extraction surface produced a normalized field. */
 export type JobFieldSource = 'json_ld' | 'html' | 'feed' | 'api';

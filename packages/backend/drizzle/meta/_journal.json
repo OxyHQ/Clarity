@@ -64,6 +64,13 @@
       "when": 1788925898551,
       "tag": "0008_steep_madripoor",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788956050978,
+      "tag": "0009_fantastic_plazm",
+      "breakpoints": true
     }
   ]
 }

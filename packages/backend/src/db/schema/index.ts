@@ -693,7 +693,7 @@ export const jobPostings = pgTable('clarity_job_postings', {
   index('clarity_job_postings_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
   check('clarity_job_postings_status_check', sql`${table.status} in ('active', 'expired', 'closed', 'removed', 'stale')`),
   check('clarity_job_postings_workplace_check', sql`${table.workplaceType} is null or ${table.workplaceType} in ('remote', 'hybrid', 'onsite')`),
-  check('clarity_job_postings_source_type_check', sql`${table.sourceType} in ('web', 'verified_site', 'first_party')`),
+  check('clarity_job_postings_source_type_check', sql`${table.sourceType} in ('web', 'verified_site', 'first_party', 'feed')`),
   check('clarity_job_postings_salary_interval_check', sql`${table.salaryInterval} is null or ${table.salaryInterval} in ('hour', 'day', 'week', 'month', 'year')`),
   check('clarity_job_postings_salary_currency_check', sql`${table.salaryCurrency} is null or ${table.salaryCurrency} ~ '^[A-Z]{3}$'`),
 ]);
@@ -732,4 +732,36 @@ export const jobReports = pgTable('clarity_job_reports', {
   index('clarity_job_reports_posting_idx').on(table.jobPostingId),
   check('clarity_job_reports_reason_check', sql`${table.reason} in ('scam', 'already_filled', 'duplicate', 'misleading', 'discriminatory', 'other')`),
   check('clarity_job_reports_status_check', sql`${table.status} in ('open', 'reviewed', 'actioned', 'dismissed')`),
+]);
+
+/**
+ * Keyless public listing endpoints Clarity polls for jobs.
+ *
+ * Sources are DATA, not a hardcoded list: adding a company's board or a feed is
+ * a row, not a deploy, and nothing here assumes every job comes from an ATS.
+ * No column holds a credential, because every supported kind is a public
+ * endpoint that needs none — Clarity registers with nobody to read a public
+ * board, and the listing's own URL stays its canonical source.
+ */
+export const jobFeeds = pgTable('clarity_job_feeds', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  /** Board token, company slug or feed URL, depending on `kind`. */
+  identifier: text('identifier').notNull(),
+  label: text('label'),
+  enabled: boolean('enabled').notNull().default(true),
+  pollIntervalSeconds: integer('poll_interval_seconds').notNull().default(21600),
+  nextPollAt: timestamp('next_poll_at', { withTimezone: true }).notNull().defaultNow(),
+  lastPolledAt: timestamp('last_polled_at', { withTimezone: true }),
+  lastStatus: text('last_status'),
+  lastError: text('last_error'),
+  listingsSeen: integer('listings_seen').notNull().default(0),
+  ...timestampColumns(),
+}, (table) => [
+  unique('clarity_job_feeds_kind_identifier_unique').on(table.kind, table.identifier),
+  index('clarity_job_feeds_due_idx').on(table.enabled, table.nextPollAt),
+  check('clarity_job_feeds_kind_check', sql`${table.kind} in ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'remoteok', 'remotive', 'arbeitnow', 'rss')`),
+  check('clarity_job_feeds_status_check', sql`${table.lastStatus} is null or ${table.lastStatus} in ('ok', 'error')`),
+  check('clarity_job_feeds_interval_check', sql`${table.pollIntervalSeconds} >= 900`),
+  check('clarity_job_feeds_listings_check', sql`${table.listingsSeen} >= 0`),
 ]);

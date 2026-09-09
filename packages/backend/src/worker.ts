@@ -10,6 +10,7 @@ import { chunkText, embedChunks, replaceDocumentChunks } from './search/chunking
 import { extractJobPostings } from './search/jobs/extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/lifecycle.js';
 import { closeJobPostingsForDocument, projectJobPostings } from './search/jobs/projection.js';
+import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
@@ -233,7 +234,10 @@ async function runJobMaintenance(): Promise<void> {
   try {
     const sweep = await sweepJobLifecycle();
     const recrawls = await enqueueJobRecrawls();
-    console.info('Job corpus maintenance completed', { ...sweep, recrawls });
+    // Supply, after upkeep: a failing feed is recorded on its own row, so this
+    // never blocks the sweep or the recrawls above.
+    const feeds = await pollDueJobFeeds();
+    console.info('Job corpus maintenance completed', { ...sweep, recrawls, feeds });
   } catch (error) {
     console.error('Job corpus maintenance failed', {
       error: error instanceof Error ? error.message : 'unknown maintenance failure',

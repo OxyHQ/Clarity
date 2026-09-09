@@ -249,9 +249,47 @@ never per viewer.
 1. **Public web** — any page exposing valid `JobPosting` structured data:
    careers sites, Greenhouse, Lever, Ashby, Workable, other public ATS pages and
    permitted boards. Nothing assumes an ATS.
-2. **Verified sites** — an employer verifies its careers domain through the
+
+2. **Registered public feeds** — the supply side. Clarity polls keyless public
+   endpoints on their own interval and projects what they return:
+
+   | Kind | Identifier | Endpoint |
+   | --- | --- | --- |
+   | `greenhouse` | board token | `boards-api.greenhouse.io/v1/boards/<token>/jobs?content=true` |
+   | `lever` | company slug | `api.lever.co/v0/postings/<slug>?mode=json` |
+   | `ashby` | job board name | `api.ashbyhq.com/posting-api/job-board/<name>` |
+   | `workable` | account slug | `apply.workable.com/api/v1/widget/accounts/<slug>` |
+   | `recruitee` | company slug | `<slug>.recruitee.com/api/offers/` |
+   | `smartrecruiters` | company id | `api.smartrecruiters.com/v1/companies/<id>/postings` |
+   | `remoteok` | — | `remoteok.com/api` |
+   | `remotive` | optional category | `remotive.com/api/remote-jobs` |
+   | `arbeitnow` | — | `arbeitnow.com/api/job-board-api` |
+   | `rss` | feed URL | any RSS or Atom job feed |
+
+   **Every one is keyless.** Clarity registers with nobody to read a public
+   board, so no source here holds a credential and none may ever be added that
+   does — a source needing a key belongs behind an explicit partner agreement,
+   not in this table. A registration test asserts no built endpoint carries a
+   key, token or secret parameter.
+
+   Sources are **data, not a hardcoded list**: adding a company's board is a row
+   through `POST /v1/jobs/feeds`, not a deploy. A malformed identifier is
+   rejected at registration rather than silently fetching the wrong board, and a
+   failing feed backs off and records the error on its own row instead of
+   blocking the others.
+
+   Where a provider embeds `schema.org/JobPosting` JSON-LD in its payload —
+   Greenhouse and Ashby do — that is parsed with the SAME extractor a crawl
+   uses. Every other adapter re-expresses its listing as `JobPosting` before
+   projection, so one normalizer defines every field and a listing arriving by
+   feed deduplicates against the same listing arriving by crawl instead of
+   racing it. Feed-sourced fields record `source: 'feed'` in their evidence.
+
+   The listing's own URL stays its canonical source. Clarity indexes these
+   boards; it does not republish them.
+3. **Verified sites** — an employer verifies its careers domain through the
    existing site flow and Clarity keeps it recrawled.
-3. **First-party publishers** — a product that just published, updated or closed
+4. **First-party publishers** — a product that just published, updated or closed
    a listing hands it to Clarity instead of waiting for a crawl:
 
 ```http

@@ -251,9 +251,13 @@ export interface JobIngestInput {
   canonicalUrl: string;
   /** `schema.org/JobPosting` JSON-LD exactly as the publisher emits it. */
   structuredData: readonly unknown[];
-  /** The verified Clarity site that proves the publisher owns this host. */
-  siteId: string;
-  submittedByApplicationId: string;
+  /**
+   * The verified Clarity site proving the publisher owns this host, or `null`
+   * for a listing Clarity read from a public feed it does not own.
+   */
+  siteId: string | null;
+  sourceType: JobSourceType;
+  submittedByApplicationId?: string;
   observedAt: Date;
 }
 
@@ -305,7 +309,7 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       documentId: document.id,
       documentStatus: 'indexed',
       postings,
-      sourceType: 'first_party',
+      sourceType: input.sourceType,
       submittedByApplicationId: input.submittedByApplicationId,
       observedAt: input.observedAt,
     });
