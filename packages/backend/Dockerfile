@@ -14,10 +14,16 @@ COPY --from=oven/bun:1.3.14 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /build
 
-# Copy root workspace files (bunfig pins the hoisted linker for Docker)
+# Copy root workspace files (bunfig pins the hoisted linker for Docker).
+# EVERY workspace manifest must be here, including the ones this image never
+# builds: `bun.lock` describes the whole workspace, so with `frontend` and `sdk`
+# missing the resolved set differs from the lockfile and `--frozen-lockfile`
+# refuses to install. Only the manifests are copied, not their sources.
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/frontend/package.json ./packages/frontend/
 
 # Install all dependencies (including devDependencies for build)
 RUN bun install --frozen-lockfile
@@ -44,10 +50,13 @@ COPY --from=oven/bun:1.3.14 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
-# Copy root workspace files
+# Copy root workspace files; the lockfile needs every workspace manifest here
+# for the same reason as the builder stage above.
 COPY package.json bun.lock bunfig.toml ./
 COPY packages/backend/package.json ./packages/backend/
 COPY packages/shared-types/package.json ./packages/shared-types/
+COPY packages/sdk/package.json ./packages/sdk/
+COPY packages/frontend/package.json ./packages/frontend/
 
 # Install production dependencies only
 RUN bun install --frozen-lockfile --production
