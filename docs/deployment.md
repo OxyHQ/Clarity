@@ -1,11 +1,27 @@
 # Deployment
 
-No production deployment is performed or asserted by this migration branch.
+Clarity's backend deployment target is two ECS Fargate services in `us-west-2`:
+`clarity-api` serves the API and `clarity-worker` runs crawl and indexing jobs. Both use one
+immutable ARM64 image from `oxy/clarity` in ECR. AWS resources, including RDS,
+ECS, ALB, DNS targets, SSM bindings and IAM, are owned by `oxy-infra`.
 
 The frontend is deployed to Cloudflare Pages by `.github/workflows/deploy.yml`
-and is currently reachable at `https://clarity.surf`. The App Platform and SST
-declarations cover only the product API at `https://api.clarity.surf`; they do
-not declare a second frontend or an unused Spaces bucket.
+and is currently reachable at `https://clarity.surf`. That workflow remains
+independent of the backend workflow. The API origin is
+`https://api.clarity.surf`.
+
+`.github/workflows/deploy-aws.yml` runs only after Clarity's `CI` workflow
+succeeds for the current `master` commit. It builds one digest-pinned image,
+applies `pre` migrations, rolls out and verifies the API, applies `post`
+migrations, performs external health checks, then deploys the worker. Concurrent
+production rollouts are serialized and never cancelled in progress.
+
+The first empty database is a separate genesis operation from inside the VPC:
+run the image migrator once with `--target-database=clarity --phase=all` before
+starting either service. Ordinary releases then use the workflow's `pre` and
+`post` phases. The workflow deliberately fails if either ECS service is absent
+or parked at zero; infrastructure creation and intentional scaling are not
+silently treated as successful application deployments.
 
 ## Required secrets and bindings
 
@@ -13,8 +29,8 @@ not declare a second frontend or an unused Spaces bucket.
 - `CLARITY_ALIA_AGENT_ID`: real provisioned Clarity bot/agent record
 - `ALIA_API_URL`: Alia product API origin
 - `OXY_SERVICE_API_KEY`: exact public client ID of the Clarity backend app
-- `OXY_SERVICE_API_SECRET`: provider-managed DigitalOcean App Platform secret;
-  its value is never checked into source or supplied as a plain deployment value
+- `OXY_SERVICE_API_SECRET`: Oxy-provisioned SSM secret; its value is never
+  checked into source or exposed to the deployment runner
 - Stripe secrets only when local product subscription checkout is enabled
 - VAPID secrets only when browser push is enabled
 - Redis/Valkey only for cache and burst limiting
@@ -42,19 +58,20 @@ only `user:read`; it must never authenticate backend inference.
   `cutover` attestation, `CLARITY_ALIA_AGENT_ID` matches the canonical agent
   byte for byte, and the exact backend service credential is configured.
 
-App Platform must use `/health/ready` as the readiness/deployment gate. A live
+The ALB must use `/health/ready` as the readiness/deployment gate. A live
 but unattested process is deliberately not production-ready. The same check is
 enforced in front of every product HTTP route and every Socket.IO handshake, so
 a direct origin cannot bypass load-balancer health.
 
 ## Before enabling traffic
 
-1. Provision PostgreSQL and run all `pre` migrations with an exact target name.
+1. Provision PostgreSQL and run the genesis `all` migration with the exact
+   `clarity` target name from a one-shot task inside the VPC.
 2. Complete and reconcile the source inventory/backfill.
 3. Reconcile the checked-in bootstrap manifest into Alia: exact bot/agent IDs,
    backend-app binding, `prompts/base.md` hash and exactly the grants `web`,
    `artifacts`, `memory`.
-4. Populate the backend service secret in DigitalOcean App Platform and verify
+4. Provision the backend service credential into `/oxy/clarity/` in SSM and verify
    its minted token has
    only `user:read` + `inference:invoke`, the fixed backend app/credential IDs,
    and the Clarity project as `ownerAccountId`.
@@ -76,8 +93,8 @@ by its authorization screen. `EXPO_PUBLIC_TELEGRAM_BOT_USERNAME` is an optional
 public link and stays blank until that canonical Alia channel bot is provisioned;
 it is not a secret and no fallback username is invented.
 
-Both checked-in deployment declarations mark `OXY_SERVICE_API_SECRET` as a
-provider-managed `SECRET` without embedding its value. That declaration does
-not prove the live app has been populated. Do not enable traffic until an
-operator reads back the secret binding metadata and the readiness/canary checks
-above pass.
+The application workflow never owns or copies the Oxy credential. Its SSM
+binding belongs to `oxy-infra` and Oxy's credential provisioning path. Do not
+enable traffic until an operator reads back the live ECS task definition and
+SSM metadata, resolves every referenced secret, verifies the running image
+digest, and passes the readiness and canary checks above.
