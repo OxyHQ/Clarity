@@ -7,10 +7,10 @@ import {
   crawlJobs, crawlPages, jobFeeds, newsStories, newsStoryArticles, searchDocuments, searchSites,
   searchChunks, searchUsageRollups,
 } from '../../db/schema/index.js';
-import { authenticateResource, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
+import { authenticateResource, requireResourceRequestRate, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
-import { consumeRequestRate, consumeUsage, effectiveQuota, SANDBOX_QUOTAS, type QuotaMetric } from '../../search/quotas.js';
+import { consumeUsage, effectiveQuota, SANDBOX_QUOTAS, type QuotaMetric } from '../../search/quotas.js';
 import {
   canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike, excerpt,
 } from '../../search/query-primitives.js';
@@ -24,17 +24,7 @@ import { JOB_FEED_IDENTIFIER_MEANING, JOB_FEED_KINDS, jobFeedUrl } from '../../s
 
 const router = Router();
 router.use(authenticateResource);
-router.use(async (req, res, next) => {
-  const principal = req.resourcePrincipal;
-  if (!principal) return;
-  const result = await consumeRequestRate(principal);
-  if (!result.accepted) {
-    if (result.retryAfterSeconds) res.setHeader('Retry-After', String(result.retryAfterSeconds));
-    sendError(res, 429, 'rate_limit_exceeded', 'The request rate limit has been exceeded', req);
-    return;
-  }
-  next();
-});
+router.use(requireResourceRequestRate);
 
 const documentTypes = ['page', 'article', 'news', 'job', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other'] as const;
 const searchSchema = z.object({

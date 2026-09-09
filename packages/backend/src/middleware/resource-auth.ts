@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 
 import { getClarityServiceToken } from '../lib/clarity-service-auth.js';
+import { consumeRequestRate } from '../search/quotas.js';
 
 const introspectionSchema = z.object({
   active: z.boolean(),
@@ -87,6 +88,23 @@ export async function authenticateResource(req: Request, res: Response, next: Ne
   } catch {
     sendError(res, 503, 'identity_unavailable', 'Oxy identity is temporarily unavailable', req);
   }
+}
+
+/**
+ * The per-credential and per-application request ceiling every credentialed
+ * `/v1` surface sits behind. It runs after {@link authenticateResource}, which
+ * is what puts the principal the buckets are keyed by on the request.
+ */
+export async function requireResourceRequestRate(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const principal = req.resourcePrincipal;
+  if (!principal) return;
+  const result = await consumeRequestRate(principal);
+  if (!result.accepted) {
+    if (result.retryAfterSeconds) res.setHeader('Retry-After', String(result.retryAfterSeconds));
+    sendError(res, 429, 'rate_limit_exceeded', 'The request rate limit has been exceeded', req);
+    return;
+  }
+  next();
 }
 
 export function requireResourceScope(scope: string) {
