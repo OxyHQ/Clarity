@@ -17,6 +17,35 @@ export function resolveFaviconUrl(input: string, size = DEFAULT_FAVICON_SIZE): s
   return `https://www.google.com/s2/favicons?sz=${normalizedSize}&domain_url=${encodeURIComponent(hostname)}`;
 }
 
+/**
+ * Resolve an image resource when it is the conventional root favicon.
+ *
+ * This is intentionally narrower than searching an arbitrary page for icons:
+ * callers pass one already-discovered image URL and receive either Clarity's
+ * privacy-minimized favicon URL or `null`. The provider receives only the
+ * resource hostname, never its path, query, credentials or surrounding data.
+ */
+export function resolveFaviconForImageUrl(
+  resourceUrl: string,
+  size = DEFAULT_FAVICON_SIZE,
+): string | null {
+  let url: URL;
+  try {
+    url = new URL(resourceUrl);
+  } catch {
+    return null;
+  }
+
+  if (
+    (url.protocol !== 'http:' && url.protocol !== 'https:')
+    || url.pathname.toLowerCase() !== '/favicon.ico'
+  ) {
+    return null;
+  }
+
+  return resolveFaviconUrl(url.hostname, size);
+}
+
 function normalizeHostname(input: string): string | null {
   const value = input.trim();
   if (!value) return null;

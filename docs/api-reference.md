@@ -5,6 +5,22 @@ Examples below require an Oxy user session unless marked public.
 Except for health, every route remains `503` until the PostgreSQL snapshot and
 exact Clarity Alia agent identity have been attested.
 
+## SDK favicon resolution
+
+`@clarity.surf/sdk` exports two browser-independent helpers:
+
+- `resolveFaviconUrl(pageUrlOrHostname, size?)` builds the canonical favicon
+  service URL for a page.
+- `resolveFaviconForImageUrl(resourceUrl, size?)` returns that URL only when an
+  already-discovered image is the conventional root `/favicon.ico`; otherwise
+  it returns `null`.
+
+Both helpers discard credentials, paths, queries and fragments before building
+the provider request. Only the normalized hostname is sent. Consumers handling
+private documents, such as email clients, should pass only the individual image
+resource URL to `resolveFaviconForImageUrl`; no message, sender or recipient data
+is needed.
+
 ## Public and health
 
 - `GET /`
