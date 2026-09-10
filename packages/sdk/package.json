@@ -1,6 +1,6 @@
 {
   "name": "@clarity.surf/sdk",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Universal SDK for Clarity Search, Jobs, Indexing and News",
   "type": "module",
   "sideEffects": false,
