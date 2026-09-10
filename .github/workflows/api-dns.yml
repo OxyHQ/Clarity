@@ -1,0 +1,60 @@
+name: Reconcile API DNS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the DNS-only API record when missing
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.error, urllib.parse, urllib.request
+
+          token = os.environ["CF_TOKEN"].strip()
+          if not token:
+              sys.exit("CLOUDFLARE_API_TOKEN is empty")
+          zone_name = "clarity.surf"
+          name = "api.clarity.surf"
+          target = "oxy-alb-648111691.us-west-2.elb.amazonaws.com"
+
+          def api(path, method="GET", body=None):
+              request = urllib.request.Request(
+                  f"https://api.cloudflare.com/client/v4{path}",
+                  method=method,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+              )
+              try:
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      result = json.load(response)
+              except urllib.error.HTTPError as error:
+                  result = json.load(error)
+              if not result.get("success"):
+                  sys.exit(f"Cloudflare API failed: {result.get('errors')}")
+              return result
+
+          zones = api(f"/zones?name={urllib.parse.quote(zone_name)}")["result"]
+          if len(zones) != 1:
+              sys.exit(f"expected one visible {zone_name} zone, found {len(zones)}")
+          zone_id = zones[0]["id"]
+          records = api(
+              f"/zones/{zone_id}/dns_records?type=CNAME&name={urllib.parse.quote(name)}"
+          )["result"]
+          if records:
+              record = records[0]
+              if record["content"].rstrip(".") != target or record.get("proxied", False):
+                  sys.exit(f"{name} conflicts with the required DNS-only record; left unchanged")
+              print(f"{name} is already correct")
+              sys.exit(0)
+
+          api(
+              f"/zones/{zone_id}/dns_records",
+              method="POST",
+              body={"type": "CNAME", "name": name, "content": target, "proxied": False, "ttl": 1},
+          )
+          print(f"created DNS-only CNAME {name} -> {target}")
+          PY
