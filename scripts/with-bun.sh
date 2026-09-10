@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUN_VERSION="${BUN_VERSION:-1.3.10}"
+BUN_VERSION="${BUN_VERSION:-1.4.2}"
 BUN_INSTALL="${BUN_INSTALL:-$ROOT_DIR/.bun}"
 
 export BUN_INSTALL
