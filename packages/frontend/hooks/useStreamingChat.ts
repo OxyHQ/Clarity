@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetch as expoFetch } from 'expo/fetch';
 import * as Haptics from 'expo-haptics';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Message } from '@clarity/shared-types';
 import type { CreditsInfo } from '@/lib/hooks/use-credits';
@@ -13,7 +13,7 @@ import { queryKeys } from '@/lib/hooks/query-keys';
 import { useStore } from '@/lib/globalStore';
 import { useModelStore } from '@/lib/stores/model-store';
 import { useUIStore } from '@/lib/stores/ui-store';
-import { toast } from '@oxyhq/bloom/toast';
+import { toast } from '@oxy.so/bloom/toast';
 
 import type { ToolInvocation } from '@clarity/shared-types';
 

@@ -10,8 +10,8 @@ import {
   useCreateSubscriptionCheckout,
   type SubscriptionPlan,
 } from '@/lib/hooks/use-billing';
-import { useAuth } from '@oxyhq/services';
-import { toast } from '@oxyhq/bloom/toast';
+import { useAuth } from '@oxy.so/services';
+import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from '@/lib/useColorScheme';

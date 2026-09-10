@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Platform, Pressable, Share, TextInput as RNTextInput, View } from "react-native";
 import { AlertTriangle, Download, Info, Shield, ShieldCheck, ShieldX } from "lucide-react-native";
-import { useOxy } from "@oxyhq/services";
-import { toast } from "@oxyhq/bloom/toast";
+import { useOxy } from "@oxy.so/services";
+import { toast } from "@oxy.so/bloom/toast";
 
 import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";

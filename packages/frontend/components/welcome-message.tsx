@@ -1,5 +1,5 @@
 import { useMemo, useCallback, useState } from "react";
-import { useAuth } from "@oxyhq/services";
+import { useAuth } from "@oxy.so/services";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useWelcomeSuggestions, useRecordSuggestionUsage } from "@/lib/hooks/use-suggestions";
 import { useUserDataStore } from "@/lib/stores/user-data-store";

@@ -40,7 +40,7 @@ import { useUIStore } from "@/lib/stores/ui-store";
 import { useRouter, usePathname } from "expo-router";
 import { SettingsSidebar } from "@/components/settings/settings-sidebar";
 import { UserAvatar } from "@/components/user-avatar";
-import { useOxy, openAccountDialog } from "@oxyhq/services";
+import { useOxy, openAccountDialog } from "@oxy.so/services";
 import { SidebarSkeleton } from "@/components/sidebar-skeleton";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/hooks/query-keys";

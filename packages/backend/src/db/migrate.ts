@@ -6,7 +6,7 @@ import {
   type MigrationRun,
   readTargetDatabase,
   runMigrations,
-} from '@oxyhq/db/migrate';
+} from '@oxy.so/db/migrate';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 

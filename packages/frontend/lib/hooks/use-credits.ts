@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useOxy } from '@oxyhq/services';
+import { useOxy } from '@oxy.so/services';
 import { useApiClient } from '../api/use-api-client';
 import { queryKeys } from './query-keys';
 import { useAuthQuery } from './create-query';

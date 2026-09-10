@@ -2,7 +2,7 @@ import { View, TextInput as RNTextInput, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-import { useOxy } from "@oxyhq/services";
+import { useOxy } from "@oxy.so/services";
 import { useApiClient } from "@/lib/api/use-api-client";
 import {
   Globe,
@@ -18,7 +18,7 @@ import { useUserDataStore } from "@/lib/stores/user-data-store";
 import type { UserMemory } from "@/lib/stores/user-data-store";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/hooks/useTranslation";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 
 const LANGUAGES = [
   { value: "en-US", label: "English" },

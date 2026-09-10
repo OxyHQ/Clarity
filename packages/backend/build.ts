@@ -8,15 +8,15 @@ await esbuild.build({
   target: 'node20',
   format: 'esm',
   outdir: 'dist',
-  // Keep node_modules external except @oxyhq/* (their ESM builds have broken imports)
+  // Keep node_modules external except @oxy.so/* (their ESM builds have broken imports)
   plugins: [{
     name: 'externalize-except-oxyhq',
     setup(build) {
-      // Let @oxyhq/* packages be bundled (their ESM has missing .js extensions)
+      // Let @oxy.so/* packages be bundled (their ESM has missing .js extensions)
       build.onResolve({ filter: /^@oxyhq\// }, () => undefined);
       // Externalize all other bare imports (node_modules)
       build.onResolve({ filter: /^[^./]/ }, args => {
-        if (args.path.startsWith('@oxyhq/')) return undefined;
+        if (args.path.startsWith('@oxy.so/')) return undefined;
         return { path: args.path, external: true };
       });
     },

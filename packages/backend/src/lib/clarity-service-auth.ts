@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { OxyServices } from '@oxyhq/core';
+import { OxyServices } from '@oxy.so/core';
 
 import { CLARITY_AGENT_MANIFEST } from './clarity-agent-manifest.js';
 

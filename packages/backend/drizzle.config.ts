@@ -1,4 +1,4 @@
-import { DATABASE_CASING } from '@oxyhq/db';
+import { DATABASE_CASING } from '@oxy.so/db';
 import { defineConfig } from 'drizzle-kit';
 
 export default defineConfig({

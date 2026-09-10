@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { createHash } from 'node:crypto';
 import { and, eq, lt, or, sql } from 'drizzle-orm';
-import { safeFetch } from '@oxyhq/core/server';
+import { safeFetch } from '@oxy.so/core/server';
 
 import { closePostgres, connectPostgres, getDb } from './db/index.js';
 import { crawlJobs, crawlPages, fetchAttempts, searchDocuments } from './db/schema/index.js';

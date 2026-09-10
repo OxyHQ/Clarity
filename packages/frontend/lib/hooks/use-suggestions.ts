@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@oxyhq/services';
+import { useAuth } from '@oxy.so/services';
 import { useApiClient } from '../api/use-api-client';
 import { API_ROUTES } from '../api/routes';
 import { queryKeys } from './query-keys';

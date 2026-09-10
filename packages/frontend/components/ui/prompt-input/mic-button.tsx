@@ -2,7 +2,7 @@ import React from "react";
 import { Pressable } from "react-native";
 import { Mic } from "lucide-react-native";
 import { cn } from "@/lib/utils";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 
 export type PromptInputMicButtonProps = {
   className?: string;

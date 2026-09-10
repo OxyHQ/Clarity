@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { OxyServices } from '@oxyhq/core';
+import { OxyServices } from '@oxy.so/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {

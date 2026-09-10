@@ -7,13 +7,13 @@ This document explains which OxyHQ packages to use for each platform and provide
 ```
 Are you building...
 |-- A web app (React, Next.js, Vite)?
-|   -> Use @oxyhq/services + @oxyhq/core
+|   -> Use @oxy.so/services + @oxy.so/core
 |
 |-- A mobile app (Expo, React Native)?
-|   -> Use @oxyhq/services + @oxyhq/core
+|   -> Use @oxy.so/services + @oxy.so/core
 |
 |-- A backend (Node.js, Express)?
-    -> Use @oxyhq/core only
+    -> Use @oxy.so/core only
 ```
 
 ---
@@ -22,12 +22,12 @@ Are you building...
 
 ### Web Apps (React, Next.js, Vite)
 
-**Packages:** `@oxyhq/services` + `@oxyhq/core`
+**Packages:** `@oxy.so/services` + `@oxy.so/core`
 
 Device-first session transport: wrap the app in `OxyProvider`, register your app's `clientId`, and use `useAuth` / `useOxy` for state.
 
 ```tsx
-import { OxyProvider, useAuth } from '@oxyhq/services';
+import { OxyProvider, useAuth } from '@oxy.so/services';
 
 export default function App() {
   return (
@@ -46,12 +46,12 @@ function SignInButton() {
 
 ### Mobile Apps (Expo, React Native)
 
-**Packages:** `@oxyhq/services` + `@oxyhq/core`
+**Packages:** `@oxy.so/services` + `@oxy.so/core`
 
 Same provider and hooks as web — no separate web auth package.
 
 ```tsx
-import { OxyProvider, useOxy } from '@oxyhq/services';
+import { OxyProvider, useOxy } from '@oxy.so/services';
 
 <OxyProvider
   baseURL="https://api.oxy.so"
@@ -63,19 +63,19 @@ import { OxyProvider, useOxy } from '@oxyhq/services';
 
 ### Backend (Node.js, Express)
 
-**Packages:** `@oxyhq/core` only (import server helpers from `@oxyhq/core/server`)
+**Packages:** `@oxy.so/core` only (import server helpers from `@oxy.so/core/server`)
 
 ```ts
-import { createOxyAuthMiddleware, getRequiredOxyUserId } from '@oxyhq/core/server';
+import { createOxyAuthMiddleware, getRequiredOxyUserId } from '@oxy.so/core/server';
 ```
 
 ---
 
 ## Anti-patterns
 
-### Don't use `@oxyhq/services` in backend
+### Don't use `@oxy.so/services` in backend
 
-UI/session hooks belong in frontend apps only. Backend code uses `@oxyhq/core/server`.
+UI/session hooks belong in frontend apps only. Backend code uses `@oxy.so/core/server`.
 
 ### Don't hand-roll session restore or OAuth redirects in apps
 
@@ -85,4 +85,4 @@ UI/session hooks belong in frontend apps only. Backend code uses `@oxyhq/core/se
 
 ## Clarity
 
-Clarity uses `@oxyhq/services` on web and native via `OxyProvider` in `packages/frontend/app/_layout.tsx`, with `@oxyhq/core` on the API.
+Clarity uses `@oxy.so/services` on web and native via `OxyProvider` in `packages/frontend/app/_layout.tsx`, with `@oxy.so/core` on the API.

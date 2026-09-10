@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "expo-router";
 import config from "@/lib/config";
 import { useEntitlements } from "@/lib/hooks/use-billing";
-import { toast } from "@oxyhq/bloom/toast";
+import { toast } from "@oxy.so/bloom/toast";
 import { useTranslation } from "@/hooks/useTranslation";
 import type { ClarityModelsResponse } from "@clarity/shared-types";
 

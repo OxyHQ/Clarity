@@ -1,11 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
-import { OxyServices } from '@oxyhq/core';
+import { OxyServices } from '@oxy.so/core';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
   type OxyRequestUser,
   type OxyServiceAppContext,
-} from '@oxyhq/core/server';
+} from '@oxy.so/core/server';
 
 const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
 export const oxyClient = new OxyServices({ baseURL: OXY_API_URL });

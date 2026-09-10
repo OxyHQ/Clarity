@@ -11,7 +11,7 @@
  * rather than thrown, so one dead board cannot stop the others.
  */
 import { and, eq, lte, sql } from 'drizzle-orm';
-import { safeFetch } from '@oxyhq/core/server';
+import { safeFetch } from '@oxy.so/core/server';
 
 import type { JobFeedKind } from '@clarity/shared-types';
 

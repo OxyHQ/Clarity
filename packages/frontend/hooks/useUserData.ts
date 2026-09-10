@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useAuth } from '@oxyhq/services';
+import { useAuth } from '@oxy.so/services';
 import { useUserDataStore } from '@/lib/stores/user-data-store';
 import type { UserMemory } from '@/lib/stores/user-data-store';
 import { useApiClient } from '@/lib/api/use-api-client';

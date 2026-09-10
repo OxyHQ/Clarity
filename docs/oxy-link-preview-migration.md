@@ -8,7 +8,7 @@ repeated exports of unchanged rows are reproducible.
 Export from Oxy without changing its database:
 
 ```bash
-DATABASE_URL=postgresql://... bun run --filter @oxyhq/api export:clarity-link-previews -- ./oxy-link-previews.ndjson
+DATABASE_URL=postgresql://... bun run --filter @oxy.so/api export:clarity-link-previews -- ./oxy-link-previews.ndjson
 ```
 
 Import into Clarity. This process opens only Clarity's `DATABASE_URL`, validates

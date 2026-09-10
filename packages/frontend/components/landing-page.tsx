@@ -33,7 +33,7 @@ import {
   Plus,
   Mic,
 } from "lucide-react-native";
-import { OxySignInButton, useAuth } from "@oxyhq/services";
+import { OxySignInButton, useAuth } from "@oxy.so/services";
 import { Text } from "@/components/ui/text";
 import { TextShimmer } from "@/components/ui/text-shimmer";
 import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
