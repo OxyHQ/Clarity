@@ -10,7 +10,7 @@ FROM node:22-bookworm-slim AS builder
 # pin. The previous `curl | bash` install failed OPEN: a failed download left
 # `bash` reading nothing and exiting 0, `ln -s` happily created a dangling
 # symlink, and the build only died four lines later with `bun: not found`.
-COPY --from=oven/bun:1.3.14 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.2 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /build
 
@@ -46,7 +46,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=oven/bun:1.3.14 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.2 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
