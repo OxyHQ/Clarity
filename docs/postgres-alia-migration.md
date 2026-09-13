@@ -132,3 +132,29 @@ agent or backend service configuration also closes those gates.
 
 Do not delete source data, enable traffic or mark the PR production-ready until
 all blockers are replaced with dated, exact evidence.
+
+
+## Read-only production observation — 2026-09-13
+
+The Alia web-search incident confirmed that `api.clarity.surf` resolves to the
+production load balancer but returns HTTP 503. Both `clarity-api` and
+`clarity-worker` have desired/running counts `0/0`. Deployment run
+`34526130360` built main `18419cdbcf048b509b513a58f6a26d518f9aafff` but refused
+rollout because desiredCount was zero.
+
+The required SSM bindings exist and two isolated tasks reached the production
+PostgreSQL database using the tested immutable image. The schema is provisioned,
+but `clarity_runtime_state` and `clarity_backfill_receipts` are empty; counts
+are also zero for conversations, messages, search documents and search chunks.
+This resolves the older provisioning/DNS uncertainty above, but does not satisfy
+the source reconciliation or runtime/billing receipt gates. No production
+capacity or attestation was changed.
+
+The vault and examined S3 final Mongo inventories did not provide a Clarity
+source manifest. A connection probe to the historical source endpoint timed
+out. These observations do not establish that the source was empty. Recovery
+requires locating its authoritative inventory/export and reconciling it before
+attestation, then restoring the indexed corpus and proving real search results.
+See the [Alia incident record](https://github.com/OxyHQ/Alia/blob/main/docs/runbooks/clarity-search-2026-09-13.md)
+for task IDs, image identity and the correction to the former search canary's
+false success assertion.
