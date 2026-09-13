@@ -17,6 +17,7 @@
     "build:ios": "eas build --platform ios"
   },
   "dependencies": {
+    "@oxy.so/telemetry": "^1.1.0",
     "@clarity/shared-types": "workspace:*",
     "@expo/html-elements": "^57.0.0",
     "@expo/vector-icons": "^15.1.1",
