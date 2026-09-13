@@ -24,7 +24,7 @@
   "dependencies": {
     "@clarity/shared-types": "workspace:*",
     "@mozilla/readability": "^0.6.0",
-    "@oxy.so/core": "^1.0.0",
+    "@oxy.so/core": "^1.1.0",
     "@oxy.so/db": "^1.0.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "cheerio": "^1.2.0",

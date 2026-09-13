@@ -1,4 +1,5 @@
 import express from 'express';
+import { startPlatformActivity } from './lib/platform-activity.js';
 import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -50,6 +51,8 @@ const server = http.createServer({
   keepAlive: true,
   keepAliveTimeout: 65000, // Slightly higher than default
 }, app);
+const activity = startPlatformActivity(() => server.listening);
+if (activity) app.use(activity.observeHttp);
 
 // Handle HTTP server errors (e.g. EADDRINUSE)
 server.on('error', (error: NodeJS.ErrnoException) => {
@@ -68,7 +71,7 @@ server.on('connection', (socket) => {
   socket.setKeepAlive(true, 60000);
 });
 
-initSocket(server);
+initSocket(server).on('connection', socket => activity?.observeSocket(socket));
 
 // Public API routes (/v1) use the documented cross-origin API contract.
 app.use('/v1', cors({
@@ -294,6 +297,7 @@ if (!database) {
         await closeRedis();
         log.general.info('Redis connections closed');
 
+        await activity?.stop();
         await closePostgres();
         log.general.info('PostgreSQL connection closed');
 
