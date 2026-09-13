@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { createHash } from 'node:crypto';
+import { startPlatformActivity } from './lib/platform-activity.js';
 import { and, eq, lt, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
@@ -250,6 +251,7 @@ function header(value: string | string[] | undefined): string | undefined { retu
 async function main() {
   if (!connectPostgres(process.env.DATABASE_URL)) throw new Error('DATABASE_URL is required');
   let stopping = false;
+  const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
   process.once('SIGTERM', () => { stopping = true; });
   process.once('SIGINT', () => { stopping = true; });
@@ -262,6 +264,7 @@ async function main() {
     if (page) await processPage(page);
     else await new Promise((resolve) => setTimeout(resolve, 1000));
   }
+  await activity?.stop();
   await closePostgres();
 }
 

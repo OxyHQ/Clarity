@@ -21,6 +21,7 @@ workers_dev = false
 # fallback. The Worker script above is what stops that fallback answering a
 # stale `.js` URL with `text/html`; it reads the assets through this binding.
 [assets]
+run_worker_first = true
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
