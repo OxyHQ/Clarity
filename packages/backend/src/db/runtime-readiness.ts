@@ -26,6 +26,16 @@ function sha256(value: string): string {
   return createHash('sha256').update(value).digest('hex');
 }
 
+/**
+ * Either attested status opens readiness. `cutover` means real prior data was
+ * migrated and reconciled (`attest-cutover.ts`); `fresh_install` means the
+ * deployment never had prior data to migrate at all (`attest-fresh-install.ts`).
+ * Both still require the recorded attestation to name the exact agent id
+ * currently configured — that check is not about data, it never stops
+ * applying.
+ */
+const ATTESTED_STATUSES = new Set(['cutover', 'fresh_install']);
+
 export function evaluateRuntimeReadiness(
   row: RuntimeAttestation | undefined,
   agentId: string | undefined,
@@ -34,7 +44,7 @@ export function evaluateRuntimeReadiness(
   if (configuredAgentId !== CLARITY_AGENT_MANIFEST.agentId) {
     return { ready: false, reason: 'clarity_agent_unconfigured' };
   }
-  if (row?.status !== 'cutover') {
+  if (row === undefined || !ATTESTED_STATUSES.has(row.status)) {
     return { ready: false, reason: 'postgres_cutover_unattested' };
   }
   if (row.aliaAgentIdSha256 !== sha256(configuredAgentId)) {

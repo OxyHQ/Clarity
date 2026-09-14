@@ -320,18 +320,29 @@ export const billingCustomers = pgTable('clarity_billing_customers', {
 /**
  * Backfill/cutover attestation. The runtime may start for migration work, but
  * readiness stays closed until the operator records a reconciled cutover.
+ *
+ * `fresh_install` is the other way readiness ever opens: a deployment that
+ * never had prior data to migrate at all, attested by `attest-fresh-install.ts`
+ * rather than `attest-cutover.ts`. It carries no snapshot — there is nothing to
+ * hash — so the snapshot/reconciliation columns stay NULL for that row only;
+ * the check below enforces the two shapes never mix.
  */
 export const runtimeState = pgTable('clarity_runtime_state', {
   id: text('id').primaryKey(),
   status: text('status').notNull(),
-  sourceSnapshotHash: text('source_snapshot_hash').notNull(),
+  sourceSnapshotHash: text('source_snapshot_hash'),
   aliaAgentIdSha256: text('alia_agent_id_sha256'),
-  reconciledAt: timestamp('reconciled_at', { withTimezone: true }).notNull(),
-  sourceCounts: jsonb('source_counts').notNull(),
-  targetCounts: jsonb('target_counts').notNull(),
+  reconciledAt: timestamp('reconciled_at', { withTimezone: true }),
+  sourceCounts: jsonb('source_counts'),
+  targetCounts: jsonb('target_counts'),
   ...timestampColumns(),
 }, (table) => [
-  check('clarity_runtime_state_status_check', sql`${table.status} in ('reconciled', 'cutover')`),
+  check('clarity_runtime_state_status_check', sql`${table.status} in ('reconciled', 'cutover', 'fresh_install')`),
+  check(
+    'clarity_runtime_state_fresh_install_has_no_snapshot',
+    sql`(${table.status} = 'fresh_install' and ${table.sourceSnapshotHash} is null and ${table.reconciledAt} is null and ${table.sourceCounts} is null and ${table.targetCounts} is null)
+        or (${table.status} in ('reconciled', 'cutover') and ${table.sourceSnapshotHash} is not null and ${table.reconciledAt} is not null and ${table.sourceCounts} is not null and ${table.targetCounts} is not null)`,
+  ),
 ]);
 
 /** Append-only audit of each source record copied by a future backfill. */
