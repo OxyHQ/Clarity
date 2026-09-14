@@ -1,0 +1,9 @@
+-- oxy:deploy-phase=pre
+ALTER TABLE "clarity_runtime_state" DROP CONSTRAINT "clarity_runtime_state_status_check";--> statement-breakpoint
+ALTER TABLE "clarity_runtime_state" ALTER COLUMN "source_snapshot_hash" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "clarity_runtime_state" ALTER COLUMN "reconciled_at" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "clarity_runtime_state" ALTER COLUMN "source_counts" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "clarity_runtime_state" ALTER COLUMN "target_counts" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "clarity_runtime_state" ADD CONSTRAINT "clarity_runtime_state_fresh_install_has_no_snapshot" CHECK (("clarity_runtime_state"."status" = 'fresh_install' and "clarity_runtime_state"."source_snapshot_hash" is null and "clarity_runtime_state"."reconciled_at" is null and "clarity_runtime_state"."source_counts" is null and "clarity_runtime_state"."target_counts" is null)
+        or ("clarity_runtime_state"."status" in ('reconciled', 'cutover') and "clarity_runtime_state"."source_snapshot_hash" is not null and "clarity_runtime_state"."reconciled_at" is not null and "clarity_runtime_state"."source_counts" is not null and "clarity_runtime_state"."target_counts" is not null));--> statement-breakpoint
+ALTER TABLE "clarity_runtime_state" ADD CONSTRAINT "clarity_runtime_state_status_check" CHECK ("clarity_runtime_state"."status" in ('reconciled', 'cutover', 'fresh_install'));

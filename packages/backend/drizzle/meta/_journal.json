@@ -71,6 +71,13 @@
       "when": 1788956050978,
       "tag": "0009_fantastic_plazm",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789373434570,
+      "tag": "0010_loose_bucky",
+      "breakpoints": true
     }
   ]
 }

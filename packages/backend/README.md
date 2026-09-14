@@ -54,6 +54,9 @@ bun run db:migrate -- --target-database=clarity_ci --phase=pre --dry-run
 bun run db:backfill -- --manifest=/absolute/path/manifest.json
 bun run db:attest-cutover -- --manifest=/absolute/path/manifest.json \
   --snapshot-hash=<sha256> --confirm=CUTOVER_CLARITY_TO_POSTGRES
+
+# A deployment that never had prior data to migrate attests that instead:
+bun run db:attest-fresh-install -- --confirm=FRESH_INSTALL_NO_DATA_TO_MIGRATE
 ```
 
 See `../../docs/postgres-alia-migration.md` before running any data command.
