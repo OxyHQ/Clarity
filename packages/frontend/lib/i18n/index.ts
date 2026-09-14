@@ -3,9 +3,8 @@ import { getLocales } from 'expo-localization';
 import en from './locales/en.json';
 import es from './locales/es.json';
 
-// Create i18n instance with translations
 // Using BCP 47 locale codes (en-US, es-ES) with fallback to language codes (en, es)
-const i18n = new I18n({
+const translations = {
   'en': en,
   'en-US': en,
   'en-GB': en,
@@ -14,7 +13,22 @@ const i18n = new I18n({
   'es-ES': es,
   'es-MX': es,
   'es-AR': es,
-});
+} as const;
+
+/**
+ * The exact locale codes this app ships a translation catalog for — the keys
+ * `i18n` below resolves to a dictionary for. This is the single source of
+ * truth `app/_layout.tsx` feeds `OxyProvider`'s `language.supportedLocales`,
+ * so the two can never drift apart the way they used to
+ * (`components/language-selector.tsx` once hard-coded its own, narrower
+ * subset of this list).
+ */
+export const SUPPORTED_LOCALES: readonly string[] = Object.keys(translations);
+
+export const DEFAULT_LOCALE = 'en-US';
+
+// Create i18n instance with translations
+const i18n = new I18n(translations);
 
 /**
  * Get the device's current locale
@@ -45,6 +59,6 @@ i18n.enableFallback = true;
 i18n.missingBehavior = 'guess';
 
 // Default locale
-i18n.defaultLocale = 'en-US';
+i18n.defaultLocale = DEFAULT_LOCALE;
 
 export default i18n;

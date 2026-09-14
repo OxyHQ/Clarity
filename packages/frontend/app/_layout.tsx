@@ -12,9 +12,11 @@ import { AppErrorBoundary } from '@/components/error-boundary';
 import { KeyboardProvider } from '@/lib/keyboard';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
+import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@/lib/i18n';
+import { useI18nStore } from '@/lib/stores/i18n-store';
+import { handleLanguageError } from '@/lib/i18n/handleLanguageError';
 import 'react-native-reanimated';
 import '../global.css';
-import '@/lib/i18n';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -77,6 +79,12 @@ function RootLayout() {
           baseURL={OXY_API_URL}
           clientId="oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a"
           authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
+          language={{
+            supportedLocales: SUPPORTED_LOCALES,
+            fallbackLocale: DEFAULT_LOCALE,
+            onChange: (locale) => useI18nStore.getState().setLocale(locale),
+            onError: handleLanguageError,
+          }}
         >
           <AppContent />
         </OxyProvider>
