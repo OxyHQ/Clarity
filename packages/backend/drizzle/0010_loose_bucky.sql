@@ -1,3 +1,4 @@
+-- oxy:deploy-phase=pre
 ALTER TABLE "clarity_runtime_state" DROP CONSTRAINT "clarity_runtime_state_status_check";--> statement-breakpoint
 ALTER TABLE "clarity_runtime_state" ALTER COLUMN "source_snapshot_hash" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "clarity_runtime_state" ALTER COLUMN "reconciled_at" DROP NOT NULL;--> statement-breakpoint
