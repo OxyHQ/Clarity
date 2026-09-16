@@ -12,8 +12,8 @@ import type { JobEmploymentType, JobFeedKind, JobLocation } from '@clarity/share
 
 import { extractJobPostings, type ExtractedJobPosting } from '../extract.js';
 import {
-  descriptionFingerprint, employerKey, normalizeCountry, normalizeCurrency,
-  normalizeEmploymentType, normalizeJobTitle, normalizeSalaryInterval, urlDomain,
+  descriptionFingerprint, employerKey, normalizeCountry,
+  normalizeEmploymentType, normalizeJobTitle, urlDomain,
 } from '../taxonomy.js';
 
 export interface FeedContext {
@@ -318,7 +318,10 @@ function remotive(payload: Node, context: FeedContext): ExtractedJobPosting[] {
   return jobs.flatMap((raw) => {
     if (!raw || typeof raw !== 'object') return [];
     const job = raw as Node;
-    const currency = normalizeCurrency(text(job['salary_currency']) ?? '');
+    // Remotive's own `salary` field is free text ("$50-$75/hour", "175k-190k",
+    // "competitive") with no separate currency/min/max — there is nothing
+    // structured here to normalize without inventing precision the source
+    // never stated, so salary stays absent for this source.
     const built = listing({
       title: text(job['title']),
       employerName: text(job['company_name']),
@@ -332,7 +335,7 @@ function remotive(payload: Node, context: FeedContext): ExtractedJobPosting[] {
       skills: Array.isArray(job['tags']) ? job['tags'].filter((tag): tag is string => typeof tag === 'string').slice(0, 20) : [],
       identifier: job['id'] === undefined ? undefined : String(job['id']),
       publishedAt: date(job['publication_date']),
-      evidenceFields: ['title', 'employer', 'canonicalUrl', 'description', 'workplaceType', 'employmentTypes', 'skills', 'identifier', 'publishedAt', ...(currency ? ['salary'] : [])],
+      evidenceFields: ['title', 'employer', 'canonicalUrl', 'description', 'workplaceType', 'employmentTypes', 'skills', 'identifier', 'publishedAt'],
     });
     return built ? [built] : [];
   });
