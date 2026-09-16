@@ -13,7 +13,7 @@ import type { JobEmploymentType, JobFeedKind, JobLocation } from '@clarity/share
 import { extractJobPostings, type ExtractedJobPosting } from '../extract.js';
 import {
   descriptionFingerprint, employerKey, normalizeCountry,
-  normalizeEmploymentType, normalizeJobTitle, urlDomain,
+  normalizeEmploymentType, normalizeJobTitle, repairMojibake, urlDomain,
 } from '../taxonomy.js';
 
 export interface FeedContext {
@@ -28,7 +28,7 @@ type Node = Record<string, unknown>;
 
 function text(value: unknown): string | undefined {
   if (typeof value === 'string') {
-    const stripped = stripHtml(value);
+    const stripped = repairMojibake(stripHtml(value));
     return stripped.length > 0 ? stripped : undefined;
   }
   if (typeof value === 'number') return String(value);

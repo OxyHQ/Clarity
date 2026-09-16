@@ -27,6 +27,7 @@ import {
   normalizeEmploymentType,
   normalizeJobTitle,
   normalizeSalaryInterval,
+  repairMojibake,
   urlDomain,
 } from './taxonomy.js';
 
@@ -101,7 +102,7 @@ export function hasJobPosting(structuredData: readonly unknown[]): boolean {
 
 function text(value: unknown): string | undefined {
   if (typeof value === 'string') {
-    const stripped = stripHtml(value);
+    const stripped = repairMojibake(stripHtml(value));
     return stripped.length > 0 ? stripped : undefined;
   }
   if (typeof value === 'number') return String(value);
