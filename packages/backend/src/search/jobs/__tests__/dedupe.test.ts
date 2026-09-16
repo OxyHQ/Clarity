@@ -28,6 +28,28 @@ describe('job canonicalization signatures', () => {
     expect(careers.filter((signature) => ats.includes(signature))).toContain('domain:acme.example|id|req-1042');
   });
 
+  it('treats gh_jid as tracking noise, not part of listing identity', () => {
+    // Measured Greenhouse URL shapes (2026-09-09, OxyHQ/Clarity#19): the same
+    // posting's id appears in the path on every shape, and `gh_jid` merely
+    // repeats it when a company fronts the board with its own careers domain.
+    expect(normalizeListingUrl('https://boards.greenhouse.io/acme/jobs/1042?gh_jid=1042'))
+      .toBe(normalizeListingUrl('https://boards.greenhouse.io/acme/jobs/1042'));
+  });
+
+  it('groups an employer-fronted Greenhouse URL with its ATS-hosted twin by requisition id', () => {
+    // The employer-fronted shape can carry a non-numeric path slug, so the
+    // shared `identifier` — not the URL — is what has to carry the join.
+    const fronted = signatures({
+      ...base, identifier: '4242',
+      canonicalUrl: 'https://acme.example/positions/senior-engineer?gh_jid=4242',
+    });
+    const atsHosted = signatures({
+      ...base, identifier: '4242',
+      canonicalUrl: 'https://job-boards.greenhouse.io/acme/jobs/4242',
+    });
+    expect(fronted.some((signature) => atsHosted.includes(signature))).toBe(true);
+  });
+
   it('groups a board copy that links to the same apply URL', () => {
     const original = signatures({ ...base, canonicalUrl: 'https://acme.example/jobs/1' });
     const board = signatures({
