@@ -1,6 +1,4 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getLocales } from 'expo-localization';
 import i18n from '@/lib/i18n';
 
@@ -15,23 +13,18 @@ interface I18nState {
   setLocale: (locale: string) => void;
 }
 
-export const useI18nStore = create<I18nState>()(
-  persist(
-    (set) => ({
-      locale: getDeviceLocale(),
-      setLocale: (locale: string) => {
-        i18n.locale = locale;
-        set({ locale });
-      },
-    }),
-    {
-      name: 'i18n-storage',
-      storage: createJSONStorage(() => AsyncStorage),
-      onRehydrateStorage: () => (state) => {
-        if (state?.locale) {
-          i18n.locale = state.locale;
-        }
-      },
-    }
-  )
-);
+/**
+ * In-memory only. Oxy resolves and owns the account/device locale and drives
+ * it in through `OxyProvider`'s `onChange`; a persisted copy here previously
+ * raced that resolution — async AsyncStorage rehydration could overwrite
+ * `i18n.locale` with a stale value after Oxy had already applied the current
+ * one, since Oxy's `onChange` only fires again when ITS resolved locale
+ * changes.
+ */
+export const useI18nStore = create<I18nState>()((set) => ({
+  locale: getDeviceLocale(),
+  setLocale: (locale: string) => {
+    i18n.locale = locale;
+    set({ locale });
+  },
+}));
