@@ -10,6 +10,7 @@ import {
   normalizeEmploymentType,
   normalizeJobTitle,
   normalizeSalaryInterval,
+  repairMojibake,
   resolveRegion,
   urlDomain,
 } from '../taxonomy.js';
@@ -70,5 +71,18 @@ describe('job taxonomy', () => {
     expect(descriptionFingerprint(body)).toBe(descriptionFingerprint(`  ${body.toUpperCase()}  `));
     expect(descriptionFingerprint('Too short')).toBeUndefined();
     expect(descriptionFingerprint(undefined)).toBeUndefined();
+  });
+
+  it('repairs a source double-encoding its own UTF-8, measured live from RemoteOK', () => {
+    // RemoteOK's /api returns this exact codepoint sequence for "we're"
+    // (2026-09-16): the apostrophe's UTF-8 bytes E2 80 99 came back as three
+    // separate Latin-1 codepoints instead of one right single quote.
+    expect(repairMojibake('At ExtraHop, weâre on a mission')).toBe("At ExtraHop, we’re on a mission");
+  });
+
+  it('leaves correctly encoded text untouched, including real accents', () => {
+    expect(repairMojibake('Ingénieur logiciel senior')).toBe('Ingénieur logiciel senior');
+    expect(repairMojibake('Remote React Native role')).toBe('Remote React Native role');
+    expect(repairMojibake('日本語のタイトル')).toBe('日本語のタイトル');
   });
 });
