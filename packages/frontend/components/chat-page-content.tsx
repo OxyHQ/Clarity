@@ -476,10 +476,10 @@ export const ChatPageContent = ({
 
                       {/* Search input box */}
                       <View className="w-full">
-                        <View className="bg-card w-full rounded-2xl border border-border shadow-sm overflow-hidden">
+                        <View className="bg-card w-full rounded-[28px] border border-border/60 shadow-lg overflow-hidden">
                           {/* Text input area */}
                           <Pressable onPress={() => landingInputRef.current?.focus()}>
-                            <View className="px-4 pt-4 pb-2 min-h-[60px]">
+                            <View className="px-5 pt-4 pb-2 min-h-[60px]">
                               <ChatTextInput
                                 ref={landingInputRef}
                                 value={inputValue}
@@ -490,7 +490,7 @@ export const ChatPageContent = ({
                                 placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
                                 multiline
                                 editable={!disabled}
-                                className="text-foreground bg-transparent w-full text-base"
+                                className="text-foreground bg-transparent w-full text-base font-medium"
                                 style={{ minHeight: 24, borderWidth: 0, shadowOpacity: 0 }}
                               />
                             </View>
@@ -499,11 +499,11 @@ export const ChatPageContent = ({
                           {/* Action bar */}
                           <View className="px-3 pb-3 flex-row items-center justify-between">
                             {/* Left actions */}
-                            <View className="flex-row items-center gap-2">
+                            <View className="flex-row items-center gap-1.5">
                               {/* (+) Add button */}
                               <DropdownMenu.Root>
                                 <DropdownMenu.Trigger>
-                                  <View className="w-8 h-8 rounded-full items-center justify-center">
+                                  <View className="w-8 h-8 rounded-full items-center justify-center bg-muted/60">
                                     <Plus size={18} color={colors.mutedForeground} />
                                   </View>
                                 </DropdownMenu.Trigger>
@@ -521,27 +521,19 @@ export const ChatPageContent = ({
                                 </DropdownMenu.Content>
                               </DropdownMenu.Root>
 
-                              {/* Focus chip */}
+                              {/* Focus tag */}
                               <Pressable
                                 onPress={() => toggleMode("search")}
+                                className="h-8 flex-row items-center gap-1.5 rounded-full px-3"
                                 style={{
-                                  height: 32,
-                                  flexDirection: 'row',
-                                  alignItems: 'center',
-                                  gap: 6,
-                                  paddingHorizontal: 12,
-                                  borderRadius: 16,
-                                  borderWidth: 1,
-                                  borderStyle: 'dashed',
-                                  borderColor: activeModes.has("search") ? colors.primary : colors.border,
-                                  backgroundColor: activeModes.has("search") ? `${colors.primary}18` : 'transparent',
+                                  backgroundColor: activeModes.has("search") ? `${colors.primary}18` : colors.muted + '60',
                                 }}
                               >
                                 <Globe size={14} color={activeModes.has("search") ? colors.primary : colors.mutedForeground} />
-                                <Text style={{ fontSize: 14, color: activeModes.has("search") ? colors.primary : colors.mutedForeground }}>Focus</Text>
+                                <Text style={{ fontSize: 13, fontWeight: '500', color: activeModes.has("search") ? colors.primary : colors.mutedForeground }}>Focus</Text>
                               </Pressable>
 
-                              {/* Active mode chips */}
+                              {/* Active mode tags */}
                               {activeModes.has("deepResearch") && (
                                 <ModeChip
                                   icon={MODE_CONFIG.deepResearch.icon}
@@ -556,9 +548,11 @@ export const ChatPageContent = ({
                             </View>
 
                             {/* Right actions */}
-                            <View className="flex-row items-center gap-2">
+                            <View className="flex-row items-center gap-1.5">
                               {/* Model selector */}
-                              <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
+                              <View className="rounded-full bg-muted/60">
+                                <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
+                              </View>
 
                               {/* Submit button */}
                               <Pressable
