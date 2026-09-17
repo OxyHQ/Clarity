@@ -35,6 +35,8 @@ import { useDocumentPicker } from "@/hooks/useDocumentPicker";
 import { cn } from "@/lib/utils";
 import { Image } from "react-native";
 import { useSearchSuggestions, useRecordSuggestionUsage } from "@/lib/hooks/use-suggestions";
+import { useConversations, prefetchConversation } from "@/lib/hooks/use-conversations";
+import { useQueryClient } from "@tanstack/react-query";
 
 type Mode = "search" | "deepResearch";
 
@@ -62,6 +64,18 @@ const MODE_CONFIG: Record<Mode, {
     featureId: "deep-research",
   },
 };
+
+/** "3h ago" / "2d ago" — coarse enough for a card, no dependency pulled in for it. */
+function relativeTimeAgo(date: Date): string {
+  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 interface ChatPageContentProps {
   messages: Message[];
@@ -104,6 +118,16 @@ export const ChatPageContent = ({
   const { data: entitlements } = useEntitlements();
   const router = useRouter();
   const { t } = useTranslation();
+  const qc = useQueryClient();
+  const { data: conversationsData } = useConversations();
+  const recentConversations = useMemo(() => {
+    const all = conversationsData?.pages.flatMap((p) => p.conversations) ?? [];
+    return [...all].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, 3);
+  }, [conversationsData]);
+  const handleOpenConversation = useCallback((id: string) => {
+    prefetchConversation(qc, id);
+    router.push(`/(app)/c/${id}`);
+  }, [qc, router]);
   const [activeModes, setActiveModes] = useState<Set<Mode>>(new Set());
   const thinkingMode = isThinkingModel(selectedModel);
   const baseModel = useModelStore((s) => s.baseModel);
@@ -567,10 +591,48 @@ export const ChatPageContent = ({
                       </View>
                     </View>
 
-                    {/* Category tabs + suggestion cards below search */}
-                    <View className="mt-6 w-full">
-                      <WelcomeMessage onSuggestionPress={handleSuggestionPress} />
-                    </View>
+                    {/* Recent — real conversation history, styled like the reference's
+                        "Recent tasks" cards. Nothing here is fabricated: no card shows
+                        without a real conversation behind it, and there's no invented
+                        screenshot or status — Clarity doesn't generate either. */}
+                    {recentConversations.length > 0 ? (
+                      <View className="mt-10 w-full max-w-3xl">
+                        <View className="mb-3 flex-row items-center justify-between">
+                          <Text className="text-base font-medium text-foreground">Recent</Text>
+                          <Pressable onPress={() => router.push("/(app)/history")}>
+                            <Text className="text-xs font-medium text-muted-foreground">{t("sidebar.seeAll")}</Text>
+                          </Pressable>
+                        </View>
+                        <View className="flex-row flex-wrap gap-2 justify-center md:justify-start">
+                          {recentConversations.map((conv) => (
+                            <Pressable
+                              key={conv.id}
+                              onPress={() => handleOpenConversation(conv.id)}
+                              onHoverIn={() => prefetchConversation(qc, conv.id)}
+                              className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
+                            >
+                              <View className="flex-row items-center gap-2 mb-1">
+                                <Text className="flex-1 text-xs font-medium text-muted-foreground" numberOfLines={1}>
+                                  {relativeTimeAgo(conv.updatedAt)}
+                                </Text>
+                              </View>
+                              <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
+                                {conv.title || t("sidebar.newSearch")}
+                              </Text>
+                              {conv.lastMessage && (
+                                <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
+                                  {conv.lastMessage}
+                                </Text>
+                              )}
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    ) : (
+                      <View className="mt-6 w-full">
+                        <WelcomeMessage onSuggestionPress={handleSuggestionPress} />
+                      </View>
+                    )}
 
                     {/* Powered by */}
                     <Text className="mt-8 text-center text-xs text-muted-foreground/60">
