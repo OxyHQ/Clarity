@@ -34,6 +34,7 @@ import {
   useCreateConversation,
   prefetchConversation,
 } from "@/lib/hooks/use-conversations";
+import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
 import type { HydratedConversation } from "@/lib/hooks/use-conversations";
 
 const VISIBLE_HISTORY_COUNT = 8;
@@ -124,7 +125,18 @@ export function useSettingsSidebarConfig(): SidebarProps {
     { key: "feedback", label: t("settings.sections.feedback"), icon: Feedback, onPress: () => router.push("/(app)/settings/feedback") },
   ];
 
-  return { items, selected: activeId, showThemeToggle: true, showSearch: false };
+  return {
+    items,
+    selected: activeId,
+    showThemeToggle: true,
+    showSearch: false,
+    logo: {
+      wordmark: <ClarityWordmark height={24} width={62} />,
+      href: "/(app)",
+      onPress: () => router.replace("/(app)"),
+      accessibilityLabel: "Clarity",
+    },
+  };
 }
 
 /* ================================================================
@@ -264,6 +276,12 @@ export function useSearchSidebarConfig(): SidebarProps {
     searchLabel: t("sidebar.search"),
     searchPlaceholder: t("sidebar.search"),
     noResultsLabel: t("sidebar.noSearches"),
+    logo: {
+      wordmark: <ClarityWordmark height={24} width={62} />,
+      href: "/(app)",
+      onPress: handleNewSearch,
+      accessibilityLabel: "Clarity",
+    },
   };
 }
 
