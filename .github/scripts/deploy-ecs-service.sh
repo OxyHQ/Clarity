@@ -127,13 +127,23 @@ aws ecs update-service \
   >/dev/null
 aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
 
-live_json="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE")"
+# `services-stable` only means one deployment is left with the desired count
+# running. ECS marks that deployment COMPLETED a little later, and for a service
+# with no load balancer (the worker) the old tasks are gone before it does, so
+# reading the state once raced it and rolled back healthy deploys. Wait for
+# the rollout itself to settle.
+rollout_state=""
+for _ in $(seq 1 40); do
+  live_json="$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE")"
+  rollout_state="$(jq -r --arg task "$new_definition" '
+    .services[0].deployments[] |
+    select(.taskDefinition == $task and .status == "PRIMARY") |
+    .rolloutState // empty
+  ' <<<"$live_json")"
+  [[ "$rollout_state" == IN_PROGRESS ]] || break
+  sleep 15
+done
 live_definition="$(jq -r '.services[0].taskDefinition // empty' <<<"$live_json")"
-rollout_state="$(jq -r --arg task "$new_definition" '
-  .services[0].deployments[] |
-  select(.taskDefinition == $task and .status == "PRIMARY") |
-  .rolloutState // empty
-' <<<"$live_json")"
 running_count="$(jq -r '.services[0].runningCount // 0' <<<"$live_json")"
 
 if [[ "$live_definition" != "$new_definition" ]] ||
