@@ -11,12 +11,16 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "outDir": "./dist",
-    "rootDir": "./src",
+    "rootDir": "..",
     "declaration": false,
     "sourceMap": false,
     "types": ["node"],
     "incremental": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "paths": {
+      "@clarity.surf/sdk/vocabularies": ["../sdk/src/vocabularies.ts"],
+      "@clarity.surf/sdk": ["../sdk/src/index.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

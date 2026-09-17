@@ -32,7 +32,7 @@ import { canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLi
 import { activeJobPredicate } from './lifecycle.js';
 import { markdownToPlainText } from './markdown.js';
 import {
-  JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
+  CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
   annualizeSalary, normalizeCountry, resolveRegion,
 } from './taxonomy.js';
 
@@ -53,7 +53,10 @@ const domainPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*
 export const jobSearchSchema = z.object({
   query: z.string().trim().min(1).max(500).optional(),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).default('hybrid'),
-  locations: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
+  locations: z.array(z.string().trim().min(1).max(120).refine(
+    (token) => !/^[A-Za-z]{2}$/.test(token) || Boolean(normalizeCountry(token) ?? resolveRegion(token)),
+    { message: 'A two-letter location must be an ISO 3166-1 alpha-2 code from COUNTRY_CODES' },
+  )).max(20).optional(),
   workplaceTypes: z.array(z.enum(JOB_WORKPLACE_TYPES)).max(JOB_WORKPLACE_TYPES.length).optional(),
   employmentTypes: z.array(z.enum(JOB_EMPLOYMENT_TYPES)).max(JOB_EMPLOYMENT_TYPES.length).optional(),
   employers: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
@@ -62,7 +65,9 @@ export const jobSearchSchema = z.object({
   salary: z.object({
     min: z.number().min(0).max(100_000_000).optional(),
     max: z.number().min(0).max(100_000_000).optional(),
-    currency: z.string().trim().regex(/^[A-Za-z]{3}$/).optional(),
+    currency: z.string().trim().toUpperCase().pipe(z.enum(CURRENCY_CODES, {
+      message: 'currency must be an active ISO 4217 code from CURRENCY_CODES',
+    })).optional(),
     interval: z.enum(JOB_SALARY_INTERVALS).default('year'),
   }).optional(),
   publishedAfter: z.coerce.date().optional(),

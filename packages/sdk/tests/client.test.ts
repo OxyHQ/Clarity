@@ -94,4 +94,17 @@ describe('ClarityClient', () => {
     expect(fetcher.mock.calls[0][0]).toBe('https://clarity.test/v1/jobs/ingest');
     expect(new Headers(fetcher.mock.calls[0][1]?.headers).get('idempotency-key')).toBe('mention-job-7');
   });
+
+  it('searches and reads places through clarity.places', async () => {
+    const place = { id: '3128760', kind: 'city', name: 'Barcelona', asciiName: 'Barcelona', countryCode: 'ES', population: 1686208 };
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [place] }), { status: 200, headers: { 'content-type': 'application/json' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(place), { status: 200, headers: { 'content-type': 'application/json' } }));
+    const client = new ClarityClient({ apiKey: 'oxy_sk_test', baseUrl: 'https://clarity.test', fetch: fetcher });
+    const results = await client.places.search({ q: 'Barcel', countryCode: 'ES', limit: 5 });
+    expect(results.data[0].id).toBe('3128760');
+    expect(fetcher.mock.calls[0][0]).toBe('https://clarity.test/v1/places/search?q=Barcel&countryCode=ES&limit=5');
+    expect((await client.places.get('3128760')).name).toBe('Barcelona');
+    expect(fetcher.mock.calls[1][0]).toBe('https://clarity.test/v1/places/3128760');
+  });
 });

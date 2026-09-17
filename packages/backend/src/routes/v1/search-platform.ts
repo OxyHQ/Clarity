@@ -19,6 +19,8 @@ import {
   JobsError, getJobPostingById, getJobPostingByUrl, jobCorpusStats, jobSearchSchema, searchJobs,
 } from '../../search/jobs/service.js';
 import { closeJobPostingsForDocument, ingestJobPosting } from '../../search/jobs/projection.js';
+import { validateJobPostingPayload } from '../../search/jobs/ingest-validation.js';
+import { createPlaceResolver, getPlace, placeSearchSchema, searchPlaces } from '../../search/places/repository.js';
 import { jobReportSchema, reportJobPosting } from '../../search/jobs/reports.js';
 import { JOB_FEED_IDENTIFIER_MEANING, JOB_FEED_KINDS, jobFeedUrl } from '../../search/jobs/feeds/endpoints.js';
 
@@ -334,11 +336,23 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
       res.json({ url: canonicalUrl, status: 'closed' });
       return;
     }
+    const structuredData = Array.isArray(input.jobPosting) ? input.jobPosting : [input.jobPosting];
+    // A publisher controls its payload, so the vocabularies are errors here —
+    // crawled and feed listings get the same values dropped instead.
+    const validation = await validateJobPostingPayload(structuredData, createPlaceResolver());
+    if (validation.issues.length > 0) {
+      sendError(res, 400, 'invalid_job_posting', 'jobPosting does not meet the Clarity Jobs ingest contract', req, { issues: validation.issues });
+      return;
+    }
+    if (validation.placesUnavailable) {
+      sendError(res, 503, 'places_unavailable', 'The place gazetteer has not been imported; locations cannot be verified', req);
+      return;
+    }
     let ingested: { jobPostingIds: string[] };
     try {
       ingested = await ingestJobPosting({
         canonicalUrl,
-        structuredData: Array.isArray(input.jobPosting) ? input.jobPosting : [input.jobPosting],
+        structuredData,
         siteId: site.id,
         sourceType: 'first_party',
         submittedByApplicationId: principal.applicationId,
@@ -346,7 +360,9 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'no_job_posting') {
-        sendError(res, 400, 'job_posting_invalid', 'jobPosting must contain a schema.org JobPosting with a title and hiringOrganization', req);
+        sendError(res, 400, 'invalid_job_posting', 'jobPosting must contain a schema.org JobPosting with a title and hiringOrganization', req, {
+          issues: [{ path: 'jobPosting', code: 'job_posting_required', message: 'jobPosting must contain a schema.org JobPosting' }],
+        });
         return;
       }
       throw error;
@@ -366,6 +382,23 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
   const operation = await createIndexOperation(req, [canonicalUrl], req.header('idempotency-key') || `job-ingest:${crypto.randomUUID()}`);
   if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
   res.status(202).json({ url: canonicalUrl, operationId: operation.id, status: 'queued' });
+});
+
+// Places — the canonical gazetteer a publisher picks a job location from.
+// Reference data only; nothing here writes.
+router.get('/places/search', requireResourceScope('clarity:search'), async (req, res) => {
+  const parsed = placeSearchSchema.safeParse(req.query);
+  if (!parsed.success) {
+    sendError(res, 400, 'invalid_request', 'Request validation failed', req, { issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) });
+    return;
+  }
+  res.json({ data: await searchPlaces(parsed.data) });
+});
+
+router.get('/places/:id', requireResourceScope('clarity:search'), async (req, res) => {
+  const place = await getPlace(String(req.params.id));
+  if (!place) { sendError(res, 404, 'place_not_found', 'Place not found', req); return; }
+  res.json(place);
 });
 
 async function findVerifiedSite(accountId: string, url: string) {

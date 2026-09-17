@@ -35,6 +35,7 @@ import {
   urlDomain,
 } from './taxonomy.js';
 import { markdownToPlainText, toJobMarkdown } from './markdown.js';
+import { geonamesIdFromUri } from '../places/resolve.js';
 
 export interface ExtractedJobPosting {
   /** Stable key for this listing inside its document. */
@@ -98,6 +99,11 @@ function typesOf(node: Node): string[] {
 
 export function isJobPostingNode(node: unknown): boolean {
   return Boolean(node) && typeof node === 'object' && typesOf(node as Node).includes('jobposting');
+}
+
+/** Every `JobPosting` node in a document's structured data, wrappers flattened. */
+export function jobPostingNodes(structuredData: readonly unknown[]): Record<string, unknown>[] {
+  return flattenNodes(structuredData).filter(isJobPostingNode);
 }
 
 /** True when a document's structured data carries at least one job listing. */
@@ -224,8 +230,14 @@ function locations(value: unknown): JobLocation[] {
       continue;
     }
     const node = item as Node;
-    const resolved = address(node['address'] ?? node);
-    if (resolved && !seen.has(resolved.raw)) { seen.add(resolved.raw); output.push(resolved); }
+    // A publisher names the exact place with `sameAs: https://www.geonames.org/<id>`.
+    // The id is a claim until projection checks it against the gazetteer.
+    const placeId = geonamesIdFromUri(node['sameAs']);
+    const resolved = address(node['address'] ?? node) ?? (placeId ? { raw: '' } : undefined);
+    if (!resolved) continue;
+    const located = placeId ? { ...resolved, placeId } : resolved;
+    const key = placeId ? `place:${placeId}` : located.raw;
+    if (!seen.has(key)) { seen.add(key); output.push(located); }
   }
   return output;
 }
@@ -248,6 +260,10 @@ function salary(node: Node): JobSalary | undefined {
   const min = numeric(quantitative?.['minValue']) ?? numeric(quantitative?.['value']) ?? numeric(valueNode);
   const max = numeric(quantitative?.['maxValue']) ?? numeric(quantitative?.['value']) ?? numeric(valueNode);
   if (min === undefined && max === undefined) return undefined;
+  // A negative amount or an inverted range is not a salary; dropping it beats
+  // guessing which bound the source meant.
+  if ((min !== undefined && min < 0) || (max !== undefined && max < 0)) return undefined;
+  if (min !== undefined && max !== undefined && min > max) return undefined;
   return {
     ...(min === undefined ? {} : { min }),
     ...(max === undefined ? {} : { max }),

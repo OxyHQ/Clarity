@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/cjs/index.js"
+    },
+    "./vocabularies": {
+      "types": "./dist/vocabularies.d.ts",
+      "import": "./dist/vocabularies.js",
+      "require": "./dist/cjs/vocabularies.js"
     }
   },
   "files": [

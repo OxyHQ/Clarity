@@ -1,3 +1,7 @@
+import type {
+  CountryCode, CurrencyCode, JobEmploymentType, JobLifecycleStatus, JobSalaryInterval, JobWorkplaceType, PlaceKind,
+} from './vocabularies.js';
+
 export type SearchMode = 'lexical' | 'semantic' | 'hybrid';
 export type DocumentStatus = 'discovered' | 'fetching' | 'extracted' | 'indexed' | 'blocked' | 'failed' | 'removed';
 export type DocumentType = 'page' | 'article' | 'news' | 'job' | 'product' | 'video' | 'event' | 'recipe' | 'profile' | 'documentation' | 'other';
@@ -140,30 +144,32 @@ export interface ClarityErrorBody {
 // commercial state can influence result order.
 // ---------------------------------------------------------------------------
 
-export type JobWorkplaceType = 'remote' | 'hybrid' | 'onsite';
-export type JobEmploymentType =
-  | 'full_time' | 'part_time' | 'contract' | 'temporary' | 'internship' | 'volunteer' | 'per_diem' | 'other';
-export type JobSalaryInterval = 'hour' | 'day' | 'week' | 'month' | 'year';
-export type JobLifecycleStatus = 'active' | 'expired' | 'closed' | 'removed' | 'stale';
 export type JobSourceType = 'web' | 'verified_site' | 'first_party';
 export type JobFieldSource = 'json_ld' | 'html' | 'feed' | 'api';
 
 export interface JobEvidence { source: JobFieldSource; selector?: string; extractedAt: string; }
 
 export interface JobLocation {
+  /** The location as the source wrote it. */
   raw: string;
-  countryCode?: string;
+  /** ISO 3166-1 alpha-2, only when the source stated a recognizable country. */
+  countryCode?: CountryCode;
   country?: string;
   region?: string;
   locality?: string;
   postalCode?: string;
+  /**
+   * GeoNames id of the Clarity {@link Place} this location resolved to — the
+   * id the publisher sent, or an unambiguous country-constrained match.
+   */
+  placeId?: string;
 }
 
 export interface JobSalary {
   min?: number;
   max?: number;
   /** ISO 4217. Clarity never converts between currencies. */
-  currency: string;
+  currency: CurrencyCode;
   interval: JobSalaryInterval;
 }
 
@@ -234,7 +240,8 @@ export interface JobSearchResult extends JobPosting {
 export interface JobSalaryFilter {
   min?: number;
   max?: number;
-  currency?: string;
+  /** ISO 4217 from `CURRENCY_CODES`; anything else is a 400. */
+  currency?: CurrencyCode;
   interval?: JobSalaryInterval;
 }
 
@@ -242,7 +249,11 @@ export interface JobSearchRequest {
   /** Free text. Omit to browse by filters and freshness alone. */
   query?: string;
   mode?: SearchMode;
-  /** Country name/ISO code, city or region name, or a macro-region key. */
+  /**
+   * Country name or ISO 3166-1 alpha-2 code, city or region name, or a
+   * macro-region key. A two-letter token must be a code in `COUNTRY_CODES`
+   * (or a documented alias such as `UK`), otherwise the request is a 400.
+   */
   locations?: string[];
   workplaceTypes?: JobWorkplaceType[];
   employmentTypes?: JobEmploymentType[];
@@ -318,3 +329,42 @@ export interface JobsCapability {
   ranking: { signals: readonly string[]; commercialSignals: string };
   parameters: Record<string, unknown>;
 }
+
+// ---------------------------------------------------------------------------
+// Places — the canonical gazetteer (GeoNames, CC BY 4.0).
+// ---------------------------------------------------------------------------
+
+export interface Place {
+  /** GeoNames id. Send it back as `https://www.geonames.org/<id>` in a JobPosting's `jobLocation.sameAs`. */
+  id: string;
+  kind: PlaceKind;
+  name: string;
+  asciiName: string;
+  countryCode: CountryCode;
+  /** GeoNames first-order administrative code, e.g. `56` (Catalonia) or `CA` (California). */
+  admin1Code?: string;
+  admin1Name?: string;
+  /** ISO 3166-2 subdivision, only where GeoNames' admin1 code is already that code (e.g. `US-CA`). */
+  subdivisionCode?: string;
+  /** GeoNames population; absent where GeoNames states none (regions). */
+  population?: number;
+  latitude?: number;
+  longitude?: number;
+  /** IANA time zone. */
+  timezone?: string;
+}
+
+export interface PlaceSearchRequest {
+  /** Name prefix (accent- and case-insensitive); close spellings also match. */
+  q: string;
+  countryCode?: CountryCode;
+  kind?: PlaceKind;
+  /** 1–50, default 10. */
+  limit?: number;
+}
+
+export interface PlaceSearchResponse {
+  /** Prefix matches first, then by population. */
+  data: Place[];
+}
+

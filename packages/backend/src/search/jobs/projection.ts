@@ -17,6 +17,8 @@ import { canonicalSourceRank, jobClusterSignatures } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
 import { markdownToPlainText } from './markdown.js';
+import { resolveJobLocations } from './locations.js';
+import { createPlaceResolver } from '../places/repository.js';
 import { annualizeSalary, normalizeCountry, resolveRegion, urlDomain } from './taxonomy.js';
 
 export interface JobProjectionInput {
@@ -67,8 +69,10 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
     return [];
   }
 
+  // Canonical places are attached here, once, for every source.
+  const postings = await resolveJobLocations(createPlaceResolver(tx), input.postings);
   const ids: string[] = [];
-  for (const posting of input.postings) {
+  for (const posting of postings) {
     const status = jobLifecycleStatus({
       validThrough: posting.validThrough ?? null,
       lastSeenAt: input.observedAt,

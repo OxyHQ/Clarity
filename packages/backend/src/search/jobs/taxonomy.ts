@@ -7,22 +7,31 @@
  */
 import { createHash } from 'node:crypto';
 
-import type {
-  JobEmploymentType,
-  JobSalaryInterval,
-  JobWorkplaceType,
-} from '@clarity/shared-types';
+import {
+  COUNTRY_CODES,
+  JOB_EMPLOYMENT_TYPES,
+  JOB_LIFECYCLE_STATUSES,
+  JOB_SALARY_INTERVALS,
+  JOB_WORKPLACE_TYPES,
+  isCountryCode,
+  isCurrencyCode,
+  type CountryCode,
+  type CurrencyCode,
+  type JobEmploymentType,
+  type JobSalaryInterval,
+} from '@clarity.surf/sdk/vocabularies';
 
 import { markdownToPlainText } from './markdown.js';
 
 export { repairMojibake } from './markdown.js';
 
-export const JOB_WORKPLACE_TYPES = ['remote', 'hybrid', 'onsite'] as const satisfies readonly JobWorkplaceType[];
-export const JOB_EMPLOYMENT_TYPES = [
-  'full_time', 'part_time', 'contract', 'temporary', 'internship', 'volunteer', 'per_diem', 'other',
-] as const satisfies readonly JobEmploymentType[];
-export const JOB_SALARY_INTERVALS = ['hour', 'day', 'week', 'month', 'year'] as const satisfies readonly JobSalaryInterval[];
-export const JOB_LIFECYCLE_STATUSES = ['active', 'expired', 'closed', 'removed', 'stale'] as const;
+/**
+ * The closed vocabularies are owned by the public SDK so publishers, consumers
+ * and this API validate against the same arrays. Re-exported for the modules
+ * that already read them from here.
+ */
+export { COUNTRY_CODES, CURRENCY_CODES, isCountryCode, isCurrencyCode } from '@clarity.surf/sdk/vocabularies';
+export { JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES };
 export const JOB_SOURCE_TYPES = ['web', 'verified_site', 'first_party'] as const;
 
 /** `schema.org` employment codes, plus the unambiguous spellings sites use. */
@@ -90,19 +99,25 @@ SA:Saudi Arabia|SB:Solomon Islands|SC:Seychelles|SD:Sudan|SE:Sweden,Suecia|SG:Si
 SN:Senegal|SO:Somalia|SR:Suriname|SS:South Sudan|SV:El Salvador|SY:Syria|SZ:Eswatini|TD:Chad|TG:Togo|TH:Thailand
 TJ:Tajikistan|TL:Timor-Leste|TM:Turkmenistan|TN:Tunisia|TO:Tonga|TR:Turkey,Turkiye,Turquia|TT:Trinidad and Tobago|TV:Tuvalu|TW:Taiwan|TZ:Tanzania
 UA:Ukraine|UG:Uganda|US:United States,United States of America,USA,US,Estados Unidos|UY:Uruguay|UZ:Uzbekistan|VA:Vatican City|VE:Venezuela|VN:Vietnam|VU:Vanuatu|WS:Samoa
-YE:Yemen|ZA:South Africa|ZM:Zambia|ZW:Zimbabwe|XK:Kosovo
+YE:Yemen|ZA:South Africa|ZM:Zambia|ZW:Zimbabwe
 `;
 
-const COUNTRY_CODE_BY_NAME = new Map<string, string>();
-export const COUNTRY_NAME_BY_CODE = new Map<string, string>();
+const COUNTRY_CODE_BY_NAME = new Map<string, CountryCode>();
+export const COUNTRY_NAME_BY_CODE = new Map<CountryCode, string>();
 for (const entry of COUNTRY_TABLE.split(/[\n|]/)) {
   const trimmed = entry.trim();
   if (!trimmed) continue;
   const [code, names] = trimmed.split(':');
+  // A name table entry can only ever resolve to an officially assigned code.
+  if (!isCountryCode(code)) throw new Error(`Country table carries ${code}, which is not in COUNTRY_CODES`);
   const [primary, ...aliases] = names.split(',');
   COUNTRY_NAME_BY_CODE.set(code, primary);
   COUNTRY_CODE_BY_NAME.set(code.toLowerCase(), code);
   for (const name of [primary, ...aliases]) COUNTRY_CODE_BY_NAME.set(foldCase(name), code);
+}
+
+for (const code of COUNTRY_CODES) {
+  if (!COUNTRY_CODE_BY_NAME.has(code.toLowerCase())) COUNTRY_CODE_BY_NAME.set(code.toLowerCase(), code);
 }
 
 /**
@@ -110,8 +125,8 @@ for (const entry of COUNTRY_TABLE.split(/[\n|]/)) {
  * into the country codes below — Clarity does not infer that an unlisted
  * country belongs to a region.
  */
-export const JOB_REGIONS: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  europe: ['AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FO', 'FR', 'GB', 'GE', 'GI', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'TR', 'UA', 'VA', 'XK'],
+export const JOB_REGIONS: Readonly<Record<string, readonly CountryCode[]>> = Object.freeze({
+  europe: ['AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FO', 'FR', 'GB', 'GE', 'GI', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'TR', 'UA', 'VA'],
   european_union: ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'],
   north_america: ['BS', 'BB', 'BZ', 'CA', 'CR', 'CU', 'DO', 'GT', 'HN', 'HT', 'JM', 'MX', 'NI', 'PA', 'PR', 'SV', 'TT', 'US'],
   south_america: ['AR', 'BO', 'BR', 'CL', 'CO', 'EC', 'GY', 'PE', 'PY', 'SR', 'UY', 'VE'],
@@ -146,21 +161,24 @@ export function normalizeSalaryInterval(value: string): JobSalaryInterval | unde
   return SALARY_INTERVAL_BY_TOKEN[token];
 }
 
-/** ISO 4217 alpha codes only; anything else is dropped rather than guessed. */
-export function normalizeCurrency(value: string): string | undefined {
+/**
+ * A code from `CURRENCY_CODES` only; a well-formed code that is not an active
+ * ISO 4217 currency is dropped rather than guessed.
+ */
+export function normalizeCurrency(value: string): CurrencyCode | undefined {
   const code = value.trim().toUpperCase();
-  return /^[A-Z]{3}$/.test(code) ? code : undefined;
+  return isCurrencyCode(code) ? code : undefined;
 }
 
-/** Resolves an explicit country code or recognized country name to alpha-2. */
-export function normalizeCountry(value: string): string | undefined {
+/** Resolves an explicit country code or recognized country name to a `COUNTRY_CODES` entry. */
+export function normalizeCountry(value: string): CountryCode | undefined {
   const folded = foldCase(value);
   if (!folded) return undefined;
   return COUNTRY_CODE_BY_NAME.get(folded);
 }
 
 /** Expands a macro-region name into its documented country-code list. */
-export function resolveRegion(value: string): readonly string[] | undefined {
+export function resolveRegion(value: string): readonly CountryCode[] | undefined {
   const key = REGION_ALIASES[foldCase(value).replace(/_/g, ' ')] ?? REGION_ALIASES[foldCase(value)];
   return key ? JOB_REGIONS[key] : undefined;
 }

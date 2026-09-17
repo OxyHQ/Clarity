@@ -102,6 +102,11 @@ export interface JobLocation {
   region?: string;
   locality?: string;
   postalCode?: string;
+  /**
+   * GeoNames id of the Clarity place this location resolved to: the id the
+   * publisher sent, or an unambiguous country-constrained match.
+   */
+  placeId?: string;
 }
 
 export interface JobSalary {

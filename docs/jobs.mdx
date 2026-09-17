@@ -125,6 +125,82 @@ a recognized country name. Macro-regions (`europe`, `european_union`,
 `middle_east`, `oceania`) expand into a documented country list; Clarity never
 infers that an unlisted country belongs to a region.
 
+### Closed vocabularies
+
+Salary and location values come from closed lists, never free text. The lists
+live in the public SDK — `@clarity.surf/sdk/vocabularies` — and the API compiles
+that same module from source (`packages/backend/build.ts`, tsconfig `paths`,
+the vitest alias), so publishers, consumers and Clarity validate against
+identical arrays. They are sorted, data-only arrays with derived types; localize
+them with `Intl.DisplayNames`.
+
+| Export | Contents |
+| --- | --- |
+| `CURRENCY_CODES` / `CurrencyCode` | Active ISO 4217 codes. No fund codes (BOV, CHE, CHW, CLF, COU, MXV, USN, UYI, UYW), metals (XAU, XAG, XPD, XPT), bond/supranational units (XBA–XBD, XDR, XSU, XUA), testing codes (XTS, XXX) or withdrawn codes (ANG, BGN, CUC, HRK, SLL, ZWL). |
+| `COUNTRY_CODES` / `CountryCode` | The 249 officially assigned ISO 3166-1 alpha-2 codes. User-assigned codes such as `XK` are not accepted. |
+| `JOB_WORKPLACE_TYPES`, `JOB_EMPLOYMENT_TYPES`, `JOB_SALARY_INTERVALS`, `JOB_LIFECYCLE_STATUSES` | The job enums; salary intervals are ordered by duration. |
+| `PLACE_KINDS` | `city`, `region`. |
+
+`JobSalary.currency` is a `CurrencyCode` and `JobLocation.countryCode` a
+`CountryCode`. How a value outside the lists is handled depends on who stated it:
+
+| Source | Unknown currency | Unknown country | Locality |
+| --- | --- | --- | --- |
+| Crawled page, feed | salary dropped | `countryCode` absent, text kept in `country`/`raw` | `placeId` only on an unambiguous country-constrained match, otherwise `raw` only |
+| First-party `POST /v1/jobs/ingest` | `400 invalid_job_posting` | `400 invalid_job_posting` | must resolve to one place, or `400` |
+| Search filters | `400 invalid_request` | a two-letter location that is not an assigned code (or an alias such as `UK`, or a region key such as `eu`) is `400 invalid_request` | free text, as before |
+
+A crawled salary with a negative amount or `minValue > maxValue` is dropped too:
+picking which bound the source meant would be invention.
+
+### Places
+
+`clarity_places` is the canonical gazetteer, keyed by **GeoNames id**: every
+populated place with at least 15,000 people (`kind: city`) and every
+first-order subdivision (`kind: region`), with name, ASCII name, alternate
+names (for matching only), country, admin1 code and name, population,
+coordinates and time zone. `subdivisionCode` carries ISO 3166-2 only for
+countries whose GeoNames admin1 code already is that code (BE, CH, GB, US);
+elsewhere GeoNames numbers its divisions (`ES.56` is ISO `ES-CT`) and the field
+is left empty rather than mapped by guesswork. Places in countries outside
+`COUNTRY_CODES` (Kosovo, `XK`) are not imported.
+
+```http
+GET /v1/places/search?q=barcel&countryCode=ES&kind=city&limit=10   # scope clarity:search
+GET /v1/places/:id                                                  # scope clarity:search
+```
+
+Search matches an exact name in any language first (`München` finds Munich),
+then ASCII-name prefixes, then close spellings (trigram), each tier ordered by
+population. SDK: `clarity.places.search({ q, countryCode, kind, limit })`,
+`clarity.places.get(id)`, type `Place`. There is no anonymous `/places`
+mirror; the portal does not need one yet.
+
+Every projected listing, from any source, has its locations resolved at
+projection time (`src/search/jobs/locations.ts`): a place id the source
+referenced is kept only if the gazetteer has it and it agrees with the stated
+country; a locality without a reference gets `placeId` only when it names
+exactly one city in the stated country — an exact name beats an alternate
+name, and a stated region breaks a tie. A resolved location also gains the
+place's name as `locality` and its admin1 name as `region` when the source left
+those empty. Anything else keeps its raw text and no `placeId`.
+
+The data is loaded by an idempotent operator script that downloads the GeoNames
+dumps at run time (nothing is committed):
+
+```bash
+DATABASE_URL=postgresql://... bun run --filter @clarity/backend places:import -- \
+  --target-database=clarity_ci [--dry-run] [--source-dir=/path/to/dumps]
+```
+
+It checks `current_database()` against `--target-database` before writing,
+upserts every row by id in one transaction, and never deletes a place GeoNames
+later drops (listings may reference it). Re-run it to refresh. Until it has run,
+a first-party payload that names a city answers `503 places_unavailable`.
+
+GeoNames data is © GeoNames (https://www.geonames.org), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); see NOTICE.
+
 ## The projection
 
 `clarity_job_postings` is a **search representation**, keyed
@@ -368,6 +444,62 @@ Authorization: Bearer <oxy_sk credential>   # scope clarity:index
 The payload's `description` and other long-text fields may be HTML or
 Markdown; Clarity stores Markdown either way (see *Listing text is Markdown*).
 
+#### Ingest contract
+
+A structured payload is validated **before** anything is written. Violations
+answer `400 invalid_job_posting` with one issue per field in
+`error.details.issues[]` (`path`, `code`, `message`, and `candidates` — GeoNames
+ids, most populous first — for an ambiguous place):
+
+| Field | Rule | Codes |
+| --- | --- | --- |
+| `title`, `hiringOrganization.name` | required | `title_required`, `hiring_organization_required` |
+| `baseSalary.currency` | required, exactly a `CURRENCY_CODES` entry (`"EUR"`) | `currency_required`, `unknown_currency` |
+| `baseSalary.value.unitText` | required, `HOUR`, `DAY`, `WEEK`, `MONTH` or `YEAR` | `salary_interval_required`, `unknown_salary_interval` |
+| `baseSalary.value.minValue` / `maxValue` / `value` | at least one; JSON numbers, finite, ≥ 0; `minValue ≤ maxValue` | `salary_amount_required`, `invalid_salary_amount`, `salary_range_inverted` |
+| `jobLocation[].address` | a `PostalAddress` object, not a string | `invalid_location`, `structured_address_required` |
+| `jobLocation[].address.addressCountry` | exactly a `COUNTRY_CODES` entry (`"ES"`); required unless `sameAs` names the place | `unknown_country`, `country_required` |
+| `jobLocation[].sameAs` | `https://www.geonames.org/<id>` of a Clarity place, in the stated country | `invalid_place_reference`, `unknown_place`, `place_country_mismatch` |
+| `jobLocation[].address.addressLocality` (without `sameAs`) | names exactly one city in `addressCountry` | `unknown_place`, `ambiguous_place` |
+
+**The place convention is `jobLocation[].sameAs`** — schema.org's own
+"this Thing is that resource" property, pointing at the GeoNames URI a picker
+backed by `GET /v1/places/search` returned. Sending it is the robust path: a
+locality alone must be unambiguous, and `Springfield, US` is not.
+
+A complete first-party payload:
+
+```json
+{
+  "url": "https://mention.earth/jobs/7",
+  "jobPosting": {
+    "@context": "https://schema.org",
+    "@type": "JobPosting",
+    "title": "Community Manager",
+    "description": "## About the role\n\nGrow the **Mention** community.\n\n- Moderate\n- Run events",
+    "identifier": { "@type": "PropertyValue", "name": "Mention", "value": "7" },
+    "datePosted": "2026-09-17",
+    "validThrough": "2026-12-31T23:59:59Z",
+    "employmentType": ["FULL_TIME"],
+    "hiringOrganization": { "@type": "Organization", "name": "Mention", "url": "https://mention.earth", "logo": "https://mention.earth/logo.png" },
+    "jobLocation": [{
+      "@type": "Place",
+      "sameAs": "https://www.geonames.org/3128760",
+      "address": { "@type": "PostalAddress", "addressLocality": "Barcelona", "addressRegion": "Catalonia", "addressCountry": "ES" }
+    }],
+    "baseSalary": {
+      "@type": "MonetaryAmount",
+      "currency": "EUR",
+      "value": { "@type": "QuantitativeValue", "minValue": 40000, "maxValue": 55000, "unitText": "YEAR" }
+    },
+    "url": "https://mention.earth/jobs/7"
+  }
+}
+```
+
+A remote role open to a whole country states `addressCountry` alone (no
+locality), or omits `jobLocation` and lists `applicantLocationRequirements`.
+
 A structured payload requires a **verified Clarity site for the URL's host**, so
 no caller can inject a listing onto a domain it does not own, and the payload
 goes through the same normalizer a crawl would use. Clarity also queues a
@@ -403,7 +535,9 @@ for (const job of results.data) {
 
 `clarity.jobs.get(id)`, `clarity.jobs.byUrl(url)`, `clarity.jobs.ingest(...)`,
 `clarity.jobs.report(id, { reason })`, `clarity.jobs.stats()` and
-`clarity.jobs.capability()` complete the namespace.
+`clarity.jobs.capability()` complete the namespace. `clarity.places.search` and
+`clarity.places.get` read the gazetteer, and the vocabularies are importable
+from the package root or `@clarity.surf/sdk/vocabularies`.
 
 ## Agents
 
@@ -431,6 +565,10 @@ the employer or the publisher of a listing it merely indexed.
 # Apply the Jobs projection migration
 DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
   --target-database=clarity_ci --phase=pre
+
+# Load or refresh the place gazetteer (GeoNames)
+DATABASE_URL=postgresql://... bun run --filter @clarity/backend places:import -- \
+  --target-database=clarity_ci
 
 # Corpus health
 curl -H "Authorization: Bearer $CLARITY_API_KEY" https://api.clarity.surf/v1/jobs/stats
