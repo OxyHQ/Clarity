@@ -32,6 +32,10 @@ export function getToolLabel(toolName: string): string {
   return TOOL_REGISTRY[toolName]?.label || toolName;
 }
 
+export function getToolCategory(toolName: string): ToolDefinition['category'] | undefined {
+  return TOOL_REGISTRY[toolName]?.category;
+}
+
 export function getToolActiveLabel(toolName: string): string | undefined {
   const label = TOOL_REGISTRY[toolName]?.label;
   if (!label) return undefined;

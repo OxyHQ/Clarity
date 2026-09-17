@@ -12,6 +12,7 @@ import { ThinkingIndicator } from "@/lib/sdk";
 import {
   Copy, ThumbsUp, ThumbsDown, Pencil, Check, Share2,
   Download, RefreshCw, MoreHorizontal, ChevronDown,
+  Globe, MessageCircle, Clock, Brain, type LucideIcon,
 } from "lucide-react-native";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import Animated, {
@@ -26,7 +27,7 @@ import Animated, {
 import * as Clipboard from "expo-clipboard";
 import { Reasoning, ReasoningTrigger } from "@/components/ui/reasoning";
 import {
-  getToolLabel, getToolActiveLabel, getResearchActiveLabel,
+  getToolLabel, getToolActiveLabel, getResearchActiveLabel, getToolCategory,
   getTextFromContent, getImagesFromContent,
 } from "@/lib/sdk";
 import { useUIStore } from "@/lib/stores/ui-store";
@@ -120,6 +121,23 @@ const ToolBullet = React.memo(function ToolBullet({ isRunning }: { isRunning: bo
   );
 });
 
+/** Category -> glyph. Mirrors the real tool registry, not a per-tool icon set. */
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  search: Globe,
+  communication: MessageCircle,
+  utility: Clock,
+  memory: Brain,
+};
+
+/** Real hostname only — never a fabricated page title or screenshot. */
+function hostnameOf(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
+}
+
 /** Collapsible "Completed N steps" section above AI response */
 const CompletedSteps = React.memo(function CompletedSteps({
   message,
@@ -154,42 +172,55 @@ const CompletedSteps = React.memo(function CompletedSteps({
         </Text>
       </Pressable>
 
-      {expanded &&
-        message.toolInvocations?.map((t, ti) => {
-          const key = t.toolCallId || `tool-${message.id}-${ti}`;
-          const toolLabel = getToolLabel(t.toolName);
-          const isRunning = t.state === "call" || t.state === "partial-call";
+      {expanded && (
+        <View className="relative pl-2">
+          {/* Connecting line down the step list */}
+          <View className="absolute left-[13px] top-1 bottom-1 w-px bg-border" />
 
-          let description = "";
-          const args = t.args && typeof t.args === 'object' && !Array.isArray(t.args)
-            ? t.args as Record<string, unknown>
-            : null;
-          if (typeof args?.url === 'string') {
-            const url = args.url;
-            description = url.length > 40 ? url.substring(0, 40) + "..." : url;
-          } else if (typeof args?.query === 'string') {
-            const q = args.query;
-            description = `"${q.length > 30 ? q.substring(0, 30) + "..." : q}"`;
-          }
+          {message.toolInvocations?.map((t, ti) => {
+            const key = t.toolCallId || `tool-${message.id}-${ti}`;
+            const toolLabel = getToolLabel(t.toolName);
+            const CategoryIcon = CATEGORY_ICON[getToolCategory(t.toolName) ?? ""] ?? Globe;
+            const isRunning = t.state === "call" || t.state === "partial-call";
 
-          const isDone = t.state === "result";
-          return (
-            <Pressable
-              key={key}
-              className="flex-row items-center gap-2 py-1 pl-5 active:opacity-70"
-              onPress={isDone ? () => openThoughtPanel(message.id) : undefined}
-              disabled={!isDone}
-            >
-              <ToolBullet isRunning={isRunning} />
-              <Text className="text-xs text-foreground flex-1 flex-shrink">
-                <Text className="font-bold">{toolLabel}</Text>
-                {description ? (
-                  <Text className="text-muted-foreground"> {description}</Text>
-                ) : null}
-              </Text>
-            </Pressable>
-          );
-        })}
+            const args = t.args && typeof t.args === 'object' && !Array.isArray(t.args)
+              ? t.args as Record<string, unknown>
+              : null;
+            const url = typeof args?.url === 'string' ? args.url : undefined;
+            const query = typeof args?.query === 'string' ? args.query : undefined;
+            const hostname = url ? hostnameOf(url) : undefined;
+
+            const isDone = t.state === "result";
+            return (
+              <Pressable
+                key={key}
+                className="flex-row items-start gap-2 py-1 active:opacity-70"
+                onPress={isDone ? () => openThoughtPanel(message.id) : undefined}
+                disabled={!isDone}
+              >
+                <View className="w-5 h-5 rounded-md bg-muted items-center justify-center shrink-0">
+                  <CategoryIcon size={11} className="text-muted-foreground" />
+                </View>
+                <View className="flex-1 gap-1">
+                  <Text className="text-xs text-foreground flex-1 flex-shrink">
+                    <Text className="font-bold">{toolLabel}</Text>
+                    {query ? (
+                      <Text className="text-muted-foreground"> "{query.length > 40 ? `${query.slice(0, 40)}...` : query}"</Text>
+                    ) : null}
+                  </Text>
+                  {hostname && (
+                    <View className="flex-row items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 self-start">
+                      <Globe size={11} className="text-muted-foreground shrink-0" />
+                      <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>{hostname}</Text>
+                    </View>
+                  )}
+                </View>
+                <ToolBullet isRunning={isRunning} />
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 });
