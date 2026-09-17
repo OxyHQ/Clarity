@@ -2,8 +2,7 @@ import { View, Pressable, useWindowDimensions } from "react-native";
 import { Sparkles, Globe, ImageIcon, MoreHorizontal, Share2, Menu } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Text } from "@/components/ui/text";
-import { useNavigation, useRouter } from "expo-router";
-import { DrawerNavigationProp } from "@react-navigation/drawer";
+import { useRouter } from "expo-router";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { toast } from "@oxy.so/bloom/toast";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -11,6 +10,7 @@ import { useState } from "react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { ModelSelector } from "@/components/model-selector";
 import { cn } from "@/lib/utils";
+import { useUIStore } from "@/lib/stores/ui-store";
 
 export type ConversationTab = "answer" | "links" | "images";
 
@@ -44,13 +44,13 @@ export function ChatHeader({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const dimensions = useWindowDimensions();
-  const navigation = useNavigation<DrawerNavigationProp<never>>();
   const router = useRouter();
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const isLargeScreen = dimensions.width >= 768;
   const [showClearDialog, setShowClearDialog] = useState(false);
 
   const handleDrawerToggle = () => {
-    navigation.toggleDrawer();
+    setSidebarOpen(true);
   };
 
   const handleClearConversation = () => {
