@@ -798,7 +798,8 @@
       "What are we working on tonight?"
     ],
     "defaultSubtitle": "How can I help you today?",
-    "appName": "Clarity"
+    "appName": "Clarity",
+    "suggestionsTitle": "Prueba a preguntar"
   },
   "notifications": {
     "title": "Notifications",

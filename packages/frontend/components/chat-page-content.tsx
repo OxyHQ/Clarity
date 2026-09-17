@@ -25,7 +25,6 @@ import { useModelStore } from "@/lib/stores/model-store";
 import { useEntitlements } from "@/lib/hooks/use-billing";
 import { useRouter } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
-import { WelcomeMessage } from "@/components/welcome-message";
 import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useWindowDimensions } from "react-native";
@@ -34,7 +33,7 @@ import { useImagePicker } from "@/hooks/useImagePicker";
 import { useDocumentPicker } from "@/hooks/useDocumentPicker";
 import { cn } from "@/lib/utils";
 import { Image } from "react-native";
-import { useSearchSuggestions, useRecordSuggestionUsage } from "@/lib/hooks/use-suggestions";
+import { useSearchSuggestions, useRecordSuggestionUsage, useWelcomeSuggestions } from "@/lib/hooks/use-suggestions";
 import { useConversations, prefetchConversation } from "@/lib/hooks/use-conversations";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -124,6 +123,9 @@ export const ChatPageContent = ({
     const all = conversationsData?.pages.flatMap((p) => p.conversations) ?? [];
     return [...all].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()).slice(0, 3);
   }, [conversationsData]);
+  // Same suggestions endpoint the old WelcomeMessage used — works with or
+  // without a session (global pool when anonymous, personalized when not).
+  const { data: welcomeSuggestions } = useWelcomeSuggestions();
   const handleOpenConversation = useCallback((id: string) => {
     prefetchConversation(qc, id);
     router.push(`/(app)/c/${id}`);
@@ -591,46 +593,67 @@ export const ChatPageContent = ({
                       </View>
                     </View>
 
-                    {/* Recent — real conversation history, styled like the reference's
-                        "Recent tasks" cards. Nothing here is fabricated: no card shows
-                        without a real conversation behind it, and there's no invented
-                        screenshot or status — Clarity doesn't generate either. */}
-                    {recentConversations.length > 0 ? (
+                    {/* Recent / suggestions — one consistent card section either way, so
+                        the redesigned page looks the same with or without a session.
+                        Real conversation history when there is any; otherwise real
+                        suggestion prompts from the same endpoint the old welcome screen
+                        used (works anonymously too). Nothing here is fabricated. */}
+                    {(recentConversations.length > 0 || (welcomeSuggestions?.length ?? 0) > 0) && (
                       <View className="mt-10 w-full max-w-3xl">
                         <View className="mb-3 flex-row items-center justify-between">
-                          <Text className="text-base font-medium text-foreground">Recent</Text>
-                          <Pressable onPress={() => router.push("/(app)/history")}>
-                            <Text className="text-xs font-medium text-muted-foreground">{t("sidebar.seeAll")}</Text>
-                          </Pressable>
+                          <Text className="text-base font-medium text-foreground">
+                            {recentConversations.length > 0 ? "Recent" : t("welcome.suggestionsTitle")}
+                          </Text>
+                          {recentConversations.length > 0 && (
+                            <Pressable onPress={() => router.push("/(app)/history")}>
+                              <Text className="text-xs font-medium text-muted-foreground">{t("sidebar.seeAll")}</Text>
+                            </Pressable>
+                          )}
                         </View>
                         <View className="flex-row flex-wrap gap-2 justify-center md:justify-start">
-                          {recentConversations.map((conv) => (
-                            <Pressable
-                              key={conv.id}
-                              onPress={() => handleOpenConversation(conv.id)}
-                              onHoverIn={() => prefetchConversation(qc, conv.id)}
-                              className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
-                            >
-                              <View className="flex-row items-center gap-2 mb-1">
-                                <Text className="flex-1 text-xs font-medium text-muted-foreground" numberOfLines={1}>
-                                  {relativeTimeAgo(conv.updatedAt)}
-                                </Text>
-                              </View>
-                              <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
-                                {conv.title || t("sidebar.newSearch")}
-                              </Text>
-                              {conv.lastMessage && (
-                                <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
-                                  {conv.lastMessage}
-                                </Text>
-                              )}
-                            </Pressable>
-                          ))}
+                          {recentConversations.length > 0
+                            ? recentConversations.map((conv) => (
+                                <Pressable
+                                  key={conv.id}
+                                  onPress={() => handleOpenConversation(conv.id)}
+                                  onHoverIn={() => prefetchConversation(qc, conv.id)}
+                                  className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
+                                >
+                                  <View className="flex-row items-center gap-2 mb-1">
+                                    <Text className="flex-1 text-xs font-medium text-muted-foreground" numberOfLines={1}>
+                                      {relativeTimeAgo(conv.updatedAt)}
+                                    </Text>
+                                  </View>
+                                  <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
+                                    {conv.title || t("sidebar.newSearch")}
+                                  </Text>
+                                  {conv.lastMessage && (
+                                    <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
+                                      {conv.lastMessage}
+                                    </Text>
+                                  )}
+                                </Pressable>
+                              ))
+                            : welcomeSuggestions?.map((s) => (
+                                <Pressable
+                                  key={s.suggestionId}
+                                  onPress={() => {
+                                    recordUsage(s.suggestionId);
+                                    handleSuggestionPress(s.description || s.text);
+                                  }}
+                                  className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
+                                >
+                                  <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
+                                    {s.title}
+                                  </Text>
+                                  {(s.description || s.text) && (
+                                    <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
+                                      {s.description || s.text}
+                                    </Text>
+                                  )}
+                                </Pressable>
+                              ))}
                         </View>
-                      </View>
-                    ) : (
-                      <View className="mt-6 w-full">
-                        <WelcomeMessage onSuggestionPress={handleSuggestionPress} />
                       </View>
                     )}
 

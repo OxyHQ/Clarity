@@ -1,5 +1,4 @@
 // Components
-export { ClarityWelcomeMessage } from './ClarityWelcomeMessage';
 export { ThinkingIndicator } from './ThinkingIndicator';
 export { ResearchProgressCard } from './ResearchProgressCard';
 export { ClarityMarkdown } from './ClarityMarkdown';
@@ -9,4 +8,3 @@ export { getTextFromContent, getImagesFromContent } from './content-utils';
 
 // Types
 export type { ResearchProgress, WelcomeSuggestion, ClarityColors } from './types';
-export type { SearchCategory } from './ClarityWelcomeMessage';
