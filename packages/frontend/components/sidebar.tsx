@@ -1,9 +1,8 @@
 import React from "react";
-import { View, Pressable, Linking, useWindowDimensions } from "react-native";
-import { Briefcase as BriefcaseIcon } from "lucide-react-native";
+import { Linking } from "react-native";
+import { Briefcase as BriefcaseIcon, User, Settings2, CreditCard, Palette, MessageSquarePlus, Shield, ArrowLeft } from "lucide-react-native";
 import type { LucideIcon } from "lucide-react-native";
-import { Sidebar as BloomSidebar } from "@oxy.so/bloom/sidebar";
-import type { SidebarNavItem, SidebarTree, SidebarIcon } from "@oxy.so/bloom/sidebar";
+import type { SidebarNavItem, SidebarTree, SidebarIcon, SidebarProps } from "@oxy.so/bloom/sidebar";
 import {
   RiSearchLine,
   RiComputerLine,
@@ -27,7 +26,6 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { useStore } from "@/lib/globalStore";
 import { useUIStore } from "@/lib/stores/ui-store";
 import { useRouter, usePathname } from "expo-router";
-import { SettingsSidebar } from "@/components/settings/settings-sidebar";
 import { useOxy, openAccountDialog } from "@oxy.so/services";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/hooks/query-keys";
@@ -37,9 +35,6 @@ import {
   prefetchConversation,
 } from "@/lib/hooks/use-conversations";
 import type { HydratedConversation } from "@/lib/hooks/use-conversations";
-import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
-import { useColorScheme } from "@/lib/useColorScheme";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const VISIBLE_HISTORY_COUNT = 8;
 
@@ -50,17 +45,13 @@ function adaptLucideIcon(Icon: LucideIcon): SidebarIcon {
   };
 }
 const Briefcase = adaptLucideIcon(BriefcaseIcon);
-
-/* ================================================================
-   Root Sidebar — routes to settings sidebar when on /settings
-   ================================================================ */
-
-export function Sidebar() {
-  const pathname = usePathname();
-  const isSettingsRoute = pathname.startsWith("/settings");
-  if (isSettingsRoute) return <SettingsSidebar />;
-  return <SearchSidebar />;
-}
+const Back = adaptLucideIcon(ArrowLeft);
+const Account = adaptLucideIcon(User);
+const General = adaptLucideIcon(Settings2);
+const Billing = adaptLucideIcon(CreditCard);
+const Personalization = adaptLucideIcon(Palette);
+const Security = adaptLucideIcon(Shield);
+const Feedback = adaptLucideIcon(MessageSquarePlus);
 
 /* ================================================================
    Date grouping — folds recent conversations into the Bloom tree
@@ -106,17 +97,44 @@ function buildHistoryTree(conversations: HydratedConversation[], t: (key: string
 }
 
 /* ================================================================
-   Main search sidebar — Bloom's Sidebar, Clarity's own data/handlers
+   Settings sidebar config — a plain nav list, no history/account/modes
    ================================================================ */
 
-const SearchSidebar = React.memo(function SearchSidebar() {
+export function useSettingsSidebarConfig(): SidebarProps {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
-  const insets = useSafeAreaInsets();
-  const dimensions = useWindowDimensions();
-  const isLargeScreen = dimensions.width >= 768;
+
+  const activeId = React.useMemo(() => {
+    if (pathname.includes("/settings/general")) return "general";
+    if (pathname.includes("/settings/usage")) return "usage";
+    if (pathname.includes("/settings/personalization")) return "personalization";
+    if (pathname.includes("/settings/security")) return "security";
+    if (pathname.includes("/settings/feedback")) return "feedback";
+    return "account";
+  }, [pathname]);
+
+  const items: SidebarNavItem[] = [
+    { key: "back", label: t("common.back"), icon: Back, onPress: () => router.replace("/(app)") },
+    { key: "account", label: t("settings.sections.account"), icon: Account, onPress: () => router.push("/(app)/settings") },
+    { key: "general", label: t("settings.sections.general"), icon: General, onPress: () => router.push("/(app)/settings/general") },
+    { key: "usage", label: t("settings.sections.billing"), icon: Billing, onPress: () => router.push("/(app)/settings/usage") },
+    { key: "personalization", label: t("settings.sections.personalization"), icon: Personalization, onPress: () => router.push("/(app)/settings/personalization") },
+    { key: "security", label: t("settings.sections.security"), icon: Security, onPress: () => router.push("/(app)/settings/security") },
+    { key: "feedback", label: t("settings.sections.feedback"), icon: Feedback, onPress: () => router.push("/(app)/settings/feedback") },
+  ];
+
+  return { items, selected: activeId, showThemeToggle: true, showSearch: false };
+}
+
+/* ================================================================
+   Main search sidebar config — Clarity's real data/handlers
+   ================================================================ */
+
+export function useSearchSidebarConfig(): SidebarProps {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { t } = useTranslation();
 
   const chatId = useStore((s) => s.chatId);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
@@ -187,88 +205,65 @@ const SearchSidebar = React.memo(function SearchSidebar() {
   const avatarUrl = user?.avatar ? oxyServices.getFileDownloadUrl(user.avatar, "thumb") : undefined;
   const displayName = user?.name?.displayName || t("common.user");
 
-  return (
-    <View
-      className="flex h-full w-full flex-col bg-background"
-      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
-    >
-      {/* Brand mark — Bloom's Sidebar has no logo slot of its own */}
-      <View className="h-14 flex-row items-center shrink-0 px-3">
-        {!sidebarCollapsed && (
-          <Pressable onPress={handleNewSearch} accessibilityLabel={t("sidebar.search")}>
-            <ClarityWordmark height={24} width={62} color={colors.foreground} />
-          </Pressable>
-        )}
-      </View>
+  return {
+    items,
+    selected,
+    onNavigate: (item) => {
+      if (allConvs.some((c) => c.id === item.key)) handleSelect(item.key);
+    },
+    modes: [
+      { key: "search", label: t("sidebar.search"), icon: RiSearchLine },
+      { key: "computer", label: "Computer", icon: RiComputerLine },
+    ],
+    mode: sidebarMode,
+    onModeChange: (key) => setSidebarMode(key as "search" | "computer"),
+    tree: historyTree,
+    selectedTreeItem: chatId?.id,
+    onTreeItemPress: (item) => handleSelect(item.key),
+    collapsed: sidebarCollapsed,
+    onCollapsedChange: setSidebarCollapsed,
+    team: isAuthenticated
+      ? {
+          name: displayName,
+          email: user?.email,
+          avatar: avatarUrl ? { source: avatarUrl } : { initials: displayName[0]?.toUpperCase() },
+          footer: { label: "Clarity" },
+          groups: [
+            {
+              id: "account",
+              items: [
+                { key: "upgrade", label: t("sidebar.upgradeToPro"), icon: RiSparklingLine, onPress: handleUpgrade },
+                { key: "account", label: t("sidebar.account"), icon: RiUserLine, onPress: handleAccount },
+                { key: "billing", label: t("sidebar.billing"), icon: RiBankCardLine, onPress: handleBilling },
+                { key: "notifications", label: t("sidebar.notifications"), icon: RiNotification3Line, onPress: handleNotifications },
+                { key: "settings", label: t("sidebar.settings"), icon: RiSettings3Line, onPress: handleSettings },
+              ],
+            },
+            {
+              id: "legal",
+              items: [
+                { key: "terms", label: t("sidebar.termsOfService"), icon: RiFileTextLine, onPress: () => Linking.openURL("https://oxy.so/company/transparency/policies/terms-of-service") },
+                { key: "privacy", label: t("sidebar.privacyPolicy"), icon: RiShieldLine, onPress: () => Linking.openURL("https://oxy.so/company/transparency/policies/privacy") },
+              ],
+            },
+            {
+              id: "session",
+              items: [
+                { key: "logout", label: t("sidebar.logOut"), icon: RiLogoutBoxRLine, onPress: handleLogout },
+              ],
+            },
+          ],
+        }
+      : undefined,
+    secondaryItems: isAuthenticated
+      ? []
+      : [
+          { key: "login", label: t("login.signInButton"), icon: RiLoginBoxLine, onPress: handleLogin },
+          { key: "register", label: t("login.footerLink"), icon: RiUserAddLine, onPress: handleLogin },
+        ],
+    searchLabel: t("sidebar.search"),
+    searchPlaceholder: t("sidebar.search"),
+    noResultsLabel: t("sidebar.noSearches"),
+  };
+}
 
-      <View className="min-h-0 flex-1">
-        <BloomSidebar
-          items={items}
-          selected={selected}
-          onNavigate={(item) => {
-            if (allConvs.some((c) => c.id === item.key)) handleSelect(item.key);
-          }}
-          modes={[
-            { key: "search", label: t("sidebar.search"), icon: RiSearchLine },
-            { key: "computer", label: "Computer", icon: RiComputerLine },
-          ]}
-          mode={sidebarMode}
-          onModeChange={(key) => setSidebarMode(key as "search" | "computer")}
-          tree={historyTree}
-          selectedTreeItem={chatId?.id}
-          onTreeItemPress={(item) => handleSelect(item.key)}
-          collapsed={isLargeScreen && sidebarCollapsed}
-          onCollapsedChange={setSidebarCollapsed}
-          mobile={!isLargeScreen}
-          fluid={!isLargeScreen}
-          team={
-            isAuthenticated
-              ? {
-                  name: displayName,
-                  email: user?.email,
-                  avatar: avatarUrl ? { source: avatarUrl } : { initials: displayName[0]?.toUpperCase() },
-                  footer: { label: "Clarity" },
-                  groups: [
-                    {
-                      id: "account",
-                      items: [
-                        { key: "upgrade", label: t("sidebar.upgradeToPro"), icon: RiSparklingLine, onPress: handleUpgrade },
-                        { key: "account", label: t("sidebar.account"), icon: RiUserLine, onPress: handleAccount },
-                        { key: "billing", label: t("sidebar.billing"), icon: RiBankCardLine, onPress: handleBilling },
-                        { key: "notifications", label: t("sidebar.notifications"), icon: RiNotification3Line, onPress: handleNotifications },
-                        { key: "settings", label: t("sidebar.settings"), icon: RiSettings3Line, onPress: handleSettings },
-                      ],
-                    },
-                    {
-                      id: "legal",
-                      items: [
-                        { key: "terms", label: t("sidebar.termsOfService"), icon: RiFileTextLine, onPress: () => Linking.openURL("https://oxy.so/company/transparency/policies/terms-of-service") },
-                        { key: "privacy", label: t("sidebar.privacyPolicy"), icon: RiShieldLine, onPress: () => Linking.openURL("https://oxy.so/company/transparency/policies/privacy") },
-                      ],
-                    },
-                    {
-                      id: "session",
-                      items: [
-                        { key: "logout", label: t("sidebar.logOut"), icon: RiLogoutBoxRLine, onPress: handleLogout },
-                      ],
-                    },
-                  ],
-                }
-              : undefined
-          }
-          secondaryItems={
-            isAuthenticated
-              ? []
-              : [
-                  { key: "login", label: t("login.signInButton"), icon: RiLoginBoxLine, onPress: handleLogin },
-                  { key: "register", label: t("login.footerLink"), icon: RiUserAddLine, onPress: handleLogin },
-                ]
-          }
-          searchLabel={t("sidebar.search")}
-          searchPlaceholder={t("sidebar.search")}
-          noResultsLabel={t("sidebar.noSearches")}
-        />
-      </View>
-    </View>
-  );
-});

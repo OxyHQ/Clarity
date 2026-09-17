@@ -1,11 +1,10 @@
 import { View, useWindowDimensions } from "react-native";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
-import { useNavigation } from "expo-router";
 import { useRouter } from "expo-router";
-import { DrawerNavigationProp } from "@react-navigation/drawer";
 import { Menu, ArrowLeft } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useUIStore } from "@/lib/stores/ui-store";
 
 interface SettingsHeaderProps {
   title: string;
@@ -15,8 +14,8 @@ interface SettingsHeaderProps {
 }
 
 export function SettingsHeader({ title, subtitle, showBack = false, onBack }: SettingsHeaderProps) {
-  const navigation = useNavigation<DrawerNavigationProp<any>>();
   const router = useRouter();
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const { width } = useWindowDimensions();
   const isLargeScreen = width >= 768;
   const insets = useSafeAreaInsets();
@@ -35,7 +34,7 @@ export function SettingsHeader({ title, subtitle, showBack = false, onBack }: Se
         <Button
           variant="ghost"
           size="icon"
-          onPress={() => navigation.toggleDrawer()}
+          onPress={() => setSidebarOpen(true)}
           className="h-9 w-9 rounded-full"
         >
           <Menu size={20} className="text-muted-foreground" />

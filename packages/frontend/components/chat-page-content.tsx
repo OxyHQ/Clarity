@@ -27,8 +27,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "@/hooks/useTranslation";
 import { WelcomeMessage } from "@/components/welcome-message";
 import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
-import { useNavigation } from "expo-router";
-import { DrawerNavigationProp } from "@react-navigation/drawer";
+import { useUIStore } from "@/lib/stores/ui-store";
 import { useWindowDimensions } from "react-native";
 import { ScrollView } from "react-native";
 import { useImagePicker } from "@/hooks/useImagePicker";
@@ -109,7 +108,7 @@ export const ChatPageContent = ({
   const thinkingMode = isThinkingModel(selectedModel);
   const baseModel = useModelStore((s) => s.baseModel);
   const setBaseModel = useModelStore((s) => s.setBaseModel);
-  const navigation = useNavigation<DrawerNavigationProp<never>>();
+  const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const dimensions = useWindowDimensions();
   const isLargeScreen = dimensions.width >= 768;
 
@@ -475,7 +474,7 @@ export const ChatPageContent = ({
                     <View className="py-4 pr-4 pl-1 h-14 flex-row items-center justify-between border-b border-border/50">
                       <View className="gap-x-1 flex-row items-center">
                         <Pressable
-                          onPress={() => navigation.toggleDrawer()}
+                          onPress={() => setSidebarOpen(true)}
                           className="h-9 w-9 items-center justify-center rounded-full"
                         >
                           <Menu size={20} className="text-muted-foreground" />
