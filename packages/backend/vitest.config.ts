@@ -1,6 +1,13 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    // Same source the esbuild bundle and tsconfig `paths` use — see build.ts.
+    alias: {
+      '@clarity.surf/sdk/vocabularies': fileURLToPath(new URL('../sdk/src/vocabularies.ts', import.meta.url)),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',

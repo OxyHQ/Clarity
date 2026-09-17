@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,6 +16,7 @@ import {
 import type { JobReportReason } from "@clarity/shared-types";
 
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClarityMarkdown } from "@/lib/sdk";
 import { Text } from "@/components/ui/text";
 import { useJobPosting, useReportJobPosting } from "@/lib/hooks/use-jobs";
 import { formatLocations, formatPostedAt, formatSalary } from "@/lib/jobs-format";
@@ -35,6 +36,14 @@ export default function JobDetailScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useColorScheme();
+  // Long-text listing fields are Markdown with no raw HTML (Clarity Jobs contract).
+  const markdownColors = useMemo(() => ({
+    text: colors.mutedForeground,
+    border: colors.border,
+    muted: colors.muted,
+    mutedForeground: colors.mutedForeground,
+    primary: colors.primary,
+  }), [colors.mutedForeground, colors.border, colors.muted, colors.primary]);
   const insets = useSafeAreaInsets();
   const job = useJobPosting(typeof id === "string" ? id : undefined);
   const report = useReportJobPosting(typeof id === "string" ? id : undefined);
@@ -180,7 +189,7 @@ export default function JobDetailScreen() {
               {posting.description ? (
                 <View className="gap-2">
                   <Text className="text-sm font-medium text-foreground">{t("jobs.descriptionHeading")}</Text>
-                  <Text className="text-sm text-muted-foreground leading-relaxed">{posting.description}</Text>
+                  <ClarityMarkdown content={posting.description} colors={markdownColors} />
                 </View>
               ) : null}
 
@@ -200,14 +209,14 @@ export default function JobDetailScreen() {
               {posting.qualifications ? (
                 <View className="gap-2">
                   <Text className="text-sm font-medium text-foreground">{t("jobs.qualificationsHeading")}</Text>
-                  <Text className="text-sm text-muted-foreground leading-relaxed">{posting.qualifications}</Text>
+                  <ClarityMarkdown content={posting.qualifications} colors={markdownColors} />
                 </View>
               ) : null}
 
               {posting.responsibilities ? (
                 <View className="gap-2">
                   <Text className="text-sm font-medium text-foreground">{t("jobs.responsibilitiesHeading")}</Text>
-                  <Text className="text-sm text-muted-foreground leading-relaxed">{posting.responsibilities}</Text>
+                  <ClarityMarkdown content={posting.responsibilities} colors={markdownColors} />
                 </View>
               ) : null}
 

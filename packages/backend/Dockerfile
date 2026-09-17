@@ -28,8 +28,10 @@ COPY packages/frontend/package.json ./packages/frontend/
 # Install all dependencies (including devDependencies for build)
 RUN bun install --frozen-lockfile
 
-# Copy shared-types + API source
+# Copy shared-types + API source, plus the SDK's vocabulary module the API
+# bundles from source (see packages/backend/build.ts).
 COPY packages/shared-types/ ./packages/shared-types/
+COPY packages/sdk/src/vocabularies.ts ./packages/sdk/src/vocabularies.ts
 COPY packages/backend/ ./packages/backend/
 
 # Build shared-types first (backend imports its compiled declarations),

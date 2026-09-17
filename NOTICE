@@ -19,6 +19,15 @@ This repository contains no vendored third party source. Its dependencies
 are resolved and installed by the package manager and remain governed by
 their own licenses.
 
+GeoNames. The Clarity place gazetteer (the `clarity_places` table, loaded
+at run time by packages/backend/src/scripts/import-geonames-places.ts; no
+GeoNames data is committed to this repository) is derived from the GeoNames
+geographical database, https://www.geonames.org, which is licensed under
+the Creative Commons Attribution 4.0 License,
+https://creativecommons.org/licenses/by/4.0/. The data is provided "as is"
+without warranty; Clarity modifies it by folding names for matching and
+omitting places outside the ISO 3166-1 officially assigned country codes.
+
 This work must not take on a GPL or AGPL dependency that is linked in
 process: the Breathe License is not compatible with either, in either
 direction. If you are adding one, stop and read

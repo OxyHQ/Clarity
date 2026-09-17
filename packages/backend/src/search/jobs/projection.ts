@@ -16,6 +16,9 @@ import { chunkText, embedChunks, replaceDocumentChunks } from '../chunking.js';
 import { canonicalSourceRank, jobClusterSignatures } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
+import { markdownToPlainText } from './markdown.js';
+import { resolveJobLocations } from './locations.js';
+import { createPlaceResolver } from '../places/repository.js';
 import { annualizeSalary, normalizeCountry, resolveRegion, urlDomain } from './taxonomy.js';
 
 export interface JobProjectionInput {
@@ -39,6 +42,10 @@ function countryCodes(posting: ExtractedJobPosting): string[] {
   return [...codes];
 }
 
+/**
+ * Plain text for the lexical index and embeddings. The stored description is
+ * Markdown; its syntax is not searchable content.
+ */
 function textIndexSource(posting: ExtractedJobPosting): string {
   return [
     posting.title,
@@ -50,8 +57,20 @@ function textIndexSource(posting: ExtractedJobPosting): string {
     posting.workplaceType ?? '',
     posting.occupationalCategory ?? '',
     posting.industry ?? '',
-    (posting.description ?? '').slice(0, 8_000),
+    markdownToPlainText(posting.description).slice(0, 8_000),
   ].filter(Boolean).join('\n');
+}
+
+/**
+ * A re-observed listing replaces what was stored. Drizzle leaves a column
+ * untouched when its update value is `undefined`, so a salary or description
+ * the source has since removed would otherwise survive every recrawl; absent
+ * becomes `null` instead.
+ */
+export function clearAbsent<T extends Record<string, unknown>>(values: T): { [K in keyof T]: Exclude<T[K], undefined> | null } {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [key, value === undefined ? null : value]),
+  ) as { [K in keyof T]: Exclude<T[K], undefined> | null };
 }
 
 export async function projectJobPostings(tx: ClarityExecutor, input: JobProjectionInput): Promise<string[]> {
@@ -62,8 +81,10 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
     return [];
   }
 
+  // Canonical places are attached here, once, for every source.
+  const postings = await resolveJobLocations(createPlaceResolver(tx), input.postings);
   const ids: string[] = [];
-  for (const posting of input.postings) {
+  for (const posting of postings) {
     const status = jobLifecycleStatus({
       validThrough: posting.validThrough ?? null,
       lastSeenAt: input.observedAt,
@@ -121,7 +142,7 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       .values({ id: crypto.randomUUID(), firstSeenAt: input.observedAt, ...values })
       .onConflictDoUpdate({
         target: [jobPostings.documentId, jobPostings.sourceKey],
-        set: { ...values, updatedAt: new Date() },
+        set: { ...clearAbsent(values), updatedAt: new Date() },
       })
       .returning({ id: jobPostings.id });
     ids.push(row.id);
@@ -290,12 +311,13 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       status: 'indexed',
       documentType: 'job',
       title: primary.title,
-      description: primary.description?.slice(0, 2_000),
+      // A removed description or date clears the stored one; siteId is kept when absent.
+      description: primary.description ? markdownToPlainText(primary.description).slice(0, 2_000) : null,
       mainContent: body,
       structuredData: input.structuredData,
       fieldEvidence: primary.evidence,
       publisherName: primary.employerName,
-      publishedAt: primary.publishedAt,
+      publishedAt: primary.publishedAt ?? null,
       fetchedAt: input.observedAt,
       indexedAt: input.observedAt,
       nextFetchAt: new Date(input.observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000),

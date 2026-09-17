@@ -7,13 +7,18 @@
  * — that is parsed with the SAME extractor a crawl uses, so a listing reaching
  * Clarity through a feed and the same listing reaching it through a crawl
  * normalize identically and deduplicate against each other.
+ *
+ * Providers deliver descriptions as HTML. Every adapter hands that HTML to the
+ * one Markdown converter (`toJobMarkdown`) rather than stripping it itself, so
+ * a feed listing keeps the headings, lists and links its board showed.
  */
 import type { JobEmploymentType, JobFeedKind, JobLocation } from '@clarity/shared-types';
 
-import { extractJobPostings, type ExtractedJobPosting } from '../extract.js';
+import { extractJobPostings, plainText, type ExtractedJobPosting } from '../extract.js';
+import { decodeHtmlEntities, toJobMarkdown } from '../markdown.js';
 import {
   descriptionFingerprint, employerKey, normalizeCountry,
-  normalizeEmploymentType, normalizeJobTitle, repairMojibake, urlDomain,
+  normalizeEmploymentType, normalizeJobTitle, urlDomain,
 } from '../taxonomy.js';
 
 export interface FeedContext {
@@ -26,23 +31,32 @@ export interface FeedContext {
 
 type Node = Record<string, unknown>;
 
+/** A short field as plain text. */
 function text(value: unknown): string | undefined {
   if (typeof value === 'string') {
-    const stripped = repairMojibake(stripHtml(value));
+    const stripped = plainText(value);
     return stripped.length > 0 ? stripped : undefined;
   }
   if (typeof value === 'number') return String(value);
   return undefined;
 }
 
-function stripHtml(value: string): string {
-  return value
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li|ul|ol|h[1-6])>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#0?39;|&apos;/gi, "'")
-    .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+/** A long-text field (HTML, Markdown or plain) as Markdown. */
+function markdown(...values: unknown[]): string | undefined {
+  const parts = values
+    .filter((value): value is string => typeof value === 'string')
+    .map(toJobMarkdown)
+    .filter((part) => part.length > 0);
+  return parts.length > 0 ? parts.join('\n\n') : undefined;
+}
+
+/**
+ * Greenhouse's board API returns `content` with its HTML entity-escaped
+ * (`&lt;p&gt;…`). Decoding once recovers the markup the posting page shows.
+ */
+function unescapedHtml(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  return /&lt;\/?[a-zA-Z][a-zA-Z0-9]*(?:\s|&gt;|\/)/.test(value) ? decodeHtmlEntities(value) : value;
 }
 
 function date(value: unknown): Date | undefined {
@@ -143,7 +157,8 @@ function greenhouse(payload: Node, context: FeedContext): ExtractedJobPosting[] 
   return jobs.flatMap((raw) => {
     if (!raw || typeof raw !== 'object') return [];
     const job = raw as Node;
-    const embedded = fromEmbeddedJsonLd(job['content'], context.requestUrl, context.extractedAt);
+    const content = unescapedHtml(job['content']);
+    const embedded = fromEmbeddedJsonLd(content, context.requestUrl, context.extractedAt);
     if (embedded) return [embedded];
     const company = job['company_name'];
     const offices = Array.isArray(job['offices']) ? job['offices'] as Node[] : [];
@@ -152,7 +167,7 @@ function greenhouse(payload: Node, context: FeedContext): ExtractedJobPosting[] 
       employerName: text(company) ?? context.identifier,
       canonicalUrl: typeof job['absolute_url'] === 'string' ? job['absolute_url'] : undefined,
       context,
-      description: text(job['content']),
+      description: markdown(content),
       locations: location(text((job['location'] as Node | undefined)?.['name'])
         ?? text(offices[0]?.['name'])),
       identifier: job['id'] === undefined ? undefined : String(job['id']),
@@ -174,7 +189,7 @@ function lever(payload: unknown, context: FeedContext): ExtractedJobPosting[] {
       employerName: context.identifier,
       canonicalUrl: typeof job['hostedUrl'] === 'string' ? job['hostedUrl'] : undefined,
       context,
-      description: text(job['descriptionPlain'] ?? job['description']),
+      description: leverDescription(job),
       locations: location(text(categories['location'])),
       workplaceType: text(categories['workplaceType']) === 'remote' ? 'remote'
         : text(categories['workplaceType']) === 'hybrid' ? 'hybrid'
@@ -186,6 +201,29 @@ function lever(payload: unknown, context: FeedContext): ExtractedJobPosting[] {
     });
     return built ? [built] : [];
   });
+}
+
+/**
+ * Lever splits a posting into `description`, titled `lists` ("What you'll do",
+ * each an HTML run of `<li>`) and `additional`. The board page renders them in
+ * that order, so they are joined in that order — nothing is added.
+ */
+function leverDescription(job: Node): string | undefined {
+  const lists = Array.isArray(job['lists']) ? job['lists'] as Node[] : [];
+  const html = [
+    typeof job['description'] === 'string' ? job['description'] : '',
+    ...lists.map((list) => {
+      const heading = typeof list['text'] === 'string' && list['text'].trim() ? `<h3>${escapeHtml(list['text'])}</h3>` : '';
+      const items = typeof list['content'] === 'string' ? `<ul>${list['content']}</ul>` : '';
+      return heading + items;
+    }),
+    typeof job['additional'] === 'string' ? job['additional'] : '',
+  ].join('');
+  return html.trim() ? markdown(html) : markdown(job['descriptionPlain']);
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function ashby(payload: Node, context: FeedContext): ExtractedJobPosting[] {
@@ -202,7 +240,7 @@ function ashby(payload: Node, context: FeedContext): ExtractedJobPosting[] {
       canonicalUrl: typeof job['jobUrl'] === 'string' ? job['jobUrl']
         : typeof job['applyUrl'] === 'string' ? job['applyUrl'] : undefined,
       context,
-      description: text(job['descriptionPlain'] ?? job['descriptionHtml']),
+      description: markdown(job['descriptionHtml'] ?? job['descriptionPlain']),
       locations: remote ? [] : location(text(job['location'])),
       ...(remote ? { workplaceType: 'remote' as const } : {}),
       employmentTypes: employmentTypes(job['employmentType']),
@@ -228,7 +266,7 @@ function workable(payload: Node, context: FeedContext): ExtractedJobPosting[] {
       canonicalUrl: typeof job['url'] === 'string' ? job['url']
         : typeof job['application_url'] === 'string' ? job['application_url'] : undefined,
       context,
-      description: text(job['description']),
+      description: markdown(job['description']),
       locations: location([city, country].filter(Boolean).join(', ')),
       ...(job['telecommuting'] === true ? { workplaceType: 'remote' as const } : {}),
       employmentTypes: employmentTypes(job['employment_type']),
@@ -251,7 +289,7 @@ function recruitee(payload: Node, context: FeedContext): ExtractedJobPosting[] {
       canonicalUrl: typeof job['careers_url'] === 'string' ? job['careers_url']
         : typeof job['careers_apply_url'] === 'string' ? job['careers_apply_url'] : undefined,
       context,
-      description: text(job['description']),
+      description: markdown(job['description']),
       locations: location([text(job['city']), text(job['country'])].filter(Boolean).join(', ')),
       ...(job['remote'] === true ? { workplaceType: 'remote' as const } : {}),
       employmentTypes: employmentTypes(job['employment_type_code'] ?? job['employment_type']),
@@ -298,7 +336,7 @@ function remoteok(payload: unknown, context: FeedContext): ExtractedJobPosting[]
       employerName: text(job['company']),
       canonicalUrl: typeof job['url'] === 'string' ? job['url'] : undefined,
       context,
-      description: text(job['description']),
+      description: markdown(job['description']),
       applicantLocationRequirements: typeof job['location'] === 'string' && job['location'].trim()
         ? [job['location'].trim()] : [],
       workplaceType: 'remote',
@@ -327,7 +365,7 @@ function remotive(payload: Node, context: FeedContext): ExtractedJobPosting[] {
       employerName: text(job['company_name']),
       canonicalUrl: typeof job['url'] === 'string' ? job['url'] : undefined,
       context,
-      description: text(job['description']),
+      description: markdown(job['description']),
       applicantLocationRequirements: typeof job['candidate_required_location'] === 'string'
         ? job['candidate_required_location'].split(',').map((item) => item.trim()).filter(Boolean) : [],
       workplaceType: 'remote',
@@ -351,7 +389,7 @@ function arbeitnow(payload: Node, context: FeedContext): ExtractedJobPosting[] {
       employerName: text(job['company_name']),
       canonicalUrl: typeof job['url'] === 'string' ? job['url'] : undefined,
       context,
-      description: text(job['description']),
+      description: markdown(job['description']),
       locations: location(text(job['location'])),
       ...(job['remote'] === true ? { workplaceType: 'remote' as const } : {}),
       employmentTypes: employmentTypes(job['job_types']),
@@ -372,30 +410,37 @@ function arbeitnow(payload: Node, context: FeedContext): ExtractedJobPosting[] {
 function rss(body: string, context: FeedContext): ExtractedJobPosting[] {
   const channelTitle = /<channel>[\s\S]*?<title>([\s\S]*?)<\/title>/i.exec(body)?.[1]
     ?? /<feed[\s\S]*?<title[^>]*>([\s\S]*?)<\/title>/i.exec(body)?.[1];
-  const employerFallback = channelTitle ? stripHtml(unescapeXml(channelTitle)) : undefined;
+  const employerFallback = channelTitle ? text(xmlText(channelTitle)) : undefined;
   const items = [...body.matchAll(/<(item|entry)[\s>][\s\S]*?<\/\1>/gi)].map((match) => match[0]);
   return items.flatMap((item) => {
-    const title = tag(item, 'title');
-    const link = tag(item, 'link') ?? /<link[^>]*href="([^"]+)"/i.exec(item)?.[1];
+    const title = text(tag(item, 'title'));
+    const link = text(tag(item, 'link')) ?? /<link[^>]*href="([^"]+)"/i.exec(item)?.[1];
     const built = listing({
       title,
-      employerName: tag(item, 'dc:creator') ?? tag(item, 'author') ?? employerFallback,
+      employerName: text(tag(item, 'dc:creator')) ?? text(tag(item, 'author')) ?? employerFallback,
       canonicalUrl: link,
       context,
-      description: tag(item, 'description') ?? tag(item, 'summary') ?? tag(item, 'content:encoded'),
-      identifier: tag(item, 'guid') ?? tag(item, 'id'),
-      publishedAt: date(tag(item, 'pubDate') ?? tag(item, 'published') ?? tag(item, 'updated')),
+      description: markdown(tag(item, 'content:encoded') ?? tag(item, 'description') ?? tag(item, 'summary')),
+      identifier: text(tag(item, 'guid')) ?? text(tag(item, 'id')),
+      publishedAt: date(text(tag(item, 'pubDate')) ?? text(tag(item, 'published')) ?? text(tag(item, 'updated'))),
       evidenceFields: ['title', 'employer', 'canonicalUrl', 'description', 'identifier', 'publishedAt'],
     });
     return built ? [built] : [];
   });
 }
 
+/** The element's raw content, XML-unescaped, markup inside it left intact. */
 function tag(xml: string, name: string): string | undefined {
   const match = new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`, 'i').exec(xml);
   if (!match) return undefined;
-  const value = stripHtml(unescapeXml(match[1].replace(/^<!\[CDATA\[|\]\]>$/g, '')));
+  const value = xmlText(match[1]).trim();
   return value.length > 0 ? value : undefined;
+}
+
+/** CDATA content is literal; everything else was XML-escaped once. */
+function xmlText(value: string): string {
+  const cdata = /^\s*<!\[CDATA\[([\s\S]*)\]\]>\s*$/.exec(value);
+  return cdata ? cdata[1] : unescapeXml(value);
 }
 
 function unescapeXml(value: string): string {

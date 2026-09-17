@@ -67,8 +67,7 @@ describe('JobPosting extraction', () => {
       locality: 'Barcelona',
       postalCode: '08001',
     }]);
-    expect(job.description).toContain('Build the mobile client.');
-    expect(job.description).not.toContain('<b>');
+    expect(job.description).toBe('Build the **mobile** client.\n\n- Ship features');
     expect(job.publishedAt?.toISOString()).toBe('2026-09-01T00:00:00.000Z');
     expect(job.validThrough?.toISOString()).toBe('2026-12-01T00:00:00.000Z');
     expect(job.evidence.salary).toEqual({ source: 'json_ld', selector: 'JobPosting', extractedAt });
@@ -166,5 +165,41 @@ describe('JobPosting extraction', () => {
       hiringOrganization: { name: 'Mention' },
     }), 'https://mention.earth/jobs/7', extractedAt, 'api');
     expect(job.evidence.title).toEqual({ source: 'api', selector: 'JobPosting', extractedAt });
+  });
+
+  it('keeps the structure of every long-text field as Markdown and short fields as plain text', () => {
+    const [job] = extractJobPostings(jsonLd({
+      title: 'Data &amp; <b>Platform</b> Engineer',
+      description: '<h3>About</h3><p>We index <a href="https://acme.example/jobs">public jobs</a>.</p><script>track()</script>',
+      qualifications: '<ul><li>TypeScript</li><li>Postgres</li></ul>',
+      responsibilities: ['Own the crawler', 'Review changes'],
+      educationRequirements: { '@type': 'EducationalOccupationalCredential', credentialCategory: 'bachelor degree' },
+      experienceRequirements: '## Experience\n\n- 3+ years',
+      industry: '<i>Software</i>',
+      hiringOrganization: { name: 'Acme' },
+    }), 'https://acme.example/jobs/1', extractedAt);
+
+    expect(job.title).toBe('Data & Platform Engineer');
+    expect(job.industry).toBe('Software');
+    expect(job.description).toBe('### About\n\nWe index [public jobs](https://acme.example/jobs).');
+    expect(job.qualifications).toBe('- TypeScript\n- Postgres');
+    expect(job.responsibilities).toBe('- Own the crawler\n- Review changes');
+    expect(job.educationRequirements).toBe('bachelor degree');
+    expect(job.experienceRequirements).toBe('## Experience\n\n- 3+ years');
+  });
+
+  it('fingerprints the same listing identically from HTML and from a Markdown publisher', () => {
+    const paragraph = 'Clarity indexes public job postings and keeps every listing attributed to its source page. ';
+    const fromHtml = extractJobPostings(jsonLd({
+      title: 'Engineer', hiringOrganization: { name: 'Acme' },
+      description: `<h2>Role</h2><p>${paragraph.repeat(3)}</p><ol><li>Crawl</li><li>Index</li></ol>`,
+    }), 'https://acme.example/jobs/1', extractedAt)[0];
+    const fromMarkdown = extractJobPostings(jsonLd({
+      title: 'Engineer', hiringOrganization: { name: 'Acme' },
+      description: `## Role\n\n${paragraph.repeat(3).trim()}\n\n1. Crawl\n2. Index`,
+    }), 'https://mention.earth/jobs/1', extractedAt, 'api')[0];
+    expect(fromHtml.description).toBe(fromMarkdown.description);
+    expect(fromHtml.descriptionFingerprint).toBeDefined();
+    expect(fromHtml.descriptionFingerprint).toBe(fromMarkdown.descriptionFingerprint);
   });
 });

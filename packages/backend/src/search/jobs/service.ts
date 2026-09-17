@@ -30,8 +30,9 @@ import { jobClusters, jobPostings, searchChunks, searchDocuments } from '../../d
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
 import { canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike, excerpt } from '../query-primitives.js';
 import { activeJobPredicate } from './lifecycle.js';
+import { markdownToPlainText } from './markdown.js';
 import {
-  JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
+  CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
   annualizeSalary, normalizeCountry, resolveRegion,
 } from './taxonomy.js';
 
@@ -52,6 +53,11 @@ const domainPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*
 export const jobSearchSchema = z.object({
   query: z.string().trim().min(1).max(500).optional(),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).default('hybrid'),
+  /**
+   * A country code or name, macro-region or free text. A token that is none of
+   * the first two ("NY", "LA") matches localities and regions as text, so the
+   * filter never widens into a country it was not asked for.
+   */
   locations: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
   workplaceTypes: z.array(z.enum(JOB_WORKPLACE_TYPES)).max(JOB_WORKPLACE_TYPES.length).optional(),
   employmentTypes: z.array(z.enum(JOB_EMPLOYMENT_TYPES)).max(JOB_EMPLOYMENT_TYPES.length).optional(),
@@ -61,7 +67,9 @@ export const jobSearchSchema = z.object({
   salary: z.object({
     min: z.number().min(0).max(100_000_000).optional(),
     max: z.number().min(0).max(100_000_000).optional(),
-    currency: z.string().trim().regex(/^[A-Za-z]{3}$/).optional(),
+    currency: z.string().trim().toUpperCase().pipe(z.enum(CURRENCY_CODES, {
+      message: 'currency must be an active ISO 4217 code from CURRENCY_CODES',
+    })).optional(),
     interval: z.enum(JOB_SALARY_INTERVALS).default('year'),
   }).optional(),
   publishedAfter: z.coerce.date().optional(),
@@ -166,9 +174,16 @@ function freshnessExpression(): SQL {
   return sql`exp(- greatest(extract(epoch from (now() - coalesce(${jobPostings.publishedAt}, ${jobPostings.firstSeenAt}))) / 86400.0, 0) / ${sql.raw(FRESHNESS_DECAY_DAYS.toFixed(1))})`;
 }
 
-/** How much of the employment record the source actually stated. */
+/**
+ * How much of the employment record the source actually stated.
+ *
+ * A substantive description is one that carries a content fingerprint: the
+ * fingerprint exists only when the description's PLAIN text (Markdown syntax,
+ * link targets, punctuation and whitespace removed) reaches 200 characters, so
+ * formatting alone never makes a listing look more complete.
+ */
 function completenessExpression(): SQL {
-  return sql`((case when ${jobPostings.description} is not null and length(${jobPostings.description}) > 200 then 1 else 0 end)
+  return sql`((case when ${jobPostings.descriptionFingerprint} is not null then 1 else 0 end)
     + (case when ${jobPostings.salaryCurrency} is not null then 1 else 0 end)
     + (case when ${jobPostings.employerUrl} is not null then 1 else 0 end)
     + (case when array_length(${jobPostings.locationCountries}, 1) is not null then 1 else 0 end)
@@ -276,7 +291,7 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   const jobsById = await hydrate(page.map((row) => row.jobId));
   const data: JobSearchResult[] = page.flatMap((rank) => {
     const job = jobsById.get(rank.jobId);
-    return job ? [{ ...job, snippet: excerpt(job.description), score: Number(rank.score) }] : [];
+    return job ? [{ ...job, snippet: excerpt(markdownToPlainText(job.description)), score: Number(rank.score) }] : [];
   });
 
   return {

@@ -20,7 +20,8 @@
     "db:attest-cutover": "bun src/db/attest-cutover.ts",
     "db:attest-fresh-install": "bun src/db/attest-fresh-install.ts",
     "import:oxy-link-previews": "bun src/scripts/import-oxy-link-previews.ts",
-    "agent:bootstrap-manifest": "bun src/scripts/render-clarity-agent-bootstrap.ts"
+    "agent:bootstrap-manifest": "bun src/scripts/render-clarity-agent-bootstrap.ts",
+    "places:import": "bun src/scripts/import-geonames-places.ts"
   },
   "dependencies": {
     "@clarity/shared-types": "workspace:*",
@@ -45,6 +46,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@clarity.surf/sdk": "workspace:*",
     "@eslint/js": "^9.39.5",
     "@swc/cli": "^0.5.2",
     "@swc/core": "^1.15.43",

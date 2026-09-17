@@ -1,7 +1,7 @@
 import type {
   ClarityErrorBody, CreateSiteRequest, Document, IndexOperation, IndexUrlsRequest, JobCorpusStats,
   JobIngestRequest, JobIngestResult, JobPosting, JobReportRequest, JobSearchRequest, JobSearchResponse, JobsCapability,
-  NewsRequest, NewsStory, Page, Quotas, RequestOptions, ResolveRequest, ResolveResult, SearchRequest,
+  NewsRequest, NewsStory, Page, Place, PlaceSearchRequest, PlaceSearchResponse, Quotas, RequestOptions, ResolveRequest, ResolveResult, SearchRequest,
   SearchResponse, Site, UpdateSiteRequest, UsageBucket,
 } from './types.js';
 
@@ -83,6 +83,14 @@ export class ClarityClient {
    * Result order comes from relevance, freshness, listing completeness and
    * duplicate suppression. Nothing an employer pays for can change it.
    */
+  /** The canonical gazetteer used to resolve job locations. */
+  readonly places = {
+    search: (request: PlaceSearchRequest, options?: RequestOptions) =>
+      this.request<PlaceSearchResponse>('GET', `/v1/places/search${query(request)}`, undefined, options),
+    get: (id: string, options?: RequestOptions) =>
+      this.request<Place>('GET', `/v1/places/${encodeURIComponent(id)}`, undefined, options),
+  };
+
   readonly jobs = {
     search: (request: JobSearchRequest, options?: RequestOptions) =>
       this.request<JobSearchResponse>('POST', '/v1/jobs/search', request, options),

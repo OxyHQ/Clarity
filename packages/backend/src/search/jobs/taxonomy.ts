@@ -7,18 +7,31 @@
  */
 import { createHash } from 'node:crypto';
 
-import type {
-  JobEmploymentType,
-  JobSalaryInterval,
-  JobWorkplaceType,
-} from '@clarity/shared-types';
+import {
+  COUNTRY_CODES,
+  JOB_EMPLOYMENT_TYPES,
+  JOB_LIFECYCLE_STATUSES,
+  JOB_SALARY_INTERVALS,
+  JOB_WORKPLACE_TYPES,
+  isCountryCode,
+  isCurrencyCode,
+  type CountryCode,
+  type CurrencyCode,
+  type JobEmploymentType,
+  type JobSalaryInterval,
+} from '@clarity.surf/sdk/vocabularies';
 
-export const JOB_WORKPLACE_TYPES = ['remote', 'hybrid', 'onsite'] as const satisfies readonly JobWorkplaceType[];
-export const JOB_EMPLOYMENT_TYPES = [
-  'full_time', 'part_time', 'contract', 'temporary', 'internship', 'volunteer', 'per_diem', 'other',
-] as const satisfies readonly JobEmploymentType[];
-export const JOB_SALARY_INTERVALS = ['hour', 'day', 'week', 'month', 'year'] as const satisfies readonly JobSalaryInterval[];
-export const JOB_LIFECYCLE_STATUSES = ['active', 'expired', 'closed', 'removed', 'stale'] as const;
+import { markdownToPlainText } from './markdown.js';
+
+export { repairMojibake } from './markdown.js';
+
+/**
+ * The closed vocabularies are owned by the public SDK so publishers, consumers
+ * and this API validate against the same arrays. Re-exported for the modules
+ * that already read them from here.
+ */
+export { COUNTRY_CODES, CURRENCY_CODES, isCountryCode, isCurrencyCode } from '@clarity.surf/sdk/vocabularies';
+export { JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES };
 export const JOB_SOURCE_TYPES = ['web', 'verified_site', 'first_party'] as const;
 
 /** `schema.org` employment codes, plus the unambiguous spellings sites use. */
@@ -86,19 +99,25 @@ SA:Saudi Arabia|SB:Solomon Islands|SC:Seychelles|SD:Sudan|SE:Sweden,Suecia|SG:Si
 SN:Senegal|SO:Somalia|SR:Suriname|SS:South Sudan|SV:El Salvador|SY:Syria|SZ:Eswatini|TD:Chad|TG:Togo|TH:Thailand
 TJ:Tajikistan|TL:Timor-Leste|TM:Turkmenistan|TN:Tunisia|TO:Tonga|TR:Turkey,Turkiye,Turquia|TT:Trinidad and Tobago|TV:Tuvalu|TW:Taiwan|TZ:Tanzania
 UA:Ukraine|UG:Uganda|US:United States,United States of America,USA,US,Estados Unidos|UY:Uruguay|UZ:Uzbekistan|VA:Vatican City|VE:Venezuela|VN:Vietnam|VU:Vanuatu|WS:Samoa
-YE:Yemen|ZA:South Africa|ZM:Zambia|ZW:Zimbabwe|XK:Kosovo
+YE:Yemen|ZA:South Africa|ZM:Zambia|ZW:Zimbabwe
 `;
 
-const COUNTRY_CODE_BY_NAME = new Map<string, string>();
-export const COUNTRY_NAME_BY_CODE = new Map<string, string>();
+const COUNTRY_CODE_BY_NAME = new Map<string, CountryCode>();
+export const COUNTRY_NAME_BY_CODE = new Map<CountryCode, string>();
 for (const entry of COUNTRY_TABLE.split(/[\n|]/)) {
   const trimmed = entry.trim();
   if (!trimmed) continue;
   const [code, names] = trimmed.split(':');
+  // A name table entry can only ever resolve to an officially assigned code.
+  if (!isCountryCode(code)) throw new Error(`Country table carries ${code}, which is not in COUNTRY_CODES`);
   const [primary, ...aliases] = names.split(',');
   COUNTRY_NAME_BY_CODE.set(code, primary);
   COUNTRY_CODE_BY_NAME.set(code.toLowerCase(), code);
   for (const name of [primary, ...aliases]) COUNTRY_CODE_BY_NAME.set(foldCase(name), code);
+}
+
+for (const code of COUNTRY_CODES) {
+  if (!COUNTRY_CODE_BY_NAME.has(code.toLowerCase())) COUNTRY_CODE_BY_NAME.set(code.toLowerCase(), code);
 }
 
 /**
@@ -106,8 +125,8 @@ for (const entry of COUNTRY_TABLE.split(/[\n|]/)) {
  * into the country codes below — Clarity does not infer that an unlisted
  * country belongs to a region.
  */
-export const JOB_REGIONS: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  europe: ['AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FO', 'FR', 'GB', 'GE', 'GI', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'TR', 'UA', 'VA', 'XK'],
+export const JOB_REGIONS: Readonly<Record<string, readonly CountryCode[]>> = Object.freeze({
+  europe: ['AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FO', 'FR', 'GB', 'GE', 'GI', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'TR', 'UA', 'VA'],
   european_union: ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'],
   north_america: ['BS', 'BB', 'BZ', 'CA', 'CR', 'CU', 'DO', 'GT', 'HN', 'HT', 'JM', 'MX', 'NI', 'PA', 'PR', 'SV', 'TT', 'US'],
   south_america: ['AR', 'BO', 'BR', 'CL', 'CO', 'EC', 'GY', 'PE', 'PY', 'SR', 'UY', 'VE'],
@@ -132,34 +151,6 @@ export function foldCase(value: string): string {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Repairs UTF-8 text a source double-encoded — its bytes decoded once as
- * Latin-1, producing "weâre" for "we're" — before Clarity
- * ever sees it. Confirmed byte-for-byte against RemoteOK's own `/api`
- * payload (OxyHQ/Clarity#19): the apostrophe's UTF-8 bytes `E2 80 99` come
- * back as the three separate codepoints U+00E2, U+0080, U+0099.
- *
- * Reinterpreting each code unit as a raw byte and re-decoding as UTF-8 only
- * succeeds when that byte sequence happens to be valid UTF-8, which correctly
- * encoded text essentially never is once it contains a genuine accented
- * character (a lone Latin-1 byte like 0xE9 is not valid standalone UTF-8). So
- * this is safe to run unconditionally: normal text round-trips as itself or
- * fails fast and is returned unchanged, never guessed at.
- */
-export function repairMojibake(value: string): string {
-  const bytes = new Uint8Array(value.length);
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
-    if (code > 0xff) return value;
-    bytes[i] = code;
-  }
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  } catch {
-    return value;
-  }
-}
-
 export function normalizeEmploymentType(value: string): JobEmploymentType | undefined {
   const token = foldCase(value).replace(/[^a-z]/g, '');
   return EMPLOYMENT_TYPE_BY_TOKEN[token];
@@ -170,21 +161,24 @@ export function normalizeSalaryInterval(value: string): JobSalaryInterval | unde
   return SALARY_INTERVAL_BY_TOKEN[token];
 }
 
-/** ISO 4217 alpha codes only; anything else is dropped rather than guessed. */
-export function normalizeCurrency(value: string): string | undefined {
+/**
+ * A code from `CURRENCY_CODES` only; a well-formed code that is not an active
+ * ISO 4217 currency is dropped rather than guessed.
+ */
+export function normalizeCurrency(value: string): CurrencyCode | undefined {
   const code = value.trim().toUpperCase();
-  return /^[A-Z]{3}$/.test(code) ? code : undefined;
+  return isCurrencyCode(code) ? code : undefined;
 }
 
-/** Resolves an explicit country code or recognized country name to alpha-2. */
-export function normalizeCountry(value: string): string | undefined {
+/** Resolves an explicit country code or recognized country name to a `COUNTRY_CODES` entry. */
+export function normalizeCountry(value: string): CountryCode | undefined {
   const folded = foldCase(value);
   if (!folded) return undefined;
   return COUNTRY_CODE_BY_NAME.get(folded);
 }
 
 /** Expands a macro-region name into its documented country-code list. */
-export function resolveRegion(value: string): readonly string[] | undefined {
+export function resolveRegion(value: string): readonly CountryCode[] | undefined {
   const key = REGION_ALIASES[foldCase(value).replace(/_/g, ' ')] ?? REGION_ALIASES[foldCase(value)];
   return key ? JOB_REGIONS[key] : undefined;
 }
@@ -218,13 +212,14 @@ export function employerKey(name: string | undefined, url: string | undefined): 
 }
 
 /**
- * Fingerprint of a listing body. Whitespace, case and punctuation are folded so
- * that a syndicated copy of the same description fingerprints identically,
- * while an edited description does not.
+ * Fingerprint of a listing body. The Markdown is reduced to plain text first,
+ * then whitespace, case and punctuation are folded, so a syndicated copy of the
+ * same description fingerprints identically whether it arrived as HTML,
+ * Markdown or plain text, while an edited description does not.
  */
 export function descriptionFingerprint(description: string | undefined): string | undefined {
   if (!description) return undefined;
-  const normalized = foldCase(description).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = foldCase(markdownToPlainText(description)).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (normalized.length < 200) return undefined;
   return createHash('sha256').update(normalized.slice(0, 4000)).digest('hex');
 }

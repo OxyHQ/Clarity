@@ -1,5 +1,6 @@
 import * as esbuild from 'esbuild';
 import { cp } from 'fs/promises';
+import { fileURLToPath } from 'node:url';
 
 await esbuild.build({
   entryPoints: {
@@ -18,6 +19,13 @@ await esbuild.build({
   plugins: [{
     name: 'externalize-except-oxyhq',
     setup(build) {
+      // The closed vocabularies (currencies, countries, job enums) are owned by
+      // the public SDK and compiled into the API from source, so the API and
+      // every SDK consumer validate against the same arrays without the
+      // runtime image needing a built SDK.
+      build.onResolve({ filter: /^@clarity\.surf\/sdk\/vocabularies$/ }, () => ({
+        path: fileURLToPath(new URL('../sdk/src/vocabularies.ts', import.meta.url)),
+      }));
       // Let @oxy.so/* packages be bundled (their ESM has missing .js extensions)
       build.onResolve({ filter: /^@oxyhq\// }, () => undefined);
       // Externalize all other bare imports (node_modules)

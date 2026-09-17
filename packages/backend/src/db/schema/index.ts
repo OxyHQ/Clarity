@@ -776,3 +776,47 @@ export const jobFeeds = pgTable('clarity_job_feeds', {
   check('clarity_job_feeds_interval_check', sql`${table.pollIntervalSeconds} >= 900`),
   check('clarity_job_feeds_listings_check', sql`${table.listingsSeen} >= 0`),
 ]);
+
+/**
+ * Places — the canonical gazetteer job locations resolve against.
+ *
+ * Keyed by GeoNames id and populated by `bun run places:import` from the
+ * GeoNames `cities15000` and `admin1CodesASCII` dumps (CC BY 4.0, attributed in
+ * NOTICE). It is reference data, never written from a request. A listing's
+ * `locations[].placeId` points here; the raw text the source wrote is kept
+ * alongside it.
+ */
+export const places = pgTable('clarity_places', {
+  /** GeoNames id. */
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(),
+  name: text('name').notNull(),
+  asciiName: text('ascii_name').notNull(),
+  /** Folded (lowercase, accentless) ascii name, for prefix search. */
+  searchName: text('search_name').notNull(),
+  /** Folded name, ascii name and GeoNames alternate names, for exact resolution. */
+  matchNames: text('match_names').array().notNull().default(sql`'{}'::text[]`),
+  countryCode: text('country_code').notNull(),
+  admin1Code: text('admin1_code'),
+  admin1Name: text('admin1_name'),
+  /** ISO 3166-2, only where GeoNames' admin1 code already is that code. */
+  subdivisionCode: text('subdivision_code'),
+  /** GeoNames population; null where GeoNames states none (regions). */
+  population: bigint('population', { mode: 'number' }),
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
+  timezone: text('timezone'),
+  featureCode: text('feature_code'),
+  /** GeoNames' own modification date for the row. */
+  sourceModifiedAt: timestamp('source_modified_at', { withTimezone: true }),
+  ...timestampColumns(),
+}, (table) => [
+  index('clarity_places_country_kind_idx').on(table.countryCode, table.kind),
+  index('clarity_places_search_name_prefix_idx').on(table.searchName.asc().op('text_pattern_ops')),
+  index('clarity_places_search_name_trgm_idx').using('gin', table.searchName.asc().op('gin_trgm_ops')),
+  index('clarity_places_match_names_idx').using('gin', table.matchNames),
+  index('clarity_places_population_idx').on(table.population),
+  check('clarity_places_kind_check', sql`${table.kind} in ('city', 'region')`),
+  check('clarity_places_country_code_check', sql`${table.countryCode} ~ '^[A-Z]{2}$'`),
+  check('clarity_places_population_check', sql`${table.population} is null or ${table.population} >= 0`),
+]);
