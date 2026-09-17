@@ -141,6 +141,13 @@ export interface JobPosting {
   applyUrl?: string;
 
   title: string;
+  /**
+   * Markdown (CommonMark subset: ATX headings, paragraphs, `-` and ordered
+   * lists, `**bold**`, `_em_`, `[text](https://…)` links, `\\` hard line
+   * breaks). Never contains raw HTML — render it with a Markdown renderer that
+   * has HTML disabled. Structure is converted from the source's HTML; no
+   * content is added.
+   */
   description?: string;
   employer: JobEmployer;
 
@@ -153,9 +160,13 @@ export interface JobPosting {
   salary?: JobSalary;
 
   skills: string[];
+  /** Markdown, same contract as `description`. */
   qualifications?: string;
+  /** Markdown, same contract as `description`. */
   responsibilities?: string;
+  /** Markdown, same contract as `description`. */
   educationRequirements?: string;
+  /** Markdown, same contract as `description`. */
   experienceRequirements?: string;
   industry?: string;
   occupationalCategory?: string;
@@ -179,7 +190,7 @@ export interface JobPosting {
 }
 
 export interface JobSearchResult extends JobPosting {
-  /** Evidence-grounded excerpt taken from the indexed listing text. */
+  /** Evidence-grounded plain-text excerpt (no Markdown syntax) of the listing text. */
   snippet?: string;
   score: number;
 }

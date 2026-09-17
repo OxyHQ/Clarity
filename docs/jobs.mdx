@@ -65,6 +65,51 @@ Two rules hold everywhere:
   came from JSON-LD (`json_ld`) or from an ingestion payload (`api`), with the
   extraction timestamp, in `field_evidence`.
 
+### Listing text is Markdown
+
+`description`, `qualifications`, `responsibilities`, `educationRequirements` and
+`experienceRequirements` are stored and returned as **Markdown** — a CommonMark
+subset — so a consumer can show the headings, lists and links the source
+published. Every other text field (title, employer name, industry,
+occupational category, locations, skills) is plain text.
+
+| Source HTML | Markdown |
+| --- | --- |
+| `<h1>`…`<h6>` | `#`…`######` heading |
+| `<p>`, `<div>` and other blocks | paragraph (blank line) |
+| `<br>` / `<br><br>` | hard line break (`\` at end of line) / new paragraph |
+| `<ul>`, `<ol start>`, `<li>`, nested | `- item`, `1. item`, indented sub-lists |
+| `<strong>`/`<b>`, `<em>`/`<i>` | `**bold**`, `_em_` |
+| `<a href="https://…">` | `[text](https://…)` — any other target (`javascript:`, `data:`, relative) keeps only its text |
+| `<script>`, `<style>`, `<iframe>`, `<noscript>`, `<svg>`, … | removed with their contents |
+| any other tag | removed, text kept |
+
+Entities (named and numeric) are decoded. Text that would otherwise read as
+Markdown syntax (`*`, `[`, a leading `#` or `- `) is backslash-escaped, and a
+literal `<` is written `\<`, so **no raw HTML ever survives**: the value is safe
+for a Markdown renderer with HTML disabled. Plain-text and Markdown input (what
+a first-party publisher like Mention sends) passes through with its line
+structure: line endings normalized, trailing whitespace trimmed, runs of blank
+lines collapsed, bullet glyphs (`•`) written as `-` items. Double-encoded UTF-8
+is repaired first. The converter is `src/search/jobs/markdown.ts`; every feed
+adapter uses it rather than stripping HTML itself, and it is idempotent, so a
+feed listing normalized twice is unchanged.
+
+Converting `<li>` to `- ` is notation, not invention: no word reaches the
+Markdown that the source did not publish.
+
+Anything that needs plain text derives it from the Markdown with
+`markdownToPlainText` — the lexical `search_vector`, the document text and
+chunks used for embeddings, result `snippet`s, the description fingerprint and
+the listing-completeness signal (a description counts as substantive when it
+carries a fingerprint, i.e. at least 200 characters of folded plain text). Link
+targets and syntax are dropped, so the same content fingerprints identically
+whether it arrived as HTML, Markdown or plain text.
+
+Rows written before this contract hold plain text, which is already valid
+Markdown. Recrawls and feed polls re-project every column of a listing, so they
+converge on their own; no backfill is needed.
+
 Workplace type is derived only from explicit structured signals:
 
 | `jobLocationType` | Physical `jobLocation` | Result |
@@ -320,6 +365,9 @@ Authorization: Bearer <oxy_sk credential>   # scope clarity:index
 { "url": "https://mention.earth/jobs/7", "jobPosting": { "@type": "JobPosting", … } }
 ```
 
+The payload's `description` and other long-text fields may be HTML or
+Markdown; Clarity stores Markdown either way (see *Listing text is Markdown*).
+
 A structured payload requires a **verified Clarity site for the URL's host**, so
 no caller can inject a listing onto a domain it does not own, and the payload
 goes through the same normalizer a crawl would use. Clarity also queues a
@@ -371,8 +419,8 @@ never be inferred, and the canonical source must always be shown.
 `clarity.surf/jobs` is a first-class vertical: query and location inputs,
 workplace/employment/recency/salary filters, cursor pagination, and explicit
 loading, error, empty and degraded states. Cards show title, employer, workplace
-type, location, salary when stated, age, an evidence-grounded excerpt and the
-source domain. The detail view leads with attribution — *Clarity indexed this
+type, location, salary when stated, age, an evidence-grounded plain-text excerpt
+and the source domain. The detail view renders the long-text fields as Markdown. The detail view leads with attribution — *Clarity indexed this
 listing from `<domain>`; Clarity is not the employer and does not receive
 applications* — and links out to the original. Clarity never presents itself as
 the employer or the publisher of a listing it merely indexed.

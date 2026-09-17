@@ -188,6 +188,13 @@ export interface JobPosting {
   canonicalUrl: string;
   applyUrl?: string;
   title: string;
+  /**
+   * Markdown (CommonMark subset: ATX headings, paragraphs, `-` and ordered
+   * lists, `**bold**`, `_em_`, `[text](https://…)` links, `\\` hard line
+   * breaks). Never contains raw HTML — render it with a Markdown renderer that
+   * has HTML disabled. Structure is converted from the source's HTML; no
+   * content is added.
+   */
   description?: string;
   employer: JobEmployer;
   locations: JobLocation[];
@@ -196,9 +203,13 @@ export interface JobPosting {
   employmentTypes: JobEmploymentType[];
   salary?: JobSalary;
   skills: string[];
+  /** Markdown, same contract as `description`. */
   qualifications?: string;
+  /** Markdown, same contract as `description`. */
   responsibilities?: string;
+  /** Markdown, same contract as `description`. */
   educationRequirements?: string;
+  /** Markdown, same contract as `description`. */
   experienceRequirements?: string;
   industry?: string;
   occupationalCategory?: string;
@@ -214,7 +225,11 @@ export interface JobPosting {
   evidence: Record<string, JobEvidence>;
 }
 
-export interface JobSearchResult extends JobPosting { snippet?: string; score: number; }
+export interface JobSearchResult extends JobPosting {
+  /** Plain-text excerpt of the description (no Markdown syntax). */
+  snippet?: string;
+  score: number;
+}
 
 export interface JobSalaryFilter {
   min?: number;
@@ -255,6 +270,11 @@ export interface JobIngestRequest {
   /**
    * `schema.org/JobPosting` JSON-LD. Requires a verified Clarity site for the
    * URL's host; without it the call is an ordinary index request.
+   *
+   * `description` (and `qualifications`, `responsibilities`,
+   * `educationRequirements`, `experienceRequirements`) may be HTML — Google's
+   * JobPosting convention — or Markdown / plain text. Either way Clarity stores
+   * and returns Markdown with no raw HTML.
    */
   jobPosting?: Record<string, unknown> | unknown[];
   /** Set when the publisher has closed the listing. */

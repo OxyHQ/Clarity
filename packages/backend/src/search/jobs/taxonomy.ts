@@ -13,6 +13,10 @@ import type {
   JobWorkplaceType,
 } from '@clarity/shared-types';
 
+import { markdownToPlainText } from './markdown.js';
+
+export { repairMojibake } from './markdown.js';
+
 export const JOB_WORKPLACE_TYPES = ['remote', 'hybrid', 'onsite'] as const satisfies readonly JobWorkplaceType[];
 export const JOB_EMPLOYMENT_TYPES = [
   'full_time', 'part_time', 'contract', 'temporary', 'internship', 'volunteer', 'per_diem', 'other',
@@ -132,34 +136,6 @@ export function foldCase(value: string): string {
   return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-/**
- * Repairs UTF-8 text a source double-encoded — its bytes decoded once as
- * Latin-1, producing "weâre" for "we're" — before Clarity
- * ever sees it. Confirmed byte-for-byte against RemoteOK's own `/api`
- * payload (OxyHQ/Clarity#19): the apostrophe's UTF-8 bytes `E2 80 99` come
- * back as the three separate codepoints U+00E2, U+0080, U+0099.
- *
- * Reinterpreting each code unit as a raw byte and re-decoding as UTF-8 only
- * succeeds when that byte sequence happens to be valid UTF-8, which correctly
- * encoded text essentially never is once it contains a genuine accented
- * character (a lone Latin-1 byte like 0xE9 is not valid standalone UTF-8). So
- * this is safe to run unconditionally: normal text round-trips as itself or
- * fails fast and is returned unchanged, never guessed at.
- */
-export function repairMojibake(value: string): string {
-  const bytes = new Uint8Array(value.length);
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
-    if (code > 0xff) return value;
-    bytes[i] = code;
-  }
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  } catch {
-    return value;
-  }
-}
-
 export function normalizeEmploymentType(value: string): JobEmploymentType | undefined {
   const token = foldCase(value).replace(/[^a-z]/g, '');
   return EMPLOYMENT_TYPE_BY_TOKEN[token];
@@ -218,13 +194,14 @@ export function employerKey(name: string | undefined, url: string | undefined): 
 }
 
 /**
- * Fingerprint of a listing body. Whitespace, case and punctuation are folded so
- * that a syndicated copy of the same description fingerprints identically,
- * while an edited description does not.
+ * Fingerprint of a listing body. The Markdown is reduced to plain text first,
+ * then whitespace, case and punctuation are folded, so a syndicated copy of the
+ * same description fingerprints identically whether it arrived as HTML,
+ * Markdown or plain text, while an edited description does not.
  */
 export function descriptionFingerprint(description: string | undefined): string | undefined {
   if (!description) return undefined;
-  const normalized = foldCase(description).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = foldCase(markdownToPlainText(description)).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (normalized.length < 200) return undefined;
   return createHash('sha256').update(normalized.slice(0, 4000)).digest('hex');
 }

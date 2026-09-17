@@ -30,6 +30,7 @@ import { jobClusters, jobPostings, searchChunks, searchDocuments } from '../../d
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
 import { canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike, excerpt } from '../query-primitives.js';
 import { activeJobPredicate } from './lifecycle.js';
+import { markdownToPlainText } from './markdown.js';
 import {
   JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
   annualizeSalary, normalizeCountry, resolveRegion,
@@ -166,9 +167,16 @@ function freshnessExpression(): SQL {
   return sql`exp(- greatest(extract(epoch from (now() - coalesce(${jobPostings.publishedAt}, ${jobPostings.firstSeenAt}))) / 86400.0, 0) / ${sql.raw(FRESHNESS_DECAY_DAYS.toFixed(1))})`;
 }
 
-/** How much of the employment record the source actually stated. */
+/**
+ * How much of the employment record the source actually stated.
+ *
+ * A substantive description is one that carries a content fingerprint: the
+ * fingerprint exists only when the description's PLAIN text (Markdown syntax,
+ * link targets, punctuation and whitespace removed) reaches 200 characters, so
+ * formatting alone never makes a listing look more complete.
+ */
 function completenessExpression(): SQL {
-  return sql`((case when ${jobPostings.description} is not null and length(${jobPostings.description}) > 200 then 1 else 0 end)
+  return sql`((case when ${jobPostings.descriptionFingerprint} is not null then 1 else 0 end)
     + (case when ${jobPostings.salaryCurrency} is not null then 1 else 0 end)
     + (case when ${jobPostings.employerUrl} is not null then 1 else 0 end)
     + (case when array_length(${jobPostings.locationCountries}, 1) is not null then 1 else 0 end)
@@ -276,7 +284,7 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   const jobsById = await hydrate(page.map((row) => row.jobId));
   const data: JobSearchResult[] = page.flatMap((rank) => {
     const job = jobsById.get(rank.jobId);
-    return job ? [{ ...job, snippet: excerpt(job.description), score: Number(rank.score) }] : [];
+    return job ? [{ ...job, snippet: excerpt(markdownToPlainText(job.description)), score: Number(rank.score) }] : [];
   });
 
   return {

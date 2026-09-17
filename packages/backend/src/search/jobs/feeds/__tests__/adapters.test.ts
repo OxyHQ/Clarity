@@ -133,6 +133,49 @@ describe('job feed adapters', () => {
     expect(jobs.map((job) => job.title)).toEqual(['Complete']);
   });
 
+  it('converts every provider\'s HTML description through the one Markdown converter', () => {
+    const html = '<h3>About</h3><ul><li>Ship <strong>fast</strong></li></ul><script>x()</script>';
+    const expected = '### About\n\n- Ship **fast**';
+
+    const [greenhouse] = parseJobFeed('greenhouse', JSON.stringify({
+      jobs: [{ id: 1, title: 'Engineer', company_name: 'Acme', absolute_url: 'https://boards.greenhouse.io/acme/jobs/1',
+        content: html.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') }],
+    }), context('greenhouse', 'acme'));
+    expect(greenhouse.description).toBe(expected);
+
+    const [ashby] = parseJobFeed('ashby', JSON.stringify({
+      jobs: [{ id: 'a', title: 'Engineer', organizationName: 'Acme', jobUrl: 'https://jobs.ashbyhq.com/acme/a', descriptionHtml: html, descriptionPlain: 'About Ship fast' }],
+    }), context('ashby', 'acme'));
+    expect(ashby.description).toBe(expected);
+
+    for (const [kind, payload] of [
+      ['workable', { name: 'Acme', jobs: [{ shortcode: 'W1', title: 'Engineer', url: 'https://apply.workable.com/acme/j/W1', description: html }] }],
+      ['recruitee', { offers: [{ id: 1, title: 'Engineer', company_name: 'Acme', careers_url: 'https://acme.recruitee.com/o/1', description: html }] }],
+      ['remoteok', [{ legal: 'notice' }, { id: 1, position: 'Engineer', company: 'Acme', url: 'https://remoteok.com/l/1', description: html }]],
+      ['remotive', { jobs: [{ id: 1, title: 'Engineer', company_name: 'Acme', url: 'https://remotive.com/j/1', description: html }] }],
+      ['arbeitnow', { data: [{ slug: 's', title: 'Engineer', company_name: 'Acme', url: 'https://arbeitnow.com/s', description: html }] }],
+    ] as const) {
+      const [job] = parseJobFeed(kind, JSON.stringify(payload), context(kind, 'acme'));
+      expect(job.description, kind).toBe(expected);
+    }
+
+    const [rss] = parseJobFeed('rss', `<rss><channel><title>Acme</title><item><title>Engineer</title>
+      <link>https://acme.example/jobs/1</link><description><![CDATA[${html}]]></description></item></channel></rss>`,
+      context('rss', 'https://acme.example/jobs.rss'));
+    expect(rss.description).toBe(expected);
+  });
+
+  it('assembles Lever\'s description, titled lists and closing section in board order', () => {
+    const [job] = parseJobFeed('lever', JSON.stringify([{
+      id: 'l1', text: 'Engineer', hostedUrl: 'https://jobs.lever.co/acme/l1',
+      description: '<div>We build tools.</div>',
+      descriptionPlain: 'We build tools.',
+      lists: [{ text: 'What you will do', content: '<li>Ship</li><li>Review</li>' }],
+      additional: '<div>Remote friendly.</div>',
+    }]), context('lever', 'acme'));
+    expect(job.description).toBe('We build tools.\n\n### What you will do\n\n- Ship\n- Review\n\nRemote friendly.');
+  });
+
   it('fails loudly when a board returns something that is not JSON', () => {
     expect(() => parseJobFeed('lever', '<html>rate limited</html>', context('lever', 'acme')))
       .toThrow('not JSON');

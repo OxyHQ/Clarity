@@ -23,6 +23,7 @@ export const CLARITY_JOBS_CAPABILITY = {
     absentFieldPolicy: 'A field missing from a result was not stated by the source. Never infer it.',
     attribution: 'Always show source.canonicalUrl. Clarity indexed the listing; it is not the employer.',
     staleAfterDays: JOB_STALE_AFTER_DAYS,
+    textFormat: 'description, qualifications, responsibilities, educationRequirements and experienceRequirements are Markdown with no raw HTML; snippet and every other text field are plain text.',
   },
   ranking: { signals: JOB_RANKING_SIGNALS, commercialSignals: 'none' },
   parameters: {

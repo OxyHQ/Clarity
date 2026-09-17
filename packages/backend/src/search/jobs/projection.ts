@@ -16,6 +16,7 @@ import { chunkText, embedChunks, replaceDocumentChunks } from '../chunking.js';
 import { canonicalSourceRank, jobClusterSignatures } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
+import { markdownToPlainText } from './markdown.js';
 import { annualizeSalary, normalizeCountry, resolveRegion, urlDomain } from './taxonomy.js';
 
 export interface JobProjectionInput {
@@ -39,6 +40,10 @@ function countryCodes(posting: ExtractedJobPosting): string[] {
   return [...codes];
 }
 
+/**
+ * Plain text for the lexical index and embeddings. The stored description is
+ * Markdown; its syntax is not searchable content.
+ */
 function textIndexSource(posting: ExtractedJobPosting): string {
   return [
     posting.title,
@@ -50,7 +55,7 @@ function textIndexSource(posting: ExtractedJobPosting): string {
     posting.workplaceType ?? '',
     posting.occupationalCategory ?? '',
     posting.industry ?? '',
-    (posting.description ?? '').slice(0, 8_000),
+    markdownToPlainText(posting.description).slice(0, 8_000),
   ].filter(Boolean).join('\n');
 }
 
@@ -290,7 +295,7 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       status: 'indexed',
       documentType: 'job',
       title: primary.title,
-      description: primary.description?.slice(0, 2_000),
+      description: primary.description ? markdownToPlainText(primary.description).slice(0, 2_000) : undefined,
       mainContent: body,
       structuredData: input.structuredData,
       fieldEvidence: primary.evidence,

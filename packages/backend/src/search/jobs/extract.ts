@@ -9,6 +9,11 @@
  *
  * Rule: a field that the source does not state is absent. Nothing is inferred
  * from prose, and no default is substituted for a missing value.
+ *
+ * Long-text fields (`description`, `qualifications`, `responsibilities`,
+ * `educationRequirements`, `experienceRequirements`) keep the structure the
+ * source stated, as Markdown (see `markdown.ts`). Every other text field is
+ * plain text.
  */
 import type {
   JobEmploymentType,
@@ -27,9 +32,9 @@ import {
   normalizeEmploymentType,
   normalizeJobTitle,
   normalizeSalaryInterval,
-  repairMojibake,
   urlDomain,
 } from './taxonomy.js';
+import { markdownToPlainText, toJobMarkdown } from './markdown.js';
 
 export interface ExtractedJobPosting {
   /** Stable key for this listing inside its document. */
@@ -100,9 +105,14 @@ export function hasJobPosting(structuredData: readonly unknown[]): boolean {
   return flattenNodes(structuredData).some(isJobPostingNode);
 }
 
+/** Plain text for a short field: markup and Markdown syntax are removed. */
+export function plainText(value: string): string {
+  return markdownToPlainText(toJobMarkdown(value));
+}
+
 function text(value: unknown): string | undefined {
   if (typeof value === 'string') {
-    const stripped = repairMojibake(stripHtml(value));
+    const stripped = plainText(value);
     return stripped.length > 0 ? stripped : undefined;
   }
   if (typeof value === 'number') return String(value);
@@ -110,32 +120,42 @@ function text(value: unknown): string | undefined {
     const parts = value.map(text).filter((item): item is string => Boolean(item));
     return parts.length > 0 ? parts.join('\n') : undefined;
   }
+  return nestedValue(value, text);
+}
+
+/**
+ * A long-text field as Markdown. An array of single-line statements is a list
+ * the source already stated, so it is written as one; anything longer becomes
+ * paragraphs.
+ */
+function markdown(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    const converted = toJobMarkdown(value);
+    return converted.length > 0 ? converted : undefined;
+  }
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) {
+    const parts = value.map(markdown).filter((item): item is string => Boolean(item));
+    if (parts.length === 0) return undefined;
+    if (parts.length > 1 && parts.every((part) => !part.includes('\n'))) {
+      return parts.map((part) => `- ${part}`).join('\n');
+    }
+    return parts.join('\n\n');
+  }
+  return nestedValue(value, markdown);
+}
+
+function nestedValue(value: unknown, read: (value: unknown) => string | undefined): string | undefined {
   if (value && typeof value === 'object') {
     const node = value as Node;
     for (const key of ['name', 'value', 'credentialCategory', 'description', 'termCode', 'codeValue']) {
-      const nested = text(node[key]);
+      const nested = read(node[key]);
       if (nested) return nested;
     }
     const months = node['monthsOfExperience'];
     if (typeof months === 'number' || typeof months === 'string') return `${months} months of experience`;
   }
   return undefined;
-}
-
-function stripHtml(value: string): string {
-  return value
-    .replace(/<br\s*\/?>(?!\n)/gi, '\n')
-    .replace(/<\/(p|div|li|ul|ol|h[1-6])>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#0?39;|&apos;/gi, "'")
-    .replace(/[ \t]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 function absoluteUrl(value: unknown, base: string): string | undefined {
@@ -171,7 +191,7 @@ function list(value: unknown): string[] {
 
 function address(value: unknown): JobLocation | undefined {
   if (typeof value === 'string') {
-    const raw = stripHtml(value);
+    const raw = plainText(value);
     return raw ? { raw, countryCode: normalizeCountry(raw) } : undefined;
   }
   if (!value || typeof value !== 'object') return undefined;
@@ -286,7 +306,7 @@ export function extractJobPostings(
     const applyUrl = absoluteUrl(node['applicationContact'] ?? node['directApplyUrl'], baseUrl) ?? listingUrl;
     const canonicalUrl = listingUrl ?? baseUrl;
     const physicalLocations = locations(node['jobLocation']);
-    const description = text(node['description']);
+    const description = markdown(node['description']);
     const resolvedIdentifier = identifier(node['identifier']);
     const evidence: Record<string, JobEvidence> = {};
     const record = (field: string, present: unknown): void => {
@@ -316,10 +336,10 @@ export function extractJobPostings(
       )],
       ...(salary(node) ? { salary: salary(node) } : {}),
       skills: list(node['skills']),
-      ...(text(node['qualifications']) ? { qualifications: text(node['qualifications']) } : {}),
-      ...(text(node['responsibilities']) ? { responsibilities: text(node['responsibilities']) } : {}),
-      ...(text(node['educationRequirements']) ? { educationRequirements: text(node['educationRequirements']) } : {}),
-      ...(text(node['experienceRequirements']) ? { experienceRequirements: text(node['experienceRequirements']) } : {}),
+      ...(markdown(node['qualifications']) ? { qualifications: markdown(node['qualifications']) } : {}),
+      ...(markdown(node['responsibilities']) ? { responsibilities: markdown(node['responsibilities']) } : {}),
+      ...(markdown(node['educationRequirements']) ? { educationRequirements: markdown(node['educationRequirements']) } : {}),
+      ...(markdown(node['experienceRequirements']) ? { experienceRequirements: markdown(node['experienceRequirements']) } : {}),
       ...(text(node['industry']) ? { industry: text(node['industry']) } : {}),
       ...(text(node['occupationalCategory']) ? { occupationalCategory: text(node['occupationalCategory']) } : {}),
       ...(resolvedIdentifier ? { identifier: resolvedIdentifier } : {}),
