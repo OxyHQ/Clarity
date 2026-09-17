@@ -570,6 +570,10 @@ DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
 DATABASE_URL=postgresql://... bun run --filter @clarity/backend places:import -- \
   --target-database=clarity_ci
 
+# In production the image carries the same importer; run it as a one-shot ECS
+# task on the clarity-api task definition with the command
+#   ["node","packages/backend/dist/db/import-places.js","--target-database=clarity"]
+
 # Corpus health
 curl -H "Authorization: Bearer $CLARITY_API_KEY" https://api.clarity.surf/v1/jobs/stats
 ```
