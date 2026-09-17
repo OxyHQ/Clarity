@@ -9,6 +9,8 @@ await esbuild.build({
     'db/migrate': 'src/db/migrate.ts',
     'db/attest-cutover': 'src/db/attest-cutover.ts',
     'db/attest-fresh-install': 'src/db/attest-fresh-install.ts',
+    // One-shot operator task: `node packages/backend/dist/db/import-places.js --target-database=clarity`.
+    'db/import-places': 'src/scripts/import-geonames-places.ts',
   },
   bundle: true,
   platform: 'node',
