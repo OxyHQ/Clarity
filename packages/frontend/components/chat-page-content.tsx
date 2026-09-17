@@ -6,7 +6,7 @@ import { KeyboardStickyView } from "@/lib/keyboard";
 import { LinearGradient } from "expo-linear-gradient";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
-import { Globe, X, Brain, Search, Menu, Plus, ArrowUp } from "lucide-react-native";
+import { Globe, X, Brain, Search, Menu, ArrowUp } from "lucide-react-native";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { Text } from "@/components/ui/text";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,10 @@ import { PromptInput, type Attachment } from "@/components/ui/prompt-input";
 import { ScrollButton } from "@/components/ui/scroll-button";
 import { ChatInterface } from "@/components/chat-interface";
 import { ChatHeader, type ConversationTab } from "@/components/chat-header";
-import { ChatTextInput } from "@/components/ui/chat-text-input";
 import type { Message } from "@clarity/shared-types";
 import { toast } from "@oxy.so/bloom/toast";
+import { ComposerPill } from "@oxy.so/bloom/composer-panel";
+import type { ComposerPanelAddMenuGroup } from "@oxy.so/bloom/composer-panel";
 import { AlertTriangle, Pencil } from "lucide-react-native";
 import { CreditWarningBanner } from "@/components/credit-warning-banner";
 import { ModelSelector, getThinkingModelId, isThinkingModel } from "@/components/model-selector";
@@ -347,6 +348,30 @@ export const ChatPageContent = ({
     }
   }, [addAttachment, pickDocument]);
 
+  const composerAddMenu: ComposerPanelAddMenuGroup[] = useMemo(() => [
+    {
+      label: "Add",
+      rows: [
+        { id: "upload-photos", label: "Upload files or images" },
+        { id: "upload-document", label: "Upload document" },
+      ],
+    },
+    {
+      label: "Modes",
+      rows: [
+        { id: "deep-research", label: t(MODE_CONFIG.deepResearch.label), description: activeModes.has("deepResearch") ? "On" : undefined },
+        { id: "thinking", label: t("modes.thinkingLabel"), description: thinkingMode ? "On" : undefined },
+      ],
+    },
+  ], [t, activeModes, thinkingMode]);
+
+  const handleAddMenuSelect = useCallback((rowId: string) => {
+    if (rowId === "upload-photos") handleAddPhotos();
+    else if (rowId === "upload-document") handleAddDocument();
+    else if (rowId === "deep-research") toggleMode("deepResearch");
+    else if (rowId === "thinking") handleThinkingMode();
+  }, [handleAddPhotos, handleAddDocument, toggleMode, handleThinkingMode]);
+
   // ---- Conversation view: tab header + messages + sticky bottom follow-up input ----
   if (showConversationView) {
     return (
@@ -474,124 +499,72 @@ export const ChatPageContent = ({
                         </View>
                       </View>
 
-                      {/* Search input box */}
+                      {/* Search input — Bloom's real composer, used directly */}
                       <View className="w-full">
-                        <View className="bg-card w-full rounded-[28px] border border-border/60 shadow-lg overflow-hidden">
-                          {/* Text input area */}
-                          <Pressable onPress={() => landingInputRef.current?.focus()}>
-                            <View className="px-5 pt-4 pb-2 min-h-[60px]">
-                              <ChatTextInput
-                                ref={landingInputRef}
-                                value={inputValue}
-                                onChangeText={setInputValue}
-                                onSubmitEditing={handleSubmit}
-                                onEnterPress={handleSubmit}
-                                onImagePaste={handleImagePaste}
-                                placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
-                                multiline
-                                editable={!disabled}
-                                className="text-foreground bg-transparent w-full text-base font-medium"
-                                style={{ minHeight: 24, borderWidth: 0, shadowOpacity: 0 }}
+                        <ComposerPill
+                          inputRef={landingInputRef}
+                          value={inputValue}
+                          onValueChange={setInputValue}
+                          onSubmit={handleSubmit}
+                          disabled={disabled}
+                          placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
+                          addMenu={composerAddMenu}
+                          onAddMenuSelect={handleAddMenuSelect}
+                        />
+
+                        {/* Active mode tags + model selector — Bloom's composer has no slot
+                            for these; the model menu also has no room for the plan-lock
+                            badge Clarity's own ModelSelector shows, so it stays separate. */}
+                        <View className="mt-2 flex-row items-center justify-between px-1">
+                          <View className="flex-row items-center gap-1.5 flex-wrap">
+                            <Pressable
+                              onPress={() => toggleMode("search")}
+                              className="h-7 flex-row items-center gap-1.5 rounded-full px-3"
+                              style={{ backgroundColor: activeModes.has("search") ? `${colors.primary}18` : `${colors.muted}60` }}
+                            >
+                              <Globe size={13} color={activeModes.has("search") ? colors.primary : colors.mutedForeground} />
+                              <Text style={{ fontSize: 12, fontWeight: '500', color: activeModes.has("search") ? colors.primary : colors.mutedForeground }}>Focus</Text>
+                            </Pressable>
+                            {activeModes.has("deepResearch") && (
+                              <ModeChip
+                                icon={MODE_CONFIG.deepResearch.icon}
+                                label={t(MODE_CONFIG.deepResearch.label)}
+                                color={MODE_CONFIG.deepResearch.color}
+                                onDismiss={() => toggleMode("deepResearch")}
                               />
-                            </View>
-                          </Pressable>
-
-                          {/* Action bar */}
-                          <View className="px-3 pb-3 flex-row items-center justify-between">
-                            {/* Left actions */}
-                            <View className="flex-row items-center gap-1.5">
-                              {/* (+) Add button */}
-                              <DropdownMenu.Root>
-                                <DropdownMenu.Trigger>
-                                  <View className="w-8 h-8 rounded-full items-center justify-center bg-muted/60">
-                                    <Plus size={18} color={colors.mutedForeground} />
-                                  </View>
-                                </DropdownMenu.Trigger>
-                                <DropdownMenu.Content side="bottom" align="start">
-                                  <DropdownMenu.Item key="upload" onSelect={handleAddPhotos}>
-                                    <DropdownMenu.ItemIcon ios={{ name: "paperclip" }} />
-                                    <DropdownMenu.ItemTitle>Upload files or images</DropdownMenu.ItemTitle>
-                                  </DropdownMenu.Item>
-                                  <DropdownMenu.Item key="document" onSelect={handleAddDocument}>
-                                    <DropdownMenu.ItemIcon ios={{ name: "doc" }} />
-                                    <DropdownMenu.ItemTitle>Upload document</DropdownMenu.ItemTitle>
-                                  </DropdownMenu.Item>
-                                  <DropdownMenu.Separator />
-                                  {modeMenuItems}
-                                </DropdownMenu.Content>
-                              </DropdownMenu.Root>
-
-                              {/* Focus tag */}
-                              <Pressable
-                                onPress={() => toggleMode("search")}
-                                className="h-8 flex-row items-center gap-1.5 rounded-full px-3"
-                                style={{
-                                  backgroundColor: activeModes.has("search") ? `${colors.primary}18` : colors.muted + '60',
-                                }}
-                              >
-                                <Globe size={14} color={activeModes.has("search") ? colors.primary : colors.mutedForeground} />
-                                <Text style={{ fontSize: 13, fontWeight: '500', color: activeModes.has("search") ? colors.primary : colors.mutedForeground }}>Focus</Text>
-                              </Pressable>
-
-                              {/* Active mode tags */}
-                              {activeModes.has("deepResearch") && (
-                                <ModeChip
-                                  icon={MODE_CONFIG.deepResearch.icon}
-                                  label={t(MODE_CONFIG.deepResearch.label)}
-                                  color={MODE_CONFIG.deepResearch.color}
-                                  onDismiss={() => toggleMode("deepResearch")}
-                                />
-                              )}
-                              {thinkingMode && (
-                                <ModeChip icon={Brain} label={t("modes.thinkingLabel")} color="#a855f7" onDismiss={handleThinkingMode} />
-                              )}
-                            </View>
-
-                            {/* Right actions */}
-                            <View className="flex-row items-center gap-1.5">
-                              {/* Model selector */}
-                              <View className="rounded-full bg-muted/60">
-                                <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
-                              </View>
-
-                              {/* Submit button */}
-                              <Pressable
-                                onPress={handleSubmit}
-                                disabled={!inputValue.trim()}
-                                className="w-8 h-8 rounded-full items-center justify-center"
-                                style={{ backgroundColor: inputValue.trim() ? colors.primary : colors.muted }}
-                              >
-                                <ArrowUp size={16} color={inputValue.trim() ? colors.primaryForeground : colors.mutedForeground} />
-                              </Pressable>
-                            </View>
-                          </View>
-
-                            {/* Autocomplete suggestions — inside search box */}
-                            {completions.length > 0 && (
-                              <View className="border-t border-border/50 mx-3 pt-1 pb-1">
-                                {completions.map((item) => (
-                                  <Pressable
-                                    key={item.suggestionId || item.text}
-                                    onPress={() => {
-                                      if (item.suggestionId) recordUsage(item.suggestionId);
-                                      setInputValue(item.text);
-                                      onSubmit(item.text, attachments.length > 0 ? attachments : undefined);
-                                      useStore.getState().clearAttachments();
-                                    }}
-                                    className="px-2 py-2 active:bg-muted rounded-lg flex-row items-center"
-                                  >
-                                    <Search size={14} className="text-muted-foreground mr-3 shrink-0" />
-                                    <Text className="text-sm text-foreground flex-1" numberOfLines={1}>
-                                      <Text className="text-foreground">{item.text.slice(0, item.matchStart)}</Text>
-                                      <Text className="text-primary font-medium">{item.text.slice(item.matchStart, item.matchEnd)}</Text>
-                                      <Text className="text-foreground">{item.text.slice(item.matchEnd)}</Text>
-                                    </Text>
-                                    <ArrowUp size={14} className="text-muted-foreground ml-2 shrink-0 rotate-45" />
-                                  </Pressable>
-                                ))}
-                              </View>
+                            )}
+                            {thinkingMode && (
+                              <ModeChip icon={Brain} label={t("modes.thinkingLabel")} color="#a855f7" onDismiss={handleThinkingMode} />
                             )}
                           </View>
+                          <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
+                        </View>
+
+                        {/* Autocomplete suggestions */}
+                        {completions.length > 0 && (
+                          <View className="mt-2 bg-card rounded-2xl border border-border/60 shadow-sm px-2 py-1">
+                            {completions.map((item) => (
+                              <Pressable
+                                key={item.suggestionId || item.text}
+                                onPress={() => {
+                                  if (item.suggestionId) recordUsage(item.suggestionId);
+                                  setInputValue(item.text);
+                                  onSubmit(item.text, attachments.length > 0 ? attachments : undefined);
+                                  useStore.getState().clearAttachments();
+                                }}
+                                className="px-2 py-2 active:bg-muted rounded-lg flex-row items-center"
+                              >
+                                <Search size={14} className="text-muted-foreground mr-3 shrink-0" />
+                                <Text className="text-sm text-foreground flex-1" numberOfLines={1}>
+                                  <Text className="text-foreground">{item.text.slice(0, item.matchStart)}</Text>
+                                  <Text className="text-primary font-medium">{item.text.slice(item.matchStart, item.matchEnd)}</Text>
+                                  <Text className="text-foreground">{item.text.slice(item.matchEnd)}</Text>
+                                </Text>
+                                <ArrowUp size={14} className="text-muted-foreground ml-2 shrink-0 rotate-45" />
+                              </Pressable>
+                            ))}
+                          </View>
+                        )}
                       </View>
                     </View>
 
