@@ -61,6 +61,18 @@ function textIndexSource(posting: ExtractedJobPosting): string {
   ].filter(Boolean).join('\n');
 }
 
+/**
+ * A re-observed listing replaces what was stored. Drizzle leaves a column
+ * untouched when its update value is `undefined`, so a salary or description
+ * the source has since removed would otherwise survive every recrawl; absent
+ * becomes `null` instead.
+ */
+export function clearAbsent<T extends Record<string, unknown>>(values: T): { [K in keyof T]: Exclude<T[K], undefined> | null } {
+  return Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [key, value === undefined ? null : value]),
+  ) as { [K in keyof T]: Exclude<T[K], undefined> | null };
+}
+
 export async function projectJobPostings(tx: ClarityExecutor, input: JobProjectionInput): Promise<string[]> {
   const sourceKeys = input.postings.map((posting) => posting.sourceKey);
 
@@ -130,7 +142,7 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       .values({ id: crypto.randomUUID(), firstSeenAt: input.observedAt, ...values })
       .onConflictDoUpdate({
         target: [jobPostings.documentId, jobPostings.sourceKey],
-        set: { ...values, updatedAt: new Date() },
+        set: { ...clearAbsent(values), updatedAt: new Date() },
       })
       .returning({ id: jobPostings.id });
     ids.push(row.id);
@@ -299,12 +311,13 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       status: 'indexed',
       documentType: 'job',
       title: primary.title,
-      description: primary.description ? markdownToPlainText(primary.description).slice(0, 2_000) : undefined,
+      // A removed description or date clears the stored one; siteId is kept when absent.
+      description: primary.description ? markdownToPlainText(primary.description).slice(0, 2_000) : null,
       mainContent: body,
       structuredData: input.structuredData,
       fieldEvidence: primary.evidence,
       publisherName: primary.employerName,
-      publishedAt: primary.publishedAt,
+      publishedAt: primary.publishedAt ?? null,
       fetchedAt: input.observedAt,
       indexedAt: input.observedAt,
       nextFetchAt: new Date(input.observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000),

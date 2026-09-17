@@ -148,7 +148,7 @@ them with `Intl.DisplayNames`.
 | --- | --- | --- | --- |
 | Crawled page, feed | salary dropped | `countryCode` absent, text kept in `country`/`raw` | `placeId` only on an unambiguous country-constrained match, otherwise `raw` only |
 | First-party `POST /v1/jobs/ingest` | `400 invalid_job_posting` | `400 invalid_job_posting` | must resolve to one place, or `400` |
-| Search filters | `400 invalid_request` | a two-letter location that is not an assigned code (or an alias such as `UK`, or a region key such as `eu`) is `400 invalid_request` | free text, as before |
+| Search filters | `400 invalid_request` | a location that is not a country, alias (`UK`) or region key (`eu`) matches city and region names as text (`NY`, `LA`) | free text, as before |
 
 A crawled salary with a negative amount or `minValue > maxValue` is dropped too:
 picking which bound the source meant would be invention.

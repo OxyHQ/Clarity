@@ -169,12 +169,11 @@ describe('first-party ingest validation', () => {
 });
 
 describe('job search filters', () => {
-  it('validates currency and two-letter country codes against the vocabularies', () => {
+  it('validates currency against the vocabulary and reads unknown locations as text', () => {
     expect(jobSearchSchema.parse({ salary: { min: 1, currency: 'eur' } }).salary?.currency).toBe('EUR');
     expect(jobSearchSchema.safeParse({ salary: { currency: 'ABC' } }).success).toBe(false);
     expect(jobSearchSchema.safeParse({ salary: { currency: 'XAU' } }).success).toBe(false);
     expect(jobSearchSchema.safeParse({ locations: ['ES', 'uk', 'eu', 'Barcelona', 'europe'] }).success).toBe(true);
-    expect(jobSearchSchema.safeParse({ locations: ['ZZ'] }).success).toBe(false);
-    expect(jobSearchSchema.safeParse({ locations: ['XK'] }).success).toBe(false);
+    expect(jobSearchSchema.safeParse({ locations: ['NY', 'LA', 'ZZ'] }).success).toBe(true);
   });
 });

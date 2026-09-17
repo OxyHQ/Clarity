@@ -35,7 +35,7 @@ export const CLARITY_JOBS_CAPABILITY = {
       mode: { type: 'string', enum: ['lexical', 'semantic', 'hybrid'], default: 'hybrid' },
       locations: {
         type: 'array', maxItems: 20, items: { type: 'string', maxLength: 120 },
-        description: `Country name or ISO 3166-1 alpha-2 code, city/region name, or a macro-region: ${Object.keys(JOB_REGIONS).join(', ')}. A two-letter value must be an assigned country code.`,
+        description: `Country name or ISO 3166-1 alpha-2 code, city/region name, or a macro-region: ${Object.keys(JOB_REGIONS).join(', ')}. A value that is not a country or region matches city and region names as text.`,
       },
       workplaceTypes: { type: 'array', items: { type: 'string', enum: [...JOB_WORKPLACE_TYPES] } },
       employmentTypes: { type: 'array', items: { type: 'string', enum: [...JOB_EMPLOYMENT_TYPES] } },

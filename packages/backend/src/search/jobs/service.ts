@@ -53,10 +53,12 @@ const domainPattern = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*
 export const jobSearchSchema = z.object({
   query: z.string().trim().min(1).max(500).optional(),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).default('hybrid'),
-  locations: z.array(z.string().trim().min(1).max(120).refine(
-    (token) => !/^[A-Za-z]{2}$/.test(token) || Boolean(normalizeCountry(token) ?? resolveRegion(token)),
-    { message: 'A two-letter location must be an ISO 3166-1 alpha-2 code from COUNTRY_CODES' },
-  )).max(20).optional(),
+  /**
+   * A country code or name, macro-region or free text. A token that is none of
+   * the first two ("NY", "LA") matches localities and regions as text, so the
+   * filter never widens into a country it was not asked for.
+   */
+  locations: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
   workplaceTypes: z.array(z.enum(JOB_WORKPLACE_TYPES)).max(JOB_WORKPLACE_TYPES.length).optional(),
   employmentTypes: z.array(z.enum(JOB_EMPLOYMENT_TYPES)).max(JOB_EMPLOYMENT_TYPES.length).optional(),
   employers: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
