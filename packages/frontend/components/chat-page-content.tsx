@@ -39,6 +39,15 @@ import { useQueryClient } from "@tanstack/react-query";
 
 type Mode = "search" | "deepResearch";
 
+type HomeCard = {
+  key: string;
+  title: string;
+  description?: string;
+  eyebrow?: string;
+  onPress: () => void;
+  onHoverIn?: () => void;
+};
+
 const MODE_CONFIG: Record<Mode, {
   label: string;
   icon: React.ComponentType<{ size: number; color: string }>;
@@ -251,6 +260,32 @@ export const ChatPageContent = ({
     if (isLoading) return;
     onSuggestionPress(message);
   }, [isLoading, onSuggestionPress]);
+
+  const isShowingRecent = recentConversations.length > 0;
+  const homeCards = useMemo<HomeCard[]>(() => {
+    if (isShowingRecent) {
+      return recentConversations.map((conv) => ({
+        key: conv.id,
+        eyebrow: relativeTimeAgo(conv.updatedAt),
+        title: conv.title || t("sidebar.newSearch"),
+        description: conv.lastMessage,
+        onPress: () => handleOpenConversation(conv.id),
+        onHoverIn: () => prefetchConversation(qc, conv.id),
+      }));
+    }
+    return (welcomeSuggestions ?? []).map((s) => {
+      const text = s.description || s.text;
+      return {
+        key: s.suggestionId,
+        title: s.title,
+        description: text,
+        onPress: () => {
+          recordUsage(s.suggestionId);
+          handleSuggestionPress(text);
+        },
+      };
+    });
+  }, [isShowingRecent, recentConversations, welcomeSuggestions, t, handleOpenConversation, qc, recordUsage, handleSuggestionPress]);
 
   const handleThinkingMode = () => {
     if (thinkingMode) {
@@ -598,61 +633,43 @@ export const ChatPageContent = ({
                         Real conversation history when there is any; otherwise real
                         suggestion prompts from the same endpoint the old welcome screen
                         used (works anonymously too). Nothing here is fabricated. */}
-                    {(recentConversations.length > 0 || (welcomeSuggestions?.length ?? 0) > 0) && (
+                    {homeCards.length > 0 && (
                       <View className="mt-10 w-full max-w-3xl">
                         <View className="mb-3 flex-row items-center justify-between">
                           <Text className="text-base font-medium text-foreground">
-                            {recentConversations.length > 0 ? "Recent" : t("welcome.suggestionsTitle")}
+                            {isShowingRecent ? "Recent" : t("welcome.suggestionsTitle")}
                           </Text>
-                          {recentConversations.length > 0 && (
+                          {isShowingRecent && (
                             <Pressable onPress={() => router.push("/(app)/history")}>
                               <Text className="text-xs font-medium text-muted-foreground">{t("sidebar.seeAll")}</Text>
                             </Pressable>
                           )}
                         </View>
                         <View className="flex-row flex-wrap gap-2 justify-center md:justify-start">
-                          {recentConversations.length > 0
-                            ? recentConversations.map((conv) => (
-                                <Pressable
-                                  key={conv.id}
-                                  onPress={() => handleOpenConversation(conv.id)}
-                                  onHoverIn={() => prefetchConversation(qc, conv.id)}
-                                  className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
-                                >
-                                  <View className="flex-row items-center gap-2 mb-1">
-                                    <Text className="flex-1 text-xs font-medium text-muted-foreground" numberOfLines={1}>
-                                      {relativeTimeAgo(conv.updatedAt)}
-                                    </Text>
-                                  </View>
-                                  <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
-                                    {conv.title || t("sidebar.newSearch")}
+                          {homeCards.map((card) => (
+                            <Pressable
+                              key={card.key}
+                              onPress={card.onPress}
+                              onHoverIn={card.onHoverIn}
+                              className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
+                            >
+                              {card.eyebrow && (
+                                <View className="flex-row items-center gap-2 mb-1">
+                                  <Text className="flex-1 text-xs font-medium text-muted-foreground" numberOfLines={1}>
+                                    {card.eyebrow}
                                   </Text>
-                                  {conv.lastMessage && (
-                                    <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
-                                      {conv.lastMessage}
-                                    </Text>
-                                  )}
-                                </Pressable>
-                              ))
-                            : welcomeSuggestions?.map((s) => (
-                                <Pressable
-                                  key={s.suggestionId}
-                                  onPress={() => {
-                                    recordUsage(s.suggestionId);
-                                    handleSuggestionPress(s.description || s.text);
-                                  }}
-                                  className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
-                                >
-                                  <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
-                                    {s.title}
-                                  </Text>
-                                  {(s.description || s.text) && (
-                                    <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
-                                      {s.description || s.text}
-                                    </Text>
-                                  )}
-                                </Pressable>
-                              ))}
+                                </View>
+                              )}
+                              <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
+                                {card.title}
+                              </Text>
+                              {card.description && (
+                                <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
+                                  {card.description}
+                                </Text>
+                              )}
+                            </Pressable>
+                          ))}
                         </View>
                       </View>
                     )}
