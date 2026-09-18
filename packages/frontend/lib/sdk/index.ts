@@ -7,4 +7,4 @@ export { getToolLabel, getToolActiveLabel, getResearchActiveLabel, getToolCatego
 export { getTextFromContent, getImagesFromContent } from './content-utils';
 
 // Types
-export type { ResearchProgress, WelcomeSuggestion, ClarityColors } from './types';
+export type { ResearchProgress, ClarityColors } from './types';

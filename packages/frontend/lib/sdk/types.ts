@@ -1,11 +1,3 @@
-// ── Welcome / Suggestion Types ──
-
-export interface WelcomeSuggestion {
-  id: string;
-  title: string;
-  description: string;
-}
-
 // ── Research Types ──
 
 export interface ResearchSource {
