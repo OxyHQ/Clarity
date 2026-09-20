@@ -36,6 +36,11 @@ describe('architecture gates', () => {
         clientId: 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78',
       },
     });
+    expect(CLARITY_AGENT_MANIFEST.workloadIdentity).toEqual({
+      provider: 'aws-iam',
+      roleArn: 'arn:aws:iam::237343248947:role/oxy-clarity-task',
+      attestationId: 'wl_1553bb11eb957512b3cdc956',
+    });
     expect(CLARITY_AGENT_MANIFEST.publicApplication.scopes).toEqual(['user:read']);
     expect(CLARITY_AGENT_MANIFEST.backendApplication.scopes).toEqual(['user:read', 'inference:invoke']);
     expect(CLARITY_AGENT_MANIFEST.capabilityGrants).toEqual(['web', 'artifacts', 'memory']);

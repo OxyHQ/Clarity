@@ -18,6 +18,24 @@ export const CLARITY_AGENT_MANIFEST = Object.freeze({
     clientId: 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78',
     scopes: Object.freeze(['user:read', 'inference:invoke'] as const),
   }),
+  /**
+   * How this backend proves what it IS when it carries no credential (oxy ADR
+   * 0026). The task signs an STS `GetCallerIdentity` request with its ECS task
+   * role; Oxy replays it, canonicalises the role ARN, and mints the same
+   * service token — carrying `attestationId` as the token's `credentialId`.
+   *
+   * `attestationId` is pinnable because it is a pure function of `roleArn` and
+   * of nothing else: `wl_` + 96 bits of SHA-256 over the canonical ARN. Every
+   * task of this role, across every deploy, produces this one value. The test
+   * beside this file recomputes it from `roleArn` rather than trusting the
+   * literal, so a change to either reddens instead of silently rejecting every
+   * token Clarity mints.
+   */
+  workloadIdentity: Object.freeze({
+    provider: 'aws-iam',
+    roleArn: 'arn:aws:iam::237343248947:role/oxy-clarity-task',
+    attestationId: 'wl_1553bb11eb957512b3cdc956',
+  }),
   capabilityGrants: Object.freeze(['web', 'artifacts', 'memory'] as const),
   systemPrompt: Object.freeze({
     file: 'prompts/base.md',

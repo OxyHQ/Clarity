@@ -16,7 +16,8 @@ cp packages/backend/.env.example packages/backend/.env
 Set `DATABASE_URL` to a local PostgreSQL database and the canonical
 `CLARITY_ALIA_AGENT_ID` byte for byte. Chat additionally needs the fixed backend
 `OXY_SERVICE_API_KEY` and an untracked `OXY_SERVICE_API_SECRET`; without them
-readiness remains unavailable.
+readiness remains unavailable. Deployed tasks need no secret — they attest their
+ECS task role (see `docs/deployment.md`) — but a laptop has no role to attest.
 
 ## 3. Run
 

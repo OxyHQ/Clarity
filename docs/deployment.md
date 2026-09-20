@@ -38,8 +38,14 @@ silently treated as successful application deployments.
 - `CLARITY_ALIA_AGENT_ID`: real provisioned Clarity bot/agent record
 - `ALIA_API_URL`: Alia product API origin
 - `OXY_SERVICE_API_KEY`: exact public client ID of the Clarity backend app
-- `OXY_SERVICE_API_SECRET`: Oxy-provisioned SSM secret; its value is never
-  checked into source or exposed to the deployment runner
+- `OXY_SERVICE_API_SECRET`: **no longer used in AWS.** Both ECS services run the
+  dedicated `oxy-clarity-task` role and attest it instead (oxy ADR 0026): the
+  task signs an STS `GetCallerIdentity` request, Oxy replays it and mints the
+  same service token. The token an attested mint returns carries the workload's
+  stable handle `wl_1553bb11eb957512b3cdc956` as `credentialId` in place of the
+  credential UUID; both are pinned in `clarity-agent-manifest.ts` and nothing
+  else is accepted. A local checkout has no role to attest and still needs an
+  untracked secret.
 - Stripe secrets only when local product subscription checkout is enabled
 - VAPID secrets only when browser push is enabled
 - Redis/Valkey only for cache and burst limiting
