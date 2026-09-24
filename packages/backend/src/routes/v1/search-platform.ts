@@ -123,10 +123,10 @@ export async function rankedSearch(input: SearchInput, embedding: number[] | und
   // one join filtered by an OR across both tables, no index could serve it:
   // every chunk of every document was scored, and a search took 18 s.
   //
-  // There is no description arm. Descriptions average ~1.7k characters (whole
-  // listings), trigram similarity against text that long matches almost every
-  // row, and rechecking them cost 3.4 s; the text they hold is already in the
-  // chunks the full-text arm reads.
+  // The description takes no part, as an arm or in the score. Descriptions
+  // average ~1.7k characters (whole listings): trigram similarity against text
+  // that long matches almost every row and ranks nothing, and computing it cost
+  // seconds; the text they hold is already in the chunks the full-text arm reads.
   //
   // Both rankings group by the DOCUMENT's primary key, not the chunk's foreign
   // key: the score reads the document's title and description, which Postgres
@@ -139,7 +139,7 @@ export async function rankedSearch(input: SearchInput, embedding: number[] | und
       select ${searchDocuments.id} from ${searchDocuments} where ${searchDocuments.title} % ${input.query}
     )
     select ${searchDocuments.id} as document_id,
-      row_number() over (order by coalesce(max(ts_rank_cd(${searchChunks.searchVector}, ${tsquery})), 0) + greatest(similarity(coalesce(${searchDocuments.title}, ''), ${input.query}), similarity(coalesce(${searchDocuments.description}, ''), ${input.query})) desc, ${searchDocuments.id}) as rank
+      row_number() over (order by coalesce(max(ts_rank_cd(${searchChunks.searchVector}, ${tsquery})), 0) + similarity(coalesce(${searchDocuments.title}, ''), ${input.query}) desc, ${searchDocuments.id}) as rank
     from candidates
     inner join ${searchDocuments} on ${searchDocuments.id} = candidates.id
     left join ${searchChunks} on ${searchChunks.documentId} = ${searchDocuments.id} and ${searchChunks.searchVector} @@ ${tsquery}
