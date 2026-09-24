@@ -48,6 +48,13 @@ const createSiteSchema = z.object({
   sitemapUrls: z.array(z.string().url()).max(20).default([]), feedUrls: z.array(z.string().url()).max(20).default([]),
 });
 
+/**
+ * How long a search waits for its query embedding. The embedding call's own
+ * default (30 s) is sized for indexing; a search that has not got one by now
+ * ranks lexically and says so (`degraded`), as it does when the route fails.
+ */
+const QUERY_EMBEDDING_TIMEOUT_MS = 2_500;
+
 router.post('/search', requireResourceScope('clarity:search'), async (req, res) => {
   const input = parse(searchSchema, req, res);
   if (!input) return;
@@ -62,7 +69,7 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
   let degraded: { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' } | undefined;
   if (input.mode !== 'lexical') {
     try {
-      [queryEmbedding] = await createOxyEmbeddings([input.query]);
+      [queryEmbedding] = await createOxyEmbeddings([input.query], { signal: AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS) });
     } catch {
       if (input.mode === 'semantic') {
         sendError(res, 503, 'semantic_unavailable', 'Semantic search is temporarily unavailable', req);
@@ -111,16 +118,30 @@ export async function rankedSearch(input: SearchInput, embedding: number[] | und
     filters.push(sql`(${sql.join(domains.map((domain) => sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`), sql` or `)})`);
   }
   const where = sql.join(filters, sql` and `);
+  // Candidates first, one indexed arm each — the chunks' full-text index, then
+  // the title and description trigram indexes — and only those documents are
+  // scored. Written as one join filtered by `fts OR title % q OR description % q`,
+  // no index could serve the OR: every chunk of every document was scored
+  // against the query, and a search took 18 s on 50k chunks.
+  //
   // Both rankings group by the DOCUMENT's primary key, not the chunk's foreign
-  // key: the lexical score reads the document's title and description, which
-  // Postgres accepts ungrouped only when they depend on a grouped primary key.
-  // Grouping by `search_chunks.document_id` — the same value through the join —
-  // failed every query with "column title must appear in the GROUP BY clause".
+  // key: the score reads the document's title and description, which Postgres
+  // accepts ungrouped only when they depend on a grouped primary key.
+  const tsquery = sql`websearch_to_tsquery('simple', ${input.query})`;
   const lexical = sql`
+    with candidates as (
+      select ${searchChunks.documentId} as id from ${searchChunks} where ${searchChunks.searchVector} @@ ${tsquery}
+      union
+      select ${searchDocuments.id} from ${searchDocuments} where ${searchDocuments.title} % ${input.query}
+      union
+      select ${searchDocuments.id} from ${searchDocuments} where ${searchDocuments.description} % ${input.query}
+    )
     select ${searchDocuments.id} as document_id,
-      row_number() over (order by max(ts_rank_cd(${searchChunks.searchVector}, websearch_to_tsquery('simple', ${input.query}))) + greatest(similarity(coalesce(${searchDocuments.title}, ''), ${input.query}), similarity(coalesce(${searchDocuments.description}, ''), ${input.query})) desc, ${searchDocuments.id}) as rank
-    from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
-    where ${where} and (${searchChunks.searchVector} @@ websearch_to_tsquery('simple', ${input.query}) or coalesce(${searchDocuments.title}, '') % ${input.query} or coalesce(${searchDocuments.description}, '') % ${input.query})
+      row_number() over (order by coalesce(max(ts_rank_cd(${searchChunks.searchVector}, ${tsquery})), 0) + greatest(similarity(coalesce(${searchDocuments.title}, ''), ${input.query}), similarity(coalesce(${searchDocuments.description}, ''), ${input.query})) desc, ${searchDocuments.id}) as rank
+    from candidates
+    inner join ${searchDocuments} on ${searchDocuments.id} = candidates.id
+    left join ${searchChunks} on ${searchChunks.documentId} = ${searchDocuments.id} and ${searchChunks.searchVector} @@ ${tsquery}
+    where ${where}
     group by ${searchDocuments.id}
     order by rank limit 100`;
   const semantic = embedding ? sql`
