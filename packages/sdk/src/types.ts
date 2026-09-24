@@ -134,7 +134,21 @@ export interface Site {
 export interface CreateSiteRequest { origin: string; verifiedDomainId: string; sitemapUrls?: string[]; feedUrls?: string[]; }
 export type UpdateSiteRequest = Partial<Pick<Site, 'crawlEnabled' | 'recrawlIntervalSeconds' | 'maxPagesPerCrawl' | 'sitemapUrls' | 'feedUrls' | 'status'>>;
 export interface UsageBucket { operation: 'search' | 'fetch_started' | 'page_indexed' | 'browser_render'; quantity: number; periodStart: string; periodEnd: string; }
-export interface Quotas { searchesPerMonth: number; fetchesPerMonth: number; sites: number; activeCrawls: number; pagesPerCrawl: number; requestsPerMinuteCredential: number; requestsPerMinuteApplication: number; }
+/**
+ * The caller's effective limits. `null` is "no limit": one of Oxy's own
+ * applications has no monthly quota, site or crawl count — only the technical
+ * per-minute and concurrency ceilings. Quotas are for third-party callers.
+ */
+export interface Quotas {
+  searchesPerMonth: number | null;
+  fetchesPerMonth: number | null;
+  sites: number | null;
+  activeCrawls: number | null;
+  pagesPerCrawl: number | null;
+  requestsPerMinuteCredential: number | null;
+  requestsPerMinuteApplication: number | null;
+  concurrentFetches: number | null;
+}
 
 export interface ClarityErrorBody {
   error: { code: string; message: string; requestId: string; details?: Record<string, unknown> };

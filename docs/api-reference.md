@@ -44,6 +44,15 @@ system/tool roles are rejected.
 
 Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
 
+- **Internal and external callers.** Oxy's introspection says whether the caller
+  is one of Oxy's own applications (`tier: internal`) or not (`external`). An
+  internal caller passes every `clarity:*` scope check and has no quota — only
+  the technical ceilings (`INTERNAL_QUOTAS`: requests per minute, concurrent
+  fetches, pages per crawl); a crawl it queues remembers that (`caller_tier`), so
+  the worker charges it the same way. Scopes and the sandbox quotas plus staff
+  grants are the external lane. What a person may do — their plan, their
+  credits — is the calling product's to enforce, not Clarity's.
+
 - `POST /v1/search`, `GET /v1/news`, `GET /v1/documents/:id`, `GET /v1/documents/by-url`
   — when the index cannot fill a search's first page (and no type or date
   filter is set), the rest comes from the public web through the SearXNG

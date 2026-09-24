@@ -38,6 +38,7 @@ const scoped = (scopes: string[]): ClarityResourcePrincipal => ({
   active: true,
   accountId: 'account-1',
   applicationId: 'application-1',
+  tier: 'external',
   credentialId: 'credential-1',
   environment: 'test',
   scopes,

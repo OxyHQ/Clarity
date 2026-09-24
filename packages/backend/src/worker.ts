@@ -34,10 +34,10 @@ export async function leaseNextPage() {
       or(sql`${crawlPages.leaseExpiresAt} is null`, lt(crawlPages.leaseExpiresAt, new Date())),
     )).orderBy(crawlPages.availableAt).limit(1).for('update', { skipLocked: true });
     if (!page) return undefined;
-    const [job] = await tx.select({ ownerAccountId: crawlJobs.ownerAccountId }).from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
+    const [job] = await tx.select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier }).from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
     if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${job.ownerAccountId}:concurrent_fetches`}, 0))`);
-    const concurrencyLimit = await effectiveQuota(tx, job.ownerAccountId, 'concurrent_fetches');
+    const concurrencyLimit = await effectiveQuota(tx, { accountId: job.ownerAccountId, tier: callerTierOf(job) }, 'concurrent_fetches');
     const [active] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlPages).innerJoin(crawlJobs, eq(crawlPages.jobId, crawlJobs.id)).where(and(eq(crawlJobs.ownerAccountId, job.ownerAccountId), eq(crawlPages.status, 'fetching')));
     if (active.quantity >= concurrencyLimit) return undefined;
     const [leased] = await tx.update(crawlPages).set({ status: 'fetching', leaseOwner: workerId, leaseExpiresAt: sql`now() + interval '${sql.raw(String(leaseSeconds))} seconds'`, heartbeatAt: new Date(), attemptCount: page.attemptCount + 1, updatedAt: new Date() }).where(eq(crawlPages.id, page.id)).returning();
@@ -51,7 +51,7 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
   const attemptId = crypto.randomUUID();
   const [job] = await getDb().select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
   if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
-  const principal = { accountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId ?? undefined };
+  const principal = { accountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId ?? undefined, tier: callerTierOf(job) };
   const fetchUsage = await consumeUsage({ principal, operation: 'fetch_started', idempotencyKey: `crawl-page:${page.id}:attempt:${page.attemptCount}` });
   if (!fetchUsage.accepted) {
     await getDb().transaction(async (tx) => {
@@ -187,17 +187,19 @@ interface DueJobDocument extends Record<string, unknown> {
   applicationId: string;
   credentialId: string | null;
   siteId: string | null;
+  callerTier: string;
 }
 
 export async function enqueueJobRecrawls(): Promise<number> {
   const due = await getDb().execute<DueJobDocument>(sql`
     select ${searchDocuments.id} as "documentId", ${searchDocuments.canonicalUrl} as url,
       origin.owner_account_id as "ownerAccountId", origin.application_id as "applicationId",
-      origin.credential_id as "credentialId", origin.site_id as "siteId"
+      origin.credential_id as "credentialId", origin.site_id as "siteId", origin.caller_tier as "callerTier"
     from ${searchDocuments}
     join lateral (
       select ${crawlJobs.ownerAccountId} as owner_account_id, ${crawlJobs.applicationId} as application_id,
-        ${crawlJobs.credentialId} as credential_id, ${crawlJobs.siteId} as site_id
+        ${crawlJobs.credentialId} as credential_id, ${crawlJobs.siteId} as site_id,
+        ${crawlJobs.callerTier} as caller_tier
       from ${crawlPages} join ${crawlJobs} on ${crawlJobs.id} = ${crawlPages.jobId}
       where ${crawlPages.url} = ${searchDocuments.requestedUrl}
       order by ${crawlPages.createdAt} desc limit 1
@@ -223,7 +225,7 @@ export async function enqueueJobRecrawls(): Promise<number> {
         id: crypto.randomUUID(), ownerAccountId: first.ownerAccountId, applicationId: first.applicationId,
         credentialId: first.credentialId, siteId: first.siteId, kind: 'recrawl',
         idempotencyKey: `job-recrawl:${new Date().toISOString()}:${crypto.randomUUID()}`,
-        requestedUrls: urls, pagesDiscovered: urls.length,
+        requestedUrls: urls, pagesDiscovered: urls.length, callerTier: callerTierOf(first),
       }).returning();
       await tx.insert(crawlPages)
         .values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'recrawl' })))
@@ -261,6 +263,11 @@ async function runJobMaintenance(): Promise<void> {
 }
 
 function header(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value; }
+
+/** The side of the ecosystem the job's caller is on; anything unexpected is external. */
+function callerTierOf(job: { callerTier: string }): 'internal' | 'external' {
+  return job.callerTier === 'internal' ? 'internal' : 'external';
+}
 
 async function main() {
   if (!connectPostgres(process.env.DATABASE_URL)) throw new Error('DATABASE_URL is required');

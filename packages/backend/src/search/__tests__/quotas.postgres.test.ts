@@ -1,9 +1,10 @@
+import { eq } from 'drizzle-orm';
 import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
 import { searchQuotaGrants, searchUsageEvents, searchUsageRollups } from '../../db/schema/index.js';
-import { consumeRequestRate, consumeUsage, effectiveQuota, SANDBOX_QUOTAS } from '../quotas.js';
+import { consumeRequestRate, consumeUsage, effectiveQuota, INTERNAL_QUOTAS, SANDBOX_QUOTAS } from '../quotas.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
 const suite = databaseUrl ? describe : describe.skip;
@@ -56,7 +57,29 @@ suite('Clarity quota ledger on PostgreSQL', () => {
       id: crypto.randomUUID(), ownerAccountId: accountId, metric: 'sites', additionalLimit: 3,
       reason: 'enterprise beta', grantedBy: 'staff-user', startsAt: new Date(now.getTime() - 1_000),
     });
-    expect(await effectiveQuota(getDb(), accountId, 'sites', now)).toBe(SANDBOX_QUOTAS.sites + 3);
+    expect(await effectiveQuota(getDb(), { accountId }, 'sites', now)).toBe(SANDBOX_QUOTAS.sites + 3);
+  });
+
+  it("has no quota for one of Oxy's own applications — only the technical ceilings", async () => {
+    const internal = { accountId, tier: 'internal' as const };
+    expect(await effectiveQuota(getDb(), internal, 'search_month')).toBe(Number.POSITIVE_INFINITY);
+    expect(await effectiveQuota(getDb(), internal, 'active_crawls')).toBe(Number.POSITIVE_INFINITY);
+    expect(await effectiveQuota(getDb(), internal, 'requests_minute_application')).toBe(INTERNAL_QUOTAS.requests_minute_application);
+    // An external caller on the same account keeps the sandbox and its grants.
+    expect(await effectiveQuota(getDb(), { accountId, tier: 'external' }, 'active_crawls')).toBe(SANDBOX_QUOTAS.active_crawls);
+  });
+
+  it('meters an internal caller without ever refusing it', async () => {
+    const internal = { ...principal, accountId: `${accountId}-internal`, tier: 'internal' as const };
+    const results = [];
+    for (let search = 0; search < 3; search += 1) {
+      results.push(await consumeUsage({ principal: internal, operation: 'search', quantity: SANDBOX_QUOTAS.search_month }));
+    }
+    expect(results.every((result) => result.accepted)).toBe(true);
+    const events = await getDb().select().from(searchUsageEvents);
+    expect(events.filter((event) => event.ownerAccountId === internal.accountId)).toHaveLength(3);
+    await getDb().delete(searchUsageEvents).where(eq(searchUsageEvents.ownerAccountId, internal.accountId));
+    await getDb().delete(searchUsageRollups).where(eq(searchUsageRollups.ownerAccountId, internal.accountId));
   });
 
   it('enforces credential and application minute buckets', async () => {
