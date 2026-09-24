@@ -18,6 +18,29 @@ export const SANDBOX_QUOTAS = {
 } as const;
 
 export type QuotaMetric = keyof typeof SANDBOX_QUOTAS;
+
+/**
+ * What one of Oxy's own applications may use: no monthly quota, no site or
+ * crawl count — quotas are for third parties — and only the technical ceilings
+ * that keep one runaway caller from starving the service. What a PERSON may do
+ * (their plan, their credits) is the calling product's to enforce, not Clarity's.
+ */
+export const INTERNAL_QUOTAS: Readonly<Record<QuotaMetric, number>> = Object.freeze({
+  search_month: Number.POSITIVE_INFINITY,
+  fetch_month: Number.POSITIVE_INFINITY,
+  sites: Number.POSITIVE_INFINITY,
+  active_crawls: Number.POSITIVE_INFINITY,
+  pages_per_crawl: SANDBOX_QUOTAS.pages_per_crawl,
+  requests_minute_credential: 6_000,
+  requests_minute_application: 6_000,
+  concurrent_fetches: 8,
+});
+
+/** Whose quota: the paying account, and which side of the ecosystem it calls from. */
+export interface QuotaSubject {
+  accountId: string;
+  tier?: 'internal' | 'external';
+}
 export type BillableOperation = 'search' | 'fetch_started' | 'page_indexed' | 'browser_render';
 
 const operationMetric: Partial<Record<BillableOperation, QuotaMetric>> = {
@@ -25,7 +48,9 @@ const operationMetric: Partial<Record<BillableOperation, QuotaMetric>> = {
   fetch_started: 'fetch_month',
 };
 
-export async function effectiveQuota(executor: ClarityExecutor, accountId: string, metric: QuotaMetric, now = new Date()): Promise<number> {
+export async function effectiveQuota(executor: ClarityExecutor, subject: QuotaSubject, metric: QuotaMetric, now = new Date()): Promise<number> {
+  if (subject.tier === 'internal') return INTERNAL_QUOTAS[metric];
+  const { accountId } = subject;
   const [{ additional }] = await executor.select({
     additional: sql<number>`coalesce(sum(${searchQuotaGrants.additionalLimit}), 0)::int`,
   }).from(searchQuotaGrants).where(and(
@@ -38,7 +63,7 @@ export async function effectiveQuota(executor: ClarityExecutor, accountId: strin
 }
 
 export async function consumeUsage(input: {
-  principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'>;
+  principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> & Pick<QuotaSubject, 'tier'>;
   operation: BillableOperation;
   idempotencyKey?: string;
   quantity?: number;
@@ -62,7 +87,7 @@ export async function consumeUsage(input: {
     let limit: number | undefined;
     let used: number | undefined;
     if (metric) {
-      limit = await effectiveQuota(tx, input.principal.accountId, metric, now);
+      limit = await effectiveQuota(tx, input.principal, metric, now);
       const [current] = await tx.select({ quantity: sql<number>`coalesce(sum(${searchUsageEvents.quantity}), 0)::int` }).from(searchUsageEvents).where(and(
         eq(searchUsageEvents.ownerAccountId, input.principal.accountId),
         eq(searchUsageEvents.operation, input.operation),
@@ -71,6 +96,8 @@ export async function consumeUsage(input: {
       ));
       used = current.quantity;
       if (used + quantity > limit) return { accepted: false, duplicate: false, limit, used };
+      // Metered for every caller; only an external one is ever refused.
+      if (!Number.isFinite(limit)) limit = undefined;
     }
     await tx.insert(searchUsageEvents).values({
       id: crypto.randomUUID(), ownerAccountId: input.principal.accountId,
@@ -89,7 +116,7 @@ export async function consumeUsage(input: {
   });
 }
 
-export async function consumeRequestRate(principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'>, now = new Date()): Promise<{ accepted: boolean; retryAfterSeconds?: number }> {
+export async function consumeRequestRate(principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> & Pick<QuotaSubject, 'tier'>, now = new Date()): Promise<{ accepted: boolean; retryAfterSeconds?: number }> {
   const bucketStart = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
   const expiresAt = new Date(bucketStart.getTime() + 120_000);
   const dimensions = [
@@ -101,7 +128,7 @@ export async function consumeRequestRate(principal: Pick<ClarityResourcePrincipa
       await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${item.dimension}:${item.id}:${bucketStart.toISOString()}`}, 0))`);
     }
     for (const item of dimensions) {
-      const limit = await effectiveQuota(tx, principal.accountId, item.metric, now);
+      const limit = await effectiveQuota(tx, principal, item.metric, now);
       const [bucket] = await tx.select({ quantity: searchRateLimitBuckets.quantity }).from(searchRateLimitBuckets).where(and(
         eq(searchRateLimitBuckets.dimension, item.dimension), eq(searchRateLimitBuckets.dimensionId, item.id), eq(searchRateLimitBuckets.bucketStart, bucketStart),
       )).limit(1);

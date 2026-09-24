@@ -505,6 +505,12 @@ export const crawlJobs = pgTable('clarity_crawl_jobs', {
   status: text('status').notNull().default('queued'),
   idempotencyKey: text('idempotency_key').notNull(),
   requestedUrls: text('requested_urls').array().notNull().default(sql`'{}'::text[]`),
+  /**
+   * Whether the application that queued the crawl is one of Oxy's own
+   * (`internal`) or not: the worker charges fetches against the quotas of that
+   * caller, and only an external one has any (search/quotas.ts).
+   */
+  callerTier: text('caller_tier').notNull().default('external'),
   pagesDiscovered: integer('pages_discovered').notNull().default(0),
   pagesCompleted: integer('pages_completed').notNull().default(0),
   errorCode: text('error_code'),
@@ -517,6 +523,7 @@ export const crawlJobs = pgTable('clarity_crawl_jobs', {
   index('clarity_crawl_jobs_account_status_idx').on(table.ownerAccountId, table.status),
   check('clarity_crawl_jobs_status_check', sql`${table.status} in ('queued', 'running', 'succeeded', 'partial', 'failed', 'cancelled')`),
   check('clarity_crawl_jobs_kind_check', sql`${table.kind} in ('urls', 'site', 'recrawl', 'removal')`),
+  check('clarity_crawl_jobs_caller_tier_check', sql`${table.callerTier} in ('internal', 'external')`),
 ]);
 
 export const crawlPages = pgTable('clarity_crawl_pages', {

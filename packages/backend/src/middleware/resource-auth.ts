@@ -12,6 +12,13 @@ const introspectionSchema = z.object({
   credentialId: z.string().min(1).optional(),
   environment: z.string().min(1),
   delegatedUserId: z.string().min(1).optional(),
+  /**
+   * `internal` when the caller is one of Oxy's own applications, which uses
+   * Clarity with no scope and no quota; anything else — third-party apps,
+   * `oxy_sk` keys — is `external`. Oxy answers it; an answer without it (an
+   * older Oxy) reads as external, the conservative side.
+   */
+  tier: z.enum(['internal', 'external']).catch('external').default('external'),
   scopes: z.array(z.string()),
   permissions: z.array(z.string()),
   expiresAt: z.string().datetime().optional(),
@@ -107,8 +114,16 @@ export async function requireResourceRequestRate(req: Request, res: Response, ne
   next();
 }
 
+/**
+ * A scope an EXTERNAL caller must hold. One of Oxy's own applications passes:
+ * inside the ecosystem apps trust each other, and scopes are the third-party lane.
+ */
 export function requireResourceScope(scope: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
+    if (req.resourcePrincipal?.tier === 'internal') {
+      next();
+      return;
+    }
     if (!req.resourcePrincipal?.scopes.includes(scope)) {
       sendError(res, 403, 'scope_missing', `The ${scope} scope is required`, req);
       return;

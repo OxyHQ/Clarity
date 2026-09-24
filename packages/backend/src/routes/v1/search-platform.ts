@@ -284,7 +284,7 @@ router.post('/sites', requireResourceScope('clarity:sites:manage'), async (req, 
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:sites`}, 0))`);
     const [existing] = await tx.select().from(searchSites).where(and(eq(searchSites.ownerAccountId, principal.accountId), eq(searchSites.origin, origin))).limit(1);
     if (existing) return existing;
-    const limit = await effectiveQuota(tx, principal.accountId, 'sites');
+    const limit = await effectiveQuota(tx, principal, 'sites');
     const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(searchSites).where(and(eq(searchSites.ownerAccountId, principal.accountId), sql`${searchSites.status} <> 'removed'`));
     if (current.quantity >= limit) return undefined;
     const [created] = await tx.insert(searchSites).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, origin, verifiedDomainId: input.verifiedDomainId, sitemapUrls: input.sitemapUrls, feedUrls: input.feedUrls }).returning();
@@ -304,10 +304,10 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
     const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
     if (existing) return existing;
-    const limit = await effectiveQuota(tx, principal.accountId, 'active_crawls');
+    const limit = await effectiveQuota(tx, principal, 'active_crawls');
     const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
     if (current.quantity >= limit) return undefined;
-    const [created] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, siteId: site.id, kind: 'site', idempotencyKey, requestedUrls: [site.origin] }).returning();
+    const [created] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, siteId: site.id, kind: 'site', idempotencyKey, requestedUrls: [site.origin], callerTier: principal.tier }).returning();
     return created;
   });
   if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
@@ -562,8 +562,13 @@ router.get('/usage', requireResourceScope('clarity:usage:read'), async (req, res
 router.get('/quotas', requireResourceScope('clarity:usage:read'), async (req, res) => {
   const principal = req.resourcePrincipal;
   if (!principal) return;
-  const entries = await Promise.all((Object.keys(SANDBOX_QUOTAS) as QuotaMetric[]).map(async (metric) => [metric, await effectiveQuota(getDb(), principal.accountId, metric)] as const));
-  const quota = Object.fromEntries(entries) as Record<QuotaMetric, number>;
+  // `null` is "no limit": JSON has no Infinity, and one of Oxy's own
+  // applications has no monthly quota at all.
+  const entries = await Promise.all((Object.keys(SANDBOX_QUOTAS) as QuotaMetric[]).map(async (metric) => {
+    const limit = await effectiveQuota(getDb(), principal, metric);
+    return [metric, Number.isFinite(limit) ? limit : null] as const;
+  }));
+  const quota = Object.fromEntries(entries) as Record<QuotaMetric, number | null>;
   res.json({ searchesPerMonth: quota.search_month, fetchesPerMonth: quota.fetch_month, sites: quota.sites, activeCrawls: quota.active_crawls, pagesPerCrawl: quota.pages_per_crawl, requestsPerMinuteCredential: quota.requests_minute_credential, requestsPerMinuteApplication: quota.requests_minute_application, concurrentFetches: quota.concurrent_fetches });
 });
 
@@ -574,11 +579,11 @@ export async function createIndexOperation(req: Request, urls: string[], idempot
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
     const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
     if (existing) return existing;
-    const activeLimit = await effectiveQuota(tx, principal.accountId, 'active_crawls');
-    const pagesLimit = await effectiveQuota(tx, principal.accountId, 'pages_per_crawl');
+    const activeLimit = await effectiveQuota(tx, principal, 'active_crawls');
+    const pagesLimit = await effectiveQuota(tx, principal, 'pages_per_crawl');
     const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
     if (current.quantity >= activeLimit || urls.length > pagesLimit) return undefined;
-    const [operation] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length }).returning();
+    const [operation] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length, callerTier: principal.tier }).returning();
     await tx.insert(crawlPages).values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'api' }))).onConflictDoNothing();
     return operation;
   });
