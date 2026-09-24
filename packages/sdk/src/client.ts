@@ -1,3 +1,4 @@
+import { resolveFaviconUrl } from './favicon.js';
 import type {
   ClarityErrorBody, CreateSiteRequest, Document, IndexOperation, IndexUrlsRequest, JobCorpusStats,
   JobIngestRequest, JobIngestResult, JobPosting, JobReportRequest, JobSearchRequest, JobSearchResponse, JobsCapability,
@@ -39,6 +40,9 @@ export class ClarityClient {
     this.fetcher = options.fetch ?? globalThis.fetch;
     if (!this.fetcher) throw new Error('A Fetch API implementation is required');
   }
+
+  /** Where this client's Clarity serves a site's favicon; see {@link resolveFaviconUrl}. */
+  readonly faviconUrl = (pageUrlOrHost: string) => resolveFaviconUrl(pageUrlOrHost, { baseUrl: this.baseUrl });
 
   readonly search = (request: SearchRequest, options?: RequestOptions) =>
     this.request<SearchResponse>('POST', '/v1/search', request, options);

@@ -5,13 +5,14 @@ import { resolveFaviconForImageUrl, resolveFaviconUrl } from '../src/favicon.js'
 describe('resolveFaviconUrl', () => {
   it('keeps only the normalized hostname', () => {
     expect(resolveFaviconUrl('https://User:secret@Example.COM/private?q=email#thread')).toBe(
-      'https://www.google.com/s2/favicons?sz=64&domain_url=example.com',
+      'https://api.clarity.surf/favicons/example.com',
     );
   });
 
-  it('accepts a bare hostname and a bounded custom size', () => {
-    expect(resolveFaviconUrl('news.example.com', 32)).toBe(
-      'https://www.google.com/s2/favicons?sz=32&domain_url=news.example.com',
+  it('accepts a bare hostname, and another Clarity origin', () => {
+    expect(resolveFaviconUrl('news.example.com')).toBe('https://api.clarity.surf/favicons/news.example.com');
+    expect(resolveFaviconUrl('news.example.com', { baseUrl: 'http://localhost:3001/' })).toBe(
+      'http://localhost:3001/favicons/news.example.com',
     );
   });
 
@@ -21,8 +22,8 @@ describe('resolveFaviconUrl', () => {
     expect(resolveFaviconUrl('not a hostname')).toBeNull();
   });
 
-  it('falls back to the default size when the requested size is unsafe', () => {
-    expect(resolveFaviconUrl('example.com', 1000)).toContain('sz=64');
+  it('never names a third-party favicon service', () => {
+    expect(resolveFaviconUrl('example.com')).not.toMatch(/google|duckduckgo|icon\.horse/);
   });
 });
 
@@ -32,12 +33,12 @@ describe('resolveFaviconForImageUrl', () => {
       resolveFaviconForImageUrl(
         'https://User:secret@Example.COM/favicon.ico?message=user%40example.com#thread',
       ),
-    ).toBe('https://www.google.com/s2/favicons?sz=64&domain_url=example.com');
+    ).toBe('https://api.clarity.surf/favicons/example.com');
   });
 
   it('matches the conventional path case-insensitively', () => {
-    expect(resolveFaviconForImageUrl('https://news.example/FAVICON.ICO', 32)).toBe(
-      'https://www.google.com/s2/favicons?sz=32&domain_url=news.example',
+    expect(resolveFaviconForImageUrl('https://news.example/FAVICON.ICO')).toBe(
+      'https://api.clarity.surf/favicons/news.example',
     );
   });
 

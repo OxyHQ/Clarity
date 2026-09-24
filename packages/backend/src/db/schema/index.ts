@@ -18,6 +18,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' });
 
 const timestampColumns = () => ({
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -419,6 +420,31 @@ export const searchDocuments = pgTable('clarity_search_documents', {
   index('clarity_search_documents_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
   check('clarity_search_documents_status_check', sql`${table.status} in ('discovered', 'fetching', 'extracted', 'indexed', 'blocked', 'failed', 'removed')`),
   check('clarity_search_documents_type_check', sql`${table.documentType} in ('page', 'article', 'news', 'job', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other')`),
+]);
+
+/**
+ * One row per host Clarity has seen a page from, holding that site's favicon.
+ *
+ * Favicons belong to a site, not a page, so they are fetched once per host and
+ * served from Clarity (`GET /favicons/:host`) rather than hotlinked from each
+ * site or looked up through a third party. `icon_hint_url` is what a crawled
+ * page declared (`<link rel="icon">`); the fetcher tries it before the site's
+ * `/favicon.ico` (search/site-icons.ts).
+ */
+export const searchHosts = pgTable('clarity_search_hosts', {
+  host: text('host').primaryKey(),
+  iconStatus: text('icon_status').notNull().default('pending'),
+  iconHintUrl: text('icon_hint_url'),
+  iconSourceUrl: text('icon_source_url'),
+  iconContentType: text('icon_content_type'),
+  iconBytes: bytea('icon_bytes'),
+  iconFetchedAt: timestamp('icon_fetched_at', { withTimezone: true }),
+  iconNextFetchAt: timestamp('icon_next_fetch_at', { withTimezone: true }).notNull().defaultNow(),
+  ...timestampColumns(),
+}, (table) => [
+  index('clarity_search_hosts_icon_due_idx').on(table.iconNextFetchAt),
+  check('clarity_search_hosts_icon_status_check', sql`${table.iconStatus} in ('pending', 'ready', 'missing')`),
+  check('clarity_search_hosts_icon_ready_check', sql`${table.iconStatus} <> 'ready' or (${table.iconBytes} is not null and ${table.iconContentType} is not null)`),
 ]);
 
 export const searchDocumentAliases = pgTable('clarity_search_document_aliases', {

@@ -99,6 +99,13 @@
       "when": 1790278973209,
       "tag": "0013_drop_search_description_trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1790282445360,
+      "tag": "0014_search_hosts",
+      "breakpoints": true
     }
   ]
 }

@@ -12,6 +12,7 @@ import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
 import { consumeUsage, effectiveQuota, SANDBOX_QUOTAS, type QuotaMetric } from '../../search/quotas.js';
 import { discoverWeb, recordDiscoveredPages } from '../../search/web-discovery.js';
+import { hostOf, hostsWithIcons, siteIconUrl } from '../../search/site-icons.js';
 import {
   canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike, excerpt,
 } from '../../search/query-primitives.js';
@@ -86,20 +87,21 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
   const documentsById = new Map(documents.map((row) => [row.id, row]));
   const data = ranks.slice(0, input.limit).flatMap((rank) => {
     const row = documentsById.get(rank.documentId);
-    return row ? [searchResult(row, Number(rank.score))] : [];
+    return row ? [{ row, score: Number(rank.score) }] : [];
   });
   // What the index could not fill on the first page, the public web does. Not
   // for a type or date filter: a search engine's snippet can honour neither.
   const discoverable = offset === 0 && data.length < input.limit
     && !input.types?.length && !input.publishedAfter && !input.publishedBefore;
   if (discoverable) {
-    const seen = new Set(data.map((result) => result.canonicalUrl));
+    const seen = new Set(data.map((result) => result.row.canonicalUrl));
     const pages = await discoverWeb({ query: input.query, language: input.language, domains: input.domains, limit: input.limit });
     const discovered = await recordDiscoveredPages(getDb(), pages.filter((page) => !seen.has(page.canonicalUrl)));
     // Below every indexed match: the index read the page, the engines did not.
-    data.push(...discovered.slice(0, input.limit - data.length).map((row) => searchResult(row, 0)));
+    data.push(...discovered.slice(0, input.limit - data.length).map((row) => ({ row, score: 0 })));
   }
-  res.json({ data, mode: input.mode, ...(degraded ? { degraded } : {}), ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}) });
+  const icons = await iconHostsOf(data.map((result) => result.row));
+  res.json({ data: data.map((result) => searchResult(result.row, result.score, icons)), mode: input.mode, ...(degraded ? { degraded } : {}), ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}) });
 });
 
 export type SearchInput = z.infer<typeof searchSchema>;
@@ -192,9 +194,10 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
     if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
     operationId = operation.id;
   }
+  const icons = await iconHostsOf([...byUrl.values()]);
   res.status(missing.length ? 202 : 200).json({ data: urls.map((url) => {
     const document = byUrl.get(url);
-    return document ? { url, document: publicDocument(document), status: document.status } : { url, operationId, status: 'queued' };
+    return document ? { url, document: publicDocument(document, icons), status: document.status } : { url, operationId, status: 'queued' };
   }) });
 });
 
@@ -202,20 +205,21 @@ router.get('/documents/by-url', requireResourceScope('clarity:search'), async (r
   if (typeof req.query.url !== 'string') { sendError(res, 400, 'invalid_request', 'url is required', req); return; }
   const [row] = await getDb().select().from(searchDocuments).where(eq(searchDocuments.canonicalUrl, canonicalizePublicUrl(req.query.url))).limit(1);
   if (!row) { sendError(res, 404, 'document_not_found', 'Document not found', req); return; }
-  res.json(publicDocument(row));
+  res.json(publicDocument(row, await iconHostsOf([row])));
 });
 
 router.get('/documents/:id', requireResourceScope('clarity:search'), async (req, res) => {
   const [row] = await getDb().select().from(searchDocuments).where(eq(searchDocuments.id, String(req.params.id))).limit(1);
   if (!row) { sendError(res, 404, 'document_not_found', 'Document not found', req); return; }
-  res.json(publicDocument(row));
+  res.json(publicDocument(row, await iconHostsOf([row])));
 });
 
 router.get('/news', requireResourceScope('clarity:search'), async (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 20, 100);
   const stories = await getDb().select().from(newsStories).orderBy(desc(newsStories.lastPublishedAt), desc(newsStories.rankingScore)).limit(limit);
   const articles = stories.length ? await getDb().select({ storyId: newsStoryArticles.storyId, document: searchDocuments }).from(newsStoryArticles).innerJoin(searchDocuments, eq(newsStoryArticles.documentId, searchDocuments.id)).where(inArray(newsStoryArticles.storyId, stories.map((story) => story.id))) : [];
-  res.json({ data: stories.map((story) => ({ ...story, articles: articles.filter((item) => item.storyId === story.id).map((item) => ({ ...publicDocument(item.document), highlights: [], score: 1 })) })) });
+  const icons = await iconHostsOf(articles.map((item) => item.document));
+  res.json({ data: stories.map((story) => ({ ...story, articles: articles.filter((item) => item.storyId === story.id).map((item) => ({ ...publicDocument(item.document, icons), highlights: [], score: 1 })) })) });
 });
 
 router.get('/sites', requireResourceScope('clarity:sites:manage'), async (req, res) => {
@@ -553,11 +557,26 @@ function requireIdempotency(req: Request, res: Response): string | undefined {
   return undefined;
 }
 
-function searchResult(row: typeof searchDocuments.$inferSelect, score: number) {
-  return { ...publicDocument(row), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score };
+type DocumentRow = typeof searchDocuments.$inferSelect;
+
+/** The hosts among these documents whose favicon Clarity serves. */
+function iconHostsOf(rows: readonly DocumentRow[]): Promise<Set<string>> {
+  return hostsWithIcons(getDb(), rows.flatMap((row) => hostOf(row.canonicalUrl) ?? []));
 }
-function publicDocument(row: typeof searchDocuments.$inferSelect) {
-  return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: row.faviconUrl ?? undefined, indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
+function searchResult(row: DocumentRow, score: number, icons: ReadonlySet<string>) {
+  return { ...publicDocument(row, icons), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score };
+}
+/**
+ * `faviconUrl` is Clarity's copy of the site's icon (`GET /favicons/:host`),
+ * present once the worker has fetched it — never the site's own URL, which a
+ * consumer would have to hotlink.
+ */
+function iconUrlOf(row: DocumentRow, icons: ReadonlySet<string>): string | undefined {
+  const host = hostOf(row.canonicalUrl);
+  return host && icons.has(host) ? siteIconUrl(host) : undefined;
+}
+function publicDocument(row: DocumentRow, icons: ReadonlySet<string>) {
+  return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: iconUrlOf(row, icons), indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
 }
 function publicOperation(row: typeof crawlJobs.$inferSelect) { return { id: row.id, kind: row.kind, status: row.status, pagesDiscovered: row.pagesDiscovered, pagesCompleted: row.pagesCompleted, ...(row.errorCode ? { error: { code: row.errorCode, detail: row.errorDetail ?? undefined } } : {}), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() }; }
 function publicJobFeed(row: typeof jobFeeds.$inferSelect) {
