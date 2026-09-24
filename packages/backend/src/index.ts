@@ -12,6 +12,7 @@ import { requireRuntimeReady } from './middleware/runtime-ready.js';
 
 // Routes
 import healthRouter from './routes/health.js';
+import faviconsRouter from './routes/favicons.js';
 import authRouter from './routes/auth.js';
 import conversationsRouter from './routes/conversations.js';
 import chatRouter from './routes/chat.js';
@@ -164,6 +165,7 @@ app.use('/conversations', conversationsRouter);
 app.use('/credits', creditsRouter);
 app.use('/clarity/search', chatRouter);
 app.use('/v1', v1Router);
+app.use('/favicons', faviconsRouter);
 app.use('/billing', billingRouter);
 app.use('/feedback', feedbackRouter);
 app.use('/models', modelsStatsRouter);

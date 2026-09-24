@@ -13,6 +13,7 @@ import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/l
 import { closeJobPostingsForDocument, projectJobPostings } from './search/jobs/projection.js';
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
+import { refreshDueIcons, registerHosts } from './search/site-icons.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
@@ -20,6 +21,9 @@ const maxBodyBytes = 5 * 1024 * 1024;
 const extractorVersion = 'readability-0.6.0';
 /** How often stored job statuses are reconciled with the lifecycle policy. */
 const jobMaintenanceIntervalMs = 15 * 60 * 1000;
+/** Site icons: a small batch every half minute, between pages. */
+const iconRefreshIntervalMs = 30 * 1000;
+const iconRefreshBatchSize = 10;
 const jobRecrawlBatchSize = 50;
 
 export async function leaseNextPage() {
@@ -118,6 +122,7 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
         .onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: { ...mutable, updatedAt: observedAt } })
         .returning();
       await replaceDocumentChunks(tx, document.id, textChunks, embeddings, extractorVersion);
+      await registerHosts(tx, [{ url: canonicalUrl, iconHintUrl: extracted.faviconUrl }]);
       await projectJobPostings(tx, {
         documentId: document.id,
         documentStatus,
@@ -231,6 +236,15 @@ export async function enqueueJobRecrawls(): Promise<number> {
   return due.length;
 }
 
+async function runIconRefresh(): Promise<void> {
+  try {
+    const { fetched, missing } = await refreshDueIcons(iconRefreshBatchSize);
+    if (fetched + missing > 0) console.info('Site icons refreshed', { fetched, missing });
+  } catch (error) {
+    console.error('Site icon refresh failed', { error: error instanceof Error ? error.message : 'unknown icon failure' });
+  }
+}
+
 async function runJobMaintenance(): Promise<void> {
   try {
     const sweep = await sweepJobLifecycle();
@@ -253,12 +267,17 @@ async function main() {
   let stopping = false;
   const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
+  let nextIconRefreshAt = 0;
   process.once('SIGTERM', () => { stopping = true; });
   process.once('SIGINT', () => { stopping = true; });
   while (!stopping) {
     if (Date.now() >= nextMaintenanceAt) {
       nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
       await runJobMaintenance();
+    }
+    if (Date.now() >= nextIconRefreshAt) {
+      nextIconRefreshAt = Date.now() + iconRefreshIntervalMs;
+      await runIconRefresh();
     }
     const page = await leaseNextPage();
     if (page) await processPage(page);

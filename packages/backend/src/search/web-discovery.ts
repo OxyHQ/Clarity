@@ -5,6 +5,7 @@ import type { ClarityExecutor } from '../db/index.js';
 import { searchDocuments } from '../db/schema/index.js';
 import { log } from '../lib/logger.js';
 import { canonicalizePublicUrl } from './query-primitives.js';
+import { registerHosts } from './site-icons.js';
 
 /**
  * Discovering the public web for a query Clarity's own index cannot answer.
@@ -120,6 +121,7 @@ export async function recordDiscoveredPages(
     title: page.title,
     description: page.description,
   }))).onConflictDoNothing({ target: searchDocuments.canonicalUrl });
+  await registerHosts(executor, pages.map((page) => ({ url: page.canonicalUrl })));
   const rows = await executor.select().from(searchDocuments)
     .where(inArray(searchDocuments.canonicalUrl, pages.map((page) => page.canonicalUrl)));
   const byUrl = new Map(rows.map((row) => [row.canonicalUrl, row]));

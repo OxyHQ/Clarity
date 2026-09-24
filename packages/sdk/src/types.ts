@@ -50,6 +50,10 @@ export interface Document {
   publishedAt?: string;
   modifiedAt?: string;
   imageUrl?: string;
+  /**
+   * The site's favicon as Clarity serves it (`GET /favicons/:host`), present once
+   * Clarity has fetched it. Never the site's own URL.
+   */
   faviconUrl?: string;
   indexedAt?: string;
   evidence: Record<string, CitationEvidence>;

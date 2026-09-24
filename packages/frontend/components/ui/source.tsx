@@ -8,6 +8,19 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
+import config from "@/lib/config";
+
+/**
+ * The site's favicon as Clarity serves it — one stored icon per host, so the
+ * page neither hotlinks the site nor names it to a third party.
+ */
+function faviconUrl(href: string): string | undefined {
+  try {
+    return `${config.apiUrl}/favicons/${new URL(href).hostname.toLowerCase()}`;
+  } catch {
+    return undefined;
+  }
+}
 
 // --- Context ---
 
@@ -74,7 +87,7 @@ export function SourceTrigger({
         {showFavicon && (
           <Image
             source={{
-              uri: `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(href)}`,
+              uri: faviconUrl(href),
             }}
             style={{ width: 14, height: 14, borderRadius: 7 }}
           />
@@ -115,7 +128,7 @@ export function SourceContent({
         <View className="flex-row items-center gap-1.5">
           <Image
             source={{
-              uri: `https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(href)}`,
+              uri: faviconUrl(href),
             }}
             style={{ width: 16, height: 16, borderRadius: 8 }}
           />

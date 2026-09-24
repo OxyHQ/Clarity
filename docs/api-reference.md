@@ -51,6 +51,12 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   recorded as `discovered` documents, ranked below every indexed match, and
   `POST /v1/resolve` crawls a `discovered` URL like an unknown one.
 - `POST /v1/index/urls`, `POST /v1/resolve`, `/v1/sites…`, `GET /v1/usage`, `GET /v1/quotas`
+- `GET /favicons/:host` — public, no credential (an `<img>` sends none): the
+  site's favicon, one per host, fetched by the worker and served by Clarity
+  with a week's cache. Hosts are registered as their pages are crawled or
+  discovered; an unknown host is registered on request and answers 404 until
+  fetched. Documents and search results carry `faviconUrl` pointing here once
+  the icon is stored; the SDK's `resolveFaviconUrl(host)` builds the same URL.
 - `GET /v1/operations/:id`, `POST /v1/operations/:id/cancel` — asynchronous
   crawl/index work. This namespace used to be `/v1/jobs`; `jobs` now means
   employment everywhere, and `ResolveResult.jobId` is `operationId`.

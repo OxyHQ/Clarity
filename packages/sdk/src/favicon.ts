@@ -1,20 +1,27 @@
-const DEFAULT_FAVICON_SIZE = 64;
+const DEFAULT_BASE_URL = 'https://api.clarity.surf';
+
+export interface FaviconOptions {
+  /** Clarity's API origin. Defaults to `https://api.clarity.surf`. */
+  baseUrl?: string;
+}
 
 /**
- * Build Clarity's canonical favicon URL from a public page URL or hostname.
+ * The URL Clarity serves a site's favicon at, from a public page URL or a
+ * hostname.
  *
- * Only the normalized hostname is sent to the favicon service. Paths, query
- * parameters, fragments, credentials and all surrounding document data are
- * deliberately discarded.
+ * Clarity stores one icon per host and serves it itself (`GET /favicons/:host`),
+ * so a consumer neither hotlinks the site nor tells a third party which sites
+ * its users read. Only the normalized hostname reaches the URL — paths, query
+ * parameters, fragments and credentials are discarded. A host Clarity has not
+ * fetched yet answers 404 until its worker has it, so render the image with a
+ * fallback. Search results carry `faviconUrl` already, set only once the icon
+ * is stored.
  */
-export function resolveFaviconUrl(input: string, size = DEFAULT_FAVICON_SIZE): string | null {
+export function resolveFaviconUrl(input: string, options: FaviconOptions = {}): string | null {
   const hostname = normalizeHostname(input);
   if (!hostname) return null;
-
-  const normalizedSize = Number.isSafeInteger(size) && size > 0 && size <= 256
-    ? size
-    : DEFAULT_FAVICON_SIZE;
-  return `https://www.google.com/s2/favicons?sz=${normalizedSize}&domain_url=${encodeURIComponent(hostname)}`;
+  const base = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
+  return `${base}/favicons/${hostname}`;
 }
 
 /**
@@ -22,12 +29,12 @@ export function resolveFaviconUrl(input: string, size = DEFAULT_FAVICON_SIZE): s
  *
  * This is intentionally narrower than searching an arbitrary page for icons:
  * callers pass one already-discovered image URL and receive either Clarity's
- * privacy-minimized favicon URL or `null`. The provider receives only the
- * resource hostname, never its path, query, credentials or surrounding data.
+ * favicon URL for its host or `null`. Clarity receives only the hostname,
+ * never the resource's path, query, credentials or surrounding data.
  */
 export function resolveFaviconForImageUrl(
   resourceUrl: string,
-  size = DEFAULT_FAVICON_SIZE,
+  options: FaviconOptions = {},
 ): string | null {
   let url: URL;
   try {
@@ -43,7 +50,7 @@ export function resolveFaviconForImageUrl(
     return null;
   }
 
-  return resolveFaviconUrl(url.hostname, size);
+  return resolveFaviconUrl(url.hostname, options);
 }
 
 function normalizeHostname(input: string): string | null {
