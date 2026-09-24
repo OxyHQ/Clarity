@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
@@ -43,7 +43,7 @@ const searchSchema = z.object({
   cursor: z.string().optional(),
 });
 const urlsSchema = z.object({ urls: z.array(z.string().url()).min(1).max(50) });
-const resolveSchema = urlsSchema.extend({ waitMs: z.number().int().min(0).max(5_000).optional() });
+const resolveSchema = urlsSchema.extend({ waitMs: z.number().int().min(0).max(10_000).optional() });
 const createSiteSchema = z.object({
   origin: z.string().url(), verifiedDomainId: z.string().min(1),
   sitemapUrls: z.array(z.string().url()).max(20).default([]), feedUrls: z.array(z.string().url()).max(20).default([]),
@@ -178,26 +178,67 @@ router.post('/index/urls', requireResourceScope('clarity:index'), async (req, re
   res.status(202).json(publicOperation(operation));
 });
 
+/** How often a waiting resolve looks at its crawl. */
+const RESOLVE_POLL_MS = 400;
+const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set(['succeeded', 'partial', 'failed', 'cancelled']);
+
+/**
+ * Each requested URL's document, if Clarity has fetched it. A crawl stores a
+ * page under its canonical URL, which a redirect or a `<link rel=canonical>`
+ * can make differ from the one asked for, so the requested and final URLs
+ * find it too. A `discovered` document — known from a web search, never
+ * fetched — does not count. Exported for its Postgres suite.
+ */
+export async function fetchedDocuments(urls: readonly string[]): Promise<Map<string, DocumentRow>> {
+  const rows = await getDb().select().from(searchDocuments).where(or(
+    inArray(searchDocuments.canonicalUrl, urls),
+    inArray(searchDocuments.requestedUrl, urls),
+    inArray(searchDocuments.finalUrl, urls),
+  ));
+  const byUrl = new Map<string, DocumentRow>();
+  for (const url of urls) {
+    const row = rows.find((candidate) => candidate.status !== 'discovered'
+      && (candidate.canonicalUrl === url || candidate.requestedUrl === url || candidate.finalUrl === url));
+    if (row) byUrl.set(url, row);
+  }
+  return byUrl;
+}
+
 router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) => {
   const input = parse(resolveSchema, req, res);
   if (!input) return;
   const urls = input.urls.map(canonicalizePublicUrl);
-  const rows = await getDb().select().from(searchDocuments).where(inArray(searchDocuments.canonicalUrl, urls));
-  // A `discovered` document is known from a web search but not yet fetched,
-  // so it is crawled like one the index has never seen.
-  const byUrl = new Map(rows.filter((row) => row.status !== 'discovered').map((row) => [row.canonicalUrl, row]));
+  let byUrl = await fetchedDocuments(urls);
   const missing = urls.filter((url) => !byUrl.has(url));
   let operationId: string | undefined;
+  let operationStatus: string | undefined;
   if (missing.length) {
     const idempotencyKey = req.header('idempotency-key') || `resolve:${crypto.randomUUID()}`;
     const operation = await createIndexOperation(req, missing, idempotencyKey);
     if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
     operationId = operation.id;
+    operationStatus = operation.status;
+    // `waitMs` is how long the caller will wait for the crawl it just queued:
+    // the answer comes as soon as the crawl ends, or at the deadline with
+    // whatever it has fetched by then.
+    const deadline = Date.now() + (input.waitMs ?? 0);
+    while (!TERMINAL_OPERATIONS.has(operationStatus) && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, Math.min(RESOLVE_POLL_MS, deadline - Date.now())));
+      const [current] = await getDb().select({ status: crawlJobs.status }).from(crawlJobs).where(eq(crawlJobs.id, operation.id)).limit(1);
+      operationStatus = current?.status ?? operationStatus;
+    }
+    if (input.waitMs) byUrl = await fetchedDocuments(urls);
   }
+  const pending = urls.some((url) => !byUrl.has(url));
+  // A crawl that has ended without a page has failed to fetch it; one still
+  // running leaves the page queued, with the operation to follow.
+  const unfetched = operationStatus && TERMINAL_OPERATIONS.has(operationStatus) ? 'failed' : 'queued';
   const icons = await iconHostsOf([...byUrl.values()]);
-  res.status(missing.length ? 202 : 200).json({ data: urls.map((url) => {
+  res.status(pending && unfetched === 'queued' ? 202 : 200).json({ data: urls.map((url) => {
     const document = byUrl.get(url);
-    return document ? { url, document: publicDocument(document, icons), status: document.status } : { url, operationId, status: 'queued' };
+    return document
+      ? { url, document: publicDocument(document, icons), status: document.status }
+      : { url, operationId, status: unfetched };
   }) });
 });
 
