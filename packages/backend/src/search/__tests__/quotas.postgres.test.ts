@@ -48,11 +48,15 @@ suite('Clarity quota ledger on PostgreSQL', () => {
   });
 
   it('adds active staff grants to the sandbox limit', async () => {
+    // The grant's start is set here, on the same clock the read uses: left to
+    // the column default it is the DATABASE's now(), and a server a few
+    // milliseconds ahead of this process made the grant not yet active.
+    const now = new Date();
     await getDb().insert(searchQuotaGrants).values({
       id: crypto.randomUUID(), ownerAccountId: accountId, metric: 'sites', additionalLimit: 3,
-      reason: 'enterprise beta', grantedBy: 'staff-user',
+      reason: 'enterprise beta', grantedBy: 'staff-user', startsAt: new Date(now.getTime() - 1_000),
     });
-    expect(await effectiveQuota(getDb(), accountId, 'sites')).toBe(SANDBOX_QUOTAS.sites + 3);
+    expect(await effectiveQuota(getDb(), accountId, 'sites', now)).toBe(SANDBOX_QUOTAS.sites + 3);
   });
 
   it('enforces credential and application minute buckets', async () => {

@@ -83,9 +83,10 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
   res.json({ data, mode: input.mode, ...(degraded ? { degraded } : {}), ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}) });
 });
 
-type SearchInput = z.infer<typeof searchSchema>;
+export type SearchInput = z.infer<typeof searchSchema>;
 
-async function rankedSearch(input: SearchInput, embedding: number[] | undefined, offset: number) {
+/** The ranking behind `POST /v1/search`; exported for its Postgres suite. */
+export async function rankedSearch(input: SearchInput, embedding: number[] | undefined, offset: number) {
   const filters: SQL[] = [sql`${searchDocuments.status} = 'indexed'`, sql`${searchDocuments.noindex} = false`];
   if (input.types?.length) filters.push(sql`${searchDocuments.documentType} in (${sql.join(input.types.map((type) => sql`${type}`), sql`, `)})`);
   if (input.language) filters.push(sql`${searchDocuments.language} = ${input.language}`);
@@ -98,19 +99,24 @@ async function rankedSearch(input: SearchInput, embedding: number[] | undefined,
     filters.push(sql`(${sql.join(domains.map((domain) => sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`), sql` or `)})`);
   }
   const where = sql.join(filters, sql` and `);
+  // Both rankings group by the DOCUMENT's primary key, not the chunk's foreign
+  // key: the lexical score reads the document's title and description, which
+  // Postgres accepts ungrouped only when they depend on a grouped primary key.
+  // Grouping by `search_chunks.document_id` — the same value through the join —
+  // failed every query with "column title must appear in the GROUP BY clause".
   const lexical = sql`
-    select ${searchChunks.documentId} as document_id,
-      row_number() over (order by max(ts_rank_cd(${searchChunks.searchVector}, websearch_to_tsquery('simple', ${input.query}))) + greatest(similarity(coalesce(${searchDocuments.title}, ''), ${input.query}), similarity(coalesce(${searchDocuments.description}, ''), ${input.query})) desc, ${searchChunks.documentId}) as rank
+    select ${searchDocuments.id} as document_id,
+      row_number() over (order by max(ts_rank_cd(${searchChunks.searchVector}, websearch_to_tsquery('simple', ${input.query}))) + greatest(similarity(coalesce(${searchDocuments.title}, ''), ${input.query}), similarity(coalesce(${searchDocuments.description}, ''), ${input.query})) desc, ${searchDocuments.id}) as rank
     from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
     where ${where} and (${searchChunks.searchVector} @@ websearch_to_tsquery('simple', ${input.query}) or coalesce(${searchDocuments.title}, '') % ${input.query} or coalesce(${searchDocuments.description}, '') % ${input.query})
-    group by ${searchChunks.documentId}
+    group by ${searchDocuments.id}
     order by rank limit 100`;
   const semantic = embedding ? sql`
-    select ${searchChunks.documentId} as document_id,
-      row_number() over (order by min(${searchChunks.embedding} <=> ${JSON.stringify(embedding)}::vector) asc, ${searchChunks.documentId}) as rank
+    select ${searchDocuments.id} as document_id,
+      row_number() over (order by min(${searchChunks.embedding} <=> ${JSON.stringify(embedding)}::vector) asc, ${searchDocuments.id}) as rank
     from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
     where ${where} and ${searchChunks.embedding} is not null
-    group by ${searchChunks.documentId}
+    group by ${searchDocuments.id}
     order by rank limit 100` : undefined;
   const statement = input.mode === 'hybrid' && semantic ? sql`
     with lexical as (${lexical}), semantic as (${semantic}), fused as (
