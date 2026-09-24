@@ -11,6 +11,7 @@ import { authenticateResource, requireResourceRequestRate, requireResourceScope,
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
 import { consumeUsage, effectiveQuota, SANDBOX_QUOTAS, type QuotaMetric } from '../../search/quotas.js';
+import { discoverWeb, recordDiscoveredPages } from '../../search/web-discovery.js';
 import {
   canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike, excerpt,
 } from '../../search/query-primitives.js';
@@ -78,8 +79,19 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
   const documentsById = new Map(documents.map((row) => [row.id, row]));
   const data = ranks.slice(0, input.limit).flatMap((rank) => {
     const row = documentsById.get(rank.documentId);
-    return row ? [{ ...publicDocument(row), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score: Number(rank.score) }] : [];
+    return row ? [searchResult(row, Number(rank.score))] : [];
   });
+  // What the index could not fill on the first page, the public web does. Not
+  // for a type or date filter: a search engine's snippet can honour neither.
+  const discoverable = offset === 0 && data.length < input.limit
+    && !input.types?.length && !input.publishedAfter && !input.publishedBefore;
+  if (discoverable) {
+    const seen = new Set(data.map((result) => result.canonicalUrl));
+    const pages = await discoverWeb({ query: input.query, language: input.language, domains: input.domains, limit: input.limit });
+    const discovered = await recordDiscoveredPages(getDb(), pages.filter((page) => !seen.has(page.canonicalUrl)));
+    // Below every indexed match: the index read the page, the engines did not.
+    data.push(...discovered.slice(0, input.limit - data.length).map((row) => searchResult(row, 0)));
+  }
   res.json({ data, mode: input.mode, ...(degraded ? { degraded } : {}), ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}) });
 });
 
@@ -146,7 +158,9 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   if (!input) return;
   const urls = input.urls.map(canonicalizePublicUrl);
   const rows = await getDb().select().from(searchDocuments).where(inArray(searchDocuments.canonicalUrl, urls));
-  const byUrl = new Map(rows.map((row) => [row.canonicalUrl, row]));
+  // A `discovered` document is known from a web search but not yet fetched,
+  // so it is crawled like one the index has never seen.
+  const byUrl = new Map(rows.filter((row) => row.status !== 'discovered').map((row) => [row.canonicalUrl, row]));
   const missing = urls.filter((url) => !byUrl.has(url));
   let operationId: string | undefined;
   if (missing.length) {
@@ -516,6 +530,9 @@ function requireIdempotency(req: Request, res: Response): string | undefined {
   return undefined;
 }
 
+function searchResult(row: typeof searchDocuments.$inferSelect, score: number) {
+  return { ...publicDocument(row), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score };
+}
 function publicDocument(row: typeof searchDocuments.$inferSelect) {
   return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: row.faviconUrl ?? undefined, indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
 }

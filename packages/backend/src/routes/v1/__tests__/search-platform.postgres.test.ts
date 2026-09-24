@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
 import { searchDocuments } from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
+import { recordDiscoveredPages } from '../../../search/web-discovery.js';
 import { rankedSearch, type SearchInput } from '../search-platform.js';
 
 /**
@@ -17,6 +18,7 @@ const suite = databaseUrl ? describe : describe.skip;
 
 const embedding = Array.from({ length: 1024 }, (_, index) => ((index % 5) + 1) / 10);
 const urls = ['https://phones.example/pixel-10-pro-review', 'https://garden.example/tomatoes'];
+const discoveredUrl = 'https://phones.example/pixel-11-pro-hands-on';
 const documentIds: string[] = [];
 
 const input = (query: string, mode: SearchInput['mode']): SearchInput => ({ query, mode, limit: 20 });
@@ -25,7 +27,7 @@ suite('ranked search on Postgres', () => {
   beforeAll(async () => {
     connectPostgres(databaseUrl);
     const database = getDb();
-    await database.delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, urls));
+    await database.delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, [...urls, discoveredUrl]));
     const pages = [
       { url: urls[0], title: 'Pixel 10 Pro review', description: 'The Pixel 10 Pro camera and battery, tested.' },
       { url: urls[1], title: 'Growing tomatoes', description: 'Soil, water and sun for a summer harvest.' },
@@ -54,7 +56,7 @@ suite('ranked search on Postgres', () => {
   });
 
   afterAll(async () => {
-    await getDb().delete(searchDocuments).where(inArray(searchDocuments.id, documentIds));
+    await getDb().delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, [...urls, discoveredUrl]));
     await closePostgres();
   });
 
@@ -71,5 +73,25 @@ suite('ranked search on Postgres', () => {
     const hybrid = await rankedSearch(input('Pixel 10 Pro', 'hybrid'), embedding, 0);
     expect(hybrid[0]?.documentId).toBe(documentIds[0]);
     expect(hybrid).toHaveLength(2);
+  });
+
+  it('records web discoveries as `discovered`, never ranks them, and never overwrites an indexed page', async () => {
+    const recorded = await recordDiscoveredPages(getDb(), [
+      { canonicalUrl: discoveredUrl, title: 'Pixel 11 Pro hands-on', description: 'First impressions of the Pixel 11 Pro.' },
+      { canonicalUrl: urls[0], title: 'A search engine title', description: 'A search engine snippet.' },
+    ]);
+
+    expect(recorded.map((row) => [row.canonicalUrl, row.status])).toEqual([
+      [discoveredUrl, 'discovered'],
+      [urls[0], 'indexed'],
+    ]);
+    expect(recorded[1]).toMatchObject({ id: documentIds[0], title: 'Pixel 10 Pro review' });
+
+    // Again, as a second search would: the same row, not a second one.
+    const [again] = await recordDiscoveredPages(getDb(), [{ canonicalUrl: discoveredUrl, title: 'Another title' }]);
+    expect(again).toMatchObject({ id: recorded[0].id, title: 'Pixel 11 Pro hands-on' });
+
+    const ranks = await rankedSearch(input('Pixel 11 Pro', 'lexical'), undefined, 0);
+    expect(ranks.map((rank) => rank.documentId)).not.toContain(recorded[0].id);
   });
 });

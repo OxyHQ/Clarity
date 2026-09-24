@@ -1,0 +1,31 @@
+# SearXNG for Clarity's web discovery. Upstream defaults, then only what an
+# internal, machine-read instance needs: https://docs.searxng.org/admin/settings/
+use_default_settings:
+  engines:
+    # From AWS addresses DuckDuckGo answers every query with a CAPTCHA, and
+    # SearXNG waits on it before giving up; the others answer in 1–3 s.
+    remove:
+      - duckduckgo
+
+general:
+  instance_name: Clarity
+  enable_metrics: false
+
+search:
+  # `json` is what /v1/search reads; `html` stays for a person debugging.
+  formats:
+    - html
+    - json
+
+server:
+  # Replaced with random bytes by the image's entrypoint at start (Dockerfile).
+  secret_key: "ultrasecretkey"
+  # One caller, on localhost: the bot-detection limiter would only ever see it.
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+outgoing:
+  # Clarity waits 5 s for the whole search; an engine slower than this is
+  # dropped from the answer rather than holding it.
+  request_timeout: 3.0
