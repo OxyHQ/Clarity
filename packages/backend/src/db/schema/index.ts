@@ -417,6 +417,9 @@ export const searchDocuments = pgTable('clarity_search_documents', {
   index('clarity_search_documents_site_status_idx').on(table.siteId, table.status),
   index('clarity_search_documents_published_idx').on(table.publishedAt),
   index('clarity_search_documents_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
+  // The lexical ranking's `description % query` candidate arm; without it that
+  // arm read every document and a search took seconds (routes/v1/search-platform.ts).
+  index('clarity_search_documents_description_trgm_idx').using('gin', table.description.asc().op('gin_trgm_ops')),
   check('clarity_search_documents_status_check', sql`${table.status} in ('discovered', 'fetching', 'extracted', 'indexed', 'blocked', 'failed', 'removed')`),
   check('clarity_search_documents_type_check', sql`${table.documentType} in ('page', 'article', 'news', 'job', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other')`),
 ]);
