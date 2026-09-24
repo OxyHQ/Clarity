@@ -118,11 +118,15 @@ export async function rankedSearch(input: SearchInput, embedding: number[] | und
     filters.push(sql`(${sql.join(domains.map((domain) => sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`), sql` or `)})`);
   }
   const where = sql.join(filters, sql` and `);
-  // Candidates first, one indexed arm each — the chunks' full-text index, then
-  // the title and description trigram indexes — and only those documents are
-  // scored. Written as one join filtered by `fts OR title % q OR description % q`,
-  // no index could serve the OR: every chunk of every document was scored
-  // against the query, and a search took 18 s on 50k chunks.
+  // Candidates first, one indexed arm each — the chunks' full-text index and
+  // the title trigram index — and only those documents are scored. Written as
+  // one join filtered by an OR across both tables, no index could serve it:
+  // every chunk of every document was scored, and a search took 18 s.
+  //
+  // There is no description arm. Descriptions average ~1.7k characters (whole
+  // listings), trigram similarity against text that long matches almost every
+  // row, and rechecking them cost 3.4 s; the text they hold is already in the
+  // chunks the full-text arm reads.
   //
   // Both rankings group by the DOCUMENT's primary key, not the chunk's foreign
   // key: the score reads the document's title and description, which Postgres
@@ -133,8 +137,6 @@ export async function rankedSearch(input: SearchInput, embedding: number[] | und
       select ${searchChunks.documentId} as id from ${searchChunks} where ${searchChunks.searchVector} @@ ${tsquery}
       union
       select ${searchDocuments.id} from ${searchDocuments} where ${searchDocuments.title} % ${input.query}
-      union
-      select ${searchDocuments.id} from ${searchDocuments} where ${searchDocuments.description} % ${input.query}
     )
     select ${searchDocuments.id} as document_id,
       row_number() over (order by coalesce(max(ts_rank_cd(${searchChunks.searchVector}, ${tsquery})), 0) + greatest(similarity(coalesce(${searchDocuments.title}, ''), ${input.query}), similarity(coalesce(${searchDocuments.description}, ''), ${input.query})) desc, ${searchDocuments.id}) as rank
