@@ -18,6 +18,7 @@ env:
   AWS_REGION: us-west-2
   ECR_REGISTRY: 237343248947.dkr.ecr.us-west-2.amazonaws.com
   ECR_REPOSITORY: oxy/clarity
+  SEARXNG_ECR_REPOSITORY: oxy/clarity-searxng
   CLUSTER: oxy-cluster
   DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
 
@@ -92,6 +93,20 @@ jobs:
           provenance: true
           sbom: true
 
+      # The web-discovery sidecar in clarity-api's task (packages/searxng).
+      - name: Build and push SearXNG image
+        id: searxng
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: packages/searxng
+          platforms: linux/arm64
+          push: true
+          tags: ${{ env.ECR_REGISTRY }}/${{ env.SEARXNG_ECR_REPOSITORY }}:${{ env.DEPLOY_SHA }}
+          cache-from: type=gha,scope=clarity-searxng
+          cache-to: type=gha,mode=max,scope=clarity-searxng
+          provenance: true
+          sbom: true
+
       - name: Verify current main before production changes
         run: bash .github/scripts/require-current-main.sh
 
@@ -100,6 +115,7 @@ jobs:
           SERVICE: clarity-api
           CONTAINER_NAME: clarity-api
           IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}@${{ steps.build.outputs.digest }}
+          SIDECAR_IMAGES_JSON: '{"searxng":"${{ env.ECR_REGISTRY }}/${{ env.SEARXNG_ECR_REPOSITORY }}@${{ steps.searxng.outputs.digest }}"}'
           PRE_DEPLOY_TASK_COMMAND_JSON: '["node","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=pre"]'
           POST_DEPLOY_TASK_COMMAND_JSON: '["node","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=post"]'
         run: bash .github/scripts/deploy-ecs-service.sh

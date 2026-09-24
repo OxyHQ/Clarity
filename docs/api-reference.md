@@ -45,6 +45,11 @@ system/tool roles are rejected.
 Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
 
 - `POST /v1/search`, `GET /v1/news`, `GET /v1/documents/:id`, `GET /v1/documents/by-url`
+  — when the index cannot fill a search's first page (and no type or date
+  filter is set), the rest comes from the public web through the SearXNG
+  sidecar (`packages/searxng`, `CLARITY_SEARXNG_URL`). Those pages are
+  recorded as `discovered` documents, ranked below every indexed match, and
+  `POST /v1/resolve` crawls a `discovered` URL like an unknown one.
 - `POST /v1/index/urls`, `POST /v1/resolve`, `/v1/sites…`, `GET /v1/usage`, `GET /v1/quotas`
 - `GET /v1/operations/:id`, `POST /v1/operations/:id/cancel` — asynchronous
   crawl/index work. This namespace used to be `/v1/jobs`; `jobs` now means

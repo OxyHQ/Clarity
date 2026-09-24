@@ -9,6 +9,11 @@ set -euo pipefail
 : "${IMAGE_URI:?IMAGE_URI is required}"
 
 PRE_DEPLOY_TASK_COMMAND_JSON="${PRE_DEPLOY_TASK_COMMAND_JSON:-}"
+# Images for the task's OTHER containers, as {"<container>": "<uri@sha256:…>"}.
+# oxy-infra declares which containers a task has; the deploy only rolls the
+# images of the ones it declares. One not declared yet is named and skipped.
+SIDECAR_IMAGES_JSON="${SIDECAR_IMAGES_JSON:-}"
+[[ -n "$SIDECAR_IMAGES_JSON" ]] || SIDECAR_IMAGES_JSON='{}'
 POST_DEPLOY_TASK_COMMAND_JSON="${POST_DEPLOY_TASK_COMMAND_JSON:-}"
 
 if [[ ! "$IMAGE_URI" =~ @sha256:[0-9a-f]{64}$ ]]; then
@@ -46,7 +51,19 @@ if [[ "$container_count" != 1 ]]; then
   exit 1
 fi
 
-jq --arg name "$CONTAINER_NAME" --arg image "$IMAGE_URI" '
+if ! jq -e 'type == "object" and all(.[]; type == "string" and test("@sha256:[0-9a-f]{64}$"))' \
+  <<<"$SIDECAR_IMAGES_JSON" >/dev/null; then
+  echo "::error::SIDECAR_IMAGES_JSON must map container names to immutable sha256 image digests."
+  exit 1
+fi
+sidecar_images="$(jq -c --slurpfile task "$current_file" '
+  with_entries(select(.key as $name | any($task[0].containerDefinitions[]; .name == $name)))
+' <<<"$SIDECAR_IMAGES_JSON")"
+for missing in $(jq -r --argjson declared "$sidecar_images" 'keys - ($declared | keys) | .[]' <<<"$SIDECAR_IMAGES_JSON"); do
+  echo "::warning::$SERVICE declares no container named $missing; its image is not deployed. Declare it in oxy-infra."
+done
+
+jq --arg name "$CONTAINER_NAME" --arg image "$IMAGE_URI" --argjson sidecars "$sidecar_images" '
   del(
     .taskDefinitionArn,
     .revision,
@@ -57,7 +74,9 @@ jq --arg name "$CONTAINER_NAME" --arg image "$IMAGE_URI" '
     .registeredBy
   ) |
   .containerDefinitions |= map(
-    if .name == $name then .image = $image else . end
+    if .name == $name then .image = $image
+    elif $sidecars[.name] then .image = $sidecars[.name]
+    else . end
   )
 ' "$current_file" >"$rendered_file"
 
