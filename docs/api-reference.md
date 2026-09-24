@@ -50,6 +50,11 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   sidecar (`packages/searxng`, `CLARITY_SEARXNG_URL`). Those pages are
   recorded as `discovered` documents, ranked below every indexed match, and
   `POST /v1/resolve` crawls a `discovered` URL like an unknown one.
+- `POST /v1/resolve` (`clarity:index`) — the page when Clarity has fetched it
+  (found by its canonical, requested or final URL); otherwise it queues the
+  crawl and, with `waitMs` (≤ 10 000), waits for that crawl and answers as soon
+  as it ends. A URL the ended crawl could not fetch is `failed`; one still
+  crawling is `queued` with its `operationId` (202).
 - `POST /v1/index/urls`, `POST /v1/resolve`, `/v1/sites…`, `GET /v1/usage`, `GET /v1/quotas`
 - `GET /favicons/:host` — public, no credential (an `<img>` sends none): the
   site's favicon, one per host, fetched by the worker and served by Clarity

@@ -5,7 +5,7 @@ import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
 import { searchDocuments } from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
 import { recordDiscoveredPages } from '../../../search/web-discovery.js';
-import { rankedSearch, type SearchInput } from '../search-platform.js';
+import { fetchedDocuments, rankedSearch, type SearchInput } from '../search-platform.js';
 
 /**
  * `POST /v1/search`'s ranking against real Postgres. The SQL scores a document
@@ -19,6 +19,7 @@ const suite = databaseUrl ? describe : describe.skip;
 const embedding = Array.from({ length: 1024 }, (_, index) => ((index % 5) + 1) / 10);
 const urls = ['https://phones.example/pixel-10-pro-review', 'https://garden.example/tomatoes'];
 const discoveredUrl = 'https://phones.example/pixel-11-pro-hands-on';
+const redirectedUrl = 'https://phones.example/old-review';
 const documentIds: string[] = [];
 
 const input = (query: string, mode: SearchInput['mode']): SearchInput => ({ query, mode, limit: 20 });
@@ -93,5 +94,21 @@ suite('ranked search on Postgres', () => {
 
     const ranks = await rankedSearch(input('Pixel 11 Pro', 'lexical'), undefined, 0);
     expect(ranks.map((rank) => rank.documentId)).not.toContain(recorded[0].id);
+  });
+
+  it('finds a fetched page by the URL asked for, even when it was stored under another', async () => {
+    // A crawl stores the page under its canonical URL; a redirect made that
+    // differ from the one requested.
+    await getDb().update(searchDocuments)
+      .set({ requestedUrl: redirectedUrl, finalUrl: urls[0] })
+      .where(inArray(searchDocuments.id, [documentIds[0]]));
+
+    const found = await fetchedDocuments([redirectedUrl, urls[1], discoveredUrl, 'https://nowhere.example/']);
+
+    expect(found.get(redirectedUrl)?.id).toBe(documentIds[0]);
+    expect(found.get(urls[1])?.id).toBe(documentIds[1]);
+    // Known from a web search, never fetched: not a document to read yet.
+    expect(found.has(discoveredUrl)).toBe(false);
+    expect(found.has('https://nowhere.example/')).toBe(false);
   });
 });
