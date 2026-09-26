@@ -1,5 +1,5 @@
 // FLAG: Uses raw expoFetch (expo/fetch) for SSE streaming — cannot use HttpService/linked client.
-// Bearer token is fetched via oxyServices.getAccessToken() inside the function.
+// Bearer token is fetched via oxyServices.session.accessToken inside the function.
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetch as expoFetch } from 'expo/fetch';
 import * as Haptics from 'expo-haptics';
@@ -120,7 +120,7 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
         'X-Device-Info': JSON.stringify(deviceInfo),
       };
 
-      const token = oxyServices.getAccessToken();
+      const token = oxyServices.session.accessToken;
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }

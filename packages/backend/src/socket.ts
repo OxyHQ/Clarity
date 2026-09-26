@@ -49,7 +49,7 @@ export function initSocket(server: http.Server) {
 
   // Require valid Oxy JWT for all socket connections.
   // Sets socket.user = { id, userId, sessionId } on the socket before 'connection' fires.
-  io.use(oxyClient.authSocket());
+  io.use(oxyClient.middleware.socket());
 
   io.on('connection', (rawSocket) => {
     const socket = rawSocket as AuthenticatedSocket;

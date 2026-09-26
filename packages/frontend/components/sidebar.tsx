@@ -214,7 +214,7 @@ export function useSearchSidebarConfig(): SidebarProps {
     return undefined;
   }, [allConvs, chatId, pathname]);
 
-  const avatarUrl = user?.avatar ? oxyServices.getFileDownloadUrl(user.avatar, "thumb") : undefined;
+  const avatarUrl = user?.avatar ? oxyServices.assets.publicUrl(user.avatar, "thumb") : undefined;
   const displayName = user?.name?.displayName || t("common.user");
 
   return {

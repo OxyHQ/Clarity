@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
-import { OxyServices } from '@oxy.so/core';
-import { canAttestWorkloadIdentity } from '@oxy.so/core/server';
+import { canAttestWorkloadIdentity, OxyServer } from '@oxy.so/core/server';
 
 import { CLARITY_AGENT_MANIFEST } from './clarity-agent-manifest.js';
 
@@ -17,7 +16,7 @@ interface ServiceTokenClaims {
 
 const TOKEN_EXPIRY_CLOCK_SKEW_SECONDS = 30;
 
-let client: OxyServices | undefined;
+let client: OxyServer | undefined;
 let clientFingerprint = '';
 const CANONICAL_OXY_API_URL = 'https://api.oxy.so';
 
@@ -88,7 +87,7 @@ function canonicalBaseUrl(env: NodeJS.ProcessEnv): string {
  * carries the client id as a plain environment variable and the secret as an
  * ECS secret, and the migration removes only the secret — so "key present,
  * secret absent" is the real, expected steady state on the way through, not a
- * half-configuration to reject. `@oxy.so/core` agrees: `getServiceToken()`
+ * half-configuration to reject. `@oxy.so/core` agrees: `serviceToken()`
  * needs BOTH to use the credential path and falls back to attestation
  * otherwise.
  */
@@ -197,13 +196,13 @@ export async function getClarityServiceToken(env: NodeJS.ProcessEnv = process.en
       : `attestation\0${config.baseUrl}`)
     .digest('hex');
   if (!client || clientFingerprint !== fingerprint) {
-    client = new OxyServices({ baseURL: config.baseUrl });
-    // Left unconfigured under attestation: `getServiceToken()` takes the
+    client = new OxyServer({ baseURL: config.baseUrl });
+    // Left unconfigured under attestation: `serviceToken()` takes the
     // workload path precisely when no credential was configured.
     if (config.mode === 'credential') client.configureServiceAuth(config.publicKey, config.secret);
     clientFingerprint = fingerprint;
   }
-  const token = await client.getServiceToken();
+  const token = await client.serviceToken();
   assertExactClarityServiceClaims(token);
   return token;
 }
