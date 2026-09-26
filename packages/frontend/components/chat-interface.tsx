@@ -39,6 +39,10 @@ import type { ResearchProgress as ResearchProgressData } from "@/lib/sdk";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useApiClient } from "@/lib/api/use-api-client";
 import { useTranslation } from "@/hooks/useTranslation";
+import { MessageSources } from "@/components/message-sources";
+import {
+  citationUrls, collectMessageSources, linkCitations, resultDomains, type Source,
+} from "@/lib/message-sources";
 
 const isWeb = Platform.OS === "web";
 
@@ -189,6 +193,7 @@ const CompletedSteps = React.memo(function CompletedSteps({
             const url = typeof args?.url === 'string' ? args.url : undefined;
             const query = typeof args?.query === 'string' ? args.query : undefined;
             const hostname = url ? hostnameOf(url) : undefined;
+            const domains = hostname ? [] : resultDomains(t);
 
             const isDone = t.state === "result";
             return (
@@ -214,6 +219,16 @@ const CompletedSteps = React.memo(function CompletedSteps({
                       <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>{hostname}</Text>
                     </View>
                   )}
+                  {domains.length > 0 && (
+                    <View className="flex-row flex-wrap gap-1">
+                      {domains.map((domain) => (
+                        <View key={domain} className="flex-row items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1">
+                          <Globe size={11} className="text-muted-foreground shrink-0" />
+                          <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>{domain}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </View>
                 <ToolBullet isRunning={isRunning} />
               </Pressable>
@@ -232,6 +247,8 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
   isCopied,
   myVote,
   sourcesCount,
+  sourcesExpanded,
+  onToggleSources,
   handleCopyMessage,
   handleVote,
 }: {
@@ -240,6 +257,8 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
   isCopied: boolean;
   myVote: "up" | "down" | null;
   sourcesCount: number;
+  sourcesExpanded: boolean;
+  onToggleSources: () => void;
   handleCopyMessage: (messageId: string, content: string) => void;
   handleVote: (messageId: string, vote: "up" | "down") => void;
 }) {
@@ -289,10 +308,19 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
         </Pressable>
 
         {sourcesCount > 0 && (
-          <Pressable className="h-8 rounded-full px-3 flex-row items-center gap-1">
+          <Pressable
+            onPress={onToggleSources}
+            accessibilityState={{ expanded: sourcesExpanded }}
+            className="h-8 rounded-full px-3 flex-row items-center gap-1"
+          >
             <Text className="text-xs text-muted-foreground font-normal">
               {sourcesCount} source{sourcesCount !== 1 ? "s" : ""}
             </Text>
+            <ChevronDown
+              size={12}
+              className="text-muted-foreground"
+              style={sourcesExpanded ? { transform: [{ rotate: "180deg" }] } : undefined}
+            />
           </Pressable>
         )}
       </View>
@@ -333,7 +361,7 @@ const AssistantContent = React.memo(function AssistantContent({
   isLastMessage,
   isCopied,
   myVote,
-  sourcesCount,
+  sources,
   handleCopyMessage,
   handleVote,
   openThoughtPanel,
@@ -344,7 +372,7 @@ const AssistantContent = React.memo(function AssistantContent({
   isLastMessage: boolean;
   isCopied: boolean;
   myVote: "up" | "down" | null;
-  sourcesCount: number;
+  sources: Source[];
   handleCopyMessage: (messageId: string, content: string) => void;
   handleVote: (messageId: string, vote: "up" | "down") => void;
   openThoughtPanel: (messageId: string) => void;
@@ -356,6 +384,12 @@ const AssistantContent = React.memo(function AssistantContent({
   };
 
   const showThinkingIndicator = isLoading && isLastMessage && !messageText;
+  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const toggleSources = useCallback(() => setSourcesExpanded((prev) => !prev), []);
+  const displayText = useMemo(
+    () => linkCitations(messageText, citationUrls(m, sources)),
+    [messageText, m, sources],
+  );
 
   let activeStatus: string | undefined;
   if (showThinkingIndicator) {
@@ -393,8 +427,13 @@ const AssistantContent = React.memo(function AssistantContent({
       {/* Message content */}
       {(messageText.length > 0 || msg.isStreaming === true) && (
         <View className="font-sans text-base text-foreground w-full">
-          <CustomMarkdown content={messageText} />
+          <CustomMarkdown content={displayText} />
         </View>
+      )}
+
+      {/* The links the answer was built from */}
+      {messageText.length > 0 && (
+        <MessageSources sources={sources} expanded={sourcesExpanded} onToggle={toggleSources} />
       )}
 
       {/* ThinkingIndicator for streaming with no text yet */}
@@ -412,7 +451,9 @@ const AssistantContent = React.memo(function AssistantContent({
           messageText={messageText}
           isCopied={isCopied}
           myVote={myVote}
-          sourcesCount={sourcesCount}
+          sourcesCount={sources.length}
+          sourcesExpanded={sourcesExpanded}
+          onToggleSources={toggleSources}
           handleCopyMessage={handleCopyMessage}
           handleVote={handleVote}
         />
@@ -455,11 +496,11 @@ const MessageRow = React.memo(function MessageRow({
   const messageText = getMessageText(m);
   const messageImages = getMessageImages(m);
 
-  // Count sources from completed tool results (search results)
-  const sourcesCount = useMemo(() => {
-    if (!m.toolInvocations) return 0;
-    return m.toolInvocations.filter((t) => t.state === "result").length;
-  }, [m.toolInvocations]);
+  // The links behind the answer: search results, pages read, research sources
+  const sources = useMemo(
+    () => collectMessageSources(m),
+    [m.toolInvocations, m.researchProgress],
+  );
 
   return (
     <Animated.View
@@ -540,7 +581,7 @@ const MessageRow = React.memo(function MessageRow({
           isLastMessage={isLastMessage}
           isCopied={isCopied}
           myVote={myVote}
-          sourcesCount={sourcesCount}
+          sources={sources}
           handleCopyMessage={handleCopyMessage}
           handleVote={handleVote}
           openThoughtPanel={openThoughtPanel}

@@ -14,7 +14,7 @@ import config from "@/lib/config";
  * The site's favicon as Clarity serves it — one stored icon per host, so the
  * page neither hotlinks the site nor names it to a third party.
  */
-function faviconUrl(href: string): string | undefined {
+export function faviconUrl(href: string): string | undefined {
   try {
     return `${config.apiUrl}/favicons/${new URL(href).hostname.toLowerCase()}`;
   } catch {

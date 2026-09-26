@@ -78,6 +78,12 @@ export type {
 } from './market.js';
 
 export type {
+  NewsArticle,
+  NewsStory,
+  NewsResponse,
+} from './news.js';
+
+export type {
   ResearchSource,
   ResearchProgress,
   ReasoningEvent,

@@ -8,6 +8,7 @@ import type { ConversationSource } from '@clarity/shared-types';
 import {
   countMessages,
   findConversation,
+  listMessages,
   replaceConversation,
   toWritableMessage,
   updateConversationTitle,
@@ -53,14 +54,46 @@ export interface SaveConversationParams {
 }
 
 /**
+ * The client resends a conversation's history as text only, and each turn
+ * rewrites the whole conversation — so without this, an answer's sources would
+ * survive exactly until the next question. A resent message keeps the tool
+ * activity already stored at the same position, provided it is still the same
+ * message (same role, same content); an edited history keeps nothing it
+ * no longer matches.
+ */
+function comparable(content: unknown): string {
+  return typeof content === 'string' ? stripTitleTags(content) : JSON.stringify(content);
+}
+
+export function carryOverToolInvocations(
+  history: readonly WritableMessage[],
+  stored: ReadonlyArray<{ role: string; content: unknown; toolInvocations: unknown }>,
+): WritableMessage[] {
+  return history.map((message, index) => {
+    const previous = stored[index];
+    if (
+      message.toolInvocations
+      || !previous
+      || previous.role !== message.role
+      || !Array.isArray(previous.toolInvocations)
+      || previous.toolInvocations.length === 0
+      || comparable(previous.content) !== comparable(message.content)
+    ) return message;
+    return { ...message, toolInvocations: previous.toolInvocations };
+  });
+}
+
+/**
  * Save or update a conversation in the database.
  * Handles title extraction, tag stripping, and message assembly.
  */
 export async function saveConversation(params: SaveConversationParams): Promise<void> {
   const { userId, conversationId, messages, assistantResponse, toolInvocations, source } = params;
 
+  const history = messages.map(toWritableMessage).filter((message): message is WritableMessage => message !== null);
+  const stored = await listMessages(userId, conversationId);
   const allMessages: WritableMessage[] = [
-    ...messages.map(toWritableMessage).filter((message): message is WritableMessage => message !== null),
+    ...carryOverToolInvocations(history, stored),
     {
       role: 'assistant' as const,
       content: stripTitleTags(assistantResponse),

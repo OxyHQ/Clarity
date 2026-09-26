@@ -120,6 +120,12 @@ a card draws no chart and a coin's full daily series is thousands of points. The
 two are separate types (`MarketQuoteSummary`, `MarketQuote`) so that a door which
 does not serve history can never be mistaken for an asset that has none.
 
+Discover reads news the same way: `GET /news?limit=30` is the public door onto
+the module behind `GET /v1/news`, with no credential, no user identity and its
+own per-address bucket. Both return clustered stories when there are any; until
+a clustering pass fills `clarity_news_stories`, every indexed page recognised as
+a `NewsArticle` is served as a story of one, in the same shape.
+
 The unauthenticated portal surface behind `clarity.surf/jobs` mirrors the read
 routes at `POST /jobs/search`, `GET /jobs/:id`, `GET /jobs/by-url`,
 `POST /jobs/:id/report`, `GET /jobs/stats` and `GET /jobs/capability`. It

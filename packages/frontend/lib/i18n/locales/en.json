@@ -385,7 +385,12 @@
     "selectTopics": "Select topics you care about to personalize your feed.",
     "saveInterests": "Save Interests",
     "marketOutlook": "Market Outlook",
-    "trendingCompanies": "Trending Companies"
+    "trendingCompanies": "Trending Companies",
+    "loading": "Loading the latest news…",
+    "empty": "No news yet. Check back soon.",
+    "error": "News couldn't be loaded.",
+    "retry": "Try again",
+    "sources": { "one": "{{count}} source", "other": "{{count}} sources" }
   },
   "billing": {
     "title": "Billing",

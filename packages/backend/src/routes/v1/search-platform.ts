@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 import { getDb } from '../../db/index.js';
 import {
-  crawlJobs, crawlPages, jobFeeds, newsStories, newsStoryArticles, searchDocuments, searchSites,
+  crawlJobs, crawlPages, jobFeeds, searchDocuments, searchSites,
   searchChunks, searchUsageRollups,
 } from '../../db/schema/index.js';
 import { authenticateResource, requireResourceRequestRate, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
@@ -12,9 +12,10 @@ import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
 import { consumeUsage, effectiveQuota, SANDBOX_QUOTAS, type QuotaMetric } from '../../search/quotas.js';
 import { discoverWeb, recordDiscoveredPages } from '../../search/web-discovery.js';
-import { hostOf, hostsWithIcons, siteIconUrl } from '../../search/site-icons.js';
+import { iconHostsOf, publicDocument, searchResult, type DocumentRow } from '../../search/public-document.js';
+import { listNewsStories } from '../../search/news.js';
 import {
-  canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike, excerpt,
+  canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike,
 } from '../../search/query-primitives.js';
 import { CLARITY_JOBS_CAPABILITY } from '../../search/jobs/capability.js';
 import {
@@ -256,11 +257,7 @@ router.get('/documents/:id', requireResourceScope('clarity:search'), async (req,
 });
 
 router.get('/news', requireResourceScope('clarity:search'), async (req, res) => {
-  const limit = Math.min(Number(req.query.limit) || 20, 100);
-  const stories = await getDb().select().from(newsStories).orderBy(desc(newsStories.lastPublishedAt), desc(newsStories.rankingScore)).limit(limit);
-  const articles = stories.length ? await getDb().select({ storyId: newsStoryArticles.storyId, document: searchDocuments }).from(newsStoryArticles).innerJoin(searchDocuments, eq(newsStoryArticles.documentId, searchDocuments.id)).where(inArray(newsStoryArticles.storyId, stories.map((story) => story.id))) : [];
-  const icons = await iconHostsOf(articles.map((item) => item.document));
-  res.json({ data: stories.map((story) => ({ ...story, articles: articles.filter((item) => item.storyId === story.id).map((item) => ({ ...publicDocument(item.document, icons), highlights: [], score: 1 })) })) });
+  res.json({ data: await listNewsStories(req.query.limit) });
 });
 
 router.get('/sites', requireResourceScope('clarity:sites:manage'), async (req, res) => {
@@ -603,27 +600,6 @@ function requireIdempotency(req: Request, res: Response): string | undefined {
   return undefined;
 }
 
-type DocumentRow = typeof searchDocuments.$inferSelect;
-
-/** The hosts among these documents whose favicon Clarity serves. */
-function iconHostsOf(rows: readonly DocumentRow[]): Promise<Set<string>> {
-  return hostsWithIcons(getDb(), rows.flatMap((row) => hostOf(row.canonicalUrl) ?? []));
-}
-function searchResult(row: DocumentRow, score: number, icons: ReadonlySet<string>) {
-  return { ...publicDocument(row, icons), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score };
-}
-/**
- * `faviconUrl` is Clarity's copy of the site's icon (`GET /favicons/:host`),
- * present once the worker has fetched it — never the site's own URL, which a
- * consumer would have to hotlink.
- */
-function iconUrlOf(row: DocumentRow, icons: ReadonlySet<string>): string | undefined {
-  const host = hostOf(row.canonicalUrl);
-  return host && icons.has(host) ? siteIconUrl(host) : undefined;
-}
-function publicDocument(row: DocumentRow, icons: ReadonlySet<string>) {
-  return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: iconUrlOf(row, icons), indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
-}
 function publicOperation(row: typeof crawlJobs.$inferSelect) { return { id: row.id, kind: row.kind, status: row.status, pagesDiscovered: row.pagesDiscovered, pagesCompleted: row.pagesCompleted, ...(row.errorCode ? { error: { code: row.errorCode, detail: row.errorDetail ?? undefined } } : {}), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() }; }
 function publicJobFeed(row: typeof jobFeeds.$inferSelect) {
   return {
