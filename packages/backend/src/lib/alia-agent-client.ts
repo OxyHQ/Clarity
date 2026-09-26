@@ -10,6 +10,7 @@ import { getClarityServiceToken } from './clarity-service-auth.js';
 import { getUserEntitlements } from './plan-access.js';
 import { saveConversation } from './conversation-saver.js';
 import { log } from './logger.js';
+import { createToolSourceCollector } from './tool-sources.js';
 import { updateConversationTitle } from '../db/chat-repository.js';
 
 const DEFAULT_ALIA_API_URL = 'https://api.alia.onl';
@@ -306,6 +307,7 @@ async function persistClarityTurn(input: {
   messages: unknown[];
   assistantResponse: string;
   title?: string;
+  toolInvocations?: unknown[];
 }): Promise<void> {
   if (typeof input.conversationId !== 'string' || input.conversationId === '') return;
   if (input.assistantResponse !== '') {
@@ -314,6 +316,7 @@ async function persistClarityTurn(input: {
       conversationId: input.conversationId,
       messages: input.messages,
       assistantResponse: input.assistantResponse,
+      toolInvocations: input.toolInvocations,
     });
   }
   if (input.title?.trim()) {
@@ -546,7 +549,9 @@ export async function proxyClarityChat(req: Request, res: Response): Promise<voi
     res.status(upstream.status);
     let assistantResponse = '';
     let title: string | undefined;
+    const toolSources = createToolSourceCollector();
     const transformer = new ClaritySseTransformer(prepared.clarityModel.id, (eventName, payload) => {
+      toolSources.observe(eventName, payload);
       if (!payload || typeof payload !== 'object') return;
       const object = payload as Record<string, unknown>;
       if (eventName === 'alia.title' && typeof object.title === 'string') {
@@ -577,6 +582,7 @@ export async function proxyClarityChat(req: Request, res: Response): Promise<voi
       messages: prepared.upstreamBody.messages as unknown[],
       assistantResponse,
       title,
+      toolInvocations: toolSources.invocations(),
     }).catch((error) => log.v1.error({ err: error }, 'Could not persist Clarity turn'));
     if (!res.writableEnded) res.end();
   } catch (error) {

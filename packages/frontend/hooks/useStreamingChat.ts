@@ -380,6 +380,9 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
                             sourcesFound: parsed.sourcesFound,
                             currentQuery: parsed.currentQuery,
                             iteration: parsed.iteration,
+                            isComplete: parsed.isComplete,
+                            sources: parsed.sources || lastMessage.researchProgress?.sources,
+                            totalSearches: parsed.totalSearches ?? lastMessage.researchProgress?.totalSearches,
                           },
                         };
                       }

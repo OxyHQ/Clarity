@@ -43,6 +43,9 @@ export interface MessageResearchProgress {
   currentQuery?: string;
   iteration?: number;
   isComplete?: boolean;
+  /** Sources gathered so far, numbered as the report cites them (`[n]`). */
+  sources?: Array<{ id: number; url: string; title: string }>;
+  totalSearches?: number;
 }
 
 /** A single step of an agent execution plan awaiting user approval. */

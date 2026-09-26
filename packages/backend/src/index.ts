@@ -31,6 +31,7 @@ import triggersRouter from './routes/triggers.js';
 import botsRouter from './routes/bots.js';
 import jobsRouter from './routes/jobs.js';
 import marketRouter from './routes/market.js';
+import newsRouter from './routes/news.js';
 // Socket.io
 import { initSocket } from './socket.js';
 
@@ -178,6 +179,7 @@ app.use('/triggers', triggersRouter);
 app.use('/bots', botsRouter);
 app.use('/jobs', jobsRouter);
 app.use('/market', marketRouter);
+app.use('/news', newsRouter);
 app.use('/internal', internalRouter);
 
 // Root route
@@ -203,6 +205,7 @@ app.get('/', (_req, res) => {
       '/triggers',
       '/bots',
       '/jobs',
+      '/news',
       '/internal',
     ]
   });

@@ -1,12 +1,8 @@
-import type { Message, ToolInvocation } from '@clarity/shared-types';
+import type { Message } from '@clarity/shared-types';
 import { getToolLabel } from '@/lib/sdk';
+import { asRecord, sourceFrom, type Source } from '@/lib/message-sources';
 
-export interface Source {
-  title: string;
-  url: string;
-  snippet: string;
-  domain: string;
-}
+export { extractSources, type Source } from '@/lib/message-sources';
 
 export interface ThoughtStep {
   type: 'thinking' | 'tool' | 'done';
@@ -14,87 +10,6 @@ export interface ThoughtStep {
   toolName?: string;
   sources?: Source[];
   state?: 'partial-call' | 'call' | 'result';
-}
-
-function getDomain(url: string): string {
-  try {
-    return new URL(url).hostname.replace('www.', '');
-  } catch {
-    return url;
-  }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null;
-}
-
-function sourceFrom(value: unknown): Source | null {
-  const record = asRecord(value);
-  if (!record || typeof record.url !== 'string' || record.url.length === 0) return null;
-  return {
-    title: typeof record.title === 'string' && record.title.length > 0
-      ? record.title
-      : getDomain(record.url),
-    url: record.url,
-    snippet: typeof record.snippet === 'string' ? record.snippet : '',
-    domain: getDomain(record.url),
-  };
-}
-
-/**
- * Extract unique sources from tool invocations (webSearch, webScraper).
- */
-export function extractSources(toolInvocations?: ToolInvocation[]): Source[] {
-  if (!toolInvocations) return [];
-
-  const seen = new Set<string>();
-  const sources: Source[] = [];
-
-  for (const inv of toolInvocations) {
-    if (inv.state !== 'result' || !inv.result) continue;
-    const result = asRecord(inv.result);
-    if (!result) continue;
-
-    if ((inv.toolName === 'webSearch' || (inv.toolName === 'browse' && result.action === 'search')) && Array.isArray(result.results)) {
-      for (const value of result.results) {
-        const source = sourceFrom(value);
-        if (source && !seen.has(source.url)) {
-          seen.add(source.url);
-          sources.push(source);
-        }
-      }
-    }
-
-    if (inv.toolName === 'browse' && result.action === 'read' && typeof result.url === 'string') {
-      const url = result.url;
-      if (!seen.has(url)) {
-        seen.add(url);
-        sources.push({
-          title: typeof result.title === 'string' ? result.title : getDomain(url),
-          url,
-          snippet: typeof result.content === 'string' ? result.content.slice(0, 200) : '',
-          domain: getDomain(url),
-        });
-      }
-    }
-
-    if (inv.toolName === 'webScraper' && typeof result.url === 'string') {
-      const url = result.url;
-      if (!seen.has(url)) {
-        seen.add(url);
-        sources.push({
-          title: typeof result.title === 'string' ? result.title : getDomain(url),
-          url,
-          snippet: typeof result.content === 'string' ? result.content.slice(0, 200) : '',
-          domain: getDomain(url),
-        });
-      }
-    }
-  }
-
-  return sources;
 }
 
 /**

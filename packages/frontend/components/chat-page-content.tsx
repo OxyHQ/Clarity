@@ -36,6 +36,7 @@ import { Image } from "react-native";
 import { useSearchSuggestions, useRecordSuggestionUsage, useWelcomeSuggestions } from "@/lib/hooks/use-suggestions";
 import { useConversations, prefetchConversation } from "@/lib/hooks/use-conversations";
 import { useQueryClient } from "@tanstack/react-query";
+import { relativeTimeAgo } from "@/lib/relative-time";
 
 type Mode = "search" | "deepResearch";
 
@@ -72,18 +73,6 @@ const MODE_CONFIG: Record<Mode, {
     featureId: "deep-research",
   },
 };
-
-/** "3h ago" / "2d ago" — coarse enough for a card, no dependency pulled in for it. */
-function relativeTimeAgo(date: Date): string {
-  const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
 interface ChatPageContentProps {
   messages: Message[];

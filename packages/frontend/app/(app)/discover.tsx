@@ -1,8 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   View,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  Linking,
   useWindowDimensions,
 } from "react-native";
 import { Text } from "@/components/ui/text";
@@ -15,11 +17,14 @@ import {
   MoreHorizontal,
   Clock,
   Share2,
-  ChevronDown,
+  Newspaper,
 } from "lucide-react-native";
+import type { NewsStory } from "@clarity/shared-types";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { useNews } from "@/lib/hooks/use-news";
+import { relativeTimeAgo } from "@/lib/relative-time";
 
 /* ================================================================
    Types
@@ -28,139 +33,47 @@ import { cn } from "@/lib/utils";
 interface Article {
   id: string;
   title: string;
-  description: string;
-  imageUrl: string;
+  description?: string;
+  imageUrl?: string;
+  url: string;
+  publisher?: string;
+  faviconUrls: string[];
   sourceCount: number;
-  publishedAt: string;
-  category: string;
+  publishedAt: Date;
+  rankingScore: number;
+}
+
+/** A story as a card: the lead article supplies the image, link and publisher. */
+function toArticle(story: NewsStory): Article {
+  const lead = story.articles.find((article) => article.imageUrl) ?? story.articles[0];
+  const faviconUrls = [
+    ...new Set(story.articles.flatMap((article) => (article.faviconUrl ? [article.faviconUrl] : []))),
+  ];
+  return {
+    id: story.id,
+    title: story.title,
+    description: story.summary ?? lead?.description,
+    imageUrl: lead?.imageUrl,
+    url: lead?.canonicalUrl ?? "",
+    publisher: lead?.publisher ?? (lead ? hostOf(lead.canonicalUrl) : undefined),
+    faviconUrls,
+    sourceCount: Math.max(story.sourceCount, story.articles.length),
+    publishedAt: new Date(story.lastPublishedAt),
+    rankingScore: story.rankingScore,
+  };
+}
+
+function hostOf(url: string): string | undefined {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return undefined;
+  }
 }
 
 /* ================================================================
-   Mock Data
+   Sidebar data
    ================================================================ */
-
-const MOCK_ARTICLES: Article[] = [
-  {
-    id: "1",
-    title: "Major Breakthrough in Quantum Computing Achieves New Milestone for Error Correction",
-    description:
-      "Researchers have demonstrated a quantum processor that can correct its own errors in real time, a long-sought milestone that could accelerate the path to practical quantum computers capable of solving problems beyond classical reach.",
-    imageUrl: "https://picsum.photos/seed/quantum/800/533",
-    sourceCount: 12,
-    publishedAt: "2h ago",
-    category: "Technology",
-  },
-  {
-    id: "2",
-    title: "Global Climate Summit Reaches Historic Agreement on Carbon Markets",
-    description:
-      "World leaders have agreed on a unified framework for international carbon trading, establishing clear rules for cross-border emissions credits for the first time.",
-    imageUrl: "https://picsum.photos/seed/climate/800/533",
-    sourceCount: 18,
-    publishedAt: "3h ago",
-    category: "World",
-  },
-  {
-    id: "3",
-    title: "AI Models Now Outperform Doctors in Diagnosing Rare Diseases",
-    description:
-      "A new study shows that large language models trained on medical literature can identify rare conditions with higher accuracy than experienced specialists.",
-    imageUrl: "https://picsum.photos/seed/aihealth/800/533",
-    sourceCount: 9,
-    publishedAt: "4h ago",
-    category: "Science",
-  },
-  {
-    id: "4",
-    title: "SpaceX Successfully Tests Next-Generation Raptor Engine",
-    description:
-      "The upgraded engine delivers 30% more thrust while using less fuel, bringing the Starship program closer to its Mars ambitions.",
-    imageUrl: "https://picsum.photos/seed/spacex/800/533",
-    sourceCount: 7,
-    publishedAt: "5h ago",
-    category: "Technology",
-  },
-  {
-    id: "5",
-    title: "Federal Reserve Signals Shift in Monetary Policy Approach",
-    description:
-      "The central bank hinted at a new framework for managing inflation expectations, departing from its decades-old strategy.",
-    imageUrl: "https://picsum.photos/seed/fedreserve/800/533",
-    sourceCount: 15,
-    publishedAt: "5h ago",
-    category: "Business",
-  },
-  {
-    id: "6",
-    title: "Breakthrough Battery Technology Promises 1000-Mile Electric Vehicles",
-    description:
-      "A solid-state battery prototype achieves energy density three times higher than current lithium-ion cells.",
-    imageUrl: "https://picsum.photos/seed/battery/800/533",
-    sourceCount: 11,
-    publishedAt: "6h ago",
-    category: "Technology",
-  },
-  {
-    id: "7",
-    title: "New CRISPR Technique Eliminates Need for Viral Delivery Vectors",
-    description:
-      "Scientists have developed a lipid nanoparticle system that delivers gene-editing tools more safely and efficiently than viral methods.",
-    imageUrl: "https://picsum.photos/seed/crispr/800/533",
-    sourceCount: 6,
-    publishedAt: "7h ago",
-    category: "Science",
-  },
-  {
-    id: "8",
-    title: "European Tech Startups Raise Record Funding in First Quarter",
-    description:
-      "Venture capital investment in European technology companies surged to an all-time high, driven by AI and clean energy sectors.",
-    imageUrl: "https://picsum.photos/seed/eutech/800/533",
-    sourceCount: 8,
-    publishedAt: "8h ago",
-    category: "Business",
-  },
-  {
-    id: "9",
-    title: "New Study Reveals Ocean Currents Shifting Faster Than Models Predicted",
-    description:
-      "Satellite data shows major ocean circulation patterns are changing at an accelerated rate, with implications for weather and marine ecosystems.",
-    imageUrl: "https://picsum.photos/seed/ocean/800/533",
-    sourceCount: 10,
-    publishedAt: "9h ago",
-    category: "Science",
-  },
-  {
-    id: "10",
-    title: "Major Streaming Platforms Announce Joint Sports Broadcasting Deal",
-    description:
-      "Three leading services will share rights to premier league football, marking a shift away from traditional cable broadcasting.",
-    imageUrl: "https://picsum.photos/seed/streaming/800/533",
-    sourceCount: 5,
-    publishedAt: "10h ago",
-    category: "Entertainment",
-  },
-  {
-    id: "11",
-    title: "Autonomous Delivery Robots Begin Operating in 50 New US Cities",
-    description:
-      "Sidewalk delivery robots expand their reach as regulations catch up with the technology, now serving over 200 metropolitan areas.",
-    imageUrl: "https://picsum.photos/seed/robots/800/533",
-    sourceCount: 7,
-    publishedAt: "11h ago",
-    category: "Technology",
-  },
-  {
-    id: "12",
-    title: "Archaeological Discovery Rewrites Timeline of Ancient Mediterranean Trade",
-    description:
-      "Underwater excavations reveal trading networks existed centuries earlier than previously believed, reshaping our understanding of early civilizations.",
-    imageUrl: "https://picsum.photos/seed/archaeology/800/533",
-    sourceCount: 4,
-    publishedAt: "12h ago",
-    category: "Science",
-  },
-];
 
 const TOPIC_CHIPS = [
   "Tech & Science",
@@ -187,35 +100,38 @@ const TRENDING_COMPANIES = [
   { name: "Amazon", ticker: "AMZN", change: "+1.5%" },
 ];
 
-type Tab = "forYou" | "top" | "topics";
+type Tab = "forYou" | "top";
 
 /* ================================================================
    Source Favicons (stacked circles)
    ================================================================ */
 
-function SourceIcons({ count }: { count: number }) {
+function SourceIcons({ faviconUrls, count }: { faviconUrls: string[]; count: number }) {
   const { colors } = useColorScheme();
-  const displayed = Math.min(count, 3);
+  const displayed = Math.min(Math.max(count, faviconUrls.length, 1), 3);
   const circleColors = [colors.primary, colors.muted, colors.surface];
 
   return (
     <View className="flex-row items-center">
       <View className="flex-row" style={{ width: displayed * 9 + 5 }}>
-        {Array.from({ length: displayed }).map((_, i) => (
-          <View
-            key={i}
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: 7,
-              backgroundColor: circleColors[i % circleColors.length],
-              borderWidth: 1.5,
-              borderColor: colors.card,
-              marginLeft: i === 0 ? 0 : -5,
-              zIndex: displayed - i,
-            }}
-          />
-        ))}
+        {Array.from({ length: displayed }).map((_, i) => {
+          const style = {
+            width: 14,
+            height: 14,
+            borderRadius: 7,
+            borderWidth: 1.5,
+            borderColor: colors.card,
+            marginLeft: i === 0 ? 0 : -5,
+            zIndex: displayed - i,
+            backgroundColor: circleColors[i % circleColors.length],
+          };
+          const favicon = faviconUrls[i];
+          return favicon ? (
+            <Image key={i} source={{ uri: favicon }} style={style} contentFit="cover" />
+          ) : (
+            <View key={i} style={style} />
+          );
+        })}
       </View>
     </View>
   );
@@ -233,9 +149,15 @@ function NewsCard({
   featured?: boolean;
 }) {
   const { colors } = useColorScheme();
+  const { t } = useTranslation();
+  const open = useCallback(() => {
+    if (article.url) void Linking.openURL(article.url);
+  }, [article.url]);
 
   return (
     <Pressable
+      onPress={open}
+      accessibilityRole="link"
       className={cn(
         "group",
         featured
@@ -252,18 +174,26 @@ function NewsCard({
             : "aspect-[3/2]"
         )}
       >
-        <Image
-          source={{ uri: article.imageUrl }}
-          style={{ width: "100%", height: "100%" }}
-          contentFit="cover"
-          transition={300}
-        />
-        {/* Category badge */}
-        <View className="absolute top-2 left-2 rounded-md bg-background/80 px-2 py-0.5">
-          <Text className="text-[10px] font-medium text-foreground">
-            {article.category}
-          </Text>
-        </View>
+        {article.imageUrl ? (
+          <Image
+            source={{ uri: article.imageUrl }}
+            style={{ width: "100%", height: "100%" }}
+            contentFit="cover"
+            transition={300}
+          />
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <Newspaper size={32} color={colors.mutedForeground} />
+          </View>
+        )}
+        {/* Publisher badge */}
+        {article.publisher ? (
+          <View className="absolute top-2 left-2 rounded-md bg-background/80 px-2 py-0.5">
+            <Text className="text-[10px] font-medium text-foreground" numberOfLines={1}>
+              {article.publisher}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Content */}
@@ -295,14 +225,14 @@ function NewsCard({
         {/* Footer */}
         <View className="flex-row items-center justify-between mt-auto pt-1">
           <View className="flex-row items-center gap-2">
-            <SourceIcons count={article.sourceCount} />
+            <SourceIcons faviconUrls={article.faviconUrls} count={article.sourceCount} />
             <Text className="text-xs font-medium text-muted-foreground">
-              {article.sourceCount} sources
+              {t("discover.sources", { count: article.sourceCount })}
             </Text>
             <View className="flex-row items-center gap-1 ml-2">
               <Clock size={12} color={colors.mutedForeground} />
               <Text className="text-xs font-medium text-muted-foreground">
-                {article.publishedAt}
+                {relativeTimeAgo(article.publishedAt)}
               </Text>
             </View>
           </View>
@@ -451,13 +381,20 @@ export default function DiscoverScreen() {
 
   const handleBack = useCallback(() => router.back(), [router]);
 
-  const featuredArticle = MOCK_ARTICLES[0];
-  const regularArticles = MOCK_ARTICLES.slice(1);
+  const news = useNews();
+  const articles = useMemo(() => {
+    const all = (news.data?.data ?? []).map(toArticle);
+    // "For you" is newest first, as served; "Top" is the widest-covered stories.
+    return activeTab === "top"
+      ? [...all].sort((a, b) => b.sourceCount - a.sourceCount || b.rankingScore - a.rankingScore)
+      : all;
+  }, [news.data, activeTab]);
+  const featuredArticle = articles[0];
+  const regularArticles = articles.slice(1);
 
-  const tabs: { key: Tab; label: string; hasDropdown?: boolean }[] = [
+  const tabs: { key: Tab; label: string }[] = [
     { key: "forYou", label: t("discover.forYou") },
     { key: "top", label: t("discover.top") },
-    { key: "topics", label: t("discover.topics"), hasDropdown: true },
   ];
 
   return (
@@ -503,17 +440,6 @@ export default function DiscoverScreen() {
                 >
                   {tab.label}
                 </Text>
-                {tab.hasDropdown && (
-                  <ChevronDown
-                    size={14}
-                    color={
-                      activeTab === tab.key
-                        ? colors.foreground
-                        : colors.mutedForeground
-                    }
-                    style={{ marginLeft: 2 }}
-                  />
-                )}
               </Pressable>
             ))}
           </View>
@@ -549,6 +475,28 @@ export default function DiscoverScreen() {
         >
           {/* ── Main Content ── */}
           <View className="flex-1 gap-6">
+            {news.isPending ? (
+              <View className="items-center justify-center py-16 gap-3">
+                <ActivityIndicator color={colors.mutedForeground} />
+                <Text className="text-sm text-muted-foreground">{t("discover.loading")}</Text>
+              </View>
+            ) : news.isError ? (
+              <View className="items-center justify-center py-16 gap-3">
+                <Text className="text-sm text-muted-foreground">{t("discover.error")}</Text>
+                <Pressable
+                  onPress={() => void news.refetch()}
+                  className="border border-border h-8 rounded-lg px-3 items-center justify-center hover:bg-muted"
+                >
+                  <Text className="text-sm font-medium text-foreground">{t("discover.retry")}</Text>
+                </Pressable>
+              </View>
+            ) : articles.length === 0 ? (
+              <View className="items-center justify-center py-16 gap-3">
+                <Newspaper size={28} color={colors.mutedForeground} />
+                <Text className="text-sm text-muted-foreground">{t("discover.empty")}</Text>
+              </View>
+            ) : null}
+
             {/* Featured Card */}
             {featuredArticle && (
               <NewsCard article={featuredArticle} featured />
