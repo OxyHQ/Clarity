@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { OxyServices } from '@oxy.so/core';
+import { OxyServer } from '@oxy.so/core/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -30,7 +30,7 @@ const originalFetch = globalThis.fetch;
 beforeEach(() => {
   process.env.OXY_SERVICE_API_KEY = CLARITY_AGENT_MANIFEST.backendApplication.clientId;
   process.env.OXY_SERVICE_API_SECRET = 'test-only-secret';
-  vi.spyOn(OxyServices.prototype, 'getServiceToken').mockResolvedValue(serviceToken());
+  vi.spyOn(OxyServer.prototype, 'serviceToken').mockResolvedValue(serviceToken());
 });
 
 afterEach(() => {
@@ -184,7 +184,7 @@ describe('Clarity Alia agent boundary', () => {
   it('proxies only the selected Alia path with the exact service identity and delegated user', async () => {
     process.env.ALIA_API_URL = 'https://alia.example.test';
     const mintedServiceToken = serviceToken();
-    vi.mocked(OxyServices.prototype.getServiceToken).mockResolvedValue(mintedServiceToken);
+    vi.mocked(OxyServer.prototype.serviceToken).mockResolvedValue(mintedServiceToken);
     const fetchMock = vi.fn(async () => new globalThis.Response('{"ok":true}', {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -222,7 +222,7 @@ describe('Clarity Alia agent boundary', () => {
   });
 
   it('fails closed if Oxy mints a token for another payer or broader scopes', async () => {
-    vi.mocked(OxyServices.prototype.getServiceToken).mockResolvedValue(serviceToken({
+    vi.mocked(OxyServer.prototype.serviceToken).mockResolvedValue(serviceToken({
       ownerAccountId: 'wrong-project',
       scopes: ['user:read', 'inference:invoke', 'accounts:read'],
     }));
