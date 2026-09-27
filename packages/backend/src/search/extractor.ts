@@ -1,6 +1,7 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 
+import { dateFromUrl, metadataFromStructuredData, plausibleDate } from './article-metadata.js';
 import { hasJobPosting } from './jobs/extract.js';
 
 export interface ExtractedDocument {
@@ -11,6 +12,9 @@ export interface ExtractedDocument {
   canonicalUrl?: string;
   imageUrl?: string;
   faviconUrl?: string;
+  publishedAt?: Date;
+  modifiedAt?: Date;
+  publisher?: string;
   documentType: 'page' | 'article' | 'news' | 'job' | 'product' | 'video' | 'event' | 'recipe' | 'profile' | 'documentation' | 'other';
   structuredData: unknown[];
   evidence: Record<string, { source: string; selector?: string; extractedAt: string }>;
@@ -29,6 +33,17 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
       return [];
     }
   }).filter((value) => value !== null);
+  // Read before Readability, which rewrites the document it is given.
+  const fromJsonLd = metadataFromStructuredData(jsonLd);
+  const publishedAt = fromJsonLd.publishedAt
+    ?? plausibleDate(content(document, 'meta[property="article:published_time"]', 'content'))
+    ?? plausibleDate(content(document, 'meta[itemprop="datePublished"]', 'content'))
+    ?? plausibleDate(content(document, 'meta[name="date"]', 'content'))
+    ?? dateFromUrl(finalUrl);
+  const modifiedAt = fromJsonLd.modifiedAt
+    ?? plausibleDate(content(document, 'meta[property="article:modified_time"]', 'content'));
+  const publisher = fromJsonLd.publisher
+    ?? content(document, 'meta[property="og:site_name"]', 'content')?.slice(0, 200);
   const readable = new Readability(document).parse();
   const title = content(document, 'meta[property="og:title"]', 'content') || readable?.title || document.title || undefined;
   const description = content(document, 'meta[property="og:description"]', 'content') || content(document, 'meta[name="description"]', 'content') || readable?.excerpt || undefined;
@@ -44,6 +59,9 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
     canonicalUrl,
     imageUrl,
     faviconUrl,
+    publishedAt,
+    modifiedAt,
+    publisher,
     documentType: classify(jsonLd),
     structuredData: jsonLd,
     evidence: {

@@ -25,6 +25,7 @@ import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
 import { useNews } from "@/lib/hooks/use-news";
 import { relativeTimeAgo } from "@/lib/relative-time";
+import { newsLanguagesFor } from "@/lib/news-languages";
 
 /* ================================================================
    Types
@@ -39,7 +40,8 @@ interface Article {
   publisher?: string;
   faviconUrls: string[];
   sourceCount: number;
-  publishedAt: Date;
+  /** Absent when the article states no publication date — then no time is shown. */
+  publishedAt?: Date;
   rankingScore: number;
 }
 
@@ -58,7 +60,7 @@ function toArticle(story: NewsStory): Article {
     publisher: lead?.publisher ?? (lead ? hostOf(lead.canonicalUrl) : undefined),
     faviconUrls,
     sourceCount: Math.max(story.sourceCount, story.articles.length),
-    publishedAt: new Date(story.lastPublishedAt),
+    publishedAt: story.undated ? undefined : new Date(story.lastPublishedAt),
     rankingScore: story.rankingScore,
   };
 }
@@ -229,12 +231,14 @@ function NewsCard({
             <Text className="text-xs font-medium text-muted-foreground">
               {t("discover.sources", { count: article.sourceCount })}
             </Text>
-            <View className="flex-row items-center gap-1 ml-2">
-              <Clock size={12} color={colors.mutedForeground} />
-              <Text className="text-xs font-medium text-muted-foreground">
-                {relativeTimeAgo(article.publishedAt)}
-              </Text>
-            </View>
+            {article.publishedAt ? (
+              <View className="flex-row items-center gap-1 ml-2">
+                <Clock size={12} color={colors.mutedForeground} />
+                <Text className="text-xs font-medium text-muted-foreground">
+                  {relativeTimeAgo(article.publishedAt)}
+                </Text>
+              </View>
+            ) : null}
           </View>
           <View className="flex-row items-center">
             <Pressable className="h-8 w-8 rounded-full items-center justify-center hover:bg-accent">
@@ -369,7 +373,7 @@ function TrendingCompaniesCard() {
    ================================================================ */
 
 export default function DiscoverScreen() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const router = useRouter();
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
@@ -381,7 +385,8 @@ export default function DiscoverScreen() {
 
   const handleBack = useCallback(() => router.back(), [router]);
 
-  const news = useNews();
+  const languages = useMemo(() => newsLanguagesFor(locale), [locale]);
+  const news = useNews(languages);
   const articles = useMemo(() => {
     const all = (news.data?.data ?? []).map(toArticle);
     // "For you" is newest first, as served; "Top" is the widest-covered stories.

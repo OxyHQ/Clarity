@@ -43,13 +43,18 @@ describe('collectMessageSources', () => {
 describe('citations', () => {
   it('numbers by research ids when a research run supplied them', () => {
     const message = { researchProgress: { sources: [{ id: 7, url: 'https://r.example/x', title: 'R' }] } };
-    const urls = citationUrls(message, collectMessageSources(message));
+    const urls = citationUrls(message);
     expect(linkCitations('Claim [7] and [8].', urls)).toBe('Claim [[7]](https://r.example/x) and [8].');
   });
 
-  it('numbers by discovery order otherwise, and leaves existing links alone', () => {
+  it('links nothing when several searches make the numbering ambiguous', () => {
+    const second = { ...search, toolCallId: 'call-2', result: { results: [{ url: 'https://other.example/c', title: 'C' }] } };
+    expect(citationUrls({ toolInvocations: [search, second] }).size).toBe(0);
+  });
+
+  it('numbers by the single search\'s result order otherwise, and leaves existing links alone', () => {
     const message = { toolInvocations: [search] };
-    const urls = citationUrls(message, collectMessageSources(message));
+    const urls = citationUrls(message);
     expect(linkCitations('See [1][2] and [1](https://x.example) and [2]: note', urls))
       .toBe('See [[1]](https://www.example.com/a)[[2]](https://news.example.org/b) and [1](https://x.example) and [2]: note');
   });

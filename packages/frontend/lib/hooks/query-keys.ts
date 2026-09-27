@@ -47,7 +47,7 @@ export const queryKeys = {
     detail: (id: string) => ['jobs', 'detail', id] as const,
   },
   news: {
-    list: (limit: number) => ['news', 'list', limit] as const,
+    list: (limit: number, languages: readonly string[]) => ['news', 'list', limit, ...languages] as const,
   },
   market: {
     quotes: (assets: readonly string[]) => ['market', 'quotes', ...assets] as const,

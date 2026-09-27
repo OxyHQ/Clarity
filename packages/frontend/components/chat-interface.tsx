@@ -387,8 +387,8 @@ const AssistantContent = React.memo(function AssistantContent({
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const toggleSources = useCallback(() => setSourcesExpanded((prev) => !prev), []);
   const displayText = useMemo(
-    () => linkCitations(messageText, citationUrls(m, sources)),
-    [messageText, m, sources],
+    () => linkCitations(messageText, citationUrls(m)),
+    [messageText, m],
   );
 
   let activeStatus: string | undefined;
