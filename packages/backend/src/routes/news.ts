@@ -9,27 +9,28 @@
  * it. The first, `/v1/news`, is the credentialed machine surface and wants an
  * `oxy_sk` resource credential a browser holding a user session does not have.
  */
-import { Router, type Request, type Response } from 'express';
+import { Router } from 'express';
 
 import { log } from '../lib/logger.js';
-import { getClientIp } from '../lib/net-utils.js';
-import { checkLimit } from '../lib/sliding-window-limiter.js';
+import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
 import { sendError } from '../middleware/resource-auth.js';
 import { listNewsStories } from '../search/news.js';
 
 const router = Router();
 
 /** Its own bucket: reading Discover must not rate-limit Jobs or Finance. */
-router.use(async (req: Request, res: Response, next) => {
-  const result = await checkLimit(`anon:news:${getClientIp(req)}`, 'free');
-  if (result.allowed) { next(); return; }
-  res.setHeader('retry-after', String(result.resetInSeconds ?? 60));
-  sendError(res, 429, 'rate_limited', 'Too many requests. Please retry shortly.', req);
-});
+router.use(anonymousRateLimit('anon:news:'));
 
 router.get('/', async (req, res) => {
   try {
-    res.json({ data: await listNewsStories({ limit: req.query.limit, languages: req.query.languages ?? req.query.language }) });
+    const { limit, languages } = req.query;
+    let data = await listNewsStories({ limit, languages });
+    // A reader's languages with no news yet get every language, not an empty
+    // page — decided here, in one request, rather than by a second round trip.
+    if (data.length === 0 && languages) data = await listNewsStories({ limit });
+    // The same answer for every anonymous reader: let a shared cache hold it.
+    res.setHeader('cache-control', 'public, max-age=60');
+    res.json({ data });
   } catch (error) {
     log.general.error({ err: error }, 'News listing failed');
     sendError(res, 503, 'news_unavailable', 'News is temporarily unavailable', req);

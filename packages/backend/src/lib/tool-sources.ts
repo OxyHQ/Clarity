@@ -8,6 +8,10 @@
  * results are reduced to the link-shaped fields the chat renders.
  */
 
+import { excerpt } from '../search/query-primitives.js';
+import { hostOf } from '../search/site-icons.js';
+import { asRecord } from './json-record.js';
+
 export interface StoredToolInvocation {
   toolCallId: string;
   toolName: string;
@@ -30,54 +34,44 @@ const MAX_LINKS = 20;
 const MAX_TEXT = 300;
 const MAX_INVOCATIONS = 50;
 
-function record(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
-}
-function text(value: unknown): string | undefined {
-  return typeof value === 'string' && value.length > 0 ? value.slice(0, MAX_TEXT) : undefined;
-}
 function httpUrl(value: unknown): string | undefined {
-  if (typeof value !== 'string' || value.length > 2048) return undefined;
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' || url.protocol === 'http:' ? value : undefined;
-  } catch {
-    return undefined;
-  }
+  return typeof value === 'string' && value.length <= 2048 && hostOf(value) ? value : undefined;
 }
 
+// Absent fields are left `undefined`; JSON storage drops them.
 function compactLink(value: unknown): StoredLink | null {
-  const link = record(value);
+  const link = asRecord(value);
   const url = httpUrl(link?.url);
   if (!link || !url) return null;
-  return { url, ...(text(link.title) ? { title: text(link.title) } : {}), ...(text(link.snippet) ? { snippet: text(link.snippet) } : {}) };
+  return { url, title: excerpt(asText(link.title), MAX_TEXT), snippet: excerpt(asText(link.snippet), MAX_TEXT) };
+}
+
+function asText(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
 }
 
 /** The link-shaped part of a tool's output; `null` when it carries no link. */
 export function compactToolResult(output: unknown): StoredToolResult | null {
-  const result = record(output);
+  const result = asRecord(output);
   if (!result) return null;
-  const compact: StoredToolResult = {};
-  if (typeof result.action === 'string') compact.action = result.action.slice(0, 32);
   const url = httpUrl(result.url);
-  if (url) {
-    compact.url = url;
-    if (text(result.title)) compact.title = text(result.title);
-    if (typeof result.content === 'string') compact.content = result.content.slice(0, 200);
-  }
-  if (Array.isArray(result.results)) {
-    const links = result.results.flatMap((value) => compactLink(value) ?? []).slice(0, MAX_LINKS);
-    if (links.length) compact.results = links;
-  }
-  if (Array.isArray(result.sources)) {
-    const sources = result.sources.flatMap((value) => {
+  const results = Array.isArray(result.results)
+    ? result.results.flatMap((value) => compactLink(value) ?? []).slice(0, MAX_LINKS)
+    : [];
+  const sources = Array.isArray(result.sources)
+    ? result.sources.flatMap((value) => {
       const link = compactLink(value);
-      const id = record(value)?.id;
-      return link ? [{ ...(typeof id === 'number' ? { id } : {}), url: link.url, ...(link.title ? { title: link.title } : {}) }] : [];
-    }).slice(0, MAX_LINKS);
-    if (sources.length) compact.sources = sources;
-  }
-  return compact.url || compact.results || compact.sources ? compact : null;
+      const id = asRecord(value)?.id;
+      return link ? [{ id: typeof id === 'number' ? id : undefined, url: link.url, title: link.title }] : [];
+    }).slice(0, MAX_LINKS)
+    : [];
+  if (!url && results.length === 0 && sources.length === 0) return null;
+  return {
+    action: typeof result.action === 'string' ? result.action.slice(0, 32) : undefined,
+    ...(url ? { url, title: excerpt(asText(result.title), MAX_TEXT), content: excerpt(asText(result.content), 200) } : {}),
+    results: results.length ? results : undefined,
+    sources: sources.length ? sources : undefined,
+  };
 }
 
 /**
@@ -90,40 +84,36 @@ export function createToolSourceCollector() {
   const invocations = new Map<string, StoredToolInvocation>();
 
   function onResult(value: unknown) {
-    const event = record(value);
+    const event = asRecord(value);
     const toolCallId = typeof event?.tool_call_id === 'string' ? event.tool_call_id : undefined;
     if (!event || !toolCallId || invocations.size >= MAX_INVOCATIONS) return;
     const result = compactToolResult(event.output);
     if (!result) return;
     const call = args.get(toolCallId);
     const toolName = typeof event.name === 'string' && event.name ? event.name : call?.toolName ?? 'unknown';
-    invocations.set(toolCallId, {
-      toolCallId, toolName: toolName.slice(0, 64), state: 'result',
-      ...(call?.args ? { args: call.args } : {}),
-      result,
-    });
+    invocations.set(toolCallId, { toolCallId, toolName: toolName.slice(0, 64), state: 'result', args: call?.args, result });
   }
 
   function onToolCall(value: unknown) {
-    const call = record(value);
-    const fn = record(call?.function);
-    if (!call || typeof call.id !== 'string' || typeof fn?.name !== 'string') return;
+    const call = asRecord(value);
+    const fn = asRecord(call?.function);
+    if (!call || typeof call.id !== 'string' || typeof fn?.name !== 'string' || args.size >= MAX_INVOCATIONS) return;
     let parsed: Record<string, unknown> | null = null;
     try {
-      parsed = typeof fn.arguments === 'string' ? record(JSON.parse(fn.arguments)) : null;
+      parsed = typeof fn.arguments === 'string' ? asRecord(JSON.parse(fn.arguments)) : null;
     } catch {
       parsed = null;
     }
-    const query = text(parsed?.query);
+    const query = excerpt(asText(parsed?.query), MAX_TEXT);
     const url = httpUrl(parsed?.url);
-    args.set(call.id, { toolName: fn.name, ...(query || url ? { args: { ...(query ? { query } : {}), ...(url ? { url } : {}) } } : {}) });
+    args.set(call.id, { toolName: fn.name, args: query || url ? { query, url } : undefined });
   }
 
   return {
     observe(eventName: string, payload: unknown) {
       if (eventName === 'alia.tool_result' || eventName === 'clarity.tool_result') { onResult(payload); return; }
-      const choices = record(payload)?.choices;
-      const delta = Array.isArray(choices) ? record(record(choices[0])?.delta) : null;
+      const choices = asRecord(payload)?.choices;
+      const delta = Array.isArray(choices) ? asRecord(asRecord(choices[0])?.delta) : null;
       if (!delta) return;
       if (Array.isArray(delta.tool_calls)) delta.tool_calls.forEach(onToolCall);
       if (delta.tool_result) onResult(delta.tool_result);

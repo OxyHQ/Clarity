@@ -91,7 +91,10 @@ export async function saveConversation(params: SaveConversationParams): Promise<
   const { userId, conversationId, messages, assistantResponse, toolInvocations, source } = params;
 
   const history = messages.map(toWritableMessage).filter((message): message is WritableMessage => message !== null);
-  const stored = await listMessages(userId, conversationId);
+  // Only an earlier answer can carry tool activity; a first turn has none.
+  const stored = history.some((message) => message.role === 'assistant')
+    ? await listMessages(userId, conversationId)
+    : [];
   const allMessages: WritableMessage[] = [
     ...carryOverToolInvocations(history, stored),
     {

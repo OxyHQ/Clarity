@@ -22,23 +22,13 @@ export interface NewsStory {
   title: string;
   summary: string | null;
   language: string | null;
-  firstPublishedAt: string;
-  lastPublishedAt: string;
-  /**
-   * The article states no publication date, so `lastPublishedAt` is only when
-   * Clarity indexed it — never show it as the time the news broke.
-   */
-  undated?: boolean;
+  /** `null` when the article states no publication date. */
+  firstPublishedAt: string | null;
+  lastPublishedAt: string | null;
   sourceCount: number;
   publisherDiversity: number;
   rankingScore: number;
   articles: NewsArticle[];
-}
-
-export interface NewsRequest {
-  limit?: number;
-  /** Primary language subtags, e.g. `es,en`. Empty means every language. */
-  languages?: string[];
 }
 
 export interface NewsResponse {

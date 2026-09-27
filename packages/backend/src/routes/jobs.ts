@@ -11,8 +11,7 @@
  */
 import { Router, type Request, type Response } from 'express';
 
-import { getClientIp } from '../lib/net-utils.js';
-import { checkLimit } from '../lib/sliding-window-limiter.js';
+import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
 import { log } from '../lib/logger.js';
 import { sendError } from '../middleware/resource-auth.js';
 import { CLARITY_JOBS_CAPABILITY } from '../search/jobs/capability.js';
@@ -24,12 +23,7 @@ import {
 const router = Router();
 
 /** Burst protection for an anonymous surface, keyed by address, never by user. */
-router.use(async (req: Request, res: Response, next) => {
-  const result = await checkLimit(`anon:${getClientIp(req)}`, 'free');
-  if (result.allowed) { next(); return; }
-  res.setHeader('retry-after', String(result.resetInSeconds ?? 60));
-  sendError(res, 429, 'rate_limited', 'Too many requests. Please retry shortly.', req);
-});
+router.use(anonymousRateLimit('anon:'));
 
 router.post('/search', async (req, res) => {
   const parsed = jobSearchSchema.safeParse(req.body);

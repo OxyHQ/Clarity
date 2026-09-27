@@ -41,7 +41,7 @@ import { useApiClient } from "@/lib/api/use-api-client";
 import { useTranslation } from "@/hooks/useTranslation";
 import { MessageSources } from "@/components/message-sources";
 import {
-  citationUrls, collectMessageSources, linkCitations, resultDomains, type Source,
+  citationUrls, collectMessageSources, hostnameOf, linkCitations, resultDomains, type Source,
 } from "@/lib/message-sources";
 
 const isWeb = Platform.OS === "web";
@@ -132,15 +132,6 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
   utility: Clock,
   memory: Brain,
 };
-
-/** Real hostname only — never a fabricated page title or screenshot. */
-function hostnameOf(url: string): string | undefined {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return undefined;
-  }
-}
 
 /** Collapsible "Completed N steps" section above AI response */
 const CompletedSteps = React.memo(function CompletedSteps({
@@ -362,6 +353,7 @@ const AssistantContent = React.memo(function AssistantContent({
   isCopied,
   myVote,
   sources,
+  citations,
   handleCopyMessage,
   handleVote,
   openThoughtPanel,
@@ -373,6 +365,7 @@ const AssistantContent = React.memo(function AssistantContent({
   isCopied: boolean;
   myVote: "up" | "down" | null;
   sources: Source[];
+  citations: ReadonlyMap<number, string>;
   handleCopyMessage: (messageId: string, content: string) => void;
   handleVote: (messageId: string, vote: "up" | "down") => void;
   openThoughtPanel: (messageId: string) => void;
@@ -387,8 +380,8 @@ const AssistantContent = React.memo(function AssistantContent({
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const toggleSources = useCallback(() => setSourcesExpanded((prev) => !prev), []);
   const displayText = useMemo(
-    () => linkCitations(messageText, citationUrls(m)),
-    [messageText, m],
+    () => linkCitations(messageText, citations),
+    [messageText, citations],
   );
 
   let activeStatus: string | undefined;
@@ -497,8 +490,13 @@ const MessageRow = React.memo(function MessageRow({
   const messageImages = getMessageImages(m);
 
   // The links behind the answer: search results, pages read, research sources
+  // Stable across streamed text: tool and research events are what change them.
   const sources = useMemo(
     () => collectMessageSources(m),
+    [m.toolInvocations, m.researchProgress],
+  );
+  const citations = useMemo(
+    () => citationUrls(m),
     [m.toolInvocations, m.researchProgress],
   );
 
@@ -582,6 +580,7 @@ const MessageRow = React.memo(function MessageRow({
           isCopied={isCopied}
           myVote={myVote}
           sources={sources}
+          citations={citations}
           handleCopyMessage={handleCopyMessage}
           handleVote={handleVote}
           openThoughtPanel={openThoughtPanel}

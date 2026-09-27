@@ -125,6 +125,9 @@ the module behind `GET /v1/news`, with no credential, no user identity and its
 own per-address bucket. Both return clustered stories when there are any; until
 a clustering pass fills `clarity_news_stories`, every indexed page recognised as
 a `NewsArticle` is served as a story of one, in the same shape.
+A story whose article states no publication date has `null` dates, never the
+crawl time. `languages=es,en` (or `language=es`) filters by primary subtag; the
+public door falls back to every language when those have no news.
 
 The unauthenticated portal surface behind `clarity.surf/jobs` mirrors the read
 routes at `POST /jobs/search`, `GET /jobs/:id`, `GET /jobs/by-url`,
