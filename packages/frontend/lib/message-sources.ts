@@ -124,18 +124,24 @@ export function collectMessageSources(
 }
 
 /**
- * The URL each citation number `[n]` points at. A research run numbers its own
- * sources; otherwise the numbers follow the order the sources were found in.
+ * The URL each citation number `[n]` points at, only where the numbering is
+ * certain. A research run numbers its own sources. Otherwise the model numbers
+ * the results of the search it read, so `[n]` is that search's n-th result —
+ * which is unambiguous only when a single tool call returned sources. With
+ * several, a marker could mean any of them, and a wrong link is worse than none.
  */
 export function citationUrls(
   message: Pick<Message, 'toolInvocations' | 'researchProgress'>,
-  sources: Source[],
 ): Map<number, string> {
   const urls = new Map<number, string>();
   for (const source of message.researchProgress?.sources ?? []) {
     if (typeof source.id === 'number' && typeof source.url === 'string') urls.set(source.id, source.url);
   }
-  if (urls.size === 0) sources.forEach((source, index) => urls.set(index + 1, source.url));
+  if (urls.size > 0) return urls;
+  const withSources = (message.toolInvocations ?? [])
+    .map((invocation) => extractSources([invocation]))
+    .filter((sources) => sources.length > 0);
+  if (withSources.length === 1) withSources[0].forEach((source, index) => urls.set(index + 1, source.url));
   return urls;
 }
 

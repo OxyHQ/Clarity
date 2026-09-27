@@ -115,6 +115,7 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
         contentType, language: extracted.language, title: extracted.title, description: extracted.description,
         mainContent: extracted.mainContent, structuredData: extracted.structuredData, fieldEvidence: extracted.evidence,
         imageUrl: extracted.imageUrl, faviconUrl: extracted.faviconUrl, noindex: extracted.noindex, nofollow: extracted.nofollow,
+        publishedAt: extracted.publishedAt, modifiedAt: extracted.modifiedAt, publisherName: extracted.publisher,
         fetchedAt: observedAt, indexedAt: extracted.noindex ? undefined : observedAt, nextFetchAt,
       };
       const [document] = await tx.insert(searchDocuments)

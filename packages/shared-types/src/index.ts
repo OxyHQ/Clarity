@@ -80,6 +80,7 @@ export type {
 export type {
   NewsArticle,
   NewsStory,
+  NewsRequest,
   NewsResponse,
 } from './news.js';
 

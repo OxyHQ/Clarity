@@ -29,7 +29,7 @@ router.use(async (req: Request, res: Response, next) => {
 
 router.get('/', async (req, res) => {
   try {
-    res.json({ data: await listNewsStories(req.query.limit) });
+    res.json({ data: await listNewsStories({ limit: req.query.limit, languages: req.query.languages ?? req.query.language }) });
   } catch (error) {
     log.general.error({ err: error }, 'News listing failed');
     sendError(res, 503, 'news_unavailable', 'News is temporarily unavailable', req);
