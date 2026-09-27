@@ -23,15 +23,14 @@
  * cases are separate TYPES rather than an optional field so that an empty
  * history can never be mistaken for a door that does not serve one.
  */
-import { Router, type Request, type Response } from 'express';
+import { Router } from 'express';
 import { z } from 'zod';
 
 import type { MarketQuoteResult } from '@clarity/shared-types';
 
 import { log } from '../lib/logger.js';
 import { CLARITY_MARKET_CAPABILITY, MarketDataError, getMarketQuote } from '../lib/market-data.js';
-import { getClientIp } from '../lib/net-utils.js';
-import { checkLimit } from '../lib/sliding-window-limiter.js';
+import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
 import { sendError } from '../middleware/resource-auth.js';
 
 const router = Router();
@@ -43,12 +42,7 @@ const router = Router();
  * one counter means reading the Finance page rate-limits the Jobs page, which
  * would read as a bug in whichever one the person opened second.
  */
-router.use(async (req: Request, res: Response, next) => {
-  const result = await checkLimit(`anon:market:${getClientIp(req)}`, 'free');
-  if (result.allowed) { next(); return; }
-  res.setHeader('retry-after', String(result.resetInSeconds ?? 60));
-  sendError(res, 429, 'rate_limited', 'Too many requests. Please retry shortly.', req);
-});
+router.use(anonymousRateLimit('anon:market:'));
 
 /** A CoinGecko id, symbol or name, or a FairCoin alias. Never a URL or a path. */
 const assetSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9 .-]*$/i);

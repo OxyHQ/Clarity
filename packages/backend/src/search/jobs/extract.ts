@@ -73,7 +73,7 @@ export interface ExtractedJobPosting {
 type Node = Record<string, unknown>;
 
 /** Walks `@graph`, arrays and nested nodes so wrapper shapes still resolve. */
-function flattenNodes(values: readonly unknown[]): Node[] {
+export function flattenNodes(values: readonly unknown[]): Node[] {
   const output: Node[] = [];
   const queue = [...values];
   let visited = 0;
@@ -91,7 +91,8 @@ function flattenNodes(values: readonly unknown[]): Node[] {
   return output;
 }
 
-function typesOf(node: Node): string[] {
+/** A JSON-LD node's `@type`s, lower-cased. */
+export function typesOf(node: Node): string[] {
   const raw = node['@type'];
   const list = Array.isArray(raw) ? raw : [raw];
   return list.filter((item): item is string => typeof item === 'string').map((item) => item.toLowerCase());

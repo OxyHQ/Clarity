@@ -87,15 +87,18 @@ export interface NewsStory {
   title: string;
   summary?: string;
   language?: string;
-  firstPublishedAt: string;
-  lastPublishedAt: string;
+  /** `null` when the article states no publication date. */
+  firstPublishedAt: string | null;
+  lastPublishedAt: string | null;
   sourceCount: number;
   publisherDiversity: number;
+  rankingScore: number;
   articles: SearchResult[];
 }
 
 export interface NewsRequest {
   domains?: string[];
+  /** Primary language subtag; `en` matches `en-US` and `en-GB`. */
   language?: string;
   publishedAfter?: string;
   limit?: number;

@@ -257,7 +257,7 @@ router.get('/documents/:id', requireResourceScope('clarity:search'), async (req,
 });
 
 router.get('/news', requireResourceScope('clarity:search'), async (req, res) => {
-  res.json({ data: await listNewsStories({ limit: req.query.limit, languages: req.query.languages ?? req.query.language }) });
+  res.json({ data: await listNewsStories(req.query) });
 });
 
 router.get('/sites', requireResourceScope('clarity:sites:manage'), async (req, res) => {

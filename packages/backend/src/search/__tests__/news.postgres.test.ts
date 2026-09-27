@@ -86,9 +86,9 @@ suite('news on Postgres', () => {
       articles: [{ id: ids.newer, canonicalUrl: urls[1], imageUrl: 'https://news-test.example/i.jpg', publisher: 'Stated Publisher' }],
     });
     expect(stories[0].articles[0].publishedAt).toBeDefined();
-    expect(stories[0]).not.toHaveProperty('undated');
+    expect(stories[0].lastPublishedAt).toBeInstanceOf(Date);
     expect(stories[2].articles[0].publisher).toBe('Example News');
-    expect(stories[3]).toMatchObject({ undated: true });
+    expect(stories[3]).toMatchObject({ firstPublishedAt: null, lastPublishedAt: null });
     expect(stories[3].articles[0].publishedAt).toBeUndefined();
     expect(stories[0].articles[0].content).toBeUndefined();
   });

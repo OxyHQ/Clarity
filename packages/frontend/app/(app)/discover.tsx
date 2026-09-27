@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { useNews } from "@/lib/hooks/use-news";
 import { relativeTimeAgo } from "@/lib/relative-time";
 import { newsLanguagesFor } from "@/lib/news-languages";
+import { hostnameOf } from "@/lib/message-sources";
 
 /* ================================================================
    Types
@@ -57,20 +58,12 @@ function toArticle(story: NewsStory): Article {
     description: story.summary ?? lead?.description,
     imageUrl: lead?.imageUrl,
     url: lead?.canonicalUrl ?? "",
-    publisher: lead?.publisher ?? (lead ? hostOf(lead.canonicalUrl) : undefined),
+    publisher: lead?.publisher ?? (lead ? hostnameOf(lead.canonicalUrl) : undefined),
     faviconUrls,
     sourceCount: Math.max(story.sourceCount, story.articles.length),
-    publishedAt: story.undated ? undefined : new Date(story.lastPublishedAt),
+    publishedAt: story.lastPublishedAt ? new Date(story.lastPublishedAt) : undefined,
     rankingScore: story.rankingScore,
   };
-}
-
-function hostOf(url: string): string | undefined {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return undefined;
-  }
 }
 
 /* ================================================================
@@ -110,7 +103,7 @@ type Tab = "forYou" | "top";
 
 function SourceIcons({ faviconUrls, count }: { faviconUrls: string[]; count: number }) {
   const { colors } = useColorScheme();
-  const displayed = Math.min(Math.max(count, faviconUrls.length, 1), 3);
+  const displayed = Math.min(Math.max(count, 1), 3);
   const circleColors = [colors.primary, colors.muted, colors.surface];
 
   return (

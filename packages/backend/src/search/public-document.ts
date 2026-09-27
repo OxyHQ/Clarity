@@ -9,9 +9,11 @@ import { hostOf, hostsWithIcons, siteIconUrl } from './site-icons.js';
  * never disagree about which fields a caller sees.
  */
 export type DocumentRow = typeof searchDocuments.$inferSelect;
+/** A document read without its page text, as lists that never show it do. */
+export type DocumentCardRow = Omit<DocumentRow, 'mainContent'> & { mainContent?: string | null };
 
 /** The hosts among these documents whose favicon Clarity serves. */
-export function iconHostsOf(rows: readonly DocumentRow[]): Promise<Set<string>> {
+export function iconHostsOf(rows: readonly DocumentCardRow[]): Promise<Set<string>> {
   return hostsWithIcons(getDb(), rows.flatMap((row) => hostOf(row.canonicalUrl) ?? []));
 }
 export function searchResult(row: DocumentRow, score: number, icons: ReadonlySet<string>) {
@@ -22,10 +24,10 @@ export function searchResult(row: DocumentRow, score: number, icons: ReadonlySet
  * present once the worker has fetched it — never the site's own URL, which a
  * consumer would have to hotlink.
  */
-function iconUrlOf(row: DocumentRow, icons: ReadonlySet<string>): string | undefined {
+function iconUrlOf(row: DocumentCardRow, icons: ReadonlySet<string>): string | undefined {
   const host = hostOf(row.canonicalUrl);
   return host && icons.has(host) ? siteIconUrl(host) : undefined;
 }
-export function publicDocument(row: DocumentRow, icons: ReadonlySet<string>) {
+export function publicDocument(row: DocumentCardRow, icons: ReadonlySet<string>) {
   return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: iconUrlOf(row, icons), indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
 }

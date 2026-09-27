@@ -13,12 +13,12 @@ describe('compactToolResult', () => {
         { url: 'javascript:alert(1)', title: 'bad' },
         { title: 'no url' },
       ],
-    })).toEqual({ results: [{ url: 'https://example.com/a', title: 'A', snippet: 'x'.repeat(300) }] });
+    })).toEqual({ results: [{ url: 'https://example.com/a', title: 'A', snippet: `${'x'.repeat(300)}…` }] });
   });
 
   it('keeps a read page as a link with a short excerpt, and research sources with their ids', () => {
     expect(compactToolResult({ action: 'read', url: 'https://example.com/p', title: 'P', content: 'y'.repeat(5000) }))
-      .toEqual({ action: 'read', url: 'https://example.com/p', title: 'P', content: 'y'.repeat(200) });
+      .toEqual({ action: 'read', url: 'https://example.com/p', title: 'P', content: `${'y'.repeat(200)}…` });
     expect(compactToolResult({ report: 'long', sources: [{ id: 3, url: 'https://r.example/x', title: 'R' }] }))
       .toEqual({ sources: [{ id: 3, url: 'https://r.example/x', title: 'R' }] });
   });
