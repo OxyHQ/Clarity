@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, ScrollView } from "react-native";
+import { View, ScrollView, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -111,10 +110,7 @@ function ToolDetail({ toolPart, defaultOpen = false, className }: ToolDetailProp
     >
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <CollapsibleTrigger asChild>
-          <Button
-            variant="ghost"
-            className="h-auto w-full flex-row justify-between rounded-b-none px-3 py-2"
-          >
+          <Pressable className="w-full flex-row items-center justify-between px-3 py-2 web:hover:bg-accent active:bg-accent">
             <View className="flex-row items-center gap-2">
               {getStateIcon()}
               <Text
@@ -146,7 +142,7 @@ function ToolDetail({ toolPart, defaultOpen = false, className }: ToolDetailProp
             >
               <ChevronDown size={16} className="text-muted-foreground" />
             </View>
-          </Button>
+          </Pressable>
         </CollapsibleTrigger>
 
         <CollapsibleContent className="overflow-hidden border-t border-border">

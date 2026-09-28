@@ -27,6 +27,10 @@ import { useNews } from "@/lib/hooks/use-news";
 import { relativeTimeAgo } from "@/lib/relative-time";
 import { newsLanguagesFor } from "@/lib/news-languages";
 import { hostnameOf } from "@/lib/message-sources";
+import { bloomIcon } from "@/lib/bloom-icon";
+import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import { Chip } from "@oxy.so/bloom/chip";
 
 /* ================================================================
    Types
@@ -234,12 +238,8 @@ function NewsCard({
             ) : null}
           </View>
           <View className="flex-row items-center">
-            <Pressable className="h-8 w-8 rounded-full items-center justify-center hover:bg-accent">
-              <Heart size={16} color={colors.mutedForeground} />
-            </Pressable>
-            <Pressable className="h-8 w-8 rounded-full items-center justify-center hover:bg-accent">
-              <MoreHorizontal size={16} color={colors.mutedForeground} />
-            </Pressable>
+            <GlyphButton icon={bloomIcon(Heart)} size={32} accessibilityLabel="Like" />
+            <GlyphButton icon={bloomIcon(MoreHorizontal)} size={32} accessibilityLabel="More" />
           </View>
         </View>
       </View>
@@ -264,19 +264,12 @@ function MakeItYoursCard() {
       </Text>
       <View className="flex-row flex-wrap gap-2">
         {TOPIC_CHIPS.map((chip) => (
-          <Pressable
-            key={chip}
-            className="h-8 rounded-md border border-border/50 bg-muted px-3 items-center justify-center hover:bg-accent"
-          >
-            <Text className="text-xs font-medium text-foreground">{chip}</Text>
-          </Pressable>
+          <Chip key={chip} size="xl">
+            {chip}
+          </Chip>
         ))}
       </View>
-      <Pressable className="h-10 rounded-lg bg-primary items-center justify-center mt-1">
-        <Text className="text-sm font-medium text-primary-foreground">
-          {t("discover.saveInterests")}
-        </Text>
-      </Pressable>
+      <Button className="mt-1">{t("discover.saveInterests")}</Button>
     </View>
   );
 }
@@ -406,9 +399,11 @@ export default function DiscoverScreen() {
           {/* Left: Back + Title */}
           <View className="flex-row items-center gap-3">
             {!isLargeScreen && (
-              <Pressable onPress={handleBack} className="p-1">
-                <ArrowLeft size={20} color={colors.foreground} />
-              </Pressable>
+              <GlyphButton
+                icon={bloomIcon(ArrowLeft)}
+                accessibilityLabel={t("common.back")}
+                onPress={handleBack}
+              />
             )}
             <Text className="font-sans text-sm font-medium text-foreground">
               {t("discover.title")}
@@ -416,41 +411,27 @@ export default function DiscoverScreen() {
           </View>
 
           {/* Center: Tabs */}
-          <View className="flex-row items-center gap-1">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as Tab)}
+            variant="pill"
+            label={t("discover.title")}
+          >
             {tabs.map((tab) => (
-              <Pressable
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                className={cn(
-                  "h-9 rounded-lg px-3 flex-row items-center justify-center",
-                  activeTab === tab.key
-                    ? "bg-muted"
-                    : "hover:bg-muted/50"
-                )}
-              >
-                <Text
-                  className={cn(
-                    "text-sm font-medium",
-                    activeTab === tab.key
-                      ? "text-foreground"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
+              <TabsTrigger key={tab.key} value={tab.key} label={tab.label} />
             ))}
-          </View>
+          </Tabs>
 
           {/* Right: Share button */}
-          <Pressable className="border border-border h-8 rounded-lg px-3 flex-row items-center justify-center hover:bg-muted">
-            <Share2 size={14} color={colors.foreground} />
-            {isLargeScreen && (
-              <Text className="text-sm font-medium text-foreground ml-2">
-                {t("discover.share")}
-              </Text>
-            )}
-          </Pressable>
+          <Button
+            variant="outline"
+            size="sm"
+            leadingIcon={bloomIcon(Share2)}
+            iconOnly={!isLargeScreen}
+            accessibilityLabel={t("discover.share")}
+          >
+            {t("discover.share")}
+          </Button>
         </View>
       </View>
 
@@ -481,12 +462,9 @@ export default function DiscoverScreen() {
             ) : news.isError ? (
               <View className="items-center justify-center py-16 gap-3">
                 <Text className="text-sm text-muted-foreground">{t("discover.error")}</Text>
-                <Pressable
-                  onPress={() => void news.refetch()}
-                  className="border border-border h-8 rounded-lg px-3 items-center justify-center hover:bg-muted"
-                >
-                  <Text className="text-sm font-medium text-foreground">{t("discover.retry")}</Text>
-                </Pressable>
+                <Button variant="outline" size="sm" onPress={() => void news.refetch()}>
+                  {t("discover.retry")}
+                </Button>
               </View>
             ) : articles.length === 0 ? (
               <View className="items-center justify-center py-16 gap-3">

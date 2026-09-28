@@ -28,6 +28,9 @@ import { formatLocations, formatPostedAt, formatSalary } from "@/lib/jobs-format
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { bloomIcon } from "@/lib/bloom-icon";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import { Chip } from "@oxy.so/bloom/chip";
 
 const WORKPLACE_TYPES: JobWorkplaceType[] = ["remote", "hybrid", "onsite"];
 const EMPLOYMENT_TYPES: JobEmploymentType[] = [
@@ -42,32 +45,6 @@ type Recency = keyof typeof RECENCY_WINDOWS;
 
 function toggle<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
-}
-
-function FilterChip({
-  label,
-  active,
-  onPress,
-}: {
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      className={cn(
-        "h-8 rounded-full border px-3 items-center justify-center",
-        active ? "border-primary bg-primary" : "border-border/60 bg-muted/40 hover:bg-accent",
-      )}
-    >
-      <Text className={cn("text-xs font-medium", active ? "text-primary-foreground" : "text-foreground")}>
-        {label}
-      </Text>
-    </Pressable>
-  );
 }
 
 function MetaRow({ job }: { job: JobSearchResult }) {
@@ -220,9 +197,11 @@ export default function JobsScreen() {
           style={{ maxWidth: 1080, alignSelf: "center", width: "100%" }}
         >
           {!isLargeScreen && (
-            <Pressable onPress={() => router.back()} className="p-1" accessibilityRole="button">
-              <ArrowLeft size={20} color={colors.foreground} />
-            </Pressable>
+            <GlyphButton
+              icon={bloomIcon(ArrowLeft)}
+              accessibilityLabel={t("common.back")}
+              onPress={() => router.back()}
+            />
           )}
           <Text className="font-sans text-sm font-medium text-foreground">{t("jobs.title")}</Text>
         </View>
@@ -264,45 +243,48 @@ export default function JobsScreen() {
                 accessibilityLabel={t("jobs.locationPlaceholder")}
               />
             </View>
-            <Pressable
-              onPress={submit}
-              accessibilityRole="button"
-              className="h-9 rounded-xl bg-primary px-4 items-center justify-center"
-            >
-              <Text className="text-sm font-medium text-primary-foreground">{t("jobs.searchAction")}</Text>
-            </Pressable>
+            <Button onPress={submit}>{t("jobs.searchAction")}</Button>
           </View>
 
           {/* ── Filters ── */}
           <View className="gap-3">
             <View className="flex-row flex-wrap gap-2">
               {WORKPLACE_TYPES.map((type) => (
-                <FilterChip
+                <Chip
                   key={type}
-                  label={t(`jobs.workplace.${type}`)}
-                  active={workplaceTypes.includes(type)}
-                  onPress={() => setWorkplaceTypes((current) => toggle(current, type))}
-                />
+                  size="xl"
+                  role="checkbox"
+                  checked={workplaceTypes.includes(type)}
+                  onCheckedChange={() => setWorkplaceTypes((current) => toggle(current, type))}
+                >
+                  {t(`jobs.workplace.${type}`)}
+                </Chip>
               ))}
             </View>
             <View className="flex-row flex-wrap gap-2">
               {EMPLOYMENT_TYPES.map((type) => (
-                <FilterChip
+                <Chip
                   key={type}
-                  label={t(`jobs.employment.${type}`)}
-                  active={employmentTypes.includes(type)}
-                  onPress={() => setEmploymentTypes((current) => toggle(current, type))}
-                />
+                  size="xl"
+                  role="checkbox"
+                  checked={employmentTypes.includes(type)}
+                  onCheckedChange={() => setEmploymentTypes((current) => toggle(current, type))}
+                >
+                  {t(`jobs.employment.${type}`)}
+                </Chip>
               ))}
             </View>
             <View className="flex-row flex-wrap items-center gap-2">
               {(Object.keys(RECENCY_WINDOWS) as Recency[]).map((window) => (
-                <FilterChip
+                <Chip
                   key={window}
-                  label={t(`jobs.recency.${window}`)}
-                  active={recency === window}
+                  size="xl"
+                  role="radio"
+                  selected={recency === window}
                   onPress={() => setRecency(window)}
-                />
+                >
+                  {t(`jobs.recency.${window}`)}
+                </Chip>
               ))}
               <View className="flex-row items-center gap-2 ml-auto">
                 <Wallet size={14} color={colors.mutedForeground} />
@@ -335,13 +317,9 @@ export default function JobsScreen() {
             <View className="rounded-xl border border-border/60 bg-card p-6 gap-3 items-start">
               <Text className="text-sm font-medium text-foreground">{t("jobs.errorTitle")}</Text>
               <Text className="text-sm text-muted-foreground">{t("jobs.errorBody")}</Text>
-              <Pressable
-                onPress={() => search.refetch()}
-                accessibilityRole="button"
-                className="h-9 rounded-xl border border-input px-4 items-center justify-center"
-              >
-                <Text className="text-sm font-medium text-foreground">{t("jobs.retry")}</Text>
-              </Pressable>
+              <Button variant="outline" onPress={() => search.refetch()}>
+                {t("jobs.retry")}
+              </Button>
             </View>
           ) : jobs.length === 0 ? (
             <View className="rounded-xl border border-border/60 bg-card p-6 gap-2">
@@ -354,16 +332,13 @@ export default function JobsScreen() {
                 <JobCard key={job.id} job={job} onPress={() => openJob(job.id)} />
               ))}
               {search.hasNextPage ? (
-                <Pressable
+                <Button
+                  variant="outline"
                   onPress={() => search.fetchNextPage()}
                   disabled={search.isFetchingNextPage}
-                  accessibilityRole="button"
-                  className="h-10 rounded-xl border border-input items-center justify-center"
                 >
-                  <Text className="text-sm font-medium text-foreground">
-                    {search.isFetchingNextPage ? t("jobs.loadingMore") : t("jobs.loadMore")}
-                  </Text>
-                </Pressable>
+                  {search.isFetchingNextPage ? t("jobs.loadingMore") : t("jobs.loadMore")}
+                </Button>
               ) : null}
             </View>
           )}

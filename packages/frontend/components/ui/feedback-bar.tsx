@@ -1,8 +1,10 @@
 import React from "react";
-import { View, Pressable, type ViewProps } from "react-native";
+import { View, type ViewProps } from "react-native";
+import { CloseButton, GlyphButton } from "@oxy.so/bloom/button";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
-import { ThumbsUp, ThumbsDown, X } from "lucide-react-native";
+import { ThumbsUp, ThumbsDown } from "lucide-react-native";
+import { bloomIcon } from "@/lib/bloom-icon";
 
 type FeedbackBarProps = ViewProps & {
   title?: string;
@@ -35,30 +37,24 @@ export function FeedbackBar({
       </View>
 
       <View className="flex-row items-center gap-0.5 px-3">
-        <Pressable
+        <GlyphButton
+          size={32}
+          glyphSize={16}
+          icon={bloomIcon(ThumbsUp)}
           onPress={onHelpful}
           accessibilityLabel="Helpful"
-          className="h-8 w-8 items-center justify-center rounded-md web:hover:bg-accent active:bg-accent"
-        >
-          <ThumbsUp size={16} className="text-muted-foreground" />
-        </Pressable>
-        <Pressable
+        />
+        <GlyphButton
+          size={32}
+          glyphSize={16}
+          icon={bloomIcon(ThumbsDown)}
           onPress={onNotHelpful}
           accessibilityLabel="Not helpful"
-          className="h-8 w-8 items-center justify-center rounded-md web:hover:bg-accent active:bg-accent"
-        >
-          <ThumbsDown size={16} className="text-muted-foreground" />
-        </Pressable>
+        />
       </View>
 
-      <View className="border-l border-border items-center justify-center">
-        <Pressable
-          onPress={onClose}
-          accessibilityLabel="Close"
-          className="items-center justify-center rounded-md p-3 web:hover:bg-accent active:bg-accent"
-        >
-          <X size={20} className="text-muted-foreground" />
-        </Pressable>
+      <View className="border-l border-border items-center justify-center self-stretch px-3">
+        <CloseButton size="md" onPress={onClose} accessibilityLabel="Close" />
       </View>
     </View>
   );

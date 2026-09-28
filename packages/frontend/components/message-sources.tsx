@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Pressable, Linking } from "react-native";
 import { Image } from "expo-image";
+import { Button } from "@oxy.so/bloom/button";
 import { Text } from "@/components/ui/text";
 import { faviconUrl } from "@/components/ui/source";
 import type { Source } from "@/lib/message-sources";
@@ -85,12 +86,9 @@ export const MessageSources = React.memo(function MessageSources({
         </Pressable>
       ))}
       {hidden > 0 && (
-        <Pressable
-          onPress={onToggle}
-          className="flex-row items-center rounded-full bg-muted px-2.5 h-7 web:hover:bg-muted-foreground/20 active:opacity-80"
-        >
-          <Text className="text-xs text-muted-foreground">+{hidden}</Text>
-        </Pressable>
+        <Button variant="secondary" size="xs" onPress={onToggle}>
+          {`+${hidden}`}
+        </Button>
       )}
     </View>
   );

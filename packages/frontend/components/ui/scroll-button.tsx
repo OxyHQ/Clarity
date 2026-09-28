@@ -1,35 +1,33 @@
 import React from "react";
-import { Button, type ButtonProps } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@oxy.so/bloom/button";
 import { ChevronDown } from "lucide-react-native";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
+import { bloomIcon } from "@/lib/bloom-icon";
 
-export type ScrollButtonProps = Omit<ButtonProps, "children"> & {
+export type ScrollButtonProps = {
   isAtBottom: boolean;
   onScrollToBottom: () => void;
+  className?: string;
 };
 
 function ScrollButton({
   className,
-  variant = "outline",
-  size = "icon",
   isAtBottom,
   onScrollToBottom,
-  ...props
 }: ScrollButtonProps) {
   if (isAtBottom) return null;
 
   return (
     <Animated.View entering={FadeInDown.duration(150)} exiting={FadeOutDown.duration(150)}>
       <Button
-        variant={variant}
-        size={size}
-        className={cn("h-10 w-10 rounded-full", className)}
+        variant="outline"
+        size="lg"
+        iconOnly
+        icon={bloomIcon(ChevronDown)}
         onPress={onScrollToBottom}
-        {...props}
-      >
-        <ChevronDown size={20} className="text-foreground" />
-      </Button>
+        accessibilityLabel="Scroll to bottom"
+        className={className}
+      />
     </Animated.View>
   );
 }
