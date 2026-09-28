@@ -1,15 +1,22 @@
-import { View, Pressable, useWindowDimensions } from "react-native";
-import { Sparkles, Globe, ImageIcon, MoreHorizontal, Share2, Menu } from "lucide-react-native";
+import { View, useWindowDimensions } from "react-native";
+import { Sparkles, Globe, ImageIcon, MoreHorizontal, Share2, Menu, FileDown, Settings, CircleHelp, Trash2, type LucideIcon } from "lucide-react-native";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text } from "@/components/ui/text";
 import { useRouter } from "expo-router";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
 import { toast } from "@oxy.so/bloom/toast";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useState } from "react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { ModelSelector } from "@/components/model-selector";
-import { cn } from "@/lib/utils";
+import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
 import { useUIStore } from "@/lib/stores/ui-store";
 
 export type ConversationTab = "answer" | "links" | "images";
@@ -25,7 +32,7 @@ interface ChatHeaderProps {
   onTabChange?: (tab: ConversationTab) => void;
 }
 
-const TAB_CONFIG: Array<{ id: ConversationTab; labelKey: string; icon: React.ComponentType<{ size: number; className?: string }> }> = [
+const TAB_CONFIG: Array<{ id: ConversationTab; labelKey: string; icon: LucideIcon }> = [
   { id: "answer", labelKey: "chatHeader.tabAnswer", icon: Sparkles },
   { id: "links", labelKey: "chatHeader.tabLinks", icon: Globe },
   { id: "images", labelKey: "chatHeader.tabImages", icon: ImageIcon },
@@ -87,12 +94,13 @@ export function ChatHeader({
         >
           <View className="flex-row items-center gap-2">
             {!isLargeScreen && (
-              <Pressable
+              <GlyphButton
+                size={36}
+                glyphSize={20}
+                icon={bloomIcon(Menu)}
                 onPress={handleDrawerToggle}
-                className="h-9 w-9 items-center justify-center rounded-full"
-              >
-                <Menu size={20} className="text-muted-foreground" />
-              </Pressable>
+                accessibilityLabel={t("actions.openMenu")}
+              />
             )}
             <ModelSelector
               selectedModel={selectedModel}
@@ -127,76 +135,68 @@ export function ChatHeader({
             {/* Left: drawer toggle (mobile) + tabs */}
             <View className="flex-row items-center gap-1">
               {!isLargeScreen && (
-                <Pressable
+                <GlyphButton
+                  size={36}
+                  glyphSize={20}
+                  icon={bloomIcon(Menu)}
                   onPress={handleDrawerToggle}
-                  className="h-9 w-9 items-center justify-center rounded-full mr-1"
-                >
-                  <Menu size={20} className="text-muted-foreground" />
-                </Pressable>
+                  accessibilityLabel={t("actions.openMenu")}
+                  style={{ marginRight: 4 }}
+                />
               )}
 
-              {TAB_CONFIG.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const Icon = tab.icon;
-                return (
-                  <Pressable
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => onTabChange?.(value as ConversationTab)}
+                variant="underline"
+                label={t("actions.conversationViews")}
+              >
+                {TAB_CONFIG.map((tab) => (
+                  <TabsTrigger
                     key={tab.id}
-                    onPress={() => onTabChange?.(tab.id)}
-                    className={cn(
-                      "relative flex-row gap-1.5 items-center py-3.5 px-2",
-                      isActive ? "opacity-100" : "opacity-60"
-                    )}
-                  >
-                    <Icon size={14} className="text-foreground" />
-                    <Text className="font-sans font-medium text-sm text-foreground">
-                      {t(tab.labelKey)}
-                    </Text>
-                    {isActive && (
-                      <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-                    )}
-                  </Pressable>
-                );
-              })}
+                    value={tab.id}
+                    label={t(tab.labelKey)}
+                    leadingIcon={bloomIcon(tab.icon)}
+                  />
+                ))}
+              </Tabs>
             </View>
 
             {/* Right: dots menu + share */}
             <View className="flex-row items-center gap-1">
-              <DropdownMenu.Root>
-                <DropdownMenu.Trigger>
-                  <Pressable className="text-muted-foreground h-8 rounded-lg px-2 items-center justify-center">
-                    <MoreHorizontal size={18} className="text-muted-foreground" />
-                  </Pressable>
-                </DropdownMenu.Trigger>
-                <DropdownMenu.Content align="end">
-                  <DropdownMenu.Item key="export" onSelect={handleExport}>
-                    <DropdownMenu.ItemIcon ios={{ name: "arrow.down.doc" }} />
-                    <DropdownMenu.ItemTitle>{t("chatHeader.export")}</DropdownMenu.ItemTitle>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item key="settings" onSelect={handleSettings}>
-                    <DropdownMenu.ItemIcon ios={{ name: "gearshape" }} />
-                    <DropdownMenu.ItemTitle>{t("chatHeader.settings")}</DropdownMenu.ItemTitle>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Item key="help" onSelect={handleHelp}>
-                    <DropdownMenu.ItemIcon ios={{ name: "questionmark.circle" }} />
-                    <DropdownMenu.ItemTitle>{t("chatHeader.help")}</DropdownMenu.ItemTitle>
-                  </DropdownMenu.Item>
-                  <DropdownMenu.Separator />
-                  <DropdownMenu.Item key="clear" destructive onSelect={handleClearConversation}>
-                    <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
-                    <DropdownMenu.ItemTitle>{t("chatHeader.clearConversation")}</DropdownMenu.ItemTitle>
-                  </DropdownMenu.Item>
-                </DropdownMenu.Content>
-              </DropdownMenu.Root>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild label={t("actions.more")}>
+                  <GlyphButton
+                    size={32}
+                    glyphSize={18}
+                    icon={bloomIcon(MoreHorizontal)}
+                    accessibilityLabel={t("actions.more")}
+                  />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem leading={<MenuRowIcon icon={FileDown} />} onPress={handleExport}>
+                    {t("chatHeader.export")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem leading={<MenuRowIcon icon={Settings} />} onPress={handleSettings}>
+                    {t("chatHeader.settings")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem leading={<MenuRowIcon icon={CircleHelp} />} onPress={handleHelp}>
+                    {t("chatHeader.help")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    tone="danger"
+                    leading={<MenuRowIcon icon={Trash2} tone="danger" />}
+                    onPress={handleClearConversation}
+                  >
+                    {t("chatHeader.clearConversation")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-              <Pressable
-                onPress={handleShare}
-                className="bg-primary rounded-lg h-8 px-3 flex-row items-center gap-1"
-              >
-                <Share2 size={14} className="text-primary-foreground" />
-                <Text className="text-primary-foreground text-sm font-medium">
-                  {t("chatHeader.share")}
-                </Text>
-              </Pressable>
+              <Button size="sm" leadingIcon={bloomIcon(Share2)} onPress={handleShare}>
+                {t("chatHeader.share")}
+              </Button>
             </View>
           </View>
         </View>

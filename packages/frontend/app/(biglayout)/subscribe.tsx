@@ -3,7 +3,8 @@ import { View, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { Text } from '@/components/ui/text';
-import { Button } from '@/components/ui/button';
+import { Button, GlyphButton } from '@oxy.so/bloom/button';
+import { bloomIcon } from '@/lib/bloom-icon';
 import {
   useSubscriptionPlans,
   useSubscription,
@@ -73,9 +74,12 @@ export default function SubscribeScreen() {
       <View className="flex-1 bg-background">
         {/* Header */}
         <View className="flex-row items-center gap-3 px-4 py-3 border-b border-border">
-          <Button variant="ghost" size="icon" onPress={() => router.back()}>
-            <ArrowLeft size={20} className="text-foreground" />
-          </Button>
+          <GlyphButton
+            icon={bloomIcon(ArrowLeft)}
+            glyphSize={20}
+            onPress={() => router.back()}
+            accessibilityLabel={t('subscribe.back')}
+          />
           <Text className="text-lg font-semibold text-foreground">
             {t('subscribe.title') || 'Upgrade to Pro'}
           </Text>
@@ -139,18 +143,16 @@ export default function SubscribeScreen() {
                     ))
                   )}
                   <Button
-                    className="mt-4 rounded-full"
-                    variant={plan.isFeatured ? 'default' : 'outline'}
+                    className="mt-4"
+                    variant={plan.isFeatured ? 'primary' : 'outline'}
                     disabled={isCurrent || checkoutMutation.isPending}
                     onPress={() => handleSelectPlan(plan)}
                   >
-                    <Text className={plan.isFeatured ? 'text-primary-foreground font-semibold' : 'font-semibold'}>
-                      {isCurrent
-                        ? (t('subscribe.currentPlan') || 'Current plan')
-                        : plan.isFree
-                          ? (t('subscribe.free') || 'Free')
-                          : (t('subscribe.subscribe') || 'Subscribe')}
-                    </Text>
+                    {isCurrent
+                      ? (t('subscribe.currentPlan') || 'Current plan')
+                      : plan.isFree
+                        ? (t('subscribe.free') || 'Free')
+                        : (t('subscribe.subscribe') || 'Subscribe')}
                   </Button>
                 </View>
               );

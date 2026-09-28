@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, ScrollView, ActivityIndicator } from "react-native";
+import { CloseButton } from "@oxy.so/bloom/button";
 import { Image } from "expo-image";
 import {
   FileText,
@@ -8,11 +9,12 @@ import {
   FileArchive,
   FileAudio,
   File,
-  X,
 } from "lucide-react-native";
 import { Text } from "@/components/ui/text";
 import { formatFileSize } from "@/lib/utils";
 import { usePromptInput, type Attachment } from "./context";
+
+const REMOVE_BUTTON_POSITION = { position: "absolute", top: 6, right: 6 } as const;
 
 function getDocumentIcon(mimeType: string, name: string) {
   const ext = name.split(".").pop()?.toLowerCase() || "";
@@ -121,15 +123,12 @@ function AttachmentItem({
             </Text>
           </View>
         )}
-        <Pressable
+        <CloseButton
           onPress={onRemove}
-          className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full items-center justify-center active:opacity-70"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-          accessibilityRole="button"
+          size="sm"
           accessibilityLabel={`Remove ${attachment.name || "image"}`}
-        >
-          <X size={14} color="white" />
-        </Pressable>
+          style={REMOVE_BUTTON_POSITION}
+        />
       </View>
     );
   }
@@ -165,14 +164,12 @@ function AttachmentItem({
           )}
         </View>
       </View>
-      <Pressable
+      <CloseButton
         onPress={onRemove}
-        className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-muted items-center justify-center active:opacity-70 border border-border"
-        accessibilityRole="button"
+        size="xs"
         accessibilityLabel={`Remove ${attachment.name || "document"}`}
-      >
-        <X size={12} className="text-foreground" />
-      </Pressable>
+        style={REMOVE_BUTTON_POSITION}
+      />
     </View>
   );
 }

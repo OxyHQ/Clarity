@@ -1,6 +1,7 @@
-import { View, Pressable } from 'react-native';
+import { View } from 'react-native';
+import { Button, CloseButton } from '@oxy.so/bloom/button';
 import { useQueryClient } from '@tanstack/react-query';
-import { X, Zap, AlertTriangle } from 'lucide-react-native';
+import { Zap, AlertTriangle } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { useRouter } from 'expo-router';
 import { useCredits } from '@/lib/hooks/use-credits';
@@ -47,12 +48,10 @@ export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarn
           <Text className="text-xs flex-1 text-yellow-700 dark:text-yellow-400">
             {t('usageLimit.creditsRemaining', { count: creditsInfo.credits })}
           </Text>
-          <Pressable onPress={() => router.push('/(app)/settings/usage')} className="active:opacity-70">
-            <Text className="text-xs font-medium text-primary">{t('usageLimit.buyMore')}</Text>
-          </Pressable>
-          <Pressable onPress={() => setLowCreditsDismissed(true)} className="active:opacity-70">
-            <X size={12} className="text-muted-foreground" />
-          </Pressable>
+          <Button variant="link" size="xs" onPress={() => router.push('/(app)/settings/usage')}>
+            {t('usageLimit.buyMore')}
+          </Button>
+          <CloseButton size="2xs" onPress={() => setLowCreditsDismissed(true)} accessibilityLabel={t('common.close')} />
         </View>
       </View>
     );
@@ -95,12 +94,10 @@ export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarn
         <Text className={`text-xs flex-1 ${isCritical ? 'text-destructive' : 'text-yellow-700 dark:text-yellow-400'}`}>
           {statusText} {suggestionText}
         </Text>
-        <Pressable onPress={() => onSwitchModel(alt.model)} className="active:opacity-70">
-          <Text className="text-xs font-medium text-primary">{t('usageLimit.switchModel')}</Text>
-        </Pressable>
-        <Pressable onPress={handleDismiss} className="active:opacity-70">
-          <X size={12} className="text-muted-foreground" />
-        </Pressable>
+        <Button variant="link" size="xs" onPress={() => onSwitchModel(alt.model)}>
+          {t('usageLimit.switchModel')}
+        </Button>
+        <CloseButton size="2xs" onPress={handleDismiss} accessibilityLabel={t('common.close')} />
       </View>
     </View>
   );

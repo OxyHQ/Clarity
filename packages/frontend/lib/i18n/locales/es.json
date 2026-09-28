@@ -1191,5 +1191,27 @@
       "apps": "Apps",
       "documents": "Documents"
     }
+  },
+  "actions": {
+    "openMenu": "Abrir menú",
+    "more": "Más opciones",
+    "copy": "Copiar",
+    "copyCode": "Copiar código",
+    "like": "Me gusta",
+    "share": "Compartir",
+    "download": "Descargar",
+    "rewrite": "Reescribir",
+    "goodResponse": "Buena respuesta",
+    "badResponse": "Mala respuesta",
+    "stop": "Detener la generación",
+    "scrollToBottom": "Ir al final",
+    "expand": "Ampliar",
+    "collapse": "Contraer",
+    "voiceInput": "Entrada de voz",
+    "webSearch": "Búsqueda web",
+    "cancelEdit": "Cancelar edición",
+    "conversationViews": "Vistas de la conversación",
+    "addAttachment": "Añadir adjunto",
+    "searchModes": "Modos de búsqueda"
   }
 }

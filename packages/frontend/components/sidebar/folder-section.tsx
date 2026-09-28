@@ -1,13 +1,25 @@
 import React from "react";
 import { View, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
+import { GlyphButton } from "@oxy.so/bloom/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
 import {
   ChevronDown,
   ChevronRight,
   MoreHorizontal,
+  Pencil,
+  Star,
+  Trash2,
   Folder as FolderIcon,
 } from "lucide-react-native";
+import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
+import { useTranslation } from "@/hooks/useTranslation";
 import type { Conversation } from "@clarity/shared-types";
 type Folder = { id: string; name: string; icon?: string; color?: string; conversationIds: string[]; isExpanded?: boolean; isFavorite?: boolean };
 type Project = { id: string; name: string; icon?: string; color?: string; conversationIds: string[]; isExpanded?: boolean };
@@ -63,6 +75,7 @@ export const FolderSection = React.memo<FolderSectionProps>(({
   getConversationProject,
   getConversationFolder,
 }) => {
+  const { t } = useTranslation();
   const Icon = ICON_MAP[folder.icon || "Folder"] || FolderIcon;
 
   return (
@@ -93,30 +106,38 @@ export const FolderSection = React.memo<FolderSectionProps>(({
             <ChevronRight size={12} className="text-muted-foreground" />
           )}
         </Pressable>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Pressable className="h-7 w-7 items-center justify-center rounded-full mr-1 active:bg-muted/70">
-              <MoreHorizontal size={12} className="text-muted-foreground" />
-            </Pressable>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            <DropdownMenu.Item key="favorite" onSelect={() => onToggleFavorite(folder, {})}>
-              <DropdownMenu.ItemIcon ios={{ name: folder.isFavorite ? "star.fill" : "star" }} />
-              <DropdownMenu.ItemTitle>
-                {folder.isFavorite ? "Unfavorite" : "Favorite"}
-              </DropdownMenu.ItemTitle>
-            </DropdownMenu.Item>
-            <DropdownMenu.Item key="edit" onSelect={() => onEdit(folder, {})}>
-              <DropdownMenu.ItemIcon ios={{ name: "pencil" }} />
-              <DropdownMenu.ItemTitle>Edit Folder</DropdownMenu.ItemTitle>
-            </DropdownMenu.Item>
-            <DropdownMenu.Separator />
-            <DropdownMenu.Item key="delete" destructive onSelect={() => onDelete(folder.id, {})}>
-              <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
-              <DropdownMenu.ItemTitle>Delete Folder</DropdownMenu.ItemTitle>
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild label={t("actions.more")} style={{ marginRight: 4, alignSelf: "center" }}>
+            <GlyphButton
+              size={28}
+              glyphSize={12}
+              icon={bloomIcon(MoreHorizontal)}
+              accessibilityLabel={t("actions.more")}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem
+              leading={<MenuRowIcon icon={Star} />}
+              onPress={() => onToggleFavorite(folder, {})}
+            >
+              {folder.isFavorite ? "Unfavorite" : "Favorite"}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              leading={<MenuRowIcon icon={Pencil} />}
+              onPress={() => onEdit(folder, {})}
+            >
+              Edit Folder
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              tone="danger"
+              leading={<MenuRowIcon icon={Trash2} tone="danger" />}
+              onPress={() => onDelete(folder.id, {})}
+            >
+              Delete Folder
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </View>
 
       {/* Folder Conversations */}

@@ -1,27 +1,23 @@
 import React from "react";
-import { Pressable } from "react-native";
 import { Mic } from "lucide-react-native";
-import { cn } from "@/lib/utils";
+import { GlyphButton } from "@oxy.so/bloom/button";
 import { toast } from "@oxy.so/bloom/toast";
+import { bloomIcon } from "@/lib/bloom-icon";
+import { useTranslation } from "@/hooks/useTranslation";
 
-export type PromptInputMicButtonProps = {
-  className?: string;
-};
-
-export function PromptInputMicButton({ className }: PromptInputMicButtonProps) {
+export function PromptInputMicButton() {
+  const { t } = useTranslation();
   const handlePress = () => {
     toast.info("Speech-to-text is not available yet.");
   };
 
   return (
-    <Pressable
+    <GlyphButton
+      size={32}
+      glyphSize={16}
+      icon={bloomIcon(Mic)}
       onPress={handlePress}
-      className={cn(
-        "h-8 w-8 rounded-full items-center justify-center active:opacity-70",
-        className
-      )}
-    >
-      <Mic size={16} className="text-muted-foreground" />
-    </Pressable>
+      accessibilityLabel={t("actions.voiceInput")}
+    />
   );
 }

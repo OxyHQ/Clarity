@@ -1,6 +1,8 @@
 import { View, ScrollView, Pressable, Platform } from "react-native";
 import { Switch } from "@/components/ui/switch";
 import { Text } from "@/components/ui/text";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import { bloomIcon } from "@/lib/bloom-icon";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Bell, BellOff, CheckCheck, Zap, Clock, Eye, AlertTriangle, MessageSquare, X } from "lucide-react-native";
 import { useState, useEffect, useCallback } from "react";
@@ -118,13 +120,21 @@ export default function NotificationsScreen() {
       {/* Header */}
       <View className="px-6 py-6 border-b border-border">
         <View className="flex-row items-center justify-between mb-4">
-          <Pressable onPress={() => router.back()} className="flex-row items-center">
-            <ArrowLeft size={16} className="text-muted-foreground mr-2" />
-            <Text className="text-sm text-muted-foreground">{t('common.back')}</Text>
-          </Pressable>
-          <Pressable onPress={() => setShowSettings(s => !s)} className="p-2">
-            <Bell size={18} className="text-muted-foreground" />
-          </Pressable>
+          <Button
+            variant="link"
+            linkTone="secondary"
+            size="sm"
+            leadingIcon={bloomIcon(ArrowLeft)}
+            onPress={() => router.back()}
+          >
+            {t('common.back')}
+          </Button>
+          <GlyphButton
+            icon={bloomIcon(Bell)}
+            glyphSize={18}
+            onPress={() => setShowSettings(s => !s)}
+            accessibilityLabel={t('notifications.pushNotifications')}
+          />
         </View>
         <View className="flex-row items-center justify-between">
           <View>
@@ -136,13 +146,14 @@ export default function NotificationsScreen() {
             )}
           </View>
           {unreadCount > 0 && (
-            <Pressable
+            <Button
+              variant="secondary"
+              size="sm"
+              leadingIcon={bloomIcon(CheckCheck)}
               onPress={() => markAllAsRead.mutate()}
-              className="flex-row items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted active:bg-muted/80"
             >
-              <CheckCheck size={14} className="text-muted-foreground" />
-              <Text className="text-xs text-muted-foreground">Mark all read</Text>
-            </Pressable>
+              Mark all read
+            </Button>
           )}
         </View>
       </View>
@@ -217,16 +228,16 @@ export default function NotificationsScreen() {
                         <Text className="text-xs text-muted-foreground">
                           {timeAgo(notification.createdAt)}
                         </Text>
-                        <Pressable
+                        <GlyphButton
+                          icon={bloomIcon(X)}
+                          size={20}
+                          glyphSize={12}
                           onPress={(e) => {
                             e.stopPropagation();
                             dismiss.mutate(notification.id);
                           }}
-                          className="p-1"
-                          hitSlop={8}
-                        >
-                          <X size={12} className="text-muted-foreground" />
-                        </Pressable>
+                          accessibilityLabel={t('common.close')}
+                        />
                       </View>
                     </View>
                     <Text className="text-xs text-muted-foreground" numberOfLines={3}>

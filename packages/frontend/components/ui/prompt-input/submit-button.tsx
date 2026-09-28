@@ -1,7 +1,8 @@
 import React from "react";
 import { ArrowUp, Square } from "lucide-react-native";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button } from "@oxy.so/bloom/button";
+import { bloomIcon } from "@/lib/bloom-icon";
+import { useTranslation } from "@/hooks/useTranslation";
 import { usePromptInput } from "./context";
 
 export type PromptInputSubmitButtonProps = {
@@ -17,18 +18,20 @@ export function PromptInputSubmitButton({
   emptyAction,
   className,
 }: PromptInputSubmitButtonProps) {
+  const { t } = useTranslation();
   const { onSubmit, value, attachments } = usePromptInput();
   const hasContent = value.trim() || attachments.length > 0;
 
   if (isLoading && onStop) {
     return (
       <Button
-        size="icon"
+        iconOnly
+        size="sm"
+        icon={bloomIcon(Square)}
         onPress={onStop}
-        className={cn("h-8 w-8 rounded-full", className)}
-      >
-        <Square size={12} color="white" className="fill-current" />
-      </Button>
+        accessibilityLabel={t("actions.stop")}
+        className={className}
+      />
     );
   }
 
@@ -38,12 +41,13 @@ export function PromptInputSubmitButton({
 
   return (
     <Button
-      size="icon"
+      iconOnly
+      size="sm"
+      icon={bloomIcon(ArrowUp)}
       onPress={onSubmit}
       disabled={!hasContent}
-      className={cn("h-8 w-8 rounded-full", className)}
-    >
-      <ArrowUp size={16} color="white" />
-    </Button>
+      accessibilityLabel={t("chat.sendButton")}
+      className={className}
+    />
   );
 }

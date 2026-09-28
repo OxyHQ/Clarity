@@ -5,7 +5,7 @@ import Head from 'expo-router/head';
 import { AuthContainer, AuthLogo } from '@/components/auth';
 import { useAuth, useOxy } from '@oxy.so/services';
 import { useApiClient } from '@/lib/api/use-api-client';
-import { Button } from '@/components/ui/button';
+import { Button } from '@oxy.so/bloom/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Text } from '@/components/ui/text';
 import { Separator } from '@/components/ui/separator';
@@ -275,11 +275,11 @@ export default function AuthorizeScreen() {
 
                 <View className="gap-3">
                   <Button onPress={handleOAuthAuthorize} size="lg">
-                    <Text>{t('common.authorize')}</Text>
+                    {t('common.authorize')}
                   </Button>
 
                   <Button onPress={handleCancel} variant="outline" size="lg">
-                    <Text>{t('common.cancel')}</Text>
+                    {t('common.cancel')}
                   </Button>
                 </View>
               </View>
@@ -351,7 +351,7 @@ export default function AuthorizeScreen() {
                       }}
                       size="lg"
                     >
-                      <Text>{t('authorize.openAppManually')}</Text>
+                      {t('authorize.openAppManually')}
                     </Button>
                     <Text className="text-xs text-muted-foreground text-center select-all">
                       {redirectUrl}
@@ -396,7 +396,7 @@ export default function AuthorizeScreen() {
                     }}
                     size="lg"
                   >
-                    <Text>Request New Link</Text>
+                    Request New Link
                   </Button>
                 ) : (
                   <Button
@@ -409,7 +409,7 @@ export default function AuthorizeScreen() {
                     }}
                     size="lg"
                   >
-                    <Text>Try Again</Text>
+                    Try Again
                   </Button>
                 )}
               </View>

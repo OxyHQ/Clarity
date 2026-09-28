@@ -1,11 +1,14 @@
 import React, { useState } from "react";
-import { View, ScrollView, Pressable, type ViewProps } from "react-native";
+import { View, ScrollView, type ViewProps } from "react-native";
+import { GlyphButton } from "@oxy.so/bloom/button";
 import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
+import { bloomIcon } from "@/lib/bloom-icon";
 import { Copy, Check } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
 import SyntaxHighlighter from "react-native-syntax-highlighter";
 import { atomOneLight } from "react-syntax-highlighter/styles/hljs";
+import { useTranslation } from "@/hooks/useTranslation";
 
 // --- CodeBlock (root container) ---
 
@@ -81,6 +84,7 @@ function CodeBlockGroup({
   code,
   ...props
 }: CodeBlockGroupProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -105,16 +109,13 @@ function CodeBlockGroup({
             <Text className="text-xs text-muted-foreground">{language}</Text>
           )}
           {code && (
-            <Pressable
+            <GlyphButton
+              size={24}
+              glyphSize={14}
+              icon={bloomIcon(copied ? Check : Copy)}
               onPress={handleCopy}
-              className="p-1 rounded active:bg-accent web:hover:bg-accent"
-            >
-              {copied ? (
-                <Check size={14} className="text-green-500" />
-              ) : (
-                <Copy size={14} className="text-muted-foreground" />
-              )}
-            </Pressable>
+              accessibilityLabel={t("actions.copyCode")}
+            />
           )}
         </>
       )}

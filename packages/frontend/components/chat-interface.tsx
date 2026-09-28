@@ -11,10 +11,17 @@ import { cn } from "@/lib/utils";
 import { ThinkingIndicator } from "@/lib/sdk";
 import {
   Copy, ThumbsUp, ThumbsDown, Pencil, Check, Share2,
-  Download, RefreshCw, MoreHorizontal, ChevronDown,
+  Download, RefreshCw, MoreHorizontal, ChevronDown, ChevronUp,
   Globe, MessageCircle, Clock, Brain, type LucideIcon,
 } from "lucide-react-native";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
 import Animated, {
   FadeInUp,
   useSharedValue,
@@ -253,6 +260,7 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
   handleCopyMessage: (messageId: string, content: string) => void;
   handleVote: (messageId: string, vote: "up" | "down") => void;
 }) {
+  const { t } = useTranslation();
   const handleShare = useCallback(() => {
     toast.info("Share coming soon");
   }, []);
@@ -269,76 +277,72 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
     <View className="flex-row items-center justify-between mt-2 pt-1">
       {/* Left actions */}
       <View className="flex-row items-center gap-0.5">
-        <Pressable
+        <GlyphButton
+          size={32}
+          glyphSize={14}
+          icon={bloomIcon(Share2)}
           onPress={handleShare}
-          className="h-8 w-8 rounded-full items-center justify-center"
-        >
-          <Share2 size={14} className="text-muted-foreground" />
-        </Pressable>
-        <Pressable
+          accessibilityLabel={t("actions.share")}
+        />
+        <GlyphButton
+          size={32}
+          glyphSize={14}
+          icon={bloomIcon(Download)}
           onPress={handleDownload}
-          className="h-8 w-8 rounded-full items-center justify-center"
-        >
-          <Download size={14} className="text-muted-foreground" />
-        </Pressable>
-        <Pressable
+          accessibilityLabel={t("actions.download")}
+        />
+        <GlyphButton
+          size={32}
+          glyphSize={14}
+          icon={bloomIcon(isCopied ? Check : Copy)}
           onPress={() => handleCopyMessage(messageId, messageText)}
-          className="h-8 w-8 rounded-full items-center justify-center"
-        >
-          {isCopied ? (
-            <Check size={14} className="text-green-500" />
-          ) : (
-            <Copy size={14} className="text-muted-foreground" />
-          )}
-        </Pressable>
-        <Pressable
+          accessibilityLabel={t("actions.copy")}
+        />
+        <GlyphButton
+          size={32}
+          glyphSize={14}
+          icon={bloomIcon(RefreshCw)}
           onPress={handleRewrite}
-          className="h-8 w-8 rounded-full items-center justify-center"
-        >
-          <RefreshCw size={14} className="text-muted-foreground" />
-        </Pressable>
+          accessibilityLabel={t("actions.rewrite")}
+        />
 
         {sourcesCount > 0 && (
-          <Pressable
+          <Button
+            variant="text"
+            size="sm"
+            trailingIcon={bloomIcon(sourcesExpanded ? ChevronUp : ChevronDown)}
             onPress={onToggleSources}
-            accessibilityState={{ expanded: sourcesExpanded }}
-            className="h-8 rounded-full px-3 flex-row items-center gap-1"
+            aria-expanded={sourcesExpanded}
           >
-            <Text className="text-xs text-muted-foreground font-normal">
-              {sourcesCount} source{sourcesCount !== 1 ? "s" : ""}
-            </Text>
-            <ChevronDown
-              size={12}
-              className="text-muted-foreground"
-              style={sourcesExpanded ? { transform: [{ rotate: "180deg" }] } : undefined}
-            />
-          </Pressable>
+            {`${sourcesCount} source${sourcesCount !== 1 ? "s" : ""}`}
+          </Button>
         )}
       </View>
 
       {/* Right actions */}
       <View className="flex-row items-center gap-0.5">
-        <Pressable
+        <GlyphButton
+          size={32}
+          glyphSize={14}
+          icon={bloomIcon(ThumbsUp)}
           onPress={() => handleVote(messageId, "up")}
-          className="h-8 w-8 rounded-full items-center justify-center"
-        >
-          <ThumbsUp
-            size={14}
-            className={myVote === "up" ? "text-primary" : "text-muted-foreground"}
-          />
-        </Pressable>
-        <Pressable
+          pressed={myVote === "up"}
+          accessibilityLabel={t("actions.goodResponse")}
+        />
+        <GlyphButton
+          size={32}
+          glyphSize={14}
+          icon={bloomIcon(ThumbsDown)}
           onPress={() => handleVote(messageId, "down")}
-          className="h-8 w-8 rounded-full items-center justify-center"
-        >
-          <ThumbsDown
-            size={14}
-            className={myVote === "down" ? "text-primary" : "text-muted-foreground"}
-          />
-        </Pressable>
-        <Pressable className="h-8 w-8 rounded-full items-center justify-center">
-          <MoreHorizontal size={14} className="text-muted-foreground" />
-        </Pressable>
+          pressed={myVote === "down"}
+          accessibilityLabel={t("actions.badResponse")}
+        />
+        <GlyphButton
+          size={32}
+          glyphSize={14}
+          icon={bloomIcon(MoreHorizontal)}
+          accessibilityLabel={t("actions.more")}
+        />
       </View>
     </View>
   );
@@ -488,6 +492,27 @@ const MessageRow = React.memo(function MessageRow({
 }: MessageRowProps) {
   const messageText = getMessageText(m);
   const messageImages = getMessageImages(m);
+  const { t } = useTranslation();
+  const bubble = (
+    <View className="min-w-[48px] select-none p-3 bg-muted rounded-2xl" style={{ maxWidth: 600 }}>
+      {messageImages.length > 0 && (
+        <View className="flex-row flex-wrap gap-2 mb-2">
+          {messageImages.map((imgUrl, imgIdx) => (
+            <View
+              key={`img-${imgIdx}`}
+              className="rounded-xl overflow-hidden"
+              style={imageThumbStyle}
+            >
+              <Image source={{ uri: imgUrl }} className="w-full h-full" contentFit="cover" />
+            </View>
+          ))}
+        </View>
+      )}
+      <Text className="font-sans text-base text-foreground font-normal">
+        {messageText}
+      </Text>
+    </View>
+  );
 
   // The links behind the answer: search results, pages read, research sources
   // Stable across streamed text: tool and research events are what change them.
@@ -512,61 +537,49 @@ const MessageRow = React.memo(function MessageRow({
           {/* Hover actions (web only) */}
           {isWeb && (
             <View className="flex-row gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity mb-1">
-              <Pressable
+              <GlyphButton
+                size={32}
+                glyphSize={14}
+                icon={bloomIcon(Pencil)}
                 onPress={() => onStartEdit?.(m.id, messageText)}
-                className="h-8 w-8 rounded-full items-center justify-center"
-              >
-                <Pencil size={14} className="text-muted-foreground" />
-              </Pressable>
-              <Pressable
+                accessibilityLabel={t("common.edit")}
+              />
+              <GlyphButton
+                size={32}
+                glyphSize={14}
+                icon={bloomIcon(isCopied ? Check : Copy)}
                 onPress={() => handleCopyMessage(m.id, messageText)}
-                className="h-8 w-8 rounded-full items-center justify-center"
-              >
-                {isCopied ? (
-                  <Check size={14} className="text-green-500" />
-                ) : (
-                  <Copy size={14} className="text-muted-foreground" />
-                )}
-              </Pressable>
+                accessibilityLabel={t("actions.copy")}
+              />
             </View>
           )}
 
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              <Pressable>
-                <View className="min-w-[48px] select-none p-3 bg-muted rounded-2xl" style={{ maxWidth: 600 }}>
-                  {messageImages.length > 0 && (
-                    <View className="flex-row flex-wrap gap-2 mb-2">
-                      {messageImages.map((imgUrl, imgIdx) => (
-                        <View
-                          key={`img-${imgIdx}`}
-                          className="rounded-xl overflow-hidden"
-                          style={imageThumbStyle}
-                        >
-                          <Image source={{ uri: imgUrl }} className="w-full h-full" contentFit="cover" />
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                  <Text className="font-sans text-base text-foreground font-normal">
-                    {messageText}
-                  </Text>
-                </View>
-              </Pressable>
-            </DropdownMenu.Trigger>
-            {!isWeb && (
-              <DropdownMenu.Content>
-                <DropdownMenu.Item key="copy" onSelect={() => handleCopyMessage(m.id, messageText)}>
-                  <DropdownMenu.ItemIcon ios={{ name: "doc.on.doc" }} />
-                  <DropdownMenu.ItemTitle>Copy</DropdownMenu.ItemTitle>
-                </DropdownMenu.Item>
-                <DropdownMenu.Item key="edit" onSelect={() => onStartEdit?.(m.id, messageText)}>
-                  <DropdownMenu.ItemIcon ios={{ name: "pencil" }} />
-                  <DropdownMenu.ItemTitle>Edit</DropdownMenu.ItemTitle>
-                </DropdownMenu.Item>
-              </DropdownMenu.Content>
-            )}
-          </DropdownMenu.Root>
+          {isWeb ? (
+            bubble
+          ) : (
+            // Native: a tap on the bubble offers the actions the web shows on hover.
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild label={t("actions.more")}>
+                <Pressable>
+                  {bubble}
+                </Pressable>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  leading={<MenuRowIcon icon={Copy} />}
+                  onPress={() => handleCopyMessage(m.id, messageText)}
+                >
+                  {t("actions.copy")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  leading={<MenuRowIcon icon={Pencil} />}
+                  onPress={() => onStartEdit?.(m.id, messageText)}
+                >
+                  {t("common.edit")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </View>
       )}
 

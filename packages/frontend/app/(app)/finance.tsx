@@ -25,6 +25,14 @@ import { marketCardView, type MarketCardView } from "@/lib/market-format";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useTranslation } from "@/hooks/useTranslation";
 import { cn } from "@/lib/utils";
+import { bloomIcon } from "@/lib/bloom-icon";
+import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 
 /* ================================================================
    Types
@@ -367,15 +375,9 @@ function CryptoQuotes({ isLargeScreen }: { isLargeScreen: boolean }) {
           <Text className="flex-1 text-xs text-muted-foreground">
             {t("finance.crypto.errorBody")}
           </Text>
-          <Pressable
-            onPress={() => quotes.refetch()}
-            accessibilityRole="button"
-            className="h-8 rounded-lg border border-input px-3 items-center justify-center"
-          >
-            <Text className="text-xs font-medium text-foreground">
-              {t("finance.crypto.retry")}
-            </Text>
-          </Pressable>
+          <Button variant="outline" size="sm" onPress={() => quotes.refetch()}>
+            {t("finance.crypto.retry")}
+          </Button>
         </View>
       ) : null}
       <Text className="text-xs text-muted-foreground">
@@ -486,29 +488,18 @@ function MoversCard() {
   return (
     <View className="rounded-xl border border-border bg-card p-4 gap-3">
       {/* Tabs */}
-      <View className="flex-row items-center gap-1">
+      <SegmentedControl
+        type="tabs"
+        size="sm"
+        value={activeTab}
+        onValueChange={setActiveTab}
+      >
         {tabs.map((tab) => (
-          <Pressable
-            key={tab.key}
-            onPress={() => setActiveTab(tab.key)}
-            className={cn(
-              "h-8 rounded-lg px-3 items-center justify-center",
-              activeTab === tab.key ? "bg-muted" : "hover:bg-muted/50",
-            )}
-          >
-            <Text
-              className={cn(
-                "text-xs font-medium",
-                activeTab === tab.key
-                  ? "text-foreground"
-                  : "text-muted-foreground",
-              )}
-            >
-              {t(tab.labelKey)}
-            </Text>
-          </Pressable>
+          <SegmentedControlItem key={tab.key} value={tab.key}>
+            <SegmentedControlItemText>{t(tab.labelKey)}</SegmentedControlItemText>
+          </SegmentedControlItem>
         ))}
-      </View>
+      </SegmentedControl>
       {/* Items */}
       {items.map((item) => (
         <View
@@ -604,9 +595,11 @@ export default function FinanceScreen() {
           {/* Left: Back + Title */}
           <View className="flex-row items-center gap-3">
             {!isLargeScreen && (
-              <Pressable onPress={handleBack} className="p-1">
-                <ArrowLeft size={20} color={colors.foreground} />
-              </Pressable>
+              <GlyphButton
+                icon={bloomIcon(ArrowLeft)}
+                accessibilityLabel={t("common.back")}
+                onPress={handleBack}
+              />
             )}
             <Text className="font-sans text-sm font-medium text-foreground">
               {t("finance.title")}
@@ -614,43 +607,29 @@ export default function FinanceScreen() {
           </View>
 
           {/* Center: Tabs */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerClassName="flex-row items-center gap-1"
-          >
-            {FINANCE_TABS.map((tab) => (
-              <Pressable
-                key={tab.id}
-                onPress={() => setActiveTab(tab.id)}
-                className={cn(
-                  "h-9 rounded-lg px-3 items-center justify-center",
-                  activeTab === tab.id ? "bg-muted" : "hover:bg-muted/50",
-                )}
-              >
-                <Text
-                  className={cn(
-                    "text-sm font-medium whitespace-nowrap",
-                    activeTab === tab.id
-                      ? "text-foreground"
-                      : "text-muted-foreground",
-                  )}
-                >
-                  {tab.label}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
+          <View className="flex-1 ml-3">
+            <Tabs
+              value={activeTab}
+              onValueChange={(v) => setActiveTab(v as FinanceTab)}
+              variant="pill"
+              label={t("finance.title")}
+            >
+              {FINANCE_TABS.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id} label={tab.label} />
+              ))}
+            </Tabs>
+          </View>
 
           {/* Right: Share button */}
-          <Pressable className="border border-border h-8 rounded-lg px-3 flex-row items-center justify-center hover:bg-muted">
-            <Share2 size={14} color={colors.foreground} />
-            {isLargeScreen && (
-              <Text className="text-sm font-medium text-foreground ml-2">
-                {t("discover.share")}
-              </Text>
-            )}
-          </Pressable>
+          <Button
+            variant="outline"
+            size="sm"
+            leadingIcon={bloomIcon(Share2)}
+            iconOnly={!isLargeScreen}
+            accessibilityLabel={t("discover.share")}
+          >
+            {t("discover.share")}
+          </Button>
         </View>
       </View>
 

@@ -6,7 +6,9 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "@/lib/keyboard";
 import { Maximize2, Minimize2 } from "lucide-react-native";
+import { GlyphButton } from "@oxy.so/bloom/button";
 import { cn } from "@/lib/utils";
+import { bloomIcon } from "@/lib/bloom-icon";
 import { PromptInputContext, type Attachment } from "./context";
 import { PromptInputTextarea } from "./textarea";
 import { PromptInputActions } from "./actions";
@@ -15,6 +17,7 @@ import { PromptInputAutocomplete } from "./autocomplete";
 import { PromptInputAttachments } from "./attachments";
 import { PromptInputSubmitButton } from "./submit-button";
 import { PromptInputAddMenu } from "./add-menu";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export type PromptInputProps = {
   isLoading?: boolean;
@@ -73,6 +76,7 @@ export function PromptInput({
   disableKeyboardAvoidance = false,
   ...props
 }: PromptInputProps) {
+  const { t } = useTranslation();
   const [internalValue, setInternalValue] = useState(value || "");
   const [currentHeight, setCurrentHeight] = useState(44);
   const [showFullscreen, setShowFullscreen] = useState(false);
@@ -217,12 +221,14 @@ export function PromptInput({
         {...props}
       >
         {showExpandIcon && !disabled && (
-          <Pressable
+          <GlyphButton
+            size={28}
+            glyphSize={16}
+            icon={bloomIcon(Maximize2)}
             onPress={() => setShowFullscreen(true)}
-            className="absolute top-2 right-2 z-10 bg-background rounded-full p-1.5 border border-border active:opacity-70"
-          >
-            <Maximize2 size={16} className="text-muted-foreground" />
-          </Pressable>
+            accessibilityLabel={t("actions.expand")}
+            style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}
+          />
         )}
         {content}
       </View>
@@ -271,12 +277,14 @@ export function PromptInput({
         <View
           className="fixed inset-0 z-[9998] bg-background"
         >
-          <Pressable
+          <GlyphButton
+            size={36}
+            glyphSize={20}
+            icon={bloomIcon(Minimize2)}
             onPress={() => setShowFullscreen(false)}
-            className="absolute top-4 right-4 z-50 p-2 active:opacity-70 bg-background/80 rounded-full"
-          >
-            <Minimize2 size={20} className="text-foreground" />
-          </Pressable>
+            accessibilityLabel={t("actions.collapse")}
+            style={{ position: "absolute", top: 16, right: 16, zIndex: 50 }}
+          />
           <View className="flex-1 flex-col">{content}</View>
         </View>
       )}

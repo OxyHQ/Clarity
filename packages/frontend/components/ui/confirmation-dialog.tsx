@@ -1,6 +1,4 @@
-import { View } from "react-native";
-import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button, type ButtonVariant } from "@oxy.so/bloom/button";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +16,7 @@ interface ConfirmationDialogProps {
   description: string;
   confirmText?: string;
   cancelText?: string;
-  confirmVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
+  confirmVariant?: ButtonVariant;
   onConfirm: () => void | Promise<void>;
   loading?: boolean;
 }
@@ -30,7 +28,7 @@ export function ConfirmationDialog({
   description,
   confirmText,
   cancelText,
-  confirmVariant = "default",
+  confirmVariant = "primary",
   onConfirm,
   loading = false,
 }: ConfirmationDialogProps) {
@@ -52,21 +50,20 @@ export function ConfirmationDialog({
         <DialogFooter className="gap-2 mt-2">
           <Button
             variant="outline"
-            size="sm"
-            className="flex-1 h-9"
+            className="flex-1"
             onPress={() => onOpenChange(false)}
             disabled={loading}
           >
-            <Text className="text-sm">{cancelText || t('common.cancel')}</Text>
+            {cancelText || t('common.cancel')}
           </Button>
           <Button
             variant={confirmVariant}
-            size="sm"
-            className="flex-1 h-9"
+            className="flex-1"
             onPress={handleConfirm}
             disabled={loading}
+            loading={loading}
           >
-            <Text className="text-sm">{loading ? t('common.processing') : (confirmText || t('common.confirm'))}</Text>
+            {confirmText || t('common.confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>

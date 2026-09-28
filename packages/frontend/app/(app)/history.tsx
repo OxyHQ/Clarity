@@ -18,6 +18,7 @@ import {
   Clock,
   ChevronDown,
   ArrowLeft,
+  Trash2,
 } from "lucide-react-native";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useColorScheme } from "@/lib/useColorScheme";
@@ -26,8 +27,17 @@ import {
   useDeleteConversation,
 } from "@/lib/hooks/use-conversations";
 import type { HydratedConversation } from "@/lib/hooks/use-conversations";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
+import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
+import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
 
 /* ================================================================
    Types
@@ -81,31 +91,16 @@ function TabBar({
   const { t } = useTranslation();
 
   return (
-    <View className="flex-row items-center gap-0">
-      {TABS.map((tab) => {
-        const isActive = tab.id === activeTab;
-        return (
-          <Pressable
-            key={tab.id}
-            onPress={() => onTabChange(tab.id)}
-            className="relative flex-row gap-1.5 items-center py-3.5"
-            style={{ marginRight: 16 }}
-          >
-            <Text
-              className={cn(
-                "font-sans font-medium text-sm text-foreground select-none cursor-pointer whitespace-nowrap",
-                isActive ? "opacity-100" : "opacity-60",
-              )}
-            >
-              {t(tab.labelKey)}
-            </Text>
-            {isActive && (
-              <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground rounded-full" />
-            )}
-          </Pressable>
-        );
-      })}
-    </View>
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => onTabChange(v as TabId)}
+      variant="underline"
+      label={t("history.title")}
+    >
+      {TABS.map((tab) => (
+        <TabsTrigger key={tab.id} value={tab.id} label={t(tab.labelKey)} />
+      ))}
+    </Tabs>
   );
 }
 
@@ -121,27 +116,21 @@ function SortDropdown({
   onChange: (v: SortOrder) => void;
 }) {
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <Pressable className="text-foreground border border-border h-6 rounded-md px-2 flex-row items-center hover:bg-muted">
-          <Text className="text-xs text-foreground select-none">
-            {t("history.sort")}: {t(`history.sort_${value}`)}
-          </Text>
-          <ChevronDown size={12} color={colors.foreground} style={{ marginLeft: 4 }} />
-        </Pressable>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content>
-        <DropdownMenu.Item key="newest" onSelect={() => onChange("newest")}>
-          <DropdownMenu.ItemTitle>{t("history.sort_newest")}</DropdownMenu.ItemTitle>
-        </DropdownMenu.Item>
-        <DropdownMenu.Item key="oldest" onSelect={() => onChange("oldest")}>
-          <DropdownMenu.ItemTitle>{t("history.sort_oldest")}</DropdownMenu.ItemTitle>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild label={t("history.sort")}>
+        <Button variant="outline" size="xs" trailingIcon={bloomIcon(ChevronDown)}>
+          {`${t("history.sort")}: ${t(`history.sort_${value}`)}`}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as SortOrder)}>
+          <DropdownMenuRadioItem value="newest">{t("history.sort_newest")}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="oldest">{t("history.sort_oldest")}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -199,27 +188,25 @@ const ThreadItem = React.memo(function ThreadItem({
           </Pressable>
 
           {/* Actions dropdown */}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <Pressable
-                className="h-6 rounded-md px-2 items-center justify-center hover:bg-accent cursor-pointer"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild label={t("actions.more")}>
+              <GlyphButton
+                size={28}
+                glyphSize={14}
+                icon={bloomIcon(MoreHorizontal)}
+                accessibilityLabel={t("actions.more")}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                tone="danger"
+                leading={<MenuRowIcon icon={Trash2} tone="danger" />}
+                onPress={() => onDelete(conversation.id)}
               >
-                <MoreHorizontal size={14} color={colors.mutedForeground} />
-              </Pressable>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.Item
-                key="delete"
-                destructive
-                onSelect={() => onDelete(conversation.id)}
-              >
-                <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
-                <DropdownMenu.ItemTitle>
-                  {t("common.delete")}
-                </DropdownMenu.ItemTitle>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+                {t("common.delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </View>
 
         {/* Metadata row */}
@@ -344,9 +331,13 @@ export default function HistoryScreen() {
         <View className="flex-row items-center justify-between h-14">
           {/* Left: Back + Title */}
           <View className="flex-row items-center gap-3">
-            <Pressable onPress={handleBack} className="md:hidden p-1">
-              <ArrowLeft size={20} color={colors.foreground} />
-            </Pressable>
+            <View className="md:hidden">
+              <GlyphButton
+                icon={bloomIcon(ArrowLeft)}
+                accessibilityLabel={t("common.back")}
+                onPress={handleBack}
+              />
+            </View>
             <Text className="font-sans text-sm font-medium text-foreground select-none">
               {t("history.title")}
             </Text>
@@ -359,15 +350,14 @@ export default function HistoryScreen() {
 
           {/* Right: New Thread button */}
           <View className="flex-row items-center gap-2">
-            <Pressable
+            <Button
+              variant="outline"
+              size="sm"
+              leadingIcon={bloomIcon(Plus)}
               onPress={handleNewThread}
-              className="border border-border h-8 rounded-lg px-3 flex-row items-center gap-1 hover:bg-muted"
             >
-              <Plus size={14} color={colors.foreground} />
-              <Text className="text-sm text-foreground select-none font-sans">
-                {t("history.newThread")}
-              </Text>
-            </Pressable>
+              {t("history.newThread")}
+            </Button>
           </View>
         </View>
 

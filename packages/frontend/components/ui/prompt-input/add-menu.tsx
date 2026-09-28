@@ -1,8 +1,14 @@
 import React from "react";
-import { Plus } from "lucide-react-native";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
+import { File, Image as ImageIcon, Plus } from "lucide-react-native";
+import { GlyphButton } from "@oxy.so/bloom/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
+import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
+import { useTranslation } from "@/hooks/useTranslation";
 import { useImagePicker } from "@/hooks/useImagePicker";
 import { useDocumentPicker } from "@/hooks/useDocumentPicker";
 import { usePromptInput } from "./context";
@@ -13,6 +19,7 @@ export type PromptInputAddMenuProps = {
 };
 
 export function PromptInputAddMenu({ className, iconSize = 16 }: PromptInputAddMenuProps) {
+  const { t } = useTranslation();
   const { addAttachment } = usePromptInput();
   const { pickImage } = useImagePicker();
   const { pickDocument } = useDocumentPicker();
@@ -58,26 +65,23 @@ export function PromptInputAddMenu({ className, iconSize = 16 }: PromptInputAddM
   };
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <Button
-          variant="ghost"
-          size="icon"
-          className={cn("h-8 rounded-full items-center justify-center active:bg-muted", className)}
-        >
-          <Plus size={iconSize} className="text-muted-foreground" />
-        </Button>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content side="top" align="start">
-        <DropdownMenu.Item key="photos" onSelect={handleAddPhotos}>
-          <DropdownMenu.ItemIcon ios={{ name: "photo" }} />
-          <DropdownMenu.ItemTitle>Add photos</DropdownMenu.ItemTitle>
-        </DropdownMenu.Item>
-        <DropdownMenu.Item key="document" onSelect={handleAddDocument}>
-          <DropdownMenu.ItemIcon ios={{ name: "doc" }} />
-          <DropdownMenu.ItemTitle>Add document</DropdownMenu.ItemTitle>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild label={t("actions.addAttachment")} className={className}>
+        <GlyphButton
+          size={32}
+          glyphSize={iconSize}
+          icon={bloomIcon(Plus)}
+          accessibilityLabel={t("actions.addAttachment")}
+        />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start">
+        <DropdownMenuItem leading={<MenuRowIcon icon={ImageIcon} />} onPress={handleAddPhotos}>
+          Add photos
+        </DropdownMenuItem>
+        <DropdownMenuItem leading={<MenuRowIcon icon={File} />} onPress={handleAddDocument}>
+          Add document
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
