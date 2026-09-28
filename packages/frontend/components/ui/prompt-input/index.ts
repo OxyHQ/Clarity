@@ -8,7 +8,6 @@ export { PromptInputActions } from "./actions";
 export type { PromptInputActionsProps } from "./actions";
 
 export { PromptInputMicButton } from "./mic-button";
-export type { PromptInputMicButtonProps } from "./mic-button";
 
 export { PromptInputAutocomplete } from "./autocomplete";
 export type { PromptInputAutocompleteProps } from "./autocomplete";

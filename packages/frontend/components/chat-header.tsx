@@ -1,7 +1,8 @@
 import { View, Pressable, useWindowDimensions } from "react-native";
-import { Sparkles, Globe, ImageIcon, MoreHorizontal, Share2, Menu } from "lucide-react-native";
+import { Sparkles, Globe, ImageIcon, MoreHorizontal, Share2, Menu, type LucideIcon } from "lucide-react-native";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Text } from "@/components/ui/text";
 import { useRouter } from "expo-router";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
 import { toast } from "@oxy.so/bloom/toast";
@@ -9,7 +10,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useState } from "react";
 import { useTranslation } from "@/hooks/useTranslation";
 import { ModelSelector } from "@/components/model-selector";
-import { cn } from "@/lib/utils";
+import { bloomIcon } from "@/lib/bloom-icon";
 import { useUIStore } from "@/lib/stores/ui-store";
 
 export type ConversationTab = "answer" | "links" | "images";
@@ -25,7 +26,7 @@ interface ChatHeaderProps {
   onTabChange?: (tab: ConversationTab) => void;
 }
 
-const TAB_CONFIG: Array<{ id: ConversationTab; labelKey: string; icon: React.ComponentType<{ size: number; className?: string }> }> = [
+const TAB_CONFIG: Array<{ id: ConversationTab; labelKey: string; icon: LucideIcon }> = [
   { id: "answer", labelKey: "chatHeader.tabAnswer", icon: Sparkles },
   { id: "links", labelKey: "chatHeader.tabLinks", icon: Globe },
   { id: "images", labelKey: "chatHeader.tabImages", icon: ImageIcon },
@@ -87,12 +88,13 @@ export function ChatHeader({
         >
           <View className="flex-row items-center gap-2">
             {!isLargeScreen && (
-              <Pressable
+              <GlyphButton
+                size={36}
+                glyphSize={20}
+                icon={bloomIcon(Menu)}
                 onPress={handleDrawerToggle}
-                className="h-9 w-9 items-center justify-center rounded-full"
-              >
-                <Menu size={20} className="text-muted-foreground" />
-              </Pressable>
+                accessibilityLabel="Open menu"
+              />
             )}
             <ModelSelector
               selectedModel={selectedModel}
@@ -127,36 +129,31 @@ export function ChatHeader({
             {/* Left: drawer toggle (mobile) + tabs */}
             <View className="flex-row items-center gap-1">
               {!isLargeScreen && (
-                <Pressable
+                <GlyphButton
+                  size={36}
+                  glyphSize={20}
+                  icon={bloomIcon(Menu)}
                   onPress={handleDrawerToggle}
-                  className="h-9 w-9 items-center justify-center rounded-full mr-1"
-                >
-                  <Menu size={20} className="text-muted-foreground" />
-                </Pressable>
+                  accessibilityLabel="Open menu"
+                  style={{ marginRight: 4 }}
+                />
               )}
 
-              {TAB_CONFIG.map((tab) => {
-                const isActive = activeTab === tab.id;
-                const Icon = tab.icon;
-                return (
-                  <Pressable
+              <Tabs
+                value={activeTab}
+                onValueChange={(value) => onTabChange?.(value as ConversationTab)}
+                variant="underline"
+                label="Conversation views"
+              >
+                {TAB_CONFIG.map((tab) => (
+                  <TabsTrigger
                     key={tab.id}
-                    onPress={() => onTabChange?.(tab.id)}
-                    className={cn(
-                      "relative flex-row gap-1.5 items-center py-3.5 px-2",
-                      isActive ? "opacity-100" : "opacity-60"
-                    )}
-                  >
-                    <Icon size={14} className="text-foreground" />
-                    <Text className="font-sans font-medium text-sm text-foreground">
-                      {t(tab.labelKey)}
-                    </Text>
-                    {isActive && (
-                      <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />
-                    )}
-                  </Pressable>
-                );
-              })}
+                    value={tab.id}
+                    label={t(tab.labelKey)}
+                    leadingIcon={bloomIcon(tab.icon)}
+                  />
+                ))}
+              </Tabs>
             </View>
 
             {/* Right: dots menu + share */}
@@ -188,15 +185,9 @@ export function ChatHeader({
                 </DropdownMenu.Content>
               </DropdownMenu.Root>
 
-              <Pressable
-                onPress={handleShare}
-                className="bg-primary rounded-lg h-8 px-3 flex-row items-center gap-1"
-              >
-                <Share2 size={14} className="text-primary-foreground" />
-                <Text className="text-primary-foreground text-sm font-medium">
-                  {t("chatHeader.share")}
-                </Text>
-              </Pressable>
+              <Button size="sm" leadingIcon={bloomIcon(Share2)} onPress={handleShare}>
+                {t("chatHeader.share")}
+              </Button>
             </View>
           </View>
         </View>
