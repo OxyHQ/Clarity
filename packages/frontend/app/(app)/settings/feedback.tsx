@@ -1,7 +1,7 @@
-import { View, Platform, Pressable, ActivityIndicator } from "react-native";
+import { View, Platform, Pressable } from "react-native";
 import { KeyboardAwareScrollView } from "@/lib/keyboard";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button } from "@oxy.so/bloom/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { useRouter } from "expo-router";
@@ -188,14 +188,9 @@ export default function FeedbackScreen() {
             <Button
               onPress={handleSubmit}
               disabled={submitting || !selectedType || !message.trim()}
+              loading={submitting}
             >
-              {submitting ? (
-                <ActivityIndicator size="small" color="white" />
-              ) : (
-                <Text className="text-sm font-medium text-primary-foreground">
-                  {t('feedback.submitButton')}
-                </Text>
-              )}
+              {t('feedback.submitButton')}
             </Button>
 
             <Text className="text-xs text-center text-muted-foreground">

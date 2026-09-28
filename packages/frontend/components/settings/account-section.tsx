@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button } from "@oxy.so/bloom/button";
+import { bloomIcon } from "@/lib/bloom-icon";
 import { useOxy } from "@oxy.so/services";
 import { useTranslation } from "@/hooks/useTranslation";
 import { ChevronRight } from "lucide-react-native";
@@ -32,10 +33,9 @@ export function AccountSection() {
       <Button
         variant="outline"
         onPress={() => showBottomSheet?.("ManageAccount")}
-        className="flex-row items-center justify-between"
+        trailingIcon={bloomIcon(ChevronRight)}
       >
-        <Text className="text-sm font-medium">{t("settings.account.title")}</Text>
-        <ChevronRight size={16} className="text-muted-foreground" />
+        {t("settings.account.title")}
       </Button>
     </View>
   );

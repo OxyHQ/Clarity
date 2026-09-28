@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { AuthContainer, AuthLogo, AuthInput, AuthButton, AuthError } from '@/components/auth';
+import { Button } from '@oxy.so/bloom/button';
+import { AuthContainer, AuthLogo, AuthInput, AuthError } from '@/components/auth';
 import { useApiClient } from '@/lib/api/use-api-client';
 import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -109,15 +110,15 @@ export default function ResetPasswordScreen() {
           onSubmitEditing={handleResetPassword}
         />
 
-        <AuthButton
+        <Button
+          size="lg"
           onPress={handleResetPassword}
           disabled={loading || !password || !confirmPassword || !token}
-          isLoading={loading}
-          loadingText={t('resetPassword.resetting')}
+          loading={loading}
           className="mt-3"
         >
           {t('resetPassword.resetButton')}
-        </AuthButton>
+        </Button>
       </View>
     </AuthContainer>
   );

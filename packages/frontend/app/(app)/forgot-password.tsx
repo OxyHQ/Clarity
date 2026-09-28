@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { View, Text } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AuthContainer, AuthLogo, AuthInput, AuthButton, AuthError } from '@/components/auth';
+import { Button } from '@oxy.so/bloom/button';
+import { AuthContainer, AuthLogo, AuthInput, AuthError } from '@/components/auth';
 import { useApiClient } from '@/lib/api/use-api-client';
 import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -59,23 +60,24 @@ export default function ForgotPasswordScreen() {
                 {t('forgotPassword.sentInstructions')}{'\n'}
                 <Text className="font-medium text-foreground">{email}</Text>
               </Text>
-              <AuthButton
+              <Button
+                size="lg"
                 onPress={() => router.back()}
                 className="w-full"
               >
                 {t('forgotPassword.returnToSignIn')}
-              </AuthButton>
-              <Pressable
+              </Button>
+              <Button
+                variant="text"
+                size="sm"
                 onPress={() => {
                   setSent(false);
                   setEmail('');
                 }}
                 className="mt-4"
               >
-                <Text className="text-primary text-sm font-medium">
-                  {t('forgotPassword.tryAnotherEmail')}
-                </Text>
-              </Pressable>
+                {t('forgotPassword.tryAnotherEmail')}
+              </Button>
             </View>
       ) : (
         // Form State
@@ -105,15 +107,15 @@ export default function ForgotPasswordScreen() {
               onSubmitEditing={handleResetPassword}
             />
 
-            <AuthButton
+            <Button
+              size="lg"
               onPress={handleResetPassword}
               disabled={loading || !email}
-              isLoading={loading}
-              loadingText={t('forgotPassword.sending')}
+              loading={loading}
               className="mt-3"
             >
               {t('common.continue')}
-            </AuthButton>
+            </Button>
           </View>
         </>
       )}

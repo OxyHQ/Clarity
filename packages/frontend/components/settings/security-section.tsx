@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
-import { Platform, Pressable, Share, TextInput as RNTextInput, View } from "react-native";
+import { Platform, Share, TextInput as RNTextInput, View } from "react-native";
 import { AlertTriangle, Download, Info, Shield, ShieldCheck, ShieldX } from "lucide-react-native";
 import { useOxy } from "@oxy.so/services";
 import { toast } from "@oxy.so/bloom/toast";
+import { Button } from "@oxy.so/bloom/button";
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+  SegmentedControlItemText,
+} from "@oxy.so/bloom/segmented-control";
 
-import { Button } from "@/components/ui/button";
 import { Text } from "@/components/ui/text";
 import { useApiClient } from "@/lib/api/use-api-client";
 import { useTranslation } from "@/hooks/useTranslation";
@@ -184,15 +189,21 @@ export function SecuritySection() {
           <RNTextInput className={`${inputClass} flex-1`} placeholder="From: YYYY-MM-DD" placeholderTextColor="#9ca3af" value={fromDate} onChangeText={setFromDate} />
           <RNTextInput className={`${inputClass} flex-1`} placeholder="To: YYYY-MM-DD" placeholderTextColor="#9ca3af" value={toDate} onChangeText={setToDate} />
         </View>
-        <View className="flex-row gap-2">
+        <SegmentedControl
+          type="radio"
+          size="sm"
+          value={exportFormat}
+          onValueChange={setExportFormat}
+          label={t("settings.security.format")}
+        >
           {(["json", "csv"] as const).map((format) => (
-            <Pressable key={format} onPress={() => setExportFormat(format)} className={`px-3 py-1.5 rounded-lg border ${exportFormat === format ? "border-primary bg-primary/10" : "border-border"}`}>
-              <Text className={exportFormat === format ? "text-primary font-medium uppercase" : "text-muted-foreground uppercase"}>{format}</Text>
-            </Pressable>
+            <SegmentedControlItem key={format} value={format}>
+              <SegmentedControlItemText>{format.toUpperCase()}</SegmentedControlItemText>
+            </SegmentedControlItem>
           ))}
-        </View>
-        <Button onPress={handleExport} disabled={exporting || !isAuthenticated}>
-          <Text>{exporting ? t("settings.security.exporting") : t("settings.security.exportButton")}</Text>
+        </SegmentedControl>
+        <Button onPress={handleExport} disabled={exporting || !isAuthenticated} loading={exporting}>
+          {t("settings.security.exportButton")}
         </Button>
       </View>
     </View>

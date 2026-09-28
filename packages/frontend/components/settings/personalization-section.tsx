@@ -1,6 +1,6 @@
 import { View, TextInput as RNTextInput, Pressable } from "react-native";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button } from "@oxy.so/bloom/button";
 import { useState, useEffect } from "react";
 import { useOxy } from "@oxy.so/services";
 import { useApiClient } from "@/lib/api/use-api-client";
@@ -220,10 +220,10 @@ export function PersonalizationSection() {
       {/* Save / Cancel */}
       <View className="flex-row gap-2 mt-2">
         <Button variant="outline" className="flex-1" onPress={handleCancel} disabled={saving}>
-          <Text>{t("common.cancel")}</Text>
+          {t("common.cancel")}
         </Button>
-        <Button className="flex-1" onPress={handleSave} disabled={saving}>
-          <Text>{saving ? t("settings.saving") : t("settings.saveButton")}</Text>
+        <Button className="flex-1" onPress={handleSave} disabled={saving} loading={saving}>
+          {t("settings.saveButton")}
         </Button>
       </View>
     </View>

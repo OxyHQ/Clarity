@@ -1,7 +1,8 @@
 import { View, Pressable, TextInput } from "react-native";
 import * as Linking from "expo-linking";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
+import { Button } from "@oxy.so/bloom/button";
+import { bloomIcon } from "@/lib/bloom-icon";
 import { useRouter } from "expo-router";
 import { CreditCard, ExternalLink, Sparkle, Crown, Calendar, ShoppingCart } from "lucide-react-native";
 import { useCredits } from "@/lib/hooks/use-credits";
@@ -157,11 +158,9 @@ export function BillingSection({ success }: BillingSectionProps) {
             <Button
               onPress={() => router.push("/(biglayout)/subscribe")}
               size="sm"
-              className="rounded-full ml-auto h-7 px-3"
+              className="ml-auto"
             >
-              <Text className="text-primary-foreground font-medium text-xs">
-                {t('credits.upgrade')}
-              </Text>
+              {t('credits.upgrade')}
             </Button>
           )}
         </View>
@@ -217,23 +216,18 @@ export function BillingSection({ success }: BillingSectionProps) {
               variant="outline"
               onPress={() => router.push("/(biglayout)/subscribe")}
               size="sm"
-              className="rounded-full h-7 px-3"
             >
-              <Text className="text-foreground font-medium text-xs">
-                {t('billing.changePlan')}
-              </Text>
+              {t('billing.changePlan')}
             </Button>
             {!subscription.cancelAtPeriodEnd && (
               <Button
                 variant="outline"
                 onPress={handleCancelSubscription}
                 disabled={cancelSubscriptionMutation.isPending}
+                loading={cancelSubscriptionMutation.isPending}
                 size="sm"
-                className="rounded-full h-7 px-3"
               >
-                <Text className="text-foreground font-medium text-xs">
-                  {cancelSubscriptionMutation.isPending ? t('billing.canceling') : t('billing.cancelSubscription')}
-                </Text>
+                {t('billing.cancelSubscription')}
               </Button>
             )}
           </View>
@@ -281,12 +275,9 @@ export function BillingSection({ success }: BillingSectionProps) {
               onPress={handleCustomPurchase}
               disabled={!canBuyCustom || createCustomCheckoutMutation.isPending}
               size="sm"
-              className="rounded-full h-8 px-3"
-              isLoading={createCustomCheckoutMutation.isPending}
+              loading={createCustomCheckoutMutation.isPending}
             >
-              <Text className="text-foreground font-medium text-xs">
-                {customPriceCents > 0 ? `$${(customPriceCents / 100).toFixed(2)}` : t('billing.buy')}
-              </Text>
+              {customPriceCents > 0 ? `$${(customPriceCents / 100).toFixed(2)}` : t('billing.buy')}
             </Button>
           </View>
         </View>
@@ -300,14 +291,12 @@ export function BillingSection({ success }: BillingSectionProps) {
             variant="outline"
             onPress={handleManagePayment}
             disabled={createPortalMutation.isPending}
+            loading={createPortalMutation.isPending}
             size="sm"
-            className="rounded-full h-7 px-3"
+            leadingIcon={bloomIcon(CreditCard)}
+            trailingIcon={bloomIcon(ExternalLink)}
           >
-            <CreditCard size={12} className="text-foreground mr-1" />
-            <Text className="text-foreground font-medium text-xs">
-              {createPortalMutation.isPending ? t('common.loading') : t('billing.managePaymentMethods')}
-            </Text>
-            <ExternalLink size={10} className="text-muted-foreground ml-1" />
+            {t('billing.managePaymentMethods')}
           </Button>
         </View>
       </View>
