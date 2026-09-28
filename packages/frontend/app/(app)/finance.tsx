@@ -607,7 +607,7 @@ export default function FinanceScreen() {
           </View>
 
           {/* Center: Tabs */}
-          <View className="flex-1">
+          <View className="flex-1 ml-3">
             <Tabs
               value={activeTab}
               onValueChange={(v) => setActiveTab(v as FinanceTab)}
