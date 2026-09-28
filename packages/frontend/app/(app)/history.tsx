@@ -27,7 +27,9 @@ import {
 } from "@/lib/hooks/use-conversations";
 import type { HydratedConversation } from "@/lib/hooks/use-conversations";
 import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
+import { bloomIcon } from "@/lib/bloom-icon";
+import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
 
 /* ================================================================
    Types
@@ -81,31 +83,16 @@ function TabBar({
   const { t } = useTranslation();
 
   return (
-    <View className="flex-row items-center gap-0">
-      {TABS.map((tab) => {
-        const isActive = tab.id === activeTab;
-        return (
-          <Pressable
-            key={tab.id}
-            onPress={() => onTabChange(tab.id)}
-            className="relative flex-row gap-1.5 items-center py-3.5"
-            style={{ marginRight: 16 }}
-          >
-            <Text
-              className={cn(
-                "font-sans font-medium text-sm text-foreground select-none cursor-pointer whitespace-nowrap",
-                isActive ? "opacity-100" : "opacity-60",
-              )}
-            >
-              {t(tab.labelKey)}
-            </Text>
-            {isActive && (
-              <View className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground rounded-full" />
-            )}
-          </Pressable>
-        );
-      })}
-    </View>
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => onTabChange(v as TabId)}
+      variant="underline"
+      label={t("history.title")}
+    >
+      {TABS.map((tab) => (
+        <TabsTrigger key={tab.id} value={tab.id} label={t(tab.labelKey)} />
+      ))}
+    </Tabs>
   );
 }
 
@@ -344,9 +331,13 @@ export default function HistoryScreen() {
         <View className="flex-row items-center justify-between h-14">
           {/* Left: Back + Title */}
           <View className="flex-row items-center gap-3">
-            <Pressable onPress={handleBack} className="md:hidden p-1">
-              <ArrowLeft size={20} color={colors.foreground} />
-            </Pressable>
+            <View className="md:hidden">
+              <GlyphButton
+                icon={bloomIcon(ArrowLeft)}
+                accessibilityLabel={t("common.back")}
+                onPress={handleBack}
+              />
+            </View>
             <Text className="font-sans text-sm font-medium text-foreground select-none">
               {t("history.title")}
             </Text>
@@ -359,15 +350,14 @@ export default function HistoryScreen() {
 
           {/* Right: New Thread button */}
           <View className="flex-row items-center gap-2">
-            <Pressable
+            <Button
+              variant="outline"
+              size="sm"
+              leadingIcon={bloomIcon(Plus)}
               onPress={handleNewThread}
-              className="border border-border h-8 rounded-lg px-3 flex-row items-center gap-1 hover:bg-muted"
             >
-              <Plus size={14} color={colors.foreground} />
-              <Text className="text-sm text-foreground select-none font-sans">
-                {t("history.newThread")}
-              </Text>
-            </Pressable>
+              {t("history.newThread")}
+            </Button>
           </View>
         </View>
 

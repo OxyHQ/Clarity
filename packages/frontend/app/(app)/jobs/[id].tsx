@@ -22,6 +22,8 @@ import { useJobPosting, useReportJobPosting } from "@/lib/hooks/use-jobs";
 import { formatLocations, formatPostedAt, formatSalary } from "@/lib/jobs-format";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { useTranslation } from "@/hooks/useTranslation";
+import { bloomIcon } from "@/lib/bloom-icon";
+import { Button, GlyphButton } from "@oxy.so/bloom/button";
 
 const REPORT_REASONS: JobReportReason[] = [
   "scam",
@@ -66,9 +68,11 @@ export default function JobDetailScreen() {
           className="flex-row items-center gap-3 px-4 h-14"
           style={{ maxWidth: 860, alignSelf: "center", width: "100%" }}
         >
-          <Pressable onPress={() => router.back()} className="p-1" accessibilityRole="button">
-            <ArrowLeft size={20} color={colors.foreground} />
-          </Pressable>
+          <GlyphButton
+            icon={bloomIcon(ArrowLeft)}
+            accessibilityLabel={t("common.back")}
+            onPress={() => router.back()}
+          />
           <Text className="font-sans text-sm font-medium text-foreground">{t("jobs.title")}</Text>
         </View>
       </View>
@@ -88,13 +92,9 @@ export default function JobDetailScreen() {
             <View className="rounded-xl border border-border/60 bg-card p-6 gap-3 items-start">
               <Text className="text-sm font-medium text-foreground">{t("jobs.detailErrorTitle")}</Text>
               <Text className="text-sm text-muted-foreground">{t("jobs.detailErrorBody")}</Text>
-              <Pressable
-                onPress={() => job.refetch()}
-                accessibilityRole="button"
-                className="h-9 rounded-xl border border-input px-4 items-center justify-center"
-              >
-                <Text className="text-sm font-medium text-foreground">{t("jobs.retry")}</Text>
-              </Pressable>
+              <Button variant="outline" onPress={() => job.refetch()}>
+                {t("jobs.retry")}
+              </Button>
             </View>
           ) : (
             <>
@@ -160,16 +160,13 @@ export default function JobDetailScreen() {
                 <Text className="text-xs text-muted-foreground">
                   {t("jobs.indexedNotice", { domain: posting.source.domain })}
                 </Text>
-                <Pressable
+                <Button
                   onPress={openCanonical}
                   accessibilityRole="link"
-                  className="h-10 rounded-xl bg-primary px-4 flex-row items-center justify-center gap-2"
+                  leadingIcon={bloomIcon(ExternalLink)}
                 >
-                  <ExternalLink size={14} color={colors.primaryForeground} />
-                  <Text className="text-sm font-medium text-primary-foreground">
-                    {t("jobs.viewOriginal")}
-                  </Text>
-                </Pressable>
+                  {t("jobs.viewOriginal")}
+                </Button>
                 {posting.otherSources.length > 0 ? (
                   <View className="gap-1 pt-1 border-t border-border/40">
                     <Text className="text-xs font-medium text-foreground">{t("jobs.otherSources")}</Text>
