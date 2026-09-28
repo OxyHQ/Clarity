@@ -115,6 +115,14 @@ suite('image cache on Postgres', () => {
     expect(safeFetch).toHaveBeenCalledTimes(2);
     const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[4]));
     expect(row.status).toBe('ready');
+
+    // The kept copy is NOT treated as fresh for another refresh period: within
+    // the miss window it is served as is, and once that passes it is retried.
+    safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[4]));
+    expect(await readCachedImage(urls[4], later + 60_000)).toEqual({ contentType: 'image/jpeg', bytes: JPEG });
+    expect(safeFetch).toHaveBeenCalledTimes(2);
+    expect(await readCachedImage(urls[4], later + IMAGE_MISS_TTL_MS + 60_000)).toEqual({ contentType: 'image/png', bytes: PNG });
+    expect(safeFetch).toHaveBeenCalledTimes(3);
   });
 
   it('never fetches a non-HTTP(S) URL', async () => {

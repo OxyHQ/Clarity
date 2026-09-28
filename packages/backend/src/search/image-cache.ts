@@ -77,9 +77,9 @@ async function download(sourceUrl: string): Promise<CachedImage | undefined> {
 /** Fetches in progress in this process, so concurrent misses share one download. */
 const inFlight = new Map<string, Promise<CachedImage | undefined>>();
 
-async function fetchAndStore(key: string, sourceUrl: string): Promise<CachedImage | undefined> {
+async function fetchAndStore(key: string, sourceUrl: string, at: number): Promise<CachedImage | undefined> {
   const image = await download(sourceUrl);
-  const now = new Date();
+  const now = new Date(at);
   const values = image
     ? { status: 'ready', contentType: image.contentType, bytes: image.bytes, byteSize: image.bytes.length }
     : { status: 'missing', contentType: null, bytes: null, byteSize: 0 };
@@ -92,7 +92,14 @@ async function fetchAndStore(key: string, sourceUrl: string): Promise<CachedImag
       set: image
         ? { sourceUrl, ...values, fetchedAt: now, lastAccessedAt: now }
         : {
-            fetchedAt: now,
+            // A failed REFRESH keeps the old bytes but must not reset their
+            // age: dating the row as if the refresh had succeeded would serve
+            // the old copy as fresh for another full refresh period. It is
+            // dated so the next attempt comes one miss-window from now, the
+            // same wait a first failure gets.
+            fetchedAt: sql`case when ${imageCache.status} = 'ready'
+              then ${new Date(now.getTime() - IMAGE_REFRESH_MS + IMAGE_MISS_TTL_MS).toISOString()}::timestamptz
+              else ${now.toISOString()}::timestamptz end`,
             lastAccessedAt: now,
             status: sql`case when ${imageCache.status} = 'ready' then 'ready' else 'missing' end`,
           },
@@ -101,7 +108,9 @@ async function fetchAndStore(key: string, sourceUrl: string): Promise<CachedImag
   // The refresh failed: serve the previous copy if there is one.
   const [kept] = await getDb().select({ contentType: imageCache.contentType, bytes: imageCache.bytes })
     .from(imageCache).where(and(eq(imageCache.key, key), eq(imageCache.status, 'ready'))).limit(1);
-  return kept?.contentType && kept.bytes ? { contentType: kept.contentType, bytes: kept.bytes } : undefined;
+  return kept?.contentType && kept.bytes
+    ? { contentType: kept.contentType, bytes: kept.bytes }
+    : undefined;
 }
 
 /**
@@ -126,7 +135,7 @@ export async function readCachedImage(sourceUrl: string, now = Date.now()): Prom
 
   let flight = inFlight.get(key);
   if (!flight) {
-    flight = fetchAndStore(key, sourceUrl).finally(() => inFlight.delete(key));
+    flight = fetchAndStore(key, sourceUrl, now).finally(() => inFlight.delete(key));
     inFlight.set(key, flight);
   }
   return flight;

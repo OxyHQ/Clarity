@@ -1,4 +1,4 @@
-import { Router, type Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { eq } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
@@ -14,14 +14,17 @@ import { imageVersion, readCachedImage, type ImageKind } from '../search/image-c
  *
  * The image to serve is looked up from Clarity's OWN row by id; nothing in the
  * request names a URL, so this cannot be pointed at an arbitrary address. The
- * `version` segment is a digest of the source URL: when it matches, the answer
- * never changes and is cached as immutable; when it does not (the page was
- * re-crawled with a new image), the current image is served with a short cache
- * life so the stale URL heals.
+ * `version` segment is a digest of the source URL, so a re-crawled page with a
+ * NEW image URL gets a new address. The bytes behind one URL can still change
+ * (a site replaces its image in place, and Clarity refetches it), so the answer
+ * is not immutable: it is cached for a day, revalidated with the `ETag` Express
+ * derives from the bytes themselves (a 304 when they have not changed), and a stale version gets a short life
+ * so an old address heals.
  */
 const router = Router();
 
-const IMMUTABLE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+const MAX_AGE_SECONDS = 24 * 60 * 60;
+const STALE_WHILE_REVALIDATE_SECONDS = 7 * 24 * 60 * 60;
 const STALE_VERSION_MAX_AGE_SECONDS = 60 * 60;
 const MISS_MAX_AGE_SECONDS = 5 * 60;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
@@ -43,7 +46,7 @@ function notFound(res: Response): void {
 }
 
 function serve(kind: ImageKind) {
-  return async (req: { params: Record<string, string> }, res: Response) => {
+  return async (req: Request, res: Response) => {
     const id = String(req.params.id);
     const version = String(req.params.version);
     if (!ID_PATTERN.test(id)) {
@@ -61,10 +64,10 @@ function serve(kind: ImageKind) {
       return;
     }
     const current = imageVersion(sourceUrl) === version;
-    res.setHeader('Content-Type', image.contentType);
     res.setHeader('Cache-Control', current
-      ? `public, max-age=${IMMUTABLE_MAX_AGE_SECONDS}, immutable`
+      ? `public, max-age=${MAX_AGE_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`
       : `public, max-age=${STALE_VERSION_MAX_AGE_SECONDS}`);
+    res.setHeader('Content-Type', image.contentType);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
