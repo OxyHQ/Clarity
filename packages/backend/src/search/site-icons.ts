@@ -32,6 +32,11 @@ const RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 
 const DEFAULT_PUBLIC_API_URL = 'https://api.clarity.surf';
 
+/** The public origin Clarity serves its own assets from (`CLARITY_PUBLIC_API_URL`). */
+export function publicApiBase(): string {
+  return process.env.CLARITY_PUBLIC_API_URL?.trim().replace(/\/$/, '') || DEFAULT_PUBLIC_API_URL;
+}
+
 export interface SiteIcon {
   contentType: string;
   bytes: Buffer;
@@ -55,8 +60,7 @@ export function hostOf(url: string): string | undefined {
 
 /** Where Clarity serves a host's favicon. */
 export function siteIconUrl(host: string): string {
-  const base = process.env.CLARITY_PUBLIC_API_URL?.trim().replace(/\/$/, '') || DEFAULT_PUBLIC_API_URL;
-  return `${base}/favicons/${host}`;
+  return `${publicApiBase()}/favicons/${host}`;
 }
 
 /**
@@ -109,13 +113,14 @@ export function sniffImageType(bytes: Buffer): string | undefined {
   if (bytes.length >= 6 && (bytes.subarray(0, 6).toString('latin1') === 'GIF87a' || bytes.subarray(0, 6).toString('latin1') === 'GIF89a')) return 'image/gif';
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
   if (bytes.length >= 12 && bytes.subarray(0, 4).toString('latin1') === 'RIFF' && bytes.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  if (bytes.length >= 12 && bytes.subarray(4, 8).toString('latin1') === 'ftyp' && ['avif', 'avis'].includes(bytes.subarray(8, 12).toString('latin1'))) return 'image/avif';
   const head = bytes.subarray(0, 512).toString('utf8').trimStart().toLowerCase();
   if (head.startsWith('<svg') || ((head.startsWith('<?xml') || head.startsWith('<!--')) && head.includes('<svg'))) return 'image/svg+xml';
   return undefined;
 }
 
 /** GET a URL through `safeFetch`, keeping at most `maxBytes`; `undefined` on anything but a 200. */
-async function fetchBounded(url: string, accept: string, maxBytes: number): Promise<{ bytes: Buffer; finalUrl: string } | undefined> {
+export async function fetchBounded(url: string, accept: string, maxBytes: number): Promise<{ bytes: Buffer; finalUrl: string } | undefined> {
   const result = await safeFetch(url, {
     headers: { 'User-Agent': USER_AGENT, accept },
     maxRedirects: 3,

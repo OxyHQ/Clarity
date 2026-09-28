@@ -2,6 +2,7 @@ import { getDb } from '../db/index.js';
 import type { searchDocuments } from '../db/schema/index.js';
 import { excerpt } from './query-primitives.js';
 import { hostOf, hostsWithIcons, siteIconUrl } from './site-icons.js';
+import { publicImageUrl } from './image-cache.js';
 
 /**
  * The public face of an indexed document — one definition, shared by the
@@ -22,12 +23,15 @@ export function searchResult(row: DocumentRow, score: number, icons: ReadonlySet
 /**
  * `faviconUrl` is Clarity's copy of the site's icon (`GET /favicons/:host`),
  * present once the worker has fetched it — never the site's own URL, which a
- * consumer would have to hotlink.
+ * consumer would have to hotlink. `imageUrl` follows the same rule: it is
+ * Clarity's copy of the page's preview image (`GET /images/documents/...`,
+ * search/image-cache.ts), never the site's own image URL, so a reader's browser
+ * never loads anything from the site.
  */
 function iconUrlOf(row: DocumentCardRow, icons: ReadonlySet<string>): string | undefined {
   const host = hostOf(row.canonicalUrl);
   return host && icons.has(host) ? siteIconUrl(host) : undefined;
 }
 export function publicDocument(row: DocumentCardRow, icons: ReadonlySet<string>) {
-  return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: row.imageUrl ?? undefined, faviconUrl: iconUrlOf(row, icons), indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
+  return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: publicImageUrl('documents', row.id, row.imageUrl), faviconUrl: iconUrlOf(row, icons), indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
 }

@@ -447,6 +447,34 @@ export const searchHosts = pgTable('clarity_search_hosts', {
   check('clarity_search_hosts_icon_ready_check', sql`${table.iconStatus} <> 'ready' or (${table.iconBytes} is not null and ${table.iconContentType} is not null)`),
 ]);
 
+/**
+ * Clarity's copy of the remote images its API shows: a document's preview image
+ * and a job's employer logo. A consumer loads them from Clarity
+ * (`GET /images/...`), never from the site, so a reader's browser never asks a
+ * third party for anything and never tells it what they read.
+ *
+ * A CACHE, not an archive. A row is filled the first time the image is asked
+ * for, refetched once it is `IMAGE_REFRESH_MS` old, and deleted by the worker
+ * when nobody has asked for it in `IMAGE_IDLE_TTL_MS` (search/image-cache.ts).
+ * `missing` remembers a failed fetch briefly so a broken image is not
+ * re-fetched on every request. Keyed by the SHA-256 of the source URL, so every
+ * document or job pointing at one image shares one row.
+ */
+export const imageCache = pgTable('clarity_image_cache', {
+  key: text('key').primaryKey(),
+  sourceUrl: text('source_url').notNull(),
+  status: text('status').notNull(),
+  contentType: text('content_type'),
+  bytes: bytea('bytes'),
+  byteSize: integer('byte_size').notNull().default(0),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
+  lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('clarity_image_cache_last_accessed_idx').on(table.lastAccessedAt),
+  check('clarity_image_cache_status_check', sql`${table.status} in ('ready', 'missing')`),
+  check('clarity_image_cache_ready_check', sql`${table.status} <> 'ready' or (${table.bytes} is not null and ${table.contentType} is not null)`),
+]);
+
 export const searchDocumentAliases = pgTable('clarity_search_document_aliases', {
   url: text('url').primaryKey(),
   documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),

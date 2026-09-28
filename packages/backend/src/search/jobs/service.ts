@@ -35,6 +35,7 @@ import {
   CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
   annualizeSalary, normalizeCountry, resolveRegion,
 } from './taxonomy.js';
+import { publicImageUrl } from '../image-cache.js';
 
 export { JOB_FORBIDDEN_RANKING_SIGNALS, JOB_RANKING_SIGNALS } from './ranking-contract.js';
 
@@ -350,6 +351,9 @@ function jobSource(row: JobRow): JobSource {
 }
 
 export function serializeJobPosting(row: JobRow, clusterMembers: readonly JobRow[] = []): JobPosting {
+  // Clarity's copy of the logo, never the employer site's own URL
+  // (search/image-cache.ts).
+  const logoUrl = publicImageUrl('jobs', row.id, row.employerLogoUrl);
   return {
     id: row.id,
     documentId: row.documentId,
@@ -361,7 +365,7 @@ export function serializeJobPosting(row: JobRow, clusterMembers: readonly JobRow
       name: row.employerName,
       ...(row.employerUrl ? { url: row.employerUrl } : {}),
       ...(row.employerDomain ? { domain: row.employerDomain } : {}),
-      ...(row.employerLogoUrl ? { logoUrl: row.employerLogoUrl } : {}),
+      ...(logoUrl ? { logoUrl } : {}),
     },
     locations: (row.locations as JobLocation[]) ?? [],
     applicantLocationRequirements: row.applicantLocationRequirements,
