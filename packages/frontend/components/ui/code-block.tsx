@@ -8,6 +8,7 @@ import { Copy, Check } from "lucide-react-native";
 import * as Clipboard from "expo-clipboard";
 import SyntaxHighlighter from "react-native-syntax-highlighter";
 import { atomOneLight } from "react-syntax-highlighter/styles/hljs";
+import { useTranslation } from "@/hooks/useTranslation";
 
 // --- CodeBlock (root container) ---
 
@@ -83,6 +84,7 @@ function CodeBlockGroup({
   code,
   ...props
 }: CodeBlockGroupProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -112,7 +114,7 @@ function CodeBlockGroup({
               glyphSize={14}
               icon={bloomIcon(copied ? Check : Copy)}
               onPress={handleCopy}
-              accessibilityLabel="Copy code"
+              accessibilityLabel={t("actions.copyCode")}
             />
           )}
         </>

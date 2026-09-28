@@ -1,4 +1,5 @@
 import type { BloomIconComponent } from '@oxy.so/bloom/icons';
+import { useTheme } from '@oxy.so/bloom/theme';
 import type { LucideIcon } from 'lucide-react-native';
 
 const adapted = new WeakMap<LucideIcon, BloomIconComponent>();
@@ -23,4 +24,18 @@ export function bloomIcon(Icon: LucideIcon): BloomIconComponent {
   BloomLucideIcon.displayName = `bloomIcon(${Icon.displayName ?? 'Lucide'})`;
   adapted.set(Icon, BloomLucideIcon);
   return BloomLucideIcon;
+}
+
+/**
+ * A Lucide icon for a Bloom menu row's `leading` slot.
+ *
+ * Menu rows take a NODE there, not a component, and do not paint it: Bloom's
+ * menu recipe draws row glyphs at 16px in the secondary text colour, and a
+ * destructive row's glyph in the same colour as its label.
+ */
+export function MenuRowIcon({ icon: Icon, tone }: { icon: LucideIcon; tone?: 'danger' }) {
+  const { colors } = useTheme();
+  return (
+    <Icon size={16} color={tone === 'danger' ? colors.errorSubtleForeground : colors.textSecondary} />
+  );
 }

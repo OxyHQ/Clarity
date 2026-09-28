@@ -29,7 +29,7 @@ export function PromptInputSubmitButton({
         size="sm"
         icon={bloomIcon(Square)}
         onPress={onStop}
-        accessibilityLabel="Stop"
+        accessibilityLabel={t("actions.stop")}
         className={className}
       />
     );

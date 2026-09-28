@@ -1,4 +1,4 @@
-import { View, TextInput as RNTextInput, Pressable } from "react-native";
+import { View, TextInput as RNTextInput } from "react-native";
 import { Text } from "@/components/ui/text";
 import { Button } from "@oxy.so/bloom/button";
 import { useState, useEffect } from "react";
@@ -10,13 +10,21 @@ import {
   Briefcase,
   User as UserIcon,
   Languages,
-  ChevronDown,
 } from "lucide-react-native";
 import { PersonalityStylePicker } from "./personality-style-picker";
 import { useUserData } from "@/hooks/useUserData";
 import { useUserDataStore } from "@/lib/stores/user-data-store";
 import type { UserMemory } from "@/lib/stores/user-data-store";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectIcon,
+  SelectItem,
+  SelectItemIndicator,
+  SelectItemText,
+  SelectTrigger,
+  SelectValue,
+} from "@oxy.so/bloom/select";
 import { useTranslation } from "@/hooks/useTranslation";
 import { toast } from "@oxy.so/bloom/toast";
 
@@ -115,28 +123,22 @@ export function PersonalizationSection() {
         <Text className="text-xs text-muted-foreground">
           {t("settings.clarityLanguage.description")}
         </Text>
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Pressable className={`${inputClass} flex-row items-center justify-between`}>
-              <Text className="text-foreground text-sm">
-                {LANGUAGES.find(l => l.value === language)?.label || language || t("settings.clarityLanguage.selectPlaceholder")}
-              </Text>
-              <ChevronDown size={16} className="text-muted-foreground" />
-            </Pressable>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            {LANGUAGES.map((lang) => (
-              <DropdownMenu.CheckboxItem
-                key={lang.value}
-                value={language === lang.value ? 'on' : 'off'}
-                onValueChange={() => setLanguage(lang.value)}
-              >
-                <DropdownMenu.ItemIndicator />
-                <DropdownMenu.ItemTitle>{lang.label}</DropdownMenu.ItemTitle>
-              </DropdownMenu.CheckboxItem>
-            ))}
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+        <Select value={language || undefined} onValueChange={setLanguage}>
+          <SelectTrigger label={t("settings.clarityLanguage.title")}>
+            <SelectValue placeholder={t("settings.clarityLanguage.selectPlaceholder")} />
+            <SelectIcon />
+          </SelectTrigger>
+          <SelectContent
+            label={t("settings.clarityLanguage.title")}
+            items={LANGUAGES}
+            renderItem={(lang) => (
+              <SelectItem value={lang.value} label={lang.label}>
+                <SelectItemIndicator />
+                <SelectItemText>{lang.label}</SelectItemText>
+              </SelectItem>
+            )}
+          />
+        </Select>
       </View>
 
       {/* Personality Style */}

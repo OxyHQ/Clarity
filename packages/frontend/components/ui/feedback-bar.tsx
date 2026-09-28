@@ -5,6 +5,7 @@ import { Text } from "@/components/ui/text";
 import { cn } from "@/lib/utils";
 import { ThumbsUp, ThumbsDown } from "lucide-react-native";
 import { bloomIcon } from "@/lib/bloom-icon";
+import { useTranslation } from "@/hooks/useTranslation";
 
 type FeedbackBarProps = ViewProps & {
   title?: string;
@@ -23,6 +24,7 @@ export function FeedbackBar({
   onClose,
   ...props
 }: FeedbackBarProps) {
+  const { t } = useTranslation();
   return (
     <View
       className={cn(
@@ -42,19 +44,19 @@ export function FeedbackBar({
           glyphSize={16}
           icon={bloomIcon(ThumbsUp)}
           onPress={onHelpful}
-          accessibilityLabel="Helpful"
+          accessibilityLabel={t("actions.goodResponse")}
         />
         <GlyphButton
           size={32}
           glyphSize={16}
           icon={bloomIcon(ThumbsDown)}
           onPress={onNotHelpful}
-          accessibilityLabel="Not helpful"
+          accessibilityLabel={t("actions.badResponse")}
         />
       </View>
 
       <View className="border-l border-border items-center justify-center self-stretch px-3">
-        <CloseButton size="md" onPress={onClose} accessibilityLabel="Close" />
+        <CloseButton size="md" onPress={onClose} accessibilityLabel={t("common.close")} />
       </View>
     </View>
   );

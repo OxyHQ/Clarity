@@ -238,8 +238,8 @@ function NewsCard({
             ) : null}
           </View>
           <View className="flex-row items-center">
-            <GlyphButton icon={bloomIcon(Heart)} size={32} accessibilityLabel="Like" />
-            <GlyphButton icon={bloomIcon(MoreHorizontal)} size={32} accessibilityLabel="More" />
+            <GlyphButton icon={bloomIcon(Heart)} size={32} accessibilityLabel={t("actions.like")} />
+            <GlyphButton icon={bloomIcon(MoreHorizontal)} size={32} accessibilityLabel={t("actions.more")} />
           </View>
         </View>
       </View>

@@ -18,6 +18,7 @@ import {
   Clock,
   ChevronDown,
   ArrowLeft,
+  Trash2,
 } from "lucide-react-native";
 import { useTranslation } from "@/hooks/useTranslation";
 import { useColorScheme } from "@/lib/useColorScheme";
@@ -26,8 +27,15 @@ import {
   useDeleteConversation,
 } from "@/lib/hooks/use-conversations";
 import type { HydratedConversation } from "@/lib/hooks/use-conversations";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import { bloomIcon } from "@/lib/bloom-icon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
+import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
 import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
 import { Button, GlyphButton } from "@oxy.so/bloom/button";
 
@@ -108,27 +116,21 @@ function SortDropdown({
   onChange: (v: SortOrder) => void;
 }) {
   const { t } = useTranslation();
-  const { colors } = useColorScheme();
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <Pressable className="text-foreground border border-border h-6 rounded-md px-2 flex-row items-center hover:bg-muted">
-          <Text className="text-xs text-foreground select-none">
-            {t("history.sort")}: {t(`history.sort_${value}`)}
-          </Text>
-          <ChevronDown size={12} color={colors.foreground} style={{ marginLeft: 4 }} />
-        </Pressable>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content>
-        <DropdownMenu.Item key="newest" onSelect={() => onChange("newest")}>
-          <DropdownMenu.ItemTitle>{t("history.sort_newest")}</DropdownMenu.ItemTitle>
-        </DropdownMenu.Item>
-        <DropdownMenu.Item key="oldest" onSelect={() => onChange("oldest")}>
-          <DropdownMenu.ItemTitle>{t("history.sort_oldest")}</DropdownMenu.ItemTitle>
-        </DropdownMenu.Item>
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild label={t("history.sort")}>
+        <Button variant="outline" size="xs" trailingIcon={bloomIcon(ChevronDown)}>
+          {`${t("history.sort")}: ${t(`history.sort_${value}`)}`}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as SortOrder)}>
+          <DropdownMenuRadioItem value="newest">{t("history.sort_newest")}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="oldest">{t("history.sort_oldest")}</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -186,27 +188,25 @@ const ThreadItem = React.memo(function ThreadItem({
           </Pressable>
 
           {/* Actions dropdown */}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger>
-              <Pressable
-                className="h-6 rounded-md px-2 items-center justify-center hover:bg-accent cursor-pointer"
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild label={t("actions.more")}>
+              <GlyphButton
+                size={28}
+                glyphSize={14}
+                icon={bloomIcon(MoreHorizontal)}
+                accessibilityLabel={t("actions.more")}
+              />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem
+                tone="danger"
+                leading={<MenuRowIcon icon={Trash2} tone="danger" />}
+                onPress={() => onDelete(conversation.id)}
               >
-                <MoreHorizontal size={14} color={colors.mutedForeground} />
-              </Pressable>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content>
-              <DropdownMenu.Item
-                key="delete"
-                destructive
-                onSelect={() => onDelete(conversation.id)}
-              >
-                <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
-                <DropdownMenu.ItemTitle>
-                  {t("common.delete")}
-                </DropdownMenu.ItemTitle>
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
+                {t("common.delete")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </View>
 
         {/* Metadata row */}

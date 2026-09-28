@@ -1,6 +1,20 @@
 import { ChevronDown, Lock } from "lucide-react-native";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
-import { Pressable, View, Platform } from "react-native";
+import { Button } from "@oxy.so/bloom/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
+import { View } from "react-native";
+import { bloomIcon } from "@/lib/bloom-icon";
 import { Text } from "@/components/ui/text";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "expo-router";
@@ -37,52 +51,28 @@ interface ModelSelectorProps {
   onModelChange?: (modelId: string) => void;
 }
 
-function ModelCheckboxItem({
-  model,
-  selected,
-  isLocked,
-  onSelect,
-}: {
-  model: Model;
-  selected: boolean;
-  isLocked: boolean;
-  onSelect: () => void;
-}) {
+function ModelRadioItem({ model, isLocked }: { model: Model; isLocked: boolean }) {
   return (
-    <DropdownMenu.CheckboxItem
-      key={model.id}
-      value={selected ? 'on' : 'off'}
-      onValueChange={onSelect}
-    >
-      {Platform.OS === 'web' ? (
-        <View className={`flex-col gap-0.5 flex-1 ${isLocked ? 'opacity-50' : ''}`}>
-          <View className="flex-row items-center gap-1.5">
-            <Text className="text-sm font-medium text-foreground">
-              {model.name}
-            </Text>
-            {isLocked && <Lock size={11} className="text-muted-foreground" />}
-            {model.requiredPlan && (
-              <View className="bg-primary/10 px-1.5 py-0.5 rounded-full">
-                <Text className="text-[10px] font-semibold text-primary">
-                  {model.requiredPlan}
-                </Text>
-              </View>
-            )}
-          </View>
-          <Text className="text-xs text-muted-foreground">
-            {model.description}
+    <DropdownMenuRadioItem value={model.id}>
+      <View className={`flex-col gap-0.5 flex-1 ${isLocked ? 'opacity-50' : ''}`}>
+        <View className="flex-row items-center gap-1.5">
+          <Text className="text-sm font-medium text-foreground">
+            {model.name}
           </Text>
+          {isLocked && <Lock size={11} className="text-muted-foreground" />}
+          {model.requiredPlan && (
+            <View className="bg-primary/10 px-1.5 py-0.5 rounded-full">
+              <Text className="text-[10px] font-semibold text-primary">
+                {model.requiredPlan}
+              </Text>
+            </View>
+          )}
         </View>
-      ) : (
-        <>
-          <DropdownMenu.ItemIndicator />
-          <DropdownMenu.ItemTitle>
-            {isLocked ? '🔒 ' : ''}{model.name}{model.requiredPlan ? ` (${model.requiredPlan})` : ''}
-          </DropdownMenu.ItemTitle>
-          <DropdownMenu.ItemSubtitle>{model.description}</DropdownMenu.ItemSubtitle>
-        </>
-      )}
-    </DropdownMenu.CheckboxItem>
+        <Text className="text-xs text-muted-foreground">
+          {model.description}
+        </Text>
+      </View>
+    </DropdownMenuRadioItem>
   );
 }
 
@@ -152,56 +142,47 @@ export function ModelSelector({
   }), [models]);
 
   return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger>
-        <Pressable accessibilityLabel="Select model" accessibilityRole="button" className="font-medium transition-colors duration-300 font-sans text-center items-center justify-center whitespace-nowrap text-muted-foreground h-8 text-sm cursor-pointer rounded-full px-3 hover:text-foreground hover:bg-muted flex-row gap-1.5 active:opacity-70">
-          <Text className="text-sm font-medium text-muted-foreground">
-            {currentModel?.name || "Clarity V1"}
-          </Text>
-          <ChevronDown size={14} className="text-muted-foreground" />
-        </Pressable>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Content align="start" className="w-64">
-        <DropdownMenu.Label className="text-xs text-muted-foreground font-normal px-2.5">{t('models.selectModel')}</DropdownMenu.Label>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild label={t('models.selectModel')}>
+        <Button
+          size="sm"
+          tone="neutral"
+          appearance="plain"
+          trailingIcon={bloomIcon(ChevronDown)}
+          accessibilityLabel={t('models.selectModel')}
+        >
+          {currentModel?.name || "Clarity V1"}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" minWidth={256}>
+        <DropdownMenuLabel>{t('models.selectModel')}</DropdownMenuLabel>
         {loading ? (
-          <DropdownMenu.Item key="loading" disabled>
-            <DropdownMenu.ItemTitle>{t('models.loadingModels')}</DropdownMenu.ItemTitle>
-          </DropdownMenu.Item>
+          <DropdownMenuItem disabled>{t('models.loadingModels')}</DropdownMenuItem>
         ) : (
           <>
-            {regularModels.map((model) => (
-              <ModelCheckboxItem
-                key={model.id}
-                model={model}
-                selected={value === model.id}
-                isLocked={!allowedIds.has(model.id)}
-                onSelect={() => handleValueChange(model.id)}
-              />
-            ))}
+            <DropdownMenuRadioGroup value={value} onValueChange={handleValueChange}>
+              {regularModels.map((model) => (
+                <ModelRadioItem key={model.id} model={model} isLocked={!allowedIds.has(model.id)} />
+              ))}
+            </DropdownMenuRadioGroup>
             {legacyModels.length > 0 && (
               <>
-                <DropdownMenu.Separator />
-                <DropdownMenu.Sub key="legacy-models">
-                  <DropdownMenu.SubTrigger key="legacy-models-trigger">
-                    <DropdownMenu.ItemTitle>{t('models.legacyModels')}</DropdownMenu.ItemTitle>
-                  </DropdownMenu.SubTrigger>
-                  <DropdownMenu.SubContent key="legacy-models-content" className="w-64">
-                    {legacyModels.map((model) => (
-                      <ModelCheckboxItem
-                        key={model.id}
-                        model={model}
-                        selected={value === model.id}
-                        isLocked={!allowedIds.has(model.id)}
-                        onSelect={() => handleValueChange(model.id)}
-                      />
-                    ))}
-                  </DropdownMenu.SubContent>
-                </DropdownMenu.Sub>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>{t('models.legacyModels')}</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent minWidth={256}>
+                    <DropdownMenuRadioGroup value={value} onValueChange={handleValueChange}>
+                      {legacyModels.map((model) => (
+                        <ModelRadioItem key={model.id} model={model} isLocked={!allowedIds.has(model.id)} />
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
               </>
             )}
           </>
         )}
-      </DropdownMenu.Content>
-    </DropdownMenu.Root>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

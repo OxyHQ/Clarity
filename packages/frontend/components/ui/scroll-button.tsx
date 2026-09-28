@@ -3,6 +3,7 @@ import { Button } from "@oxy.so/bloom/button";
 import { ChevronDown } from "lucide-react-native";
 import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { bloomIcon } from "@/lib/bloom-icon";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export type ScrollButtonProps = {
   isAtBottom: boolean;
@@ -15,6 +16,7 @@ function ScrollButton({
   isAtBottom,
   onScrollToBottom,
 }: ScrollButtonProps) {
+  const { t } = useTranslation();
   if (isAtBottom) return null;
 
   return (
@@ -25,7 +27,7 @@ function ScrollButton({
         iconOnly
         icon={bloomIcon(ChevronDown)}
         onPress={onScrollToBottom}
-        accessibilityLabel="Scroll to bottom"
+        accessibilityLabel={t("actions.scrollToBottom")}
         className={className}
       />
     </Animated.View>

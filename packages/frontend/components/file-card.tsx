@@ -7,8 +7,17 @@ import {
   Image as ImageIcon,
   File,
   MoreHorizontal,
+  Trash2,
 } from 'lucide-react-native';
-import * as DropdownMenu from '@/components/ui/dropdown-menu';
+import { GlyphButton } from '@oxy.so/bloom/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@oxy.so/bloom/dropdown-menu';
+import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
+import { useTranslation } from '@/hooks/useTranslation';
 interface LibraryFile {
   name: string;
   type: string;
@@ -26,6 +35,7 @@ interface FileCardProps {
 }
 
 export function FileCard({ file, onPress, onDelete }: FileCardProps) {
+  const { t } = useTranslation();
   const getFileIcon = () => {
     if (file.category === 'images') {
       return <ImageIcon size={16} className="text-blue-500" />;
@@ -85,19 +95,25 @@ export function FileCard({ file, onPress, onDelete }: FileCardProps) {
         </View>
 
         {/* Actions */}
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Pressable className="h-8 w-8 items-center justify-center rounded-full active:bg-muted/70">
-              <MoreHorizontal size={14} className="text-muted-foreground" />
-            </Pressable>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Content>
-            <DropdownMenu.Item key="delete" destructive onSelect={() => onDelete?.(file)}>
-              <DropdownMenu.ItemIcon ios={{ name: "trash" }} />
-              <DropdownMenu.ItemTitle>Delete</DropdownMenu.ItemTitle>
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild label={t('actions.more')} style={{ alignSelf: 'center' }}>
+            <GlyphButton
+              size={32}
+              glyphSize={14}
+              icon={bloomIcon(MoreHorizontal)}
+              accessibilityLabel={t('actions.more')}
+            />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem
+              tone="danger"
+              leading={<MenuRowIcon icon={Trash2} tone="danger" />}
+              onPress={() => onDelete?.(file)}
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </View>
     </Pressable>
   );

@@ -7,10 +7,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
 import { useStore } from "@/lib/globalStore";
 import { Globe, X, Brain, Search, Menu, ArrowUp } from "lucide-react-native";
-import * as DropdownMenu from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@oxy.so/bloom/dropdown-menu";
 import { Text } from "@/components/ui/text";
-import { Button } from "@/components/ui/button";
-import { Button as BloomButton, CloseButton, GlyphButton } from "@oxy.so/bloom/button";
+import { Button, CloseButton, GlyphButton } from "@oxy.so/bloom/button";
 import { bloomIcon } from "@/lib/bloom-icon";
 import { PromptInput, type Attachment } from "@/components/ui/prompt-input";
 import { ScrollButton } from "@/components/ui/scroll-button";
@@ -308,35 +312,31 @@ export const ChatPageContent = ({
 
   const modeMenuItems = (
     <>
-      <DropdownMenu.CheckboxItem
-        key="deep-research"
-        value={activeModes.has("deepResearch") ? "on" : "off"}
-        onValueChange={() => toggleMode("deepResearch")}
+      <DropdownMenuCheckboxItem
+        checked={activeModes.has("deepResearch")}
+        onCheckedChange={() => toggleMode("deepResearch")}
       >
-        <DropdownMenu.ItemIcon ios={{ name: "magnifyingglass" }} />
-        <DropdownMenu.ItemTitle>Deep research</DropdownMenu.ItemTitle>
-      </DropdownMenu.CheckboxItem>
-      <DropdownMenu.CheckboxItem
-        key="thinking"
-        value={thinkingMode ? "on" : "off"}
-        onValueChange={handleThinkingMode}
+        Deep research
+      </DropdownMenuCheckboxItem>
+      <DropdownMenuCheckboxItem
+        checked={thinkingMode}
+        onCheckedChange={handleThinkingMode}
       >
-        <DropdownMenu.ItemIcon ios={{ name: "brain" }} />
-        <DropdownMenu.ItemTitle>Thinking mode</DropdownMenu.ItemTitle>
-      </DropdownMenu.CheckboxItem>
+        Thinking mode
+      </DropdownMenuCheckboxItem>
     </>
   );
 
   const actionsLeftContent = (
     <>
-      <BloomButton
+      <Button
         variant={activeModes.has("search") ? "primary" : "outline"}
         size="sm"
         iconOnly
         icon={bloomIcon(Globe)}
         pressed={activeModes.has("search")}
         onPress={() => toggleMode("search")}
-        accessibilityLabel="Web search"
+        accessibilityLabel={t("actions.webSearch")}
       />
 
       {thinkingMode && (
@@ -352,16 +352,20 @@ export const ChatPageContent = ({
         />
       )}
 
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger>
-          <Button variant="outline" size="icon" className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground">
-            <Search size={16} className="text-muted-foreground" />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content side="top" align="start" collisionPadding={8}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild label={t("actions.searchModes")}>
+          <Button
+            variant="outline"
+            size="sm"
+            iconOnly
+            icon={bloomIcon(Search)}
+            accessibilityLabel={t("actions.searchModes")}
+          />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" align="start">
           {modeMenuItems}
-        </DropdownMenu.Content>
-      </DropdownMenu.Root>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </>
   );
 
@@ -485,7 +489,7 @@ export const ChatPageContent = ({
                     <View className="flex-row items-center gap-2 mb-2 px-1">
                       <Pencil size={14} className="text-primary" />
                       <Text className="text-xs text-muted-foreground flex-1">Editing message</Text>
-                      <CloseButton onPress={handleCancelEdit} accessibilityLabel="Cancel edit" />
+                      <CloseButton onPress={handleCancelEdit} accessibilityLabel={t("actions.cancelEdit")} />
                     </View>
                   )}
                   <PromptInput
@@ -530,7 +534,7 @@ export const ChatPageContent = ({
                           glyphSize={20}
                           icon={bloomIcon(Menu)}
                           onPress={() => setSidebarOpen(true)}
-                          accessibilityLabel="Open menu"
+                          accessibilityLabel={t("actions.openMenu")}
                         />
                       </View>
                     </View>
@@ -569,7 +573,7 @@ export const ChatPageContent = ({
                             badge Clarity's own ModelSelector shows, so it stays separate. */}
                         <View className="mt-2 flex-row items-center justify-between px-1">
                           <View className="flex-row items-center gap-1.5 flex-wrap">
-                            <BloomButton
+                            <Button
                               variant={activeModes.has("search") ? "ghost" : "secondary"}
                               size="sm"
                               leadingIcon={bloomIcon(Globe)}
@@ -577,7 +581,7 @@ export const ChatPageContent = ({
                               onPress={() => toggleMode("search")}
                             >
                               Focus
-                            </BloomButton>
+                            </Button>
                             {activeModes.has("deepResearch") && (
                               <ModeChip
                                 icon={MODE_CONFIG.deepResearch.icon}

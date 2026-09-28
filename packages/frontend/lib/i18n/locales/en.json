@@ -1191,5 +1191,27 @@
       "apps": "Apps",
       "documents": "Documents"
     }
+  },
+  "actions": {
+    "openMenu": "Open menu",
+    "more": "More options",
+    "copy": "Copy",
+    "copyCode": "Copy code",
+    "like": "Like",
+    "share": "Share",
+    "download": "Download",
+    "rewrite": "Rewrite",
+    "goodResponse": "Good response",
+    "badResponse": "Bad response",
+    "stop": "Stop generating",
+    "scrollToBottom": "Scroll to bottom",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "voiceInput": "Voice input",
+    "webSearch": "Web search",
+    "cancelEdit": "Cancel edit",
+    "conversationViews": "Conversation views",
+    "addAttachment": "Add attachment",
+    "searchModes": "Search modes"
   }
 }

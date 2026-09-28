@@ -17,6 +17,7 @@ import { PromptInputAutocomplete } from "./autocomplete";
 import { PromptInputAttachments } from "./attachments";
 import { PromptInputSubmitButton } from "./submit-button";
 import { PromptInputAddMenu } from "./add-menu";
+import { useTranslation } from "@/hooks/useTranslation";
 
 export type PromptInputProps = {
   isLoading?: boolean;
@@ -75,6 +76,7 @@ export function PromptInput({
   disableKeyboardAvoidance = false,
   ...props
 }: PromptInputProps) {
+  const { t } = useTranslation();
   const [internalValue, setInternalValue] = useState(value || "");
   const [currentHeight, setCurrentHeight] = useState(44);
   const [showFullscreen, setShowFullscreen] = useState(false);
@@ -224,7 +226,7 @@ export function PromptInput({
             glyphSize={16}
             icon={bloomIcon(Maximize2)}
             onPress={() => setShowFullscreen(true)}
-            accessibilityLabel="Expand"
+            accessibilityLabel={t("actions.expand")}
             style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }}
           />
         )}
@@ -280,7 +282,7 @@ export function PromptInput({
             glyphSize={20}
             icon={bloomIcon(Minimize2)}
             onPress={() => setShowFullscreen(false)}
-            accessibilityLabel="Collapse"
+            accessibilityLabel={t("actions.collapse")}
             style={{ position: "absolute", top: 16, right: 16, zIndex: 50 }}
           />
           <View className="flex-1 flex-col">{content}</View>
