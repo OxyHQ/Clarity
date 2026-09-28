@@ -14,6 +14,7 @@ import { closeJobPostingsForDocument, projectJobPostings } from './search/jobs/p
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
+import { sweepImageCache } from './search/image-cache.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
@@ -248,6 +249,16 @@ async function runIconRefresh(): Promise<void> {
   }
 }
 
+/** Delete the cached images nobody has asked for lately (search/image-cache.ts). */
+async function runImageCacheSweep(): Promise<void> {
+  try {
+    const removed = await sweepImageCache();
+    if (removed > 0) console.info('Image cache swept', { removed });
+  } catch (error) {
+    console.error('Image cache sweep failed', { error: error instanceof Error ? error.message : 'unknown sweep failure' });
+  }
+}
+
 async function runJobMaintenance(): Promise<void> {
   try {
     const sweep = await sweepJobLifecycle();
@@ -282,6 +293,7 @@ async function main() {
     if (Date.now() >= nextMaintenanceAt) {
       nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
       await runJobMaintenance();
+      await runImageCacheSweep();
     }
     if (Date.now() >= nextIconRefreshAt) {
       nextIconRefreshAt = Date.now() + iconRefreshIntervalMs;

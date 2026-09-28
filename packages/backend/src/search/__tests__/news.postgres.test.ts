@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
 import { newsStories, newsStoryArticles, searchDocuments } from '../../db/schema/index.js';
 import { listNewsStories, newsLanguages, newsLimit } from '../news.js';
+import { publicImageUrl } from '../image-cache.js';
 
 describe('newsLimit', () => {
   it('defaults what it cannot read and clamps what it can', () => {
@@ -83,8 +84,11 @@ suite('news on Postgres', () => {
       id: `document:${ids.newer}`,
       summary: 'What happened',
       sourceCount: 1,
-      articles: [{ id: ids.newer, canonicalUrl: urls[1], imageUrl: 'https://news-test.example/i.jpg', publisher: 'Stated Publisher' }],
+      // Clarity's copy of the image, never the site's own URL.
+      articles: [{ id: ids.newer, canonicalUrl: urls[1], imageUrl: publicImageUrl('documents', ids.newer, 'https://news-test.example/i.jpg'), publisher: 'Stated Publisher' }],
     });
+    expect(stories[0].articles[0].imageUrl).toMatch(/^https:\/\/api\.clarity\.surf\/images\/documents\//);
+    expect(JSON.stringify(stories)).not.toContain('news-test.example/i.jpg');
     expect(stories[0].articles[0].publishedAt).toBeDefined();
     expect(stories[0].lastPublishedAt).toBeInstanceOf(Date);
     expect(stories[2].articles[0].publisher).toBe('Example News');
