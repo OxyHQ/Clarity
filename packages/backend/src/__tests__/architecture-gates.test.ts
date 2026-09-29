@@ -81,13 +81,13 @@ describe('architecture gates', () => {
     expect(deployment).toContain('arn:aws:iam::237343248947:role/oxy-clarity-github-deploy');
     expect(deployment).toContain('SERVICE: clarity-api');
     expect(deployment).toContain('CONTAINER_NAME: clarity-api');
-    expect(deployment).toContain('SERVICE: clarity-worker');
+    expect(deployment).toContain('COMPANION_SERVICE: clarity-worker');
     expect(deployment).toContain('https://api.clarity.surf');
     expect(deployment).not.toMatch(/OXY_SERVICE_API_SECRET\s*:/);
     expect(deployment).not.toMatch(/toJSON\(secrets\)/);
     expect(deployment).toMatch(/IMAGE_URI: .*@\$\{\{ steps\.build\.outputs\.digest \}\}/);
     expect(deployScript).toContain('Provision it in oxy-infra first');
-    expect(deployScript).toContain('Rolling $SERVICE back');
+    expect(deployScript).toContain('Rolling $service back');
     expect(deployScript).not.toContain('--force-new-deployment');
   });
 

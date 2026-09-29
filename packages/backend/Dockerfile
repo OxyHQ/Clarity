@@ -60,16 +60,21 @@ COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/frontend/package.json ./packages/frontend/
 
-# Install production dependencies only
-RUN bun install --frozen-lockfile --production
+# Install production dependencies only, and hand /app to the runtime user IN
+# THE SAME LAYER. This used to be a separate `RUN chown -R node:node /app` at
+# the end: a chown in its own layer copies every file it touches into that
+# layer, so the whole production node_modules was stored twice — 104.2s to
+# build that one step, and the export (41.7s) and push carried both copies
+# (Deploy to AWS run 36464995735). The resulting ownership is unchanged:
+# everything under /app, /app included, belongs to node.
+RUN bun install --frozen-lockfile --production && \
+    chown -R node:node /app
 
-# Copy built output from builder
-COPY --from=builder /build/packages/shared-types/dist ./packages/shared-types/dist
-COPY --from=builder /build/packages/backend/dist ./packages/backend/dist
-COPY --from=builder /build/packages/backend/drizzle ./packages/backend/drizzle
-
-# Allow non-root user to write temp files
-RUN chown -R node:node /app
+# Copy built output from builder, owned by the runtime user as it lands (the
+# chown above already covers everything the install wrote).
+COPY --from=builder --chown=node:node /build/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder --chown=node:node /build/packages/backend/dist ./packages/backend/dist
+COPY --from=builder --chown=node:node /build/packages/backend/drizzle ./packages/backend/drizzle
 
 # Security hardening: Run as non-root user
 USER node

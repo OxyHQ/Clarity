@@ -110,10 +110,17 @@ jobs:
       - name: Verify current main before production changes
         run: bash .github/scripts/require-current-main.sh
 
-      - name: Deploy API
+      # API and crawler worker together: pre-migration, then BOTH rollouts at
+      # once, then post-migration (COMPANION_SERVICE in deploy-ecs-service.sh).
+      # Measured on run 36464995735: "Deploy API" 604s, then "Deploy crawler
+      # worker" 299s after it, serially — and the old worker kept running
+      # across the post-migration in between.
+      - name: Deploy API and crawler worker
         env:
           SERVICE: clarity-api
           CONTAINER_NAME: clarity-api
+          COMPANION_SERVICE: clarity-worker
+          COMPANION_CONTAINER_NAME: clarity-worker
           IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}@${{ steps.build.outputs.digest }}
           SIDECAR_IMAGES_JSON: '{"searxng":"${{ env.ECR_REGISTRY }}/${{ env.SEARXNG_ECR_REPOSITORY }}@${{ steps.searxng.outputs.digest }}"}'
           PRE_DEPLOY_TASK_COMMAND_JSON: '["node","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=pre"]'
@@ -124,10 +131,3 @@ jobs:
         env:
           CLARITY_API_URL: https://api.clarity.surf
         run: bash .github/scripts/smoke-clarity.sh
-
-      - name: Deploy crawler worker
-        env:
-          SERVICE: clarity-worker
-          CONTAINER_NAME: clarity-worker
-          IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}@${{ steps.build.outputs.digest }}
-        run: bash .github/scripts/deploy-ecs-service.sh
