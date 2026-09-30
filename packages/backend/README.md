@@ -60,3 +60,4 @@ bun run db:attest-fresh-install -- --confirm=FRESH_INSTALL_NO_DATA_TO_MIGRATE
 ```
 
 See `../../docs/postgres-alia-migration.md` before running any data command.
+
