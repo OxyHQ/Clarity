@@ -39,14 +39,11 @@ COPY packages/backend/ ./packages/backend/
 RUN bun run --filter @clarity/shared-types build && \
     bun run --filter @clarity/backend build
 
-# --- Stage 2: Production Runtime ---
-FROM node:22-bookworm-slim AS runtime
-
-# curl serves the image health check below; Bun installs production deps.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+# --- Stage 2: Production dependencies ---
+# Only the API's closure (--filter): the frontend's Expo / React Native tree is
+# never loaded by the server and used to be most of this image. Same Debian base
+# as the runtime, so anything native matches.
+FROM node:22-bookworm-slim AS production-deps
 
 COPY --from=oven/bun:1.4.2 /usr/local/bin/bun /usr/local/bin/bun
 
@@ -61,15 +58,32 @@ COPY packages/sdk/package.json ./packages/sdk/
 COPY packages/frontend/package.json ./packages/frontend/
 
 # Install production dependencies only
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --filter @clarity/backend
+
+# --- Stage 3: Production Runtime ---
+FROM node:22-bookworm-slim AS runtime
+
+# curl serves the image health check below; Bun stays in the runtime as before.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=oven/bun:1.4.2 /usr/local/bin/bun /usr/local/bin/bun
+
+WORKDIR /app
+
+# The non-root user owns /app (it writes temp files there) and everything
+# copied into it. Each COPY sets the owner itself: a trailing `chown -R`
+# rewrote every file into a second layer and shipped node_modules twice.
+RUN chown node:node /app
+
+COPY --from=production-deps --chown=node:node /app/ ./
 
 # Copy built output from builder
-COPY --from=builder /build/packages/shared-types/dist ./packages/shared-types/dist
-COPY --from=builder /build/packages/backend/dist ./packages/backend/dist
-COPY --from=builder /build/packages/backend/drizzle ./packages/backend/drizzle
-
-# Allow non-root user to write temp files
-RUN chown -R node:node /app
+COPY --from=builder --chown=node:node /build/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder --chown=node:node /build/packages/backend/dist ./packages/backend/dist
+COPY --from=builder --chown=node:node /build/packages/backend/drizzle ./packages/backend/drizzle
 
 # Security hardening: Run as non-root user
 USER node
