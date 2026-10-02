@@ -1,0 +1,24 @@
+@clarity/backend test:
+@clarity/backend test:  RUN  v4.1.11 /home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/packages/backend
+@clarity/backend test:
+@clarity/backend test: [22:07:35] INFO: Plan changed
+@clarity/backend test:     subsystem: "credits"
+@clarity/backend test:     userId: "billing-selection-db8437ab-bbdf-46d7-bbd0-7d4a36852e0c-owner"
+@clarity/backend test:     from: "billing-selection-db8437ab-bbdf-46d7-bbd0-7d4a36852e0c-clarity-old"
+@clarity/backend test:     to: "billing-selection-db8437ab-bbdf-46d7-bbd0-7d4a36852e0c-clarity-new"
+@clarity/backend test:     direction: "upgrade"
+@clarity/backend test:     billingPeriod: "monthly"
+@clarity/backend test: [22:07:35] INFO: Plan changed
+@clarity/backend test:     subsystem: "credits"
+@clarity/backend test:     userId: "billing-selection-db8437ab-bbdf-46d7-bbd0-7d4a36852e0c-owner"
+@clarity/backend test:     from: "billing-selection-db8437ab-bbdf-46d7-bbd0-7d4a36852e0c-codea"
+@clarity/backend test:     to: "billing-selection-db8437ab-bbdf-46d7-bbd0-7d4a36852e0c-codea-new"
+@clarity/backend test:     direction: "upgrade"
+@clarity/backend test:     billingPeriod: "monthly"
+@clarity/backend test:
+@clarity/backend test:  Test Files  1 passed (1)
+@clarity/backend test:       Tests  32 passed (32)
+@clarity/backend test:    Start at  01:07:35
+@clarity/backend test:    Duration  1.15s (transform 186ms, setup 0ms, import 662ms, tests 407ms, environment 0ms)
+@clarity/backend test:
+@clarity/backend test: Exited with code 0

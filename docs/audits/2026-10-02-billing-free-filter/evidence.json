@@ -1,0 +1,165 @@
+{
+  "recordedAt": "2026-10-02T22:11:33.978705+00:00",
+  "base": "3583f536590cbd4331ed639fd18a07ac13dc9dc0",
+  "priorMilestoneHead": "3583f536590cbd4331ed639fd18a07ac13dc9dc0",
+  "runtimeDelta": "One boolean isFree SQL predicate; no policy/prices/manifest/API version changes",
+  "sourceInputs": [
+    {
+      "path": "packages/backend/src/lib/product-catalogue.ts",
+      "sha256": "69b14a313218ef90abc9597b85e370ae030ca8c8fca1cc646a1981fa2fb875ab"
+    },
+    {
+      "path": "packages/backend/src/routes/__tests__/billing-product-selection.postgres.test.ts",
+      "sha256": "61189cdd5d6befb3f66971ac6a33cc88471ff842802f04536a5594f6f509a1b9"
+    },
+    {
+      "path": "packages/backend/src/routes/billing.ts",
+      "sha256": "3219dac5bc85c6a9cf528a7eca9e079d0b7d9a69c0af601050f628728146b8df"
+    },
+    {
+      "path": "packages/backend/src/db/schema/index.ts",
+      "sha256": "ba36ac0aba6e0d10302a97c3048a6aa915f85e7e17feb92f1f315ea395a61649"
+    },
+    {
+      "path": "packages/backend/src/middleware/auth.ts",
+      "sha256": "fc09aca74413f2b99b86dd9b1188d91e94f8ffaa8207bd5e857818afb319d091"
+    },
+    {
+      "path": "packages/backend/drizzle/0002_married_machine_man.sql",
+      "sha256": "79d24d08b87ca247691556b78dc0e64a4b7f0b08b0ee18140c0b941047d5887e"
+    },
+    {
+      "path": "bun.lock",
+      "sha256": "b5ba8b5a93a4c48971433756e9faec08c698fd20bb5a6537743514ce1c7e2795"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "sha256": "97111f79935abb3d2a21c54986e078a8287de3436bc95e3e9f9e8912258164ab"
+    },
+    {
+      "path": "docs/billing-product-selection.md",
+      "sha256": "35af2f1f5ddee2ff055f8cee8e0b790c35344bd6120f57c3dc20e8d6c82df23e"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/README.md",
+      "sha256": "e232467c9855be04093a73d4077e1bd5e227c4edb99d9b3401effd1e68151236"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/frozen-harness.ts",
+      "sha256": "61189cdd5d6befb3f66971ac6a33cc88471ff842802f04536a5594f6f509a1b9"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/logs/clarity-isfree-red.log",
+      "sha256": "90fff9d8f0d23b75d3d403d1c2cebf128c7c3c4ddfcb76648ede0a82e5be8f25",
+      "originalSha256": "71874c63a113ee591bf10da9b6f985420388534204051e47ac1cb40144ce1ac0"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/logs/clarity-isfree-green.log",
+      "sha256": "e740ee51d5c97ff9cf8f5b770a307e2f7de3c1ccec1bfa3f893eb491e4be770a",
+      "originalSha256": "4e7801e9746258ee4d384a39aeee2cfed09fd47986ee5f4fa244bae06b642200"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/logs/clarity-isfree-lint.log",
+      "sha256": "dd1bf47cbb2da617b6ddb7cf1a7d8d01728f9ef51cf35d7bc2540dd5dd63bfea",
+      "originalSha256": "dd1bf47cbb2da617b6ddb7cf1a7d8d01728f9ef51cf35d7bc2540dd5dd63bfea"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/logs/clarity-isfree-types.log",
+      "sha256": "52222d9b84052bbac35e7b5285da9fdd8bd154edc83272008b8bd6789292ae47",
+      "originalSha256": "52222d9b84052bbac35e7b5285da9fdd8bd154edc83272008b8bd6789292ae47"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/logs/clarity-isfree-build.log",
+      "sha256": "ae940f526c128818b62698c536cf03fb916f1a8fe2c781e92ccf04759810580d",
+      "originalSha256": "f5fe699e32eb0513d10a325fd38689182d9c31de978908096d28604afb566154"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/red-inputs.json",
+      "sha256": "58072d3c0c1913f702e2ab7a498eaaec3e40cf96c8eab0d17f93dc3b3e09ba9d"
+    },
+    {
+      "path": "docs/audits/2026-10-02-billing-free-filter/billing-customers-schema.sql",
+      "sha256": "a20656ea8a7afe8b0940068876ee18c542ef43d5a201af5e47df4c8d0813b12c"
+    }
+  ],
+  "installedInputs": [
+    {
+      "path": "node_modules/@oxy.so/core/package.json",
+      "realpath": "/home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/node_modules/@oxy.so/core/package.json",
+      "sha256": "3ee5eae3e6bea163e4e1abf65e436abaabbfd312ee758984f2f3b723b928a2c7"
+    },
+    {
+      "path": "node_modules/@oxy.so/core/dist/esm/server/middleware.js",
+      "realpath": "/home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/node_modules/@oxy.so/core/dist/esm/server/middleware.js",
+      "sha256": "efa6d1e8f358ace64d6c11b8ecd0367541533f09871ed9939ebf69b9998d62d9"
+    },
+    {
+      "path": "node_modules/@oxy.so/core/dist/esm/server/auth.js",
+      "realpath": "/home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/node_modules/@oxy.so/core/dist/esm/server/auth.js",
+      "sha256": "842f4fdae5bf0a04a527ff092c02809c8648f410edc0a6edb7e6603f46768b00"
+    },
+    {
+      "path": "node_modules/stripe/package.json",
+      "realpath": "/home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/node_modules/stripe/package.json",
+      "sha256": "d94dc30bc4744c1196c8eb4a8f25da11a0d3dc71694474e2f72d74ac76f39104"
+    },
+    {
+      "path": "node_modules/stripe/esm/lib.d.ts",
+      "realpath": "/home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/node_modules/stripe/esm/lib.d.ts",
+      "sha256": "ed5ac3ea851a0e455e615a7c926d3cda913d4171337486950069b9c2fb6db907"
+    },
+    {
+      "path": "node_modules/@oxy.so/db/package.json",
+      "realpath": "/home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/node_modules/@oxy.so/db/package.json",
+      "sha256": "8fde331cc0f3145fa31c8cbf61fd590d200737e14230a810ee7d4b639a06794f"
+    }
+  ],
+  "toolchain": {
+    "bun": "1.4.2",
+    "node": "24.21.0",
+    "postgres": "17.11"
+  },
+  "redSource": {
+    "base": "3583f536590cbd4331ed639fd18a07ac13dc9dc0",
+    "harnessSha256": "61189cdd5d6befb3f66971ac6a33cc88471ff842802f04536a5594f6f509a1b9",
+    "frozenHarnessSha256": "61189cdd5d6befb3f66971ac6a33cc88471ff842802f04536a5594f6f509a1b9",
+    "catalogueSha256": "47ebc58c15c964329dc3b3777727e2134f440b3f629812cb649b6d7b66aa9ea5"
+  },
+  "results": {
+    "red": {
+      "exitCode": 1,
+      "failed": 6,
+      "passed": 26
+    },
+    "green": {
+      "exitCode": 0,
+      "passed": 32
+    },
+    "backendLint": {
+      "exitCode": 0
+    },
+    "backendBuild": {
+      "exitCode": 0
+    },
+    "backendTypes": {
+      "exitCode": 2,
+      "onlyError": "Pre-existing literal2026-06-24.dahlia versus Stripe22.6.2 expected2026-08-26.dahlia"
+    }
+  },
+  "database": {
+    "name": "clarity_ci",
+    "loopbackPort": 5558,
+    "pid": 3148535,
+    "dataDirectory": "/home/nate/Oxy/.agent-evidence/coverage-1519-20261002/clarity-pg/data",
+    "schema": "Three migrated billing tables cloned INCLUDING ALL into random own schema; scoped search_path and owned cleanup; full pgvector schema applies in unchanged CI"
+  },
+  "limits": [
+    "Synthetic central session validation, real published shared middleware+SQL",
+    "Fully mocked Stripe; positive checkout is observer only, never real financial execution",
+    "Global fetch zero assertion; no unpredictable network",
+    "Historical prior3583 CI must not be attributed to this new head",
+    "No publication/adoption/deploy or full I07/I11 closure"
+  ]
+}

@@ -7,6 +7,13 @@ product return `409`. A missing or different-product current catalogue plan
 fails before price creation, subscription retrieval or update. Existing upgrade,
 billing-period and proration behavior is unchanged.
 
+Subscription checkout and plan changes already request `isFree: false` from
+the existing catalogue. The SQL reader now enforces that boolean filter, so an
+exact free plan ID returns `400` before provider operations. Explicit
+`isFree: true` selects free plans; omitting the filter retains both free and paid
+plans. Product and active-status predicates still compose with this filter.
+No plan definitions, prices or entitlement policy change.
+
 `POST /billing/subscription/cancel` accepts an optional JSON body:
 
 ```json

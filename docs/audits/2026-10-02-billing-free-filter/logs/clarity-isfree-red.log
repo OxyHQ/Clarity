@@ -1,0 +1,192 @@
+@clarity/backend test:
+@clarity/backend test:  RUN  v4.1.11 /home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/packages/backend
+@clarity/backend test:
+@clarity/backend test: [22:07:14] INFO: Plan changed
+@clarity/backend test:     subsystem: "credits"
+@clarity/backend test:     userId: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-owner"
+@clarity/backend test:     from: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-old"
+@clarity/backend test:     to: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-new"
+@clarity/backend test:     direction: "upgrade"
+@clarity/backend test:     billingPeriod: "monthly"
+@clarity/backend test: [22:07:14] INFO: Plan changed
+@clarity/backend test:     subsystem: "credits"
+@clarity/backend test:     userId: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-owner"
+@clarity/backend test:     from: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-codea"
+@clarity/backend test:     to: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-codea-new"
+@clarity/backend test:     direction: "upgrade"
+@clarity/backend test:     billingPeriod: "monthly"
+@clarity/backend test: [22:07:14] INFO: Plan changed
+@clarity/backend test:     subsystem: "credits"
+@clarity/backend test:     userId: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-owner"
+@clarity/backend test:     from: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-old"
+@clarity/backend test:     to: "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free"
+@clarity/backend test:     direction: "upgrade"
+@clarity/backend test:     billingPeriod: "monthly"
+@clarity/backend test: stdout | src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL
+@clarity/backend test: {
+@clarity/backend test:   severity_local: 'NOTICE',
+@clarity/backend test:   severity: 'NOTICE',
+@clarity/backend test:   code: '00000',
+@clarity/backend test:   message: 'drop cascades to 3 other objects',
+@clarity/backend test:   detail: 'drop cascades to table billing_selection_daae9580775d4c60a0f9d1dd7b972b14.clarity_plans\n' +
+@clarity/backend test:     'drop cascades to table billing_selection_daae9580775d4c60a0f9d1dd7b972b14.clarity_subscriptions\n' +
+@clarity/backend test:     'drop cascades to table billing_selection_daae9580775d4c60a0f9d1dd7b972b14.clarity_billing_customers',
+@clarity/backend test:   file: 'dependency.c',
+@clarity/backend test:   line: '1165',
+@clarity/backend test:   routine: 'reportDependentObjects'
+@clarity/backend test: }
+@clarity/backend test:
+@clarity/backend test:  ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts (32 tests | 6 failed) 458ms
+@clarity/backend test:      × SQL isFree 'true' preserves the exact catalogue subset 9ms
+@clarity/backend test:      × SQL isFree 'false' preserves the exact catalogue subset 3ms
+@clarity/backend test:      × an exact free plan ID does not satisfy a paid-only SQL lookup 3ms
+@clarity/backend test:      × SQL composes free, active and product predicates without discarding any 2ms
+@clarity/backend test:      × free plan is rejected by checkout before every provider operation 8ms
+@clarity/backend test:      × free plan is rejected by change-plan before every provider operation 13ms
+@clarity/backend test:
+@clarity/backend test: ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+@clarity/backend test:
+@clarity/backend test:  FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > SQL isFree 'true' preserves the exact catalogue subset
+@clarity/backend test: AssertionError: expected [ …(6) ] to deeply equal [ …(2) ]
+@clarity/backend test:
+@clarity/backend test: - Expected
+@clarity/backend test: + Received
+@clarity/backend test:
+@clarity/backend test:   [
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-new",
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-old",
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-codea",
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-codea-new",
+@clarity/backend test:     "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free",
+@clarity/backend test:     "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free-inactive",
+@clarity/backend test:   ]
+@clarity/backend test:
+@clarity/backend test:  ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:216:48
+@clarity/backend test:     214|   ])('SQL isFree $label preserves the exact catalogue subset', async (…
+@clarity/backend test:     215|     const rows = await getPlans(filter === undefined ? undefined : { i…
+@clarity/backend test:     216|     expect(rows.map(row => row.planId).sort()).toEqual(expected.map(in…
+@clarity/backend test:        |                                                ^
+@clarity/backend test:     217|   });
+@clarity/backend test:     218|   it('an exact free plan ID does not satisfy a paid-only SQL lookup', …
+@clarity/backend test:
+@clarity/backend test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+@clarity/backend test:
+@clarity/backend test:  FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > SQL isFree 'false' preserves the exact catalogue subset
+@clarity/backend test: AssertionError: expected [ …(6) ] to deeply equal [ …(4) ]
+@clarity/backend test:
+@clarity/backend test: - Expected
+@clarity/backend test: + Received
+@clarity/backend test:
+@clarity/backend test:   [
+@clarity/backend test:     "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-new",
+@clarity/backend test:     "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-old",
+@clarity/backend test:     "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-codea",
+@clarity/backend test:     "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-codea-new",
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free",
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free-inactive",
+@clarity/backend test:   ]
+@clarity/backend test:
+@clarity/backend test:  ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:216:48
+@clarity/backend test:     214|   ])('SQL isFree $label preserves the exact catalogue subset', async (…
+@clarity/backend test:     215|     const rows = await getPlans(filter === undefined ? undefined : { i…
+@clarity/backend test:     216|     expect(rows.map(row => row.planId).sort()).toEqual(expected.map(in…
+@clarity/backend test:        |                                                ^
+@clarity/backend test:     217|   });
+@clarity/backend test:     218|   it('an exact free plan ID does not satisfy a paid-only SQL lookup', …
+@clarity/backend test:
+@clarity/backend test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+@clarity/backend test:
+@clarity/backend test:  FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > an exact free plan ID does not satisfy a paid-only SQL lookup
+@clarity/backend test: AssertionError: expected [ { …(23) } ] to deeply equal []
+@clarity/backend test:
+@clarity/backend test: - Expected
+@clarity/backend test: + Received
+@clarity/backend test:
+@clarity/backend test: - []
+@clarity/backend test: + [
+@clarity/backend test: +   {
+@clarity/backend test: +     "annualPrice": 0,
+@clarity/backend test: +     "createdAt": 2026-10-02T22:07:14.437Z,
+@clarity/backend test: +     "creditsLabel": "",
+@clarity/backend test: +     "creditsPerMonth": 0,
+@clarity/backend test: +     "currency": "usd",
+@clarity/backend test: +     "dailyFreeCredits": 300,
+@clarity/backend test: +     "description": null,
+@clarity/backend test: +     "id": "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free",
+@clarity/backend test: +     "isActive": true,
+@clarity/backend test: +     "isFeatured": false,
+@clarity/backend test: +     "isFree": true,
+@clarity/backend test: +     "modelIds": [],
+@clarity/backend test: +     "monthlyPrice": 0,
+@clarity/backend test: +     "name": "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free",
+@clarity/backend test: +     "notes": null,
+@clarity/backend test: +     "planId": "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free",
+@clarity/backend test: +     "product": "clarity",
+@clarity/backend test: +     "sortOrder": 4,
+@clarity/backend test: +     "stripeAnnualPriceId": null,
+@clarity/backend test: +     "stripeMonthlyPriceId": "price-billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free",
+@clarity/backend test: +     "stripeProductId": null,
+@clarity/backend test: +     "subtitle": "",
+@clarity/backend test: +     "updatedAt": 2026-10-02T22:07:14.437Z,
+@clarity/backend test: +   },
+@clarity/backend test: + ]
+@clarity/backend test:
+@clarity/backend test:  ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:219:83
+@clarity/backend test:     217|   });
+@clarity/backend test:     218|   it('an exact free plan ID does not satisfy a paid-only SQL lookup', …
+@clarity/backend test:     219|     expect(await getPlans({ planId: planIds[4], isActive: true, isFree…
+@clarity/backend test:        |                                                                                   ^
+@clarity/backend test:     220|   });
+@clarity/backend test:     221|   it('SQL composes free, active and product predicates without discard…
+@clarity/backend test:
+@clarity/backend test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+@clarity/backend test:
+@clarity/backend test:  FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > SQL composes free, active and product predicates without discarding any
+@clarity/backend test: AssertionError: expected [ …(3) ] to deeply equal [ Array(1) ]
+@clarity/backend test:
+@clarity/backend test: - Expected
+@clarity/backend test: + Received
+@clarity/backend test:
+@clarity/backend test:   [
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-old",
+@clarity/backend test: +   "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-clarity-new",
+@clarity/backend test:     "billing-selection-b7c5daba-38c1-4aa4-87de-f3e5a5536c93-free",
+@clarity/backend test:   ]
+@clarity/backend test:
+@clarity/backend test:  ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:223:41
+@clarity/backend test:     221|   it('SQL composes free, active and product predicates without discard…
+@clarity/backend test:     222|     const rows = await getPlans({ isFree: true, isActive: true, produc…
+@clarity/backend test:     223|     expect(rows.map(row => row.planId)).toEqual([planIds[4]]);
+@clarity/backend test:        |                                         ^
+@clarity/backend test:     224|   });
+@clarity/backend test:     225|   it.each(['checkout', 'change-plan'])('free plan is rejected by %s be…
+@clarity/backend test:
+@clarity/backend test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+@clarity/backend test:
+@clarity/backend test:  FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > free plan is rejected by checkout before every provider operation
+@clarity/backend test:  FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > free plan is rejected by change-plan before every provider operation
+@clarity/backend test: AssertionError: expected 200 to be 400 // Object.is equality
+@clarity/backend test:
+@clarity/backend test: - Expected
+@clarity/backend test: + Received
+@clarity/backend test:
+@clarity/backend test: - 400
+@clarity/backend test: + 200
+@clarity/backend test:
+@clarity/backend test:  ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:229:49
+@clarity/backend test:     227|     const path = route === 'checkout' ? '/billing/checkout/subscriptio…
+@clarity/backend test:     228|     const input = { planId: planIds[4], successUrl: 'https://example.i…
+@clarity/backend test:     229|     expect((await request(path, input)).status).toBe(400);
+@clarity/backend test:        |                                                 ^
+@clarity/backend test:     230|     expect(stripe.customerRetrieve).not.toHaveBeenCalled(); expect(str…
+@clarity/backend test:     231|     expect(stripe.retrieve).not.toHaveBeenCalled(); expect(stripe.upda…
+@clarity/backend test:
+@clarity/backend test: ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+@clarity/backend test:
+@clarity/backend test:
+@clarity/backend test:  Test Files  1 failed (1)
+@clarity/backend test:       Tests  6 failed | 26 passed (32)
+@clarity/backend test:    Start at  01:07:13
+@clarity/backend test:    Duration  1.19s (transform 183ms, setup 0ms, import 655ms, tests 458ms, environment 0ms)
+@clarity/backend test:
+@clarity/backend test: Exited with code 1
