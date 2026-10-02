@@ -13,6 +13,7 @@ export const queryKeys = {
   billing: {
     packages: ['credit-packages'] as const,
     plans: (product?: string) => ['subscription-plans', product] as const,
+    subscriptions: ['subscription'] as const,
     subscription: (product?: string) => ['subscription', product] as const,
     subscriptionPoll: (product?: string) => ['subscription-poll', product] as const,
     transactions: (limit?: number, offset?: number) => ['transactions', limit, offset] as const,

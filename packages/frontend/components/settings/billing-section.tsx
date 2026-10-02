@@ -67,8 +67,9 @@ export function BillingSection({ success }: BillingSectionProps) {
   }, [success]);
 
   const handleCancelSubscription = async () => {
+    if (!subscription) return;
     try {
-      await cancelSubscriptionMutation.mutateAsync();
+      await cancelSubscriptionMutation.mutateAsync({ subscriptionId: subscription.id });
       toast.success(t('billing.cancelSubscriptionSuccess'));
     } catch (error: any) {
       toast.error(error.message || t('billing.failedCancelSubscription'));

@@ -85,6 +85,7 @@ export async function getPlans(filter?: Record<string, unknown>): Promise<PlanDa
   if (typeof filter?.planId === 'string') conditions.push(eq(plans.planId, filter.planId));
   if (typeof filter?.product === 'string') conditions.push(eq(plans.product, filter.product));
   if (typeof filter?.isActive === 'boolean') conditions.push(eq(plans.isActive, filter.isActive));
+  if (typeof filter?.isFree === 'boolean') conditions.push(eq(plans.isFree, filter.isFree));
   return getDb().select().from(plans).where(conditions.length > 0 ? and(...conditions) : undefined) as Promise<PlanData[]>;
 }
 

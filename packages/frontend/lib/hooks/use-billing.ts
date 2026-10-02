@@ -270,7 +270,7 @@ export function useChangePlan() {
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.entitlements });
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscriptions });
     },
   });
 }
@@ -279,10 +279,10 @@ export function useCancelSubscription() {
   const queryClient = useQueryClient();
   const client = useApiClient();
   return useMutation({
-    mutationFn: () => client.post('/billing/subscription/cancel'),
+    mutationFn: (input?: { subscriptionId: string }) => client.post('/billing/subscription/cancel', input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.entitlements });
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscription() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscriptions });
     },
   });
 }

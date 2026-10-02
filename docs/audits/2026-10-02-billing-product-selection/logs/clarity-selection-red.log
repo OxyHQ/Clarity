@@ -1,0 +1,123 @@
+$ vitest run src/routes/__tests__/billing-product-selection.postgres.test.ts
+
+ RUN  v4.1.11 /home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/packages/backend
+
+[21:34:15] INFO: Plan changed
+    subsystem: "credits"
+    userId: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-owner"
+    from: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-codea"
+    to: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-clarity-new"
+    direction: "downgrade"
+    billingPeriod: "monthly"
+[21:34:15] INFO: Plan changed
+    subsystem: "credits"
+    userId: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-owner"
+    from: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-clarity-old"
+    to: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-clarity-new"
+    direction: "upgrade"
+    billingPeriod: "monthly"
+ ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts (5 tests | 5 failed) 148ms
+     × legacy cancel refuses two products before any Stripe operation 35ms
+     × explicit cancel targets the displayed older product only 24ms
+     × foreign and nonexistent selectors disclose no subscription and make no provider call 19ms
+     × change-plan selects the target product, never the newer other product 19ms
+     × duplicate subscriptions for the target product fail closed before price or provider lookup 18ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > legacy cancel refuses two products before any Stripe operation
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:90:46
+     88|   it('legacy cancel refuses two products before any Stripe operation',…
+     89|     await subscription('clarity', { createdAt: new Date(0) }); await s…
+     90|     expect((await request('cancel')).status).toBe(409);
+       |                                              ^
+     91|     expect(stripe.update).not.toHaveBeenCalled();
+     92|     expect((await getDb().select().from(subscriptions).where(eq(subscr…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > explicit cancel targets the displayed older product only
+AssertionError: expected 'billing-selection-4768072d-ac34-4115-…' to be 'billing-selection-4768072d-ac34-4115-…' // Object.is equality
+
+Expected: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-f66d12b1-0999-43cd-83d1-4f706a5e9484"
+Received: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-cec333e0-188e-4258-97c1-84491250c4b3"
+
+ ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:97:74
+     95|     const selected = await subscription('clarity', { createdAt: new Da…
+     96|     const result = await request('cancel', { subscriptionId: selected.…
+     97|     expect(result.status).toBe(200); expect(result.body.subscription.i…
+       |                                                                          ^
+     98|     expect(stripe.update.mock.calls.map(call => call[0])).toEqual([sel…
+     99|     const [untouched] = await getDb().select().from(subscriptions).whe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > foreign and nonexistent selectors disclose no subscription and make no provider call
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:105:34
+    103|     await subscription('clarity'); const foreign = await subscription(…
+    104|     const foreignResult = await request('cancel', { subscriptionId: fo…
+    105|     expect(foreignResult.status).toBe(404);
+       |                                  ^
+    106|     expect(foreignResult).toEqual(await request('cancel', { subscripti…
+    107|     expect(stripe.update).not.toHaveBeenCalled();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > change-plan selects the target product, never the newer other product
+AssertionError: expected 'billing-selection-4768072d-ac34-4115-…' to be 'billing-selection-4768072d-ac34-4115-…' // Object.is equality
+
+Expected: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-5565293b-8143-44c8-ba95-69f516b3061c"
+Received: "billing-selection-4768072d-ac34-4115-9bed-cc8ea47c44c7-8ccf2a9d-72ec-4d92-a5b5-0330b627acac"
+
+ ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:112:74
+    110|     const selected = await subscription('clarity', { createdAt: new Da…
+    111|     const result = await request('change-plan', { planId: planIds[1] }…
+    112|     expect(result.status).toBe(200); expect(result.body.subscription.i…
+       |                                                                          ^
+    113|     expect(stripe.retrieve.mock.calls.map(call => call[0])).toEqual([s…
+    114|     expect(stripe.update.mock.calls.map(call => call[0])).toEqual([sel…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/routes/__tests__/billing-product-selection.postgres.test.ts > billing mutation selects the owned product subscription over real HTTP and PostgreSQL > duplicate subscriptions for the target product fail closed before price or provider lookup
+AssertionError: expected 200 to be 409 // Object.is equality
+
+- Expected
++ Received
+
+- 409
++ 200
+
+ ❯ src/routes/__tests__/billing-product-selection.postgres.test.ts:120:75
+    118|   it('duplicate subscriptions for the target product fail closed befor…
+    119|     await subscription('clarity'); await subscription('clarity');
+    120|     expect((await request('change-plan', { planId: planIds[1] })).stat…
+       |                                                                           ^
+    121|     expect(stripe.retrieve).not.toHaveBeenCalled(); expect(stripe.upda…
+    122|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  00:34:14
+   Duration  928ms (transform 196ms, setup 0ms, import 691ms, tests 148ms, environment 0ms)
+
+error: script "test" exited with code 1

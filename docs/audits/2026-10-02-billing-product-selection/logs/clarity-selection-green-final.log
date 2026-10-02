@@ -1,0 +1,23 @@
+$ vitest run src/routes/__tests__/billing-product-selection.postgres.test.ts
+
+ RUN  v4.1.11 /home/nate/Oxy/Clarity/.worktrees/1519-i11-billing-product-selection/packages/backend
+
+[21:53:21] INFO: Plan changed
+    subsystem: "credits"
+    userId: "billing-selection-aba3d48d-786a-4cc5-b027-955808e19e82-owner"
+    from: "billing-selection-aba3d48d-786a-4cc5-b027-955808e19e82-clarity-old"
+    to: "billing-selection-aba3d48d-786a-4cc5-b027-955808e19e82-clarity-new"
+    direction: "upgrade"
+    billingPeriod: "monthly"
+[21:53:21] INFO: Plan changed
+    subsystem: "credits"
+    userId: "billing-selection-aba3d48d-786a-4cc5-b027-955808e19e82-owner"
+    from: "billing-selection-aba3d48d-786a-4cc5-b027-955808e19e82-codea"
+    to: "billing-selection-aba3d48d-786a-4cc5-b027-955808e19e82-codea-new"
+    direction: "upgrade"
+    billingPeriod: "monthly"
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  00:53:20
+   Duration  1.24s (transform 210ms, setup 0ms, import 738ms, tests 419ms, environment 0ms)
