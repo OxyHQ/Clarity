@@ -1,0 +1,2 @@
+PID=3148535
+/usr/lib/postgresql/17/bin/postgres -D /home/nate/Oxy/.agent-evidence/coverage-1519-20261002/clarity-pg/data -h 127.0.0.1 -k /home/nate/Oxy/.agent-evidence/coverage-1519-20261002/clarity-pg -p 5558

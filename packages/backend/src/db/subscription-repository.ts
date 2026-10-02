@@ -25,6 +25,21 @@ export async function findActiveSubscription(
   }) ?? null;
 }
 
+/** Cancellation candidates, including delinquent and initial-payment states.
+ * Incomplete must be resolved explicitly by the caller: Stripe cannot schedule
+ * period-end cancellation through an update while its first payment is pending.
+ */
+export async function findNonTerminalSubscriptions(
+  oxyUserId: string,
+  subscriptionId?: string,
+): Promise<SubscriptionRow[]> {
+  return getDb().select().from(subscriptions).where(and(
+    eq(subscriptions.oxyUserId, oxyUserId),
+    inArray(subscriptions.status, ['active', 'trialing', 'past_due', 'unpaid', 'incomplete']),
+    subscriptionId === undefined ? undefined : eq(subscriptions.id, subscriptionId),
+  ));
+}
+
 export async function findSubscriptionByStripeId(stripeSubscriptionId: string): Promise<SubscriptionRow | null> {
   const [row] = await getDb().select().from(subscriptions)
     .where(eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId)).limit(1);

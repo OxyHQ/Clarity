@@ -1,0 +1,14 @@
+$ bun run --filter @clarity/shared-types build && bun run --filter @clarity/backend build
+@clarity/shared-types build: Exited with code 0
+@clarity/backend build:
+@clarity/backend build:   dist/index.js                      1.0mb ⚠️
+@clarity/backend build:   dist/worker.js                   723.3kb
+@clarity/backend build:   dist/db/import-places.js          63.7kb
+@clarity/backend build:   dist/db/attest-cutover.js         53.6kb
+@clarity/backend build:   dist/db/attest-fresh-install.js   49.9kb
+@clarity/backend build:   dist/db/migrate.js                17.0kb
+@clarity/backend build:
+@clarity/backend build: ⚡ Done in 52ms
+@clarity/backend build: ✅ Copied prompts to dist/
+@clarity/backend build: ✅ Build complete
+@clarity/backend build: Exited with code 0
