@@ -330,7 +330,7 @@ export const ChatPageContent = ({
   const actionsLeftContent = (
     <>
       <Button
-        variant={activeModes.has("search") ? "primary" : "outline"}
+        appearance={activeModes.has("search") ? "solid" : "outline"} tone={activeModes.has("search") ? "accent" : "neutral"}
         size="sm"
         iconOnly
         icon={bloomIcon(Globe)}
@@ -355,7 +355,7 @@ export const ChatPageContent = ({
       <DropdownMenu>
         <DropdownMenuTrigger asChild label={t("actions.searchModes")}>
           <Button
-            variant="outline"
+            appearance="outline"
             size="sm"
             iconOnly
             icon={bloomIcon(Search)}
@@ -574,7 +574,7 @@ export const ChatPageContent = ({
                         <View className="mt-2 flex-row items-center justify-between px-1">
                           <View className="flex-row items-center gap-1.5 flex-wrap">
                             <Button
-                              variant={activeModes.has("search") ? "ghost" : "secondary"}
+                              appearance={activeModes.has("search") ? "subtle" : "outline"} tone={activeModes.has("search") ? "neutral" : "neutral"}
                               size="sm"
                               leadingIcon={bloomIcon(Globe)}
                               pressed={activeModes.has("search")}

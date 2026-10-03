@@ -221,7 +221,7 @@ export function PersonalizationSection() {
 
       {/* Save / Cancel */}
       <View className="flex-row gap-2 mt-2">
-        <Button variant="outline" className="flex-1" onPress={handleCancel} disabled={saving}>
+        <Button appearance="outline" className="flex-1" onPress={handleCancel} disabled={saving}>
           {t("common.cancel")}
         </Button>
         <Button className="flex-1" onPress={handleSave} disabled={saving} loading={saving}>

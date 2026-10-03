@@ -121,7 +121,7 @@ export default function NotificationsScreen() {
       <View className="px-6 py-6 border-b border-border">
         <View className="flex-row items-center justify-between mb-4">
           <Button
-            variant="link"
+            appearance="plain"
             linkTone="secondary"
             size="sm"
             leadingIcon={bloomIcon(ArrowLeft)}
@@ -147,7 +147,7 @@ export default function NotificationsScreen() {
           </View>
           {unreadCount > 0 && (
             <Button
-              variant="secondary"
+              appearance="outline" tone="neutral"
               size="sm"
               leadingIcon={bloomIcon(CheckCheck)}
               onPress={() => markAllAsRead.mutate()}

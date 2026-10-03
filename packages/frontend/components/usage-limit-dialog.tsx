@@ -123,7 +123,7 @@ export function UsageLimitDialog({ error, onDismiss }: UsageLimitDialogProps) {
               <Button onPress={handleUpgrade} className="flex-1">
                 {t('usageLimit.upgradePlan')}
               </Button>
-              <Button variant="outline" onPress={onDismiss} className="flex-1">
+              <Button appearance="outline" onPress={onDismiss} className="flex-1">
                 {t('usageLimit.gotIt')}
               </Button>
             </>
@@ -132,7 +132,7 @@ export function UsageLimitDialog({ error, onDismiss }: UsageLimitDialogProps) {
               <Button onPress={handleUpgrade} className="flex-1">
                 {t('usageLimit.upgradePlan')}
               </Button>
-              <Button variant="outline" onPress={handleBuyCredits} className="flex-1">
+              <Button appearance="outline" onPress={handleBuyCredits} className="flex-1">
                 {t('usageLimit.buyCredits')}
               </Button>
             </>
@@ -142,17 +142,17 @@ export function UsageLimitDialog({ error, onDismiss }: UsageLimitDialogProps) {
                 {t('usageLimit.upgradePlan')}
               </Button>
               {countdown > 0 ? (
-                <Button variant="outline" disabled className="flex-1">
+                <Button appearance="outline" disabled className="flex-1">
                   {t('usageLimit.tryAgainIn', { time: formatCountdown(countdown) })}
                 </Button>
               ) : (
-                <Button variant="outline" onPress={onDismiss} className="flex-1">
+                <Button appearance="outline" onPress={onDismiss} className="flex-1">
                   {t('usageLimit.tryAgain')}
                 </Button>
               )}
             </>
           ) : (
-            <Button variant="outline" onPress={onDismiss} className="flex-1">
+            <Button appearance="outline" onPress={onDismiss} className="flex-1">
               {countdown > 0 ? t('usageLimit.tryAgainIn', { time: formatCountdown(countdown) }) : t('usageLimit.gotIt')}
             </Button>
           )}

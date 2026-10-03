@@ -116,7 +116,7 @@ export function ChatHeader({
           description={t("chatHeader.clearConfirmDescription")}
           confirmText={t("chatHeader.clear")}
           cancelText={t("common.cancel")}
-          confirmVariant="destructive"
+          confirmTone="danger"
           onConfirm={confirmClearConversation}
         />
       </>
@@ -209,7 +209,7 @@ export function ChatHeader({
         description={t("chatHeader.clearConfirmDescription")}
         confirmText={t("chatHeader.clear")}
         cancelText={t("common.cancel")}
-        confirmVariant="destructive"
+        confirmTone="danger"
         onConfirm={confirmClearConversation}
       />
     </>

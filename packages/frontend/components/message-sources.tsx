@@ -86,7 +86,7 @@ export const MessageSources = React.memo(function MessageSources({
         </Pressable>
       ))}
       {hidden > 0 && (
-        <Button variant="secondary" size="xs" onPress={onToggle}>
+        <Button appearance="outline" tone="neutral" size="xs" onPress={onToggle}>
           {`+${hidden}`}
         </Button>
       )}

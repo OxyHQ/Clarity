@@ -317,7 +317,7 @@ export default function JobsScreen() {
             <View className="rounded-xl border border-border/60 bg-card p-6 gap-3 items-start">
               <Text className="text-sm font-medium text-foreground">{t("jobs.errorTitle")}</Text>
               <Text className="text-sm text-muted-foreground">{t("jobs.errorBody")}</Text>
-              <Button variant="outline" onPress={() => search.refetch()}>
+              <Button appearance="outline" onPress={() => search.refetch()}>
                 {t("jobs.retry")}
               </Button>
             </View>
@@ -333,7 +333,7 @@ export default function JobsScreen() {
               ))}
               {search.hasNextPage ? (
                 <Button
-                  variant="outline"
+                  appearance="outline"
                   onPress={() => search.fetchNextPage()}
                   disabled={search.isFetchingNextPage}
                 >

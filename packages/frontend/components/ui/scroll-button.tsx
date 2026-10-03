@@ -22,7 +22,7 @@ function ScrollButton({
   return (
     <Animated.View entering={FadeInDown.duration(150)} exiting={FadeOutDown.duration(150)}>
       <Button
-        variant="outline"
+        appearance="outline"
         size="lg"
         iconOnly
         icon={bloomIcon(ChevronDown)}

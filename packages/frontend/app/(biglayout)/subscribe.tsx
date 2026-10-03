@@ -144,7 +144,7 @@ export default function SubscribeScreen() {
                   )}
                   <Button
                     className="mt-4"
-                    variant={plan.isFeatured ? 'primary' : 'outline'}
+                    appearance={plan.isFeatured ? "solid" : "outline"} tone={plan.isFeatured ? "accent" : "neutral"}
                     disabled={isCurrent || checkoutMutation.isPending}
                     onPress={() => handleSelectPlan(plan)}
                   >
