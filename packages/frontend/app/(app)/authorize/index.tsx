@@ -278,7 +278,7 @@ export default function AuthorizeScreen() {
                     {t('common.authorize')}
                   </Button>
 
-                  <Button onPress={handleCancel} variant="outline" size="lg">
+                  <Button onPress={handleCancel} appearance="outline" tone="neutral" size="lg">
                     {t('common.cancel')}
                   </Button>
                 </View>

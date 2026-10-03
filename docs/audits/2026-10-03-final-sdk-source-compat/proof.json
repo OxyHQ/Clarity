@@ -1,0 +1,196 @@
+{
+  "sourceCommit": "a438d39523d0480f614cf223f5dc64af52136688",
+  "base": "10d880c6bcad03ea608c4c079f2827ed7f0247f1",
+  "sdkCandidate": "dca175d22497b0c51e124f4a517b1b7f055f7908",
+  "sources": [
+    {
+      "path": "packages/frontend/app/(app)/authorize/index.tsx",
+      "sha256": "2e46027663a5a5162a64c1150302b89ab785934c6187f3ab045d82d706471d30",
+      "bytes": 14635
+    },
+    {
+      "path": "packages/frontend/app/(app)/discover.tsx",
+      "sha256": "088fd48275ff894d5325a535ae6e510c1ec99b647a63ad0ee6d80dec1b4b3a1a",
+      "bytes": 17022
+    },
+    {
+      "path": "packages/frontend/app/(app)/finance.tsx",
+      "sha256": "f9efcd9e6b24143623dcdfc595ad5aca8e32ee9c357cbe35f22b2abc6dc2e8bb",
+      "bytes": 26044
+    },
+    {
+      "path": "packages/frontend/app/(app)/forgot-password.tsx",
+      "sha256": "320b1bc7070d2593c232995b9a573f6db2844f71a09bfd35aa67115e4c91acb4",
+      "bytes": 3826
+    },
+    {
+      "path": "packages/frontend/app/(app)/history.tsx",
+      "sha256": "f6738fba9d3ae4af0d767aa063fa776918b9425a873c56db35ed7af189f7d284",
+      "bytes": 14311
+    },
+    {
+      "path": "packages/frontend/app/(app)/jobs/[id].tsx",
+      "sha256": "e5844c6ae551e85c111eac5ccaf03c1cd3b882000763668f5677bbf48571c784",
+      "bytes": 11860
+    },
+    {
+      "path": "packages/frontend/app/(app)/jobs/index.tsx",
+      "sha256": "e0fa5622eb5e04a5da02ec2be5eeb6dff48fc7b16f165625db04b5368aa2460a",
+      "bytes": 13511
+    },
+    {
+      "path": "packages/frontend/app/(app)/notifications.tsx",
+      "sha256": "9a6da6560e8db75cbfb518a190dcdc11c5a2ccbbd3efb3927b58eccd80fdaac8",
+      "bytes": 9450
+    },
+    {
+      "path": "packages/frontend/app/(biglayout)/subscribe.tsx",
+      "sha256": "e75ba26c13b0f56db4d2a88dcee63aefc441fa9d35b5529e7f92bba1b7d4bbf6",
+      "bytes": 6410
+    },
+    {
+      "path": "packages/frontend/components/chat-header.tsx",
+      "sha256": "d1dd11e574dc16a2a6fde27e166a4d1f6b9840c187757b4823ade8062ba91b76",
+      "bytes": 7318
+    },
+    {
+      "path": "packages/frontend/components/chat-interface.tsx",
+      "sha256": "e3411e4e81af6d418ed2a333d9d5a3517335d7bdd1f378583b3a1ae880508fef",
+      "bytes": 25246
+    },
+    {
+      "path": "packages/frontend/components/chat-page-content.tsx",
+      "sha256": "af22c4dce8fb4ea62f2846b917fc6bc5d2ccac0d9c97f7ffebc0039e1288c904",
+      "bytes": 28772
+    },
+    {
+      "path": "packages/frontend/components/credit-warning-banner.tsx",
+      "sha256": "45ea54318f3bb6b9cd24910474e04f9d1bc6cb8d79b5003841329ced13ad449b",
+      "bytes": 4377
+    },
+    {
+      "path": "packages/frontend/components/message-sources.tsx",
+      "sha256": "76468b1c1d1347dec14158015b37eebde3502eb8e3ac6e27cf30702f5a338737",
+      "bytes": 3225
+    },
+    {
+      "path": "packages/frontend/components/settings/account-section.tsx",
+      "sha256": "71cf33da4af225a0b6744cd1e8af0d1ea2955fd46daee77601418f70f9c07e8d",
+      "bytes": 1423
+    },
+    {
+      "path": "packages/frontend/components/settings/billing-section.tsx",
+      "sha256": "949c81c94c4e6da80c9edb04724db4468b1873ba83cef34b7331a954c012cf05",
+      "bytes": 13863
+    },
+    {
+      "path": "packages/frontend/components/settings/personalization-section.tsx",
+      "sha256": "22c9c86e5cb1bb5cf7ed168554aac67ea874a6cc193333217a838cc7bb5f6bbd",
+      "bytes": 7832
+    },
+    {
+      "path": "packages/frontend/components/ui/confirmation-dialog.tsx",
+      "sha256": "c05e9d71f95165ce05bec5d13fcfe4c0dad2769a05925d4f9531e7bb967181a4",
+      "bytes": 1858
+    },
+    {
+      "path": "packages/frontend/components/ui/scroll-button.tsx",
+      "sha256": "4ce49e52b8f6a4732337fbd353b2c943e95c7c4338fadf19bf72b8a0c819144e",
+      "bytes": 1001
+    },
+    {
+      "path": "packages/frontend/components/usage-limit-dialog.tsx",
+      "sha256": "d9679005dfd1e7c557d94d2ffd248162776d26df4ffd674baabe885d38d7103b",
+      "bytes": 5612
+    }
+  ],
+  "installInputs": [
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/candidate-install/README.md",
+      "sha256": "b8287cfbdf87653778b0aacd3f4aa20f556f530f50346c5bca92f448d76f7c0a",
+      "bytes": 192
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/candidate-install/bun.lock",
+      "sha256": "af6a85a3fa29061fd0d689fb193b4ab7cca6af685eaaa4ef08772cba21d32d85",
+      "bytes": 400234
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/candidate-install/package.json",
+      "sha256": "fb807fd60997e957690a5b59a58f468643c15ccf565b527fdc48d040ecdb900c",
+      "bytes": 3516
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/candidate-install/packages/backend/package.json",
+      "sha256": "2bab136c6c711d04552a04657ea8fedb82d0aa0fefd4327b062528259e7352cc",
+      "bytes": 2114
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/candidate-install/packages/frontend/package.json",
+      "sha256": "c8ded388ddde880060f1d3ab1b31c6e9f2ec2064588ef1055b3ce7570169b0ed",
+      "bytes": 5073
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-candidate-install.log",
+      "sha256": "b161da08b8983c88d55939155fce0a950ef9e42a23f672a562b292ac63d547b7",
+      "bytes": 606
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-candidate-red.log",
+      "sha256": "d69674c35a7cfe03345acc946d0b974b33ceef001978d05502788d5bda3f4c14",
+      "bytes": 13242
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-candidate-types-green.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-candidate-tests.log",
+      "sha256": "b7a250f9bd62394328bbb7e17d3787086081734ef5b7e362d92307c7451eadd9",
+      "bytes": 658
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-candidate-build.log",
+      "sha256": "d61ec6e11ecc63bd1ce17a64fcf55f32b3de4d3397fd1296f751714710e4e9ef",
+      "bytes": 13007
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-shared-build.log",
+      "sha256": "a4ca71717e6733bca0fa6e7ba2ca10d3e042c0d12904fee9e3d1c4d4165aada0",
+      "bytes": 95
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-tone-types.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-tone-tests.log",
+      "sha256": "e93b97565c2163c1886a30e46d85263acb233aa1bd8e00dd622383c09d6b2b5a",
+      "bytes": 658
+    },
+    {
+      "path": "docs/audits/2026-10-03-final-sdk-source-compat/i04-clarity-tone-build.log",
+      "sha256": "25c17112d08e9bba7679a73a119366b68ffacb2b13a7418e3cc170376db5e044",
+      "bytes": 12281
+    }
+  ],
+  "results": {
+    "typescriptBefore": 36,
+    "typescriptAfter": 0,
+    "testFiles": 4,
+    "testsPassed": 25,
+    "testsFailed": 0,
+    "webBuildExit": 0
+  },
+  "limits": [
+    "Candidate tarballs, not final published Oxy packages.",
+    "Type/props compatibility and existing tests; no rendered device acceptance.",
+    "Backend billing/agent/auth code is unchanged.",
+    "Final registry manifests/lock and rollout remain pending."
+  ],
+  "initialSourceCommit": "dcb8bfd79921b3db5755f1bdb4fe9d1f28013a3b"
+}

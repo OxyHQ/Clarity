@@ -68,7 +68,7 @@ export default function ForgotPasswordScreen() {
                 {t('forgotPassword.returnToSignIn')}
               </Button>
               <Button
-                variant="text"
+                appearance="plain"
                 size="sm"
                 onPress={() => {
                   setSent(false);

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "frontend-tests",
+    "cwd": "packages/frontend",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "test"
+    ],
+    "exitCode": 0,
+    "seconds": 0.52
+  },
+  {
+    "name": "backend-build",
+    "cwd": ".",
+    "argv": [
+      "bun",
+      "--no-env-file",
+      "run",
+      "build:backend"
+    ],
+    "exitCode": 0,
+    "seconds": 0.315
+  }
+]

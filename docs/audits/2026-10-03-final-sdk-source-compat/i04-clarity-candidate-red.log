@@ -1,0 +1,71 @@
+packages/frontend/app/(app)/authorize/index.tsx(281,50): error TS2322: Type '{ children: string; onPress: () => void; variant: string; size: "lg"; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/discover.tsx(427,13): error TS2322: Type '{ children: string; variant: string; size: "sm"; leadingIcon: BloomIconComponent; iconOnly: boolean; accessibilityLabel: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/discover.tsx(465,25): error TS2322: Type '{ children: string; variant: string; size: "sm"; onPress: () => undefined; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/finance.tsx(378,19): error TS2322: Type '{ children: string; variant: string; size: "sm"; onPress: () => Promise<QueryObserverResult<MarketQuotesResponse, Error>>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/finance.tsx(625,13): error TS2322: Type '{ children: string; variant: string; size: "sm"; leadingIcon: BloomIconComponent; iconOnly: boolean; accessibilityLabel: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/forgot-password.tsx(71,17): error TS2322: Type '{ children: string; variant: string; size: "sm"; onPress: () => void; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/history.tsx(123,17): error TS2322: Type '{ children: string; variant: string; size: "xs"; trailingIcon: BloomIconComponent; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/history.tsx(354,15): error TS2322: Type '{ children: string; variant: string; size: "sm"; leadingIcon: BloomIconComponent; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/jobs/[id].tsx(95,23): error TS2322: Type '{ children: string; variant: string; onPress: () => Promise<QueryObserverResult<JobPosting, Error>>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/jobs/index.tsx(320,23): error TS2322: Type '{ children: string; variant: string; onPress: () => Promise<QueryObserverResult<InfiniteData<JobSearchResponse, unknown>, Error>>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/jobs/index.tsx(336,19): error TS2322: Type '{ children: string; variant: string; onPress: () => Promise<InfiniteQueryObserverResult<InfiniteData<JobSearchResponse, unknown>, Error>>; disabled: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/notifications.tsx(124,13): error TS2322: Type '{ children: string; variant: string; linkTone: "secondary"; size: "sm"; leadingIcon: BloomIconComponent; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(app)/notifications.tsx(150,15): error TS2322: Type '{ children: string; variant: string; size: "sm"; leadingIcon: BloomIconComponent; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/app/(biglayout)/subscribe.tsx(147,21): error TS2322: Type '{ children: string; className: string; variant: string; disabled: boolean; onPress: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/chat-interface.tsx(311,13): error TS2322: Type '{ children: string; variant: string; size: "sm"; trailingIcon: BloomIconComponent; onPress: () => void; "aria-expanded": boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/chat-page-content.tsx(333,9): error TS2322: Type '{ variant: string; size: "sm"; iconOnly: true; icon: BloomIconComponent; pressed: boolean; onPress: () => void; accessibilityLabel: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/chat-page-content.tsx(358,13): error TS2322: Type '{ variant: string; size: "sm"; iconOnly: true; icon: BloomIconComponent; accessibilityLabel: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/chat-page-content.tsx(577,31): error TS2322: Type '{ children: string; variant: string; size: "sm"; leadingIcon: BloomIconComponent; pressed: boolean; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/credit-warning-banner.tsx(51,19): error TS2322: Type '{ children: string; variant: string; size: "xs"; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/credit-warning-banner.tsx(97,17): error TS2322: Type '{ children: string; variant: string; size: "xs"; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/message-sources.tsx(89,17): error TS2322: Type '{ children: string; variant: string; size: "xs"; onPress: () => void; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/settings/account-section.tsx(34,9): error TS2322: Type '{ children: string; variant: string; onPress: () => void | undefined; trailingIcon: BloomIconComponent; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/settings/billing-section.tsx(217,15): error TS2322: Type '{ children: string; variant: string; onPress: () => void; size: "sm"; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/settings/billing-section.tsx(225,17): error TS2322: Type '{ children: string; variant: string; onPress: () => Promise<void>; disabled: boolean; loading: boolean; size: "sm"; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/settings/billing-section.tsx(275,15): error TS2322: Type '{ children: string; variant: string; onPress: () => Promise<void>; disabled: boolean; size: "sm"; loading: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/settings/billing-section.tsx(292,13): error TS2322: Type '{ children: string; variant: string; onPress: () => Promise<void>; disabled: boolean; loading: boolean; size: "sm"; leadingIcon: BloomIconComponent; trailingIcon: BloomIconComponent; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/settings/personalization-section.tsx(224,17): error TS2322: Type '{ children: string; variant: string; className: string; onPress: () => void; disabled: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/ui/confirmation-dialog.tsx(1,23): error TS2305: Module '"@oxy.so/bloom/button"' has no exported member 'ButtonVariant'.
+packages/frontend/components/ui/confirmation-dialog.tsx(52,13): error TS2322: Type '{ children: string; variant: string; className: string; onPress: () => void; disabled: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/ui/confirmation-dialog.tsx(60,13): error TS2322: Type '{ children: string; variant: any; className: string; onPress: () => Promise<void>; disabled: boolean; loading: boolean; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/ui/scroll-button.tsx(25,9): error TS2322: Type '{ variant: string; size: "lg"; iconOnly: true; icon: BloomIconComponent; onPress: () => void; accessibilityLabel: string; className: string | undefined; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/usage-limit-dialog.tsx(126,23): error TS2322: Type '{ children: string; variant: string; onPress: () => void; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/usage-limit-dialog.tsx(135,23): error TS2322: Type '{ children: string; variant: string; onPress: () => void; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/usage-limit-dialog.tsx(145,25): error TS2322: Type '{ children: string; variant: string; disabled: true; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/usage-limit-dialog.tsx(149,25): error TS2322: Type '{ children: string; variant: string; onPress: () => void; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+packages/frontend/components/usage-limit-dialog.tsx(155,21): error TS2322: Type '{ children: string; variant: string; onPress: () => void; className: string; }' is not assignable to type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.
+  Property 'variant' does not exist on type 'IntrinsicAttributes & ButtonProps & RefAttributes<View>'.

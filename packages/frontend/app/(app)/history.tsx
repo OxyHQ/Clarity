@@ -120,7 +120,7 @@ function SortDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild label={t("history.sort")}>
-        <Button variant="outline" size="xs" trailingIcon={bloomIcon(ChevronDown)}>
+        <Button appearance="outline" tone="neutral" size="xs" trailingIcon={bloomIcon(ChevronDown)}>
           {`${t("history.sort")}: ${t(`history.sort_${value}`)}`}
         </Button>
       </DropdownMenuTrigger>
@@ -351,7 +351,7 @@ export default function HistoryScreen() {
           {/* Right: New Thread button */}
           <View className="flex-row items-center gap-2">
             <Button
-              variant="outline"
+              appearance="outline" tone="neutral"
               size="sm"
               leadingIcon={bloomIcon(Plus)}
               onPress={handleNewThread}

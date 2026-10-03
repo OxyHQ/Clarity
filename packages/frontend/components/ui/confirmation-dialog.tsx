@@ -1,4 +1,4 @@
-import { Button, type ButtonVariant } from "@oxy.so/bloom/button";
+import { Button, type ButtonProps } from "@oxy.so/bloom/button";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ interface ConfirmationDialogProps {
   description: string;
   confirmText?: string;
   cancelText?: string;
-  confirmVariant?: ButtonVariant;
+  confirmTone?: ButtonProps['tone'];
   onConfirm: () => void | Promise<void>;
   loading?: boolean;
 }
@@ -28,7 +28,7 @@ export function ConfirmationDialog({
   description,
   confirmText,
   cancelText,
-  confirmVariant = "primary",
+  confirmTone = "accent",
   onConfirm,
   loading = false,
 }: ConfirmationDialogProps) {
@@ -49,7 +49,7 @@ export function ConfirmationDialog({
 
         <DialogFooter className="gap-2 mt-2">
           <Button
-            variant="outline"
+            appearance="outline" tone="neutral"
             className="flex-1"
             onPress={() => onOpenChange(false)}
             disabled={loading}
@@ -57,7 +57,7 @@ export function ConfirmationDialog({
             {cancelText || t('common.cancel')}
           </Button>
           <Button
-            variant={confirmVariant}
+            appearance="solid" tone={confirmTone}
             className="flex-1"
             onPress={handleConfirm}
             disabled={loading}

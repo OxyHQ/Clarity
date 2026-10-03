@@ -92,7 +92,7 @@ export default function JobDetailScreen() {
             <View className="rounded-xl border border-border/60 bg-card p-6 gap-3 items-start">
               <Text className="text-sm font-medium text-foreground">{t("jobs.detailErrorTitle")}</Text>
               <Text className="text-sm text-muted-foreground">{t("jobs.detailErrorBody")}</Text>
-              <Button variant="outline" onPress={() => job.refetch()}>
+              <Button appearance="outline" tone="neutral" onPress={() => job.refetch()}>
                 {t("jobs.retry")}
               </Button>
             </View>

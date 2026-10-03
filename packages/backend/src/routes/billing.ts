@@ -7,6 +7,8 @@ import { getUserEntitlements, invalidateEntitlementsCache } from '../lib/plan-ac
 import { proxyAliaJson } from '../lib/alia-agent-client.js';
 import {
   findActiveSubscription,
+  findActiveSubscriptions,
+  findNonTerminalSubscriptions,
   findBillingCustomer,
   setBillingCustomer,
   updateSubscription,
@@ -317,13 +319,31 @@ router.get('/subscription', authenticateToken, async (req: Request, res: Respons
   }
 });
 
+const cancelSubscriptionSchema = z.object({
+  subscriptionId: z.string().refine(value => value.trim().length > 0).optional(),
+}).strict();
+
 router.post('/subscription/cancel', authenticateToken, async (req: Request, res: Response) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
-    const subscription = await findActiveSubscription(req.user.id);
+    const { subscriptionId } = cancelSubscriptionSchema.parse(req.body ?? {});
+    // Ownership is part of the SQL predicate. An unknown or foreign selector
+    // yields the same response, without querying Stripe or exposing its details.
+    const candidates = await findNonTerminalSubscriptions(req.user.id, subscriptionId);
+    if (candidates.length > 1) {
+      return res.status(409).json({ error: 'Subscription selection is ambiguous; provide subscriptionId' });
+    }
+    const subscription = candidates[0];
 
     if (!subscription) {
       return res.status(404).json({ error: 'No active subscription found' });
+    }
+    if (subscription.status === 'incomplete') {
+      return res.status(409).json({ error: 'Incomplete subscription cannot be canceled at period end' });
+    }
+    const product = (subscription.planSnapshot as { product?: unknown }).product;
+    if (product !== 'clarity' && product !== 'codea') {
+      return res.status(409).json({ error: 'Subscription product configuration is invalid' });
     }
 
     await getStripe().subscriptions.update(subscription.stripeSubscriptionId, {
@@ -334,6 +354,9 @@ router.post('/subscription/cancel', authenticateToken, async (req: Request, res:
 
     res.json({ message: 'Subscription will be canceled at end of billing period', subscription: updated ? serializeSubscription(updated) : null });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Invalid input', details: error.issues });
+    }
     log.credits.error({ err: error }, 'Error canceling subscription');
     res.status(500).json({ error: getSafeErrorMessage(error, 'Failed to cancel subscription') });
   }
@@ -350,18 +373,23 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
     const { planId, billingPeriod } = changePlanSchema.parse(req.body);
     const userId = req.user.id;
 
-    // Find existing active subscription
-    const subscription = await findActiveSubscription(userId);
-
-    if (!subscription) {
-      return res.status(404).json({ error: 'No active subscription found' });
-    }
-
     // Find target plan
     const targetPlans = await getPlans({ planId, isActive: true, isFree: false });
     const targetPlan = targetPlans[0];
     if (!targetPlan) {
       return res.status(400).json({ error: 'Invalid plan ID' });
+    }
+
+    // The target plan fixes the product; subscription ordering never does.
+    const candidates = (await findActiveSubscriptions(userId)).filter(row =>
+      (row.planSnapshot as { product?: unknown }).product === targetPlan.product,
+    );
+    if (candidates.length > 1) {
+      return res.status(409).json({ error: 'Multiple active subscriptions for the target product' });
+    }
+    const subscription = candidates[0];
+    if (!subscription) {
+      return res.status(404).json({ error: 'No active subscription found' });
     }
 
     // Guard: same plan + same billing period
@@ -370,9 +398,12 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
     }
 
     // Look up current plan for sortOrder comparison
+    if (!subscription.planId) {
+      return res.status(500).json({ error: 'Current plan not found' });
+    }
     const currentPlans = await getPlans({ planId: subscription.planId });
     const currentPlan = currentPlans[0];
-    if (!currentPlan) {
+    if (!currentPlan || currentPlan.product !== targetPlan.product) {
       return res.status(500).json({ error: 'Current plan not found' });
     }
 

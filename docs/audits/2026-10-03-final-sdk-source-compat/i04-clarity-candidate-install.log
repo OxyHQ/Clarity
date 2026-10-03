@@ -1,0 +1,14 @@
+bun install v1.4.2 (744846f84)
+Resolving dependencies
+Resolved, downloaded and extracted [129]
+Saved lockfile
+
++ typescript@6.0.3 (v7.0.2 available)
++ @oxy.so/contracts@/home/nate/Oxy/.agent-evidence/i04-consumer-final-candidate-packs/oxy.so-contracts-4.9.0.tgz
++ @oxy.so/core@/home/nate/Oxy/.agent-evidence/i04-consumer-final-candidate-packs/oxy.so-core-4.2.0.tgz
++ @tanstack/query-sync-storage-persister@5.102.8 (v5.104.1 available)
++ @tanstack/react-query@5.102.8 (v5.104.1 available)
++ @tanstack/react-query-persist-client@5.102.8 (v5.104.1 available)
++ zustand@5.0.15
+
+1240 packages installed [3.21s]

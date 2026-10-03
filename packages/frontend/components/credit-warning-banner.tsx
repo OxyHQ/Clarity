@@ -48,7 +48,7 @@ export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarn
           <Text className="text-xs flex-1 text-yellow-700 dark:text-yellow-400">
             {t('usageLimit.creditsRemaining', { count: creditsInfo.credits })}
           </Text>
-          <Button variant="link" size="xs" onPress={() => router.push('/(app)/settings/usage')}>
+          <Button appearance="plain" linkTone="primary" size="xs" onPress={() => router.push('/(app)/settings/usage')}>
             {t('usageLimit.buyMore')}
           </Button>
           <CloseButton size="2xs" onPress={() => setLowCreditsDismissed(true)} accessibilityLabel={t('common.close')} />
@@ -94,7 +94,7 @@ export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarn
         <Text className={`text-xs flex-1 ${isCritical ? 'text-destructive' : 'text-yellow-700 dark:text-yellow-400'}`}>
           {statusText} {suggestionText}
         </Text>
-        <Button variant="link" size="xs" onPress={() => onSwitchModel(alt.model)}>
+        <Button appearance="plain" linkTone="primary" size="xs" onPress={() => onSwitchModel(alt.model)}>
           {t('usageLimit.switchModel')}
         </Button>
         <CloseButton size="2xs" onPress={handleDismiss} accessibilityLabel={t('common.close')} />

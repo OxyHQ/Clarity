@@ -31,7 +31,7 @@ export function AccountSection() {
 
       {/* Manage Account */}
       <Button
-        variant="outline"
+        appearance="outline" tone="neutral"
         onPress={() => showBottomSheet?.("ManageAccount")}
         trailingIcon={bloomIcon(ChevronRight)}
       >

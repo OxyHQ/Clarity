@@ -308,7 +308,7 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
 
         {sourcesCount > 0 && (
           <Button
-            variant="text"
+            appearance="plain"
             size="sm"
             trailingIcon={bloomIcon(sourcesExpanded ? ChevronUp : ChevronDown)}
             onPress={onToggleSources}
