@@ -49,7 +49,7 @@ export function ConfirmationDialog({
 
         <DialogFooter className="gap-2 mt-2">
           <Button
-            appearance="outline"
+            appearance="outline" tone="neutral"
             className="flex-1"
             onPress={() => onOpenChange(false)}
             disabled={loading}

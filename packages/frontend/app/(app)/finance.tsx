@@ -375,7 +375,7 @@ function CryptoQuotes({ isLargeScreen }: { isLargeScreen: boolean }) {
           <Text className="flex-1 text-xs text-muted-foreground">
             {t("finance.crypto.errorBody")}
           </Text>
-          <Button appearance="outline" size="sm" onPress={() => quotes.refetch()}>
+          <Button appearance="outline" tone="neutral" size="sm" onPress={() => quotes.refetch()}>
             {t("finance.crypto.retry")}
           </Button>
         </View>
@@ -622,7 +622,7 @@ export default function FinanceScreen() {
 
           {/* Right: Share button */}
           <Button
-            appearance="outline"
+            appearance="outline" tone="neutral"
             size="sm"
             leadingIcon={bloomIcon(Share2)}
             iconOnly={!isLargeScreen}

@@ -214,7 +214,7 @@ export function BillingSection({ success }: BillingSectionProps) {
           </View>
           <View className="flex-row gap-2 pt-1 border-t border-border">
             <Button
-              appearance="outline"
+              appearance="outline" tone="neutral"
               onPress={() => router.push("/(biglayout)/subscribe")}
               size="sm"
             >
@@ -222,7 +222,7 @@ export function BillingSection({ success }: BillingSectionProps) {
             </Button>
             {!subscription.cancelAtPeriodEnd && (
               <Button
-                appearance="outline"
+                appearance="outline" tone="neutral"
                 onPress={handleCancelSubscription}
                 disabled={cancelSubscriptionMutation.isPending}
                 loading={cancelSubscriptionMutation.isPending}
@@ -272,7 +272,7 @@ export function BillingSection({ success }: BillingSectionProps) {
               placeholderTextColor="#999"
             />
             <Button
-              appearance="outline"
+              appearance="outline" tone="neutral"
               onPress={handleCustomPurchase}
               disabled={!canBuyCustom || createCustomCheckoutMutation.isPending}
               size="sm"
@@ -289,7 +289,7 @@ export function BillingSection({ success }: BillingSectionProps) {
         <View className="flex-row items-center justify-between">
           <Text className="text-sm font-semibold text-foreground">{t('billing.paymentMethods')}</Text>
           <Button
-            appearance="outline"
+            appearance="outline" tone="neutral"
             onPress={handleManagePayment}
             disabled={createPortalMutation.isPending}
             loading={createPortalMutation.isPending}

@@ -424,7 +424,7 @@ export default function DiscoverScreen() {
 
           {/* Right: Share button */}
           <Button
-            appearance="outline"
+            appearance="outline" tone="neutral"
             size="sm"
             leadingIcon={bloomIcon(Share2)}
             iconOnly={!isLargeScreen}
@@ -462,7 +462,7 @@ export default function DiscoverScreen() {
             ) : news.isError ? (
               <View className="items-center justify-center py-16 gap-3">
                 <Text className="text-sm text-muted-foreground">{t("discover.error")}</Text>
-                <Button appearance="outline" size="sm" onPress={() => void news.refetch()}>
+                <Button appearance="outline" tone="neutral" size="sm" onPress={() => void news.refetch()}>
                   {t("discover.retry")}
                 </Button>
               </View>
