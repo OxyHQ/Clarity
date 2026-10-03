@@ -1,0 +1,154 @@
+{
+  "source": "106be768c203cd5ea291beedff442348369574f1",
+  "sources": [
+    {
+      "path": "bun.lock",
+      "sha256": "48926393ca1ab3d1d3b91ce40d2daf162debe4581fee25664bad639228ae19fb"
+    },
+    {
+      "path": "package.json",
+      "sha256": "d7700d7e871e9157bdd7ea95ec852a6f7f4a77d39652b7fa00f785f5006188a3"
+    },
+    {
+      "path": "packages/backend/package.json",
+      "sha256": "169288d52186a8ddf42e488b190d80e725b18cbb8476bcde0bd2db684f49c331"
+    },
+    {
+      "path": "packages/frontend/package.json",
+      "sha256": "a24074461e270ea8a95a4b55e49771e7d5a88f42c408a80239711feadb310850"
+    }
+  ],
+  "records": [
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/Clarity-frozen.log",
+      "sha256": "5c06c1588fd1b8cc549fecdc171321c3db66adfacea9e34eea3fc25768d3c97c",
+      "bytes": 98
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/Clarity-installed.json",
+      "sha256": "36d72972559c633cc7636041db204a3795209fa7665c40c590627fd79e7ddf01",
+      "bytes": 1680
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/Clarity-resolve.log",
+      "sha256": "7fb05d3c698a90e80dd2b42b922db1b2055428b44986f210dd68f8723db8cfc7",
+      "bytes": 177
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-build.log",
+      "sha256": "6a64e14eb4444a06e8cc6b8dcac88f51f1b73215b4326e4ec9fc457fcccdecb1",
+      "bytes": 776
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-focal-final.log",
+      "sha256": "ae4fe6cdc120fa2a396209ac5432e0e6fe5aea21c59066181a83ad96a53eb4b9",
+      "bytes": 5081
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/backend-focal-owned-pg.log",
+      "sha256": "09eea28101846127cfb90a3013ba1763c9e6c1ca6f1777da1d409c6a437447a6",
+      "bytes": 2126
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/contracts-registry.json",
+      "sha256": "fb1ded2797bdbd0ca31460f3cba087f078a86dc201365c923da9fcc23b07ed7b",
+      "bytes": 380
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/core-registry.json",
+      "sha256": "99b7f8a1cc87cf46ff54b3113a1911a938f39b4f086537e0a4138ee38dd035b7",
+      "bytes": 375
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/failed.json",
+      "sha256": "e45a08861b705a4bd04a1ac5bec7dfdc902621991070d99debf9062f9e6cfe3d",
+      "bytes": 89
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/frontend-build.log",
+      "sha256": "d1ea3d0ac4c08e175cf1037c63255d3e12a282309a791666f335ff6bb5907a39",
+      "bytes": 13699
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/frontend-tests.log",
+      "sha256": "7bdee41732a28b6851d296a8288039477de39d899d4c88f513881b017dc04d19",
+      "bytes": 1268
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/frontend-types-final.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/frontend-types.log",
+      "sha256": "0622f8d41c636ab07d1da9b1f5fc7afd5fe85c885b5d84caea0b30be03b39de8",
+      "bytes": 28
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/intent.json",
+      "sha256": "5dcb3d5a256531b190de582f79634a634419bf51baed88b2675fd9df3ed29beb",
+      "bytes": 151
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/local-checks.json",
+      "sha256": "9affdd99824ae3055163d830b4603858b8de008337166de36d5e61cf5885557f",
+      "bytes": 382
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/materialization-frozen.log",
+      "sha256": "5dc71f73133ed21167c04cb6fb99e1dda0c135b37bcbca4db575c076a87bdeea",
+      "bytes": 85
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/materialization-mismatch.json",
+      "sha256": "409651a8758d0270a6cfab187bdd84a9e1f912312a0bad9947e1decc50bd8b9b",
+      "bytes": 2297
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/mcp-registry.json",
+      "sha256": "cc279f4f5b1ca68041f6f0d3583e4d9dc218bd7c0b77846207aa3b981086d7ac",
+      "bytes": 373
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/owned-pg.py",
+      "sha256": "1570510b53e1bf47cd43f57b6150c0a1f2da450a1f71f906d224445917289831",
+      "bytes": 3437
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/preflight.json",
+      "sha256": "17d84ea060181d8fb1d82b0fac72ee86c3dc782577e28a914625eedc42197489",
+      "bytes": 252
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/protocol-registry.json",
+      "sha256": "cc0b427dca92d55ea5e1debe7e76580618a26f997b2c888b8484537b64b70bbd",
+      "bytes": 379
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/registry.json",
+      "sha256": "a39da224fafeec388f0ac27e08ea13cf666427a0177b67f7b077c65cadb59df0",
+      "bytes": 415373
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/services-registry.json",
+      "sha256": "444599f0eb56d104d64c288ed3a6544163e54430c0f275c2feec219d5f624611",
+      "bytes": 381
+    },
+    {
+      "path": "docs/audits/2026-10-04-final-registry-adoption/records/vector-package-install.log",
+      "sha256": "5538c2e5af3de541eeadbfecd78648c06f15ee2342b9f066ff929bd89c0b75c5",
+      "bytes": 1768
+    }
+  ],
+  "validation": {
+    "backendFocal": 51,
+    "frontend": 25
+  },
+  "description": "Normal genesis migrator and SQL billing/authority tests ran in an owned PostgreSQL17 cluster after installing the required pgvector package. The missing-extension setup failure and teardown are preserved. Frontend tests/types/export and backend build pass.",
+  "limits": [
+    "Real published registry packages and regenerated lock; all importing SDK files match public archive members.",
+    "Synthetic issuer/provider boundaries in tests do not prove live authority, customer mapping, catalog, cohort or deployment.",
+    "Required final CI/image/promotion remains separate.",
+    "Initial core/services materialization retained candidate files; preserved directories and a canonical frozen reinstall resolved it. Initial bun exec tsc failed command discovery; direct installed compiler final check passes."
+  ]
+}

@@ -1,0 +1,57 @@
+[
+  {
+    "name": "@oxy.so/core",
+    "path": "/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/node_modules/@oxy.so/core",
+    "mismatches": [
+      "dist/cjs/HttpService.js",
+      "dist/cjs/boot/sessionColdBoot.js",
+      "dist/cjs/session/SessionClient.js",
+      "dist/cjs/session/authStateStore.js",
+      "dist/cjs/session/refresh.js",
+      "dist/cjs/session/sharedDeviceCredential.js",
+      "dist/esm/HttpService.js",
+      "dist/esm/boot/sessionColdBoot.js",
+      "dist/esm/session/SessionClient.js",
+      "dist/esm/session/authStateStore.js",
+      "dist/esm/session/refresh.js",
+      "dist/esm/session/sharedDeviceCredential.js",
+      "dist/types/HttpService.d.ts",
+      "dist/types/boot/sessionColdBoot.d.ts",
+      "dist/types/index.d.ts",
+      "dist/types/session/SessionClient.d.ts",
+      "dist/types/session/authStateStore.d.ts",
+      "dist/types/session/index.d.ts",
+      "dist/types/session/refresh.d.ts",
+      "dist/types/session/sharedDeviceCredential.d.ts",
+      "src/HttpService.ts",
+      "src/boot/sessionColdBoot.ts",
+      "src/index.ts",
+      "src/session/SessionClient.ts",
+      "src/session/authStateStore.ts",
+      "src/session/index.ts",
+      "src/session/refresh.ts",
+      "src/session/sharedDeviceCredential.ts"
+    ]
+  },
+  {
+    "name": "@oxy.so/services",
+    "path": "/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/node_modules/@oxy.so/services",
+    "mismatches": [
+      "package.json",
+      "lib/commonjs/ui/context/OxyContext.js",
+      "lib/commonjs/ui/context/OxyContext.js.map",
+      "lib/commonjs/ui/session/deviceCredentialTracker.js",
+      "lib/commonjs/ui/session/deviceCredentialTracker.js.map",
+      "lib/module/ui/context/OxyContext.js",
+      "lib/module/ui/context/OxyContext.js.map",
+      "lib/module/ui/session/deviceCredentialTracker.js",
+      "lib/module/ui/session/deviceCredentialTracker.js.map",
+      "lib/typescript/commonjs/ui/context/OxyContext.d.ts.map",
+      "lib/typescript/commonjs/ui/session/deviceCredentialTracker.d.ts.map",
+      "lib/typescript/module/ui/context/OxyContext.d.ts.map",
+      "lib/typescript/module/ui/session/deviceCredentialTracker.d.ts.map",
+      "src/ui/context/OxyContext.tsx",
+      "src/ui/session/deviceCredentialTracker.ts"
+    ]
+  }
+]

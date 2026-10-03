@@ -1,0 +1,56 @@
+waiting for server to start.... done
+server started
+{"verifiedOwnPostgresPid": 221866, "dataDirectory": "/home/nate/Oxy/.agent-evidence/clarity-registry-pg-mu8_8_1u/data", "port": 5615, "liveAccess": false}
+$ bun src/db/migrate.ts "--target-database=clarity_ci" "--phase=all"
+Applying 17 migration(s): 0000_lame_norman_osborn, 0001_steady_ironclad, 0002_married_machine_man, 0003_broken_quasimodo, 0004_windy_sunspot, 0005_ambitious_sprite, 0006_moaning_swordsman, 0007_public_rictor, 0008_steep_madripoor, 0009_fantastic_plazm, 0010_loose_bucky, 0011_clarity_places, 0012_search_description_trgm, 0013_drop_search_description_trgm, 0014_search_hosts, 0015_crawl_caller_tier, 0016_clarity_image_cache
+Postgres notice: identifier "clarity_news_story_articles_document_id_clarity_search_documents_id_fk" will be truncated to "clarity_news_story_articles_document_id_clarity_search_document"
+Postgres notice: identifier "clarity_search_chunks_document_id_clarity_search_documents_id_fk" will be truncated to "clarity_search_chunks_document_id_clarity_search_documents_id_f"
+Postgres notice: identifier "clarity_search_document_aliases_document_id_clarity_search_documents_id_fk" will be truncated to "clarity_search_document_aliases_document_id_clarity_search_docu"
+Postgres notice: identifier "clarity_search_document_authors_document_id_clarity_search_documents_id_fk" will be truncated to "clarity_search_document_authors_document_id_clarity_search_docu"
+Postgres notice: identifier "clarity_search_document_authors_author_id_clarity_search_authors_id_fk" will be truncated to "clarity_search_document_authors_author_id_clarity_search_author"
+Postgres notice: identifier "clarity_search_outgoing_links_source_document_id_clarity_search_documents_id_fk" will be truncated to "clarity_search_outgoing_links_source_document_id_clarity_search"
+Postgres notice: identifier "clarity_job_posting_signatures_job_posting_id_clarity_job_postings_id_fk" will be truncated to "clarity_job_posting_signatures_job_posting_id_clarity_job_posti"
+Applied 17 migration(s): 0000_lame_norman_osborn, 0001_steady_ironclad, 0002_married_machine_man, 0003_broken_quasimodo, 0004_windy_sunspot, 0005_ambitious_sprite, 0006_moaning_swordsman, 0007_public_rictor, 0008_steep_madripoor, 0009_fantastic_plazm, 0010_loose_bucky, 0011_clarity_places, 0012_search_description_trgm, 0013_drop_search_description_trgm, 0014_search_hosts, 0015_crawl_caller_tier, 0016_clarity_image_cache
+$ vitest run src/routes/__tests__/billing-product-selection.postgres.test.ts src/lib/__tests__/clarity-service-auth.test.ts
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.11 [39m[90m/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/packages/backend[39m
+
+ [32m✓[39m src/lib/__tests__/clarity-service-auth.test.ts [2m([22m[2m19 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+[23:40:05] [32mINFO[39m: [36mPlan changed[39m
+    [35msubsystem[39m: "credits"
+    [35muserId[39m: "billing-selection-83fcfe36-011f-4282-b55e-db9797b8760e-owner"
+    [35mfrom[39m: "billing-selection-83fcfe36-011f-4282-b55e-db9797b8760e-clarity-old"
+    [35mto[39m: "billing-selection-83fcfe36-011f-4282-b55e-db9797b8760e-clarity-new"
+    [35mdirection[39m: "upgrade"
+    [35mbillingPeriod[39m: "monthly"
+[23:40:05] [32mINFO[39m: [36mPlan changed[39m
+    [35msubsystem[39m: "credits"
+    [35muserId[39m: "billing-selection-83fcfe36-011f-4282-b55e-db9797b8760e-owner"
+    [35mfrom[39m: "billing-selection-83fcfe36-011f-4282-b55e-db9797b8760e-codea"
+    [35mto[39m: "billing-selection-83fcfe36-011f-4282-b55e-db9797b8760e-codea-new"
+    [35mdirection[39m: "upgrade"
+    [35mbillingPeriod[39m: "monthly"
+[90mstdout[2m | src/routes/__tests__/billing-product-selection.postgres.test.ts[2m > [22m[2mbilling mutation selects the owned product subscription over real HTTP and PostgreSQL
+[22m[39m{
+  severity_local: [32m'NOTICE'[39m,
+  severity: [32m'NOTICE'[39m,
+  code: [32m'00000'[39m,
+  message: [32m'drop cascades to 3 other objects'[39m,
+  detail: [32m'drop cascades to table billing_selection_71ddd2d03f9b43b18eed7a7fbc9f1927.clarity_plans\n'[39m +
+    [32m'drop cascades to table billing_selection_71ddd2d03f9b43b18eed7a7fbc9f1927.clarity_subscriptions\n'[39m +
+    [32m'drop cascades to table billing_selection_71ddd2d03f9b43b18eed7a7fbc9f1927.clarity_billing_customers'[39m,
+  file: [32m'dependency.c'[39m,
+  line: [32m'1165'[39m,
+  routine: [32m'reportDependentObjects'[39m
+}
+
+ [32m✓[39m src/routes/__tests__/billing-product-selection.postgres.test.ts [2m([22m[2m32 tests[22m[2m)[22m[33m 407[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
+[2m      Tests [22m [1m[32m51 passed[39m[22m[90m (51)[39m
+[2m   Start at [22m 02:40:04
+[2m   Duration [22m 1.17s[2m (transform 219ms, setup 0ms, import 857ms, tests 414ms, environment 0ms)[22m
+
+waiting for server to shut down.... done
+server stopped
+{"ownedPostgresStopped": true, "pidAbsent": true, "record": "/home/nate/Oxy/.agent-evidence/clarity-registry-pg-mu8_8_1u"}

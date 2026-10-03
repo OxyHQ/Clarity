@@ -1,0 +1,50 @@
+{
+  "repository": "OxyHQ/Clarity",
+  "installed": true,
+  "installedMembers": [
+    {
+      "importer": "package.json",
+      "name": "@oxy.so/contracts",
+      "version": "4.9.0",
+      "root": "/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/node_modules/@oxy.so/contracts",
+      "files": 198,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/backend/package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/frontend/package.json",
+      "name": "@oxy.so/core",
+      "version": "4.2.0",
+      "root": "/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/node_modules/@oxy.so/core",
+      "files": 581,
+      "allFilesEqual": true
+    },
+    {
+      "importer": "packages/frontend/package.json",
+      "name": "@oxy.so/services",
+      "version": "11.1.0",
+      "root": "/home/nate/Oxy/Clarity/.worktrees/1519-final-sdk-adoption-20261003/node_modules/@oxy.so/services",
+      "files": 2418,
+      "allFilesEqual": true
+    }
+  ],
+  "lockSha256": "48926393ca1ab3d1d3b91ce40d2daf162debe4581fee25664bad639228ae19fb",
+  "repair": "explicit reinstall of preserved stale core/services from frozen registry lock",
+  "merged": false,
+  "deployed": false
+}
