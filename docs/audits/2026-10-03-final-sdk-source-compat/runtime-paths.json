@@ -1,0 +1,22 @@
+[
+  "packages/frontend/app/(app)/authorize/index.tsx",
+  "packages/frontend/app/(app)/discover.tsx",
+  "packages/frontend/app/(app)/finance.tsx",
+  "packages/frontend/app/(app)/forgot-password.tsx",
+  "packages/frontend/app/(app)/history.tsx",
+  "packages/frontend/app/(app)/jobs/[id].tsx",
+  "packages/frontend/app/(app)/jobs/index.tsx",
+  "packages/frontend/app/(app)/notifications.tsx",
+  "packages/frontend/app/(biglayout)/subscribe.tsx",
+  "packages/frontend/components/chat-header.tsx",
+  "packages/frontend/components/chat-interface.tsx",
+  "packages/frontend/components/chat-page-content.tsx",
+  "packages/frontend/components/credit-warning-banner.tsx",
+  "packages/frontend/components/message-sources.tsx",
+  "packages/frontend/components/settings/account-section.tsx",
+  "packages/frontend/components/settings/billing-section.tsx",
+  "packages/frontend/components/settings/personalization-section.tsx",
+  "packages/frontend/components/ui/confirmation-dialog.tsx",
+  "packages/frontend/components/ui/scroll-button.tsx",
+  "packages/frontend/components/usage-limit-dialog.tsx"
+]
