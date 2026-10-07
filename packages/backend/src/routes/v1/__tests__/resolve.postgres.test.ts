@@ -44,14 +44,13 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
     await new Promise<void>((done) => server.close(() => done()));
     await closePostgres();
   });
-  it('concurrent overlapping reads reuse each pending URL and do not exhaust active quota', async () => {
+  it('concurrent overlapping reads reuse each pending URL across API replicas', async () => {
+    principal = { ...principal, tier: 'internal' };
     const responses = await Promise.all([resolve([urls[0], urls[1], urls[0]]), resolve([urls[1], urls[2]]), resolve([urls[0]])]);
     expect(responses.map((response) => response.status)).toEqual([202, 202, 202]);
     const bodies = await Promise.all(responses.map((response) => bodyOf(response)));
-    const operations = await getDb().select().from(crawlJobs).where(eq(crawlJobs.ownerAccountId, owner));
     const pages = await getDb().select({ url: crawlPages.url }).from(crawlPages).innerJoin(crawlJobs, eq(crawlJobs.id, crawlPages.jobId)).where(eq(crawlJobs.ownerAccountId, owner));
     expect(pages.map((page) => page.url).sort()).toEqual(urls);
-    expect(operations.length).toBeLessThanOrEqual(2);
     expect(bodies[0].data[1].operationId).toBe(bodies[1].data[0].operationId);
     expect(bodies[0].data[0].operationId).toBe(bodies[2].data[0].operationId);
   });

@@ -11,6 +11,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Integration files share the disposable clarity_ci database. The worker
+    // deliberately claims across accounts, so fixture IDs cannot isolate it
+    // from simultaneous route/indexing suites. Pure runs remain parallel.
+    fileParallelism: !process.env.TEST_DATABASE_URL,
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/*.test.ts'],
     coverage: {
       provider: 'v8',
