@@ -33,10 +33,13 @@ Active claims renew every 20 seconds. Result commits lock the page and check its
 owner, attempt and live lease, so a late response from the previous worker cannot
 overwrite a recovered claim. HTTP fetches, including the response body, have a
 30-second deadline. Saturated or contended accounts cannot block unrelated work.
+A requested preview receives queue priority over historical bulk work; its retry
+deadline remains unchanged, so priority never bypasses fetch backoff.
 
 Release and recovery order:
 
-1. Deploy the API's URL reuse fix and its lookup index so polling stops adding
+1. Apply the additive URL lookup/priority migrations, then deploy the API's URL
+   reuse fix so polling stops adding
    duplicate crawls. Keep cached documents available even when new work cannot
    be admitted.
 2. Deploy the worker's lease recovery and fenced commits. Confirm the

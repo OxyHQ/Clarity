@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { createHash } from 'node:crypto';
 import { startPlatformActivity } from './lib/platform-activity.js';
-import { and, eq, gt, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, lt, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
 import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
@@ -79,7 +79,7 @@ export async function leaseNextPage() {
         or(sql`${crawlPages.leaseExpiresAt} is null`, lt(crawlPages.leaseExpiresAt, new Date())),
         saturatedOwners.length ? sql`${crawlPages.jobId} in (select ${crawlJobs.id} from ${crawlJobs} where ${notInArray(crawlJobs.ownerAccountId, saturatedOwners)})` : undefined,
         sql`exists (select 1 from ${crawlJobs} where ${crawlJobs.id} = ${crawlPages.jobId} and ${crawlJobs.status} in ('queued', 'running'))`,
-      )).orderBy(crawlPages.availableAt).limit(1).for('update', { skipLocked: true });
+      )).orderBy(desc(crawlPages.priority), crawlPages.availableAt, crawlPages.createdAt, crawlPages.id).limit(1).for('update', { skipLocked: true });
       if (!page) return undefined;
       const [job] = await tx.select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier }).from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
       if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
