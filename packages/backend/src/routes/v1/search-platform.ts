@@ -1,8 +1,9 @@
+import { createHash } from 'node:crypto';
 import { and, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
-import { getDb } from '../../db/index.js';
+import { getDb, type ClarityTransaction } from '../../db/index.js';
 import {
   crawlJobs, crawlPages, jobFeeds, searchDocuments, searchSites,
   searchChunks, searchUsageRollups,
@@ -210,36 +211,32 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   if (!input) return;
   const urls = input.urls.map(canonicalizePublicUrl);
   let byUrl = await fetchedDocuments(urls);
-  const missing = urls.filter((url) => !byUrl.has(url));
-  let operationId: string | undefined;
-  let operationStatus: string | undefined;
-  if (missing.length) {
-    const idempotencyKey = req.header('idempotency-key') || `resolve:${crypto.randomUUID()}`;
-    const operation = await createIndexOperation(req, missing, idempotencyKey);
-    if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
-    operationId = operation.id;
-    operationStatus = operation.status;
-    // `waitMs` is how long the caller will wait for the crawl it just queued:
-    // the answer comes as soon as the crawl ends, or at the deadline with
-    // whatever it has fetched by then.
-    const deadline = Date.now() + (input.waitMs ?? 0);
-    while (!TERMINAL_OPERATIONS.has(operationStatus) && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, Math.min(RESOLVE_POLL_MS, deadline - Date.now())));
-      const [current] = await getDb().select({ status: crawlJobs.status }).from(crawlJobs).where(eq(crawlJobs.id, operation.id)).limit(1);
-      operationStatus = current?.status ?? operationStatus;
-    }
-    if (input.waitMs) byUrl = await fetchedDocuments(urls);
+  const missing = [...new Set(urls.filter((url) => !byUrl.has(url)))];
+  const operations = missing.length ? await resolveIndexOperations(req, missing) : new Map<string, typeof crawlJobs.$inferSelect>();
+  if (missing.length && operations.size === 0 && byUrl.size === 0) {
+    sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req);
+    return;
   }
-  const pending = urls.some((url) => !byUrl.has(url));
-  // A crawl that has ended without a page has failed to fetch it; one still
-  // running leaves the page queued, with the operation to follow.
-  const unfetched = operationStatus && TERMINAL_OPERATIONS.has(operationStatus) ? 'failed' : 'queued';
+  const statuses = new Map([...operations.values()].map((operation) => [operation.id, operation.status]));
+  const deadline = Date.now() + (input.waitMs ?? 0);
+  while ([...statuses.values()].some((status) => !TERMINAL_OPERATIONS.has(status)) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, Math.min(RESOLVE_POLL_MS, deadline - Date.now())));
+    const current = await getDb().select({ id: crawlJobs.id, status: crawlJobs.status }).from(crawlJobs).where(inArray(crawlJobs.id, [...statuses.keys()]));
+    for (const operation of current) statuses.set(operation.id, operation.status);
+  }
+  if (input.waitMs) byUrl = await fetchedDocuments(urls);
+  const unfetchedStatus = (url: string) => {
+    const operation = operations.get(url);
+    if (!operation) return 'throttled';
+    return !TERMINAL_OPERATIONS.has(statuses.get(operation.id) ?? operation.status) ? 'queued' : 'failed';
+  };
+  const pending = urls.some((url) => !byUrl.has(url) && unfetchedStatus(url) === 'queued');
   const icons = await iconHostsOf([...byUrl.values()]);
-  res.status(pending && unfetched === 'queued' ? 202 : 200).json({ data: urls.map((url) => {
+  res.status(pending ? 202 : 200).json({ data: urls.map((url) => {
     const document = byUrl.get(url);
     return document
       ? { url, document: publicDocument(document, icons), status: document.status }
-      : { url, operationId, status: unfetched };
+      : { url, operationId: operations.get(url)?.id, status: unfetchedStatus(url), ...(!operations.has(url) ? { error: { code: 'active_crawl_quota_exceeded', retryable: true } } : {}) };
   }) });
 });
 
@@ -569,21 +566,74 @@ router.get('/quotas', requireResourceScope('clarity:usage:read'), async (req, re
   res.json({ searchesPerMonth: quota.search_month, fetchesPerMonth: quota.fetch_month, sites: quota.sites, activeCrawls: quota.active_crawls, pagesPerCrawl: quota.pages_per_crawl, requestsPerMinuteCredential: quota.requests_minute_credential, requestsPerMinuteApplication: quota.requests_minute_application, concurrentFetches: quota.concurrent_fetches });
 });
 
+/** Reuse pending work by URL, including overlapping and reordered read batches. */
+export async function resolveIndexOperations(req: Request, urls: string[]) {
+  const principal = req.resourcePrincipal;
+  if (!principal) throw new Error('Resource principal missing after authentication');
+  return getDb().transaction(async (tx) => {
+    // The same quota lock as explicit indexing serializes read-before-enqueue
+    // across all API replicas. A fresh random request key alone cannot dedupe.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
+    const existing = await tx.selectDistinctOn([crawlPages.url], { url: crawlPages.url, operation: crawlJobs }).from(crawlPages)
+      .innerJoin(crawlJobs, eq(crawlJobs.id, crawlPages.jobId)).where(and(
+        inArray(crawlPages.url, urls),
+        inArray(crawlPages.status, ['queued', 'retry', 'fetching']),
+        eq(crawlJobs.ownerAccountId, principal.accountId),
+        eq(crawlJobs.applicationId, principal.applicationId),
+        eq(crawlJobs.kind, 'urls'),
+        inArray(crawlJobs.status, ['queued', 'running']),
+      )).orderBy(crawlPages.url, crawlJobs.createdAt, crawlJobs.id);
+    const operations = new Map<string, typeof crawlJobs.$inferSelect>();
+    for (const { url, operation } of existing) if (!operations.has(url)) operations.set(url, operation);
+    const missing = [...new Set(urls)].filter((url) => !operations.has(url));
+    if (missing.length) {
+      // A resolve may reuse part of another request's work. Bind the supplied
+      // key to the subset actually inserted, so a later retry with a different
+      // missing subset cannot borrow an operation that never owned those URLs.
+      const suppliedKey = req.header('idempotency-key');
+      const key = suppliedKey
+        ? `resolve:${createHash('sha256').update(JSON.stringify([suppliedKey, [...missing].sort()])).digest('hex')}`
+        : `resolve:${crypto.randomUUID()}`;
+      const operation = await insertIndexOperation(tx, req, missing, key);
+      if (operation) for (const url of missing) {
+        if (operation.requestedUrls.includes(url)) operations.set(url, operation);
+      }
+    }
+    const live = [...operations].filter(([, operation]) => !TERMINAL_OPERATIONS.has(operation.status));
+    if (live.length) {
+      // Current readers should not wait behind historical bulk ingestion. Keep
+      // availableAt and attempts untouched: promotion never bypasses backoff.
+      await tx.update(crawlPages).set({ priority: 1 }).where(and(
+        inArray(crawlPages.status, ['queued', 'retry']), sql`${crawlPages.priority} < 1`,
+        or(...live.map(([url, operation]) => and(eq(crawlPages.jobId, operation.id), eq(crawlPages.url, url)))),
+      ));
+    }
+    return operations;
+  });
+}
+
 export async function createIndexOperation(req: Request, urls: string[], idempotencyKey: string) {
   const principal = req.resourcePrincipal;
   if (!principal) throw new Error('Resource principal missing after authentication');
   return getDb().transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
-    const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
-    if (existing) return existing;
-    const activeLimit = await effectiveQuota(tx, principal, 'active_crawls');
-    const pagesLimit = await effectiveQuota(tx, principal, 'pages_per_crawl');
-    const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
-    if (current.quantity >= activeLimit || urls.length > pagesLimit) return undefined;
-    const [operation] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length, callerTier: principal.tier }).returning();
-    await tx.insert(crawlPages).values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'api' }))).onConflictDoNothing();
-    return operation;
+    return insertIndexOperation(tx, req, [...new Set(urls)], idempotencyKey);
   });
+}
+
+/** Caller holds the account's active-crawl quota lock. */
+async function insertIndexOperation(tx: ClarityTransaction, req: Request, urls: string[], idempotencyKey: string) {
+  const principal = req.resourcePrincipal;
+  if (!principal) throw new Error('Resource principal missing after authentication');
+  const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
+  if (existing) return existing;
+  const activeLimit = await effectiveQuota(tx, principal, 'active_crawls');
+  const pagesLimit = await effectiveQuota(tx, principal, 'pages_per_crawl');
+  const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
+  if (current.quantity >= activeLimit || urls.length > pagesLimit) return undefined;
+  const [operation] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length, callerTier: principal.tier }).returning();
+  await tx.insert(crawlPages).values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'api' }))).onConflictDoNothing();
+  return operation;
 }
 
 function parse<T>(schema: z.ZodType<T>, req: Request, res: Response): T | undefined {

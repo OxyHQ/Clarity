@@ -63,7 +63,17 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   (found by its canonical, requested or final URL); otherwise it queues the
   crawl and, with `waitMs` (≤ 10 000), waits for that crawl and answers as soon
   as it ends. A URL the ended crawl could not fetch is `failed`; one still
-  crawling is `queued` with its `operationId` (202).
+  crawling is `queued` with its `operationId` (202). Repeated and overlapping
+  requests reuse pending work within the same account and application and
+  prioritize those queued/retry pages ahead of historical bulk work, without
+  changing their retry schedule. A mixed
+  response retains fetched documents even when active-crawl capacity is full:
+  unqueued URLs return `throttled` with
+  `error: { code: 'active_crawl_quota_exceeded', retryable: true }` and no
+  `operationId`. Retry those URLs when capacity frees; this differs from a
+  terminal fetch `failed`. An entirely unqueued, unavailable batch still returns
+  HTTP 429. Explicit idempotency keys bind the missing subset actually enqueued;
+  `/v1/index/urls` retains its exact operation-key semantics.
 - `POST /v1/index/urls`, `POST /v1/resolve`, `/v1/sites…`, `GET /v1/usage`, `GET /v1/quotas`
 - `GET /favicons/:host` — public, no credential (an `<img>` sends none): the
   site's favicon, one per host, fetched by the worker and served by Clarity

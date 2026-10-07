@@ -561,6 +561,8 @@ export const crawlPages = pgTable('clarity_crawl_pages', {
   discoverySource: text('discovery_source').notNull(),
   status: text('status').notNull().default('queued'),
   attemptCount: integer('attempt_count').notNull().default(0),
+  /** Live resolve reads outrank untouched historical bulk work. */
+  priority: integer('priority').notNull().default(0),
   availableAt: timestamp('available_at', { withTimezone: true }).notNull().defaultNow(),
   leaseOwner: text('lease_owner'),
   leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }),
@@ -571,6 +573,8 @@ export const crawlPages = pgTable('clarity_crawl_pages', {
 }, (table) => [
   unique('clarity_crawl_pages_job_url_unique').on(table.jobId, table.url),
   index('clarity_crawl_pages_lease_idx').on(table.status, table.availableAt, table.leaseExpiresAt),
+  index('clarity_crawl_pages_url_status_idx').on(table.url, table.status),
+  index('clarity_crawl_pages_priority_idx').on(table.status, table.priority.desc(), table.availableAt, table.leaseExpiresAt),
 ]);
 
 export const fetchAttempts = pgTable('clarity_fetch_attempts', {

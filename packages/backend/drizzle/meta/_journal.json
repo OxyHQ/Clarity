@@ -120,6 +120,20 @@
       "when": 1790603060109,
       "tag": "0016_clarity_image_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791387014883,
+      "tag": "0017_crawl_page_url",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791387611992,
+      "tag": "0018_resolve_priority",
+      "breakpoints": true
     }
   ]
 }
