@@ -33,14 +33,17 @@ Active claims renew every 20 seconds. Result commits lock the page and check its
 owner, attempt and live lease, so a late response from the previous worker cannot
 overwrite a recovered claim. HTTP fetches, including the response body, have a
 30-second deadline. Saturated or contended accounts cannot block unrelated work.
+A requested preview receives queue priority over historical bulk work; its retry
+deadline remains unchanged, so priority never bypasses fetch backoff.
 
 Release and recovery order:
 
-1. Deploy the API's URL reuse fix and its lookup index so polling stops adding
-   duplicate crawls. Migration `0018_resolve_priority` also adds a persisted
+1. Apply the additive URL lookup/priority migrations, then deploy the API's URL
+   reuse fix so polling stops adding duplicate crawls.
+   Migration `0018_resolve_priority` adds a persisted
    priority: current `/resolve` reads promote only their queued/retry pages,
-   while preserving retry eligibility times and live leases. Keep cached documents available even when new work cannot
-   be admitted.
+   while preserving retry eligibility times and live leases. Keep cached
+   documents available even when new work cannot be admitted.
 2. Deploy the worker's lease recovery and fenced commits. Confirm the
    `Recovered expired crawl leases` log and that completed-page timestamps
    advance. A deployment alone does not remove the old duplicate backlog.

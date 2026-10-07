@@ -117,6 +117,23 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
     expect(active.filter((entry) => entry.owner === `${owner}-other`).length).toBeLessThanOrEqual(2);
   });
 
+  it('serves a newly requested preview before historical bulk work', async () => {
+    const bulk = await page();
+    const visible = await page();
+    await getDb().update(crawlPages).set({ availableAt: new Date('2020-01-01') }).where(eq(crawlPages.id, bulk.id));
+    await getDb().update(crawlPages).set({ priority: 1 }).where(eq(crawlPages.id, visible.id));
+    expect((await leaseNextPage())?.id).toBe(visible.id);
+    expect((await leaseNextPage())?.id).toBe(bulk.id);
+  });
+
+  it('never lets priority bypass retry backoff', async () => {
+    const retry = await page({ status: 'retry', attempts: 1 });
+    await getDb().update(crawlPages).set({ priority: 1, availableAt: new Date(Date.now() + 60000) }).where(eq(crawlPages.id, retry.id));
+    const ready = await page();
+    expect((await leaseNextPage())?.id).toBe(ready.id);
+    expect(await leaseNextPage()).toBeUndefined();
+  });
+
   it('does not claim cancelled jobs', async () => {
     await page({ jobStatus: 'cancelled' });
     expect(await leaseNextPage()).toBeUndefined();
