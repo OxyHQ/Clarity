@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 import { createHash } from 'node:crypto';
 import { startPlatformActivity } from './lib/platform-activity.js';
-import { and, eq, lt, or, sql } from 'drizzle-orm';
+import { and, eq, gt, lt, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
-import { closePostgres, connectPostgres, getDb } from './db/index.js';
+import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
 import { crawlJobs, crawlPages, fetchAttempts, searchDocuments } from './db/schema/index.js';
 import { extractDocument } from './search/extractor.js';
 import { chunkText, embedChunks, replaceDocumentChunks } from './search/chunking.js';
@@ -27,46 +27,119 @@ const iconRefreshIntervalMs = 30 * 1000;
 const iconRefreshBatchSize = 10;
 const jobRecrawlBatchSize = 50;
 
-export async function leaseNextPage() {
+/** Reclaim crashed workers before counting concurrency. A stale claim never owns a write. */
+export async function recoverExpiredLeases(): Promise<number> {
   return getDb().transaction(async (tx) => {
-    const [page] = await tx.select().from(crawlPages).where(and(
-      or(eq(crawlPages.status, 'queued'), eq(crawlPages.status, 'retry')),
-      lt(crawlPages.availableAt, new Date()),
-      or(sql`${crawlPages.leaseExpiresAt} is null`, lt(crawlPages.leaseExpiresAt, new Date())),
-    )).orderBy(crawlPages.availableAt).limit(1).for('update', { skipLocked: true });
-    if (!page) return undefined;
-    const [job] = await tx.select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier }).from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
-    if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${job.ownerAccountId}:concurrent_fetches`}, 0))`);
-    const concurrencyLimit = await effectiveQuota(tx, { accountId: job.ownerAccountId, tier: callerTierOf(job) }, 'concurrent_fetches');
-    const [active] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlPages).innerJoin(crawlJobs, eq(crawlPages.jobId, crawlJobs.id)).where(and(eq(crawlJobs.ownerAccountId, job.ownerAccountId), eq(crawlPages.status, 'fetching')));
-    if (active.quantity >= concurrencyLimit) return undefined;
-    const [leased] = await tx.update(crawlPages).set({ status: 'fetching', leaseOwner: workerId, leaseExpiresAt: sql`now() + interval '${sql.raw(String(leaseSeconds))} seconds'`, heartbeatAt: new Date(), attemptCount: page.attemptCount + 1, updatedAt: new Date() }).where(eq(crawlPages.id, page.id)).returning();
-    await tx.update(crawlJobs).set({ status: 'running', startedAt: sql`coalesce(${crawlJobs.startedAt}, now())`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
-    return leased;
+    const expired = await tx.select().from(crawlPages).where(and(
+      eq(crawlPages.status, 'fetching'), lt(crawlPages.leaseExpiresAt, new Date()),
+    )).orderBy(crawlPages.jobId, crawlPages.id).limit(100).for('update', { skipLocked: true });
+    for (const page of expired) {
+      await tx.update(crawlPages).set({
+        status: page.attemptCount < 3 ? 'retry' : 'failed', availableAt: new Date(),
+        leaseOwner: null, leaseExpiresAt: null, heartbeatAt: null,
+        lastErrorCode: 'lease_expired', lastErrorDetail: 'The crawl worker stopped renewing its lease', updatedAt: new Date(),
+      }).where(eq(crawlPages.id, page.id));
+      await tx.update(fetchAttempts).set({ status: 'failed', errorCode: 'lease_expired', finishedAt: new Date() })
+        .where(and(eq(fetchAttempts.crawlPageId, page.id), eq(fetchAttempts.status, 'running')));
+      await finishJobIfComplete(tx, page.jobId);
+    }
+    return expired.length;
+  });
+}
+
+/** Lock and fence every result commit, including errors and removed documents. */
+export async function ownsPageLease(tx: ClarityExecutor, page: typeof crawlPages.$inferSelect): Promise<boolean> {
+  if (!page.leaseOwner) return false;
+  const [owned] = await tx.select({ id: crawlPages.id }).from(crawlPages).where(and(
+    eq(crawlPages.id, page.id), eq(crawlPages.status, 'fetching'),
+    eq(crawlPages.leaseOwner, page.leaseOwner), eq(crawlPages.attemptCount, page.attemptCount),
+    gt(crawlPages.leaseExpiresAt, new Date()),
+  )).for('update');
+  return Boolean(owned);
+}
+
+export async function renewPageLease(page: typeof crawlPages.$inferSelect): Promise<void> {
+  if (!page.leaseOwner) return;
+  await getDb().update(crawlPages).set({
+    leaseExpiresAt: sql`now() + interval '60 seconds'`, heartbeatAt: new Date(),
+  }).where(and(eq(crawlPages.id, page.id), eq(crawlPages.status, 'fetching'),
+    eq(crawlPages.leaseOwner, page.leaseOwner), eq(crawlPages.attemptCount, page.attemptCount),
+    gt(crawlPages.leaseExpiresAt, new Date())));
+}
+
+export async function leaseNextPage() {
+  const recovered = await recoverExpiredLeases();
+  if (recovered > 0) console.info('Recovered expired crawl leases', { count: recovered });
+  return getDb().transaction(async (tx) => {
+    const saturatedOwners: string[] = [];
+    while (true) {
+      const [page] = await tx.select().from(crawlPages).where(and(
+        or(eq(crawlPages.status, 'queued'), eq(crawlPages.status, 'retry')),
+        lt(crawlPages.availableAt, new Date()),
+        or(sql`${crawlPages.leaseExpiresAt} is null`, lt(crawlPages.leaseExpiresAt, new Date())),
+        saturatedOwners.length ? sql`${crawlPages.jobId} in (select ${crawlJobs.id} from ${crawlJobs} where ${notInArray(crawlJobs.ownerAccountId, saturatedOwners)})` : undefined,
+        sql`exists (select 1 from ${crawlJobs} where ${crawlJobs.id} = ${crawlPages.jobId} and ${crawlJobs.status} in ('queued', 'running'))`,
+      )).orderBy(crawlPages.availableAt).limit(1).for('update', { skipLocked: true });
+      if (!page) return undefined;
+      const [job] = await tx.select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier }).from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
+      if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
+      const [lock] = await tx.execute<{ locked: boolean }>(sql`select pg_try_advisory_xact_lock(hashtextextended(${`${job.ownerAccountId}:concurrent_fetches`}, 0)) as locked`);
+      if (!lock.locked) {
+        saturatedOwners.push(job.ownerAccountId);
+        continue;
+      }
+      const concurrencyLimit = await effectiveQuota(tx, { accountId: job.ownerAccountId, tier: callerTierOf(job) }, 'concurrent_fetches');
+      const [active] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlPages).innerJoin(crawlJobs, eq(crawlPages.jobId, crawlJobs.id)).where(and(eq(crawlJobs.ownerAccountId, job.ownerAccountId), eq(crawlPages.status, 'fetching'), gt(crawlPages.leaseExpiresAt, new Date())));
+      if (active.quantity >= concurrencyLimit) {
+        saturatedOwners.push(job.ownerAccountId);
+        continue;
+      }
+      const [leased] = await tx.update(crawlPages).set({ status: 'fetching', leaseOwner: workerId, leaseExpiresAt: sql`now() + interval '${sql.raw(String(leaseSeconds))} seconds'`, heartbeatAt: new Date(), attemptCount: page.attemptCount + 1, updatedAt: new Date() }).where(eq(crawlPages.id, page.id)).returning();
+      await tx.update(crawlJobs).set({ status: 'running', startedAt: sql`coalesce(${crawlJobs.startedAt}, now())`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
+      return leased;
+    }
   });
 }
 
 export async function processPage(page: typeof crawlPages.$inferSelect): Promise<void> {
+  const heartbeat = setInterval(() => {
+    void renewPageLease(page).catch((error: unknown) => {
+      console.error('Crawl lease heartbeat failed', { crawlPageId: page.id, error: error instanceof Error ? error.message : 'unknown lease failure' });
+    });
+  }, leaseSeconds * 1000 / 3);
+  heartbeat.unref();
+  try {
+    await processLeasedPage(page);
+  } finally {
+    clearInterval(heartbeat);
+  }
+}
+
+async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<void> {
   const startedAt = Date.now();
   const attemptId = crypto.randomUUID();
   const [job] = await getDb().select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
   if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
   const principal = { accountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId ?? undefined, tier: callerTierOf(job) };
+  if (!await getDb().transaction((tx) => ownsPageLease(tx, page))) return;
   const fetchUsage = await consumeUsage({ principal, operation: 'fetch_started', idempotencyKey: `crawl-page:${page.id}:attempt:${page.attemptCount}` });
   if (!fetchUsage.accepted) {
     await getDb().transaction(async (tx) => {
+      if (!await ownsPageLease(tx, page)) return;
       await tx.update(crawlPages).set({ status: 'failed', leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'fetch_quota_exceeded', lastErrorDetail: 'The monthly fetch quota has been exhausted', updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
       await tx.update(crawlJobs).set({ errorCode: 'fetch_quota_exceeded', errorDetail: 'The monthly fetch quota has been exhausted', updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
       await finishJobIfComplete(tx, page.jobId);
     });
     return;
   }
-  await getDb().transaction(async (tx) => {
+  const started = await getDb().transaction(async (tx) => {
+    if (!await ownsPageLease(tx, page)) return false;
     await tx.insert(fetchAttempts).values({ id: attemptId, crawlPageId: page.id, attempt: page.attemptCount, fetchMode: 'http', status: 'running' });
+    return true;
   });
+  if (!started) return;
   try {
-    const result = await safeFetch(page.url, { headers: { 'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)', accept: 'text/html,application/xhtml+xml' }, maxRedirects: 5, headersTimeoutMs: 15_000 });
+    const result = await safeFetch(page.url, { headers: { 'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)', accept: 'text/html,application/xhtml+xml' }, maxRedirects: 5, headersTimeoutMs: 15_000, signal: AbortSignal.timeout(30_000) });
     // A listing that answers 404/410 has been withdrawn by its source. Record
     // the removal instead of indexing the error page.
     if (result.status === 404 || result.status === 410) {
@@ -105,7 +178,8 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
         });
       }
     }
-    await getDb().transaction(async (tx) => {
+    const committed = await getDb().transaction(async (tx) => {
+      if (!await ownsPageLease(tx, page)) return false;
       const documentStatus = extracted.noindex ? 'blocked' : 'indexed';
       const nextFetchAt = postings.length > 0
         ? new Date(observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000)
@@ -136,12 +210,14 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
       await tx.update(crawlJobs).set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
       await tx.update(fetchAttempts).set({ status: 'succeeded', httpStatus: result.status, bytesReceived: bytes, durationMs: Date.now() - startedAt, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
       await finishJobIfComplete(tx, page.jobId);
+      return true;
     });
-    if (!extracted.noindex) await consumeUsage({ principal, operation: 'page_indexed', idempotencyKey: `crawl-page:${page.id}:indexed` });
+    if (committed && !extracted.noindex) await consumeUsage({ principal, operation: 'page_indexed', idempotencyKey: `crawl-page:${page.id}:indexed` });
   } catch (error) {
     const retry = page.attemptCount < 3;
     const detail = error instanceof Error ? error.message.slice(0, 500) : 'unknown fetch failure';
     await getDb().transaction(async (tx) => {
+      if (!await ownsPageLease(tx, page)) return;
       await tx.update(crawlPages).set({ status: retry ? 'retry' : 'failed', availableAt: sql`now() + (${2 ** page.attemptCount} * interval '1 minute')`, leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'fetch_failed', lastErrorDetail: detail, updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
       await tx.update(fetchAttempts).set({ status: 'failed', durationMs: Date.now() - startedAt, errorCode: 'fetch_failed', errorDetail: detail, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
       if (!retry) await finishJobIfComplete(tx, page.jobId);
@@ -158,6 +234,7 @@ async function recordGoneDocument(
   startedAt: number,
 ): Promise<void> {
   await getDb().transaction(async (tx) => {
+    if (!await ownsPageLease(tx, page)) return;
     const [document] = await tx.update(searchDocuments)
       .set({ status: 'removed', httpStatus: status, finalUrl, fetchedAt: new Date(), nextFetchAt: null, updatedAt: new Date() })
       .where(or(eq(searchDocuments.requestedUrl, page.url), eq(searchDocuments.canonicalUrl, page.url)))
