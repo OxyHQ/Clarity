@@ -107,7 +107,14 @@ export interface NewsRequest {
 
 export interface IndexUrlsRequest { urls: string[]; }
 export interface ResolveRequest { urls: string[]; waitMs?: number; }
-export interface ResolveResult { url: string; document?: Document; operationId?: string; status: DocumentStatus | 'queued'; }
+export interface ResolveResult {
+  url: string;
+  document?: Document;
+  operationId?: string;
+  /** `throttled` has no queued operation: retry after active crawl capacity frees. */
+  status: DocumentStatus | 'queued' | 'throttled';
+  error?: { code: 'active_crawl_quota_exceeded'; retryable: true };
+}
 
 /** An asynchronous crawl/index operation — never an employment listing. */
 export interface IndexOperation {

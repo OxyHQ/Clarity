@@ -11,6 +11,7 @@ await esbuild.build({
     'db/attest-fresh-install': 'src/db/attest-fresh-install.ts',
     // One-shot operator task: `node packages/backend/dist/db/import-places.js --target-database=clarity`.
     'db/import-places': 'src/scripts/import-geonames-places.ts',
+    'db/recover-duplicate-resolves': 'src/scripts/recover-duplicate-resolves.ts',
   },
   bundle: true,
   platform: 'node',
