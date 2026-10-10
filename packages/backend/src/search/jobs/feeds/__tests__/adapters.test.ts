@@ -29,6 +29,7 @@ const SAMPLE_IDENTIFIERS: Partial<Record<(typeof JOB_FEED_KINDS)[number], string
   eploy: 'jobs.le.ac.uk',
   jobboardly: 'etcareers.com',
   jobbnorge: 'jobbnorge',
+  pageup: 'https://jobs.unicef.org/cw/en-us/rss',
   emply: 'albertslund/da',
   wp_job_manager: 'https://workew.com',
   directory: 'https://careers.jobscore.com/sitemaps/careers.xml.gz',

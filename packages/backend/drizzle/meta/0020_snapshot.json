@@ -1,6 +1,6 @@
 {
-  "id": "21a6dfb5-bf74-4d89-a9c9-8f99c2370dad",
-  "prevId": "c29cf3ec-006f-4557-8fc9-c6e9306f265f",
+  "id": "ac005322-ff34-48fd-8a1f-1ac42848f806",
+  "prevId": "e5e9d0a0-75b4-43a4-987f-771d0c62baf3",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1512,7 +1512,7 @@
       "checkConstraints": {
         "clarity_job_feeds_kind_check": {
           "name": "clarity_job_feeds_kind_check",
-          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap', 'indeed_xml', 'dvinci', 'hrmanager', 'eploy', 'jobscore', 'keka', 'hirehive', 'emply', 'easycruit', 'zvoove', 'jobsoid', 'kalibrr', 'hiringthing', 'trakstar', 'crelate', 'wp_job_manager', 'directory', 'jobboardly', 'jobbnorge')"
+          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap', 'indeed_xml', 'dvinci', 'hrmanager', 'eploy', 'jobscore', 'keka', 'hirehive', 'emply', 'easycruit', 'zvoove', 'jobsoid', 'kalibrr', 'hiringthing', 'trakstar', 'crelate', 'wp_job_manager', 'directory', 'jobboardly', 'jobbnorge', 'pageup')"
         },
         "clarity_job_feeds_status_check": {
           "name": "clarity_job_feeds_status_check",

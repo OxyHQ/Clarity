@@ -474,6 +474,7 @@ never per viewer.
    | `getonboard` | category slug | `getonbrd.com/api/v0/categories/<slug>/jobs` | page |
    | `jobboardly` | board host | `<host>/jobs.xml` (Job Boardly boards) | one |
    | `jobbnorge` | — | `publicapi.jobbnorge.no/v3/jobs` (Norway public-sector/academic) | one |
+   | `pageup` | RSS URL | a PageUp board RSS (`…/cw/<locale>/rss`: UNICEF, universities, US states) | one |
    | `indeed_xml` | feed URL | any public Indeed-format XML dump — Workable's every-job feed (~166,000), Cavuno boards, AI Dev Jobs | streamed, 20,000 a poll |
    | `wp_job_manager` | site URL | `<site>/wp-json/wp/v2/job-listings` (WordPress WP Job Manager boards: Laura.fi, Workew) | page |
    | `directory` | sitemap URL | a sitemap of an ATS's customer career pages (JobScore) — registers those boards, ingests nothing | one |
@@ -584,11 +585,16 @@ never per viewer.
    than retried. An aggregator thus seeds the native feeds that carry each
    employer's full data and its own lifecycle.
 
-   **A fresh install starts with the aggregators registered.** The post-phase
-   migration `0020_seed_job_feeds.sql` registers the default boards and
-   aggregators (and freehire slices per supported ATS); their listings then
-   seed the employers' own boards through discovery. It never touches a row
-   that already exists, so an operator's disable stands.
+   **A fresh install starts with ~490 feeds registered.** The post-phase
+   migration `0020_seed_job_feeds.sql` registers the default aggregators and
+   freehire slices, every EURES country/region, and verified public boards,
+   ATS boards and public-sector, university, healthcare and NGO career sites;
+   their listings then seed the employers' own boards through discovery. It
+   never touches a row that already exists, so an operator's disable stands.
+   Sources whose terms forbid automated access or database reuse, that a
+   robots.txt or WAF blocks, or that need a credential are deliberately not
+   seeded — SmartRecruiters' API (robots-blocked) and UNDP's portal
+   (disallows crawling) among them.
 
    **Feeds run in their own loop** beside the crawl loop, so a long walk never
    holds up page crawling. Each round claims up to eight due feeds — at most two

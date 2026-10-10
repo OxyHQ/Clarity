@@ -29,7 +29,7 @@ export const successfactors: JobFeedProvider = {
   identifier: { meaning: 'the career site host of a SuccessFactors Recruiting Marketing site, e.g. jobs.schaeffler.com', shape: 'slug', pattern: HOST },
   completeListing: true,
   request: (identifier) => get(`https://${identifier}/sitemal.xml`, XML_ACCEPT),
-  maxBodyBytes: 40 * 1024 * 1024,
+  maxBodyBytes: 64 * 1024 * 1024,
   parse(body, context) {
     return page(elements(body, 'item').map((item) => {
       const location = text(tag(item, 'g:location'));

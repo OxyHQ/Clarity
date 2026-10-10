@@ -121,7 +121,8 @@ export type JobFeedKind =
   | 'wp_job_manager'
   | 'directory'
   | 'jobboardly'
-  | 'jobbnorge';
+  | 'jobbnorge'
+  | 'pageup';
 
 export interface JobFeed {
   id: string;
