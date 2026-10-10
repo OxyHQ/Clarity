@@ -718,6 +718,7 @@ export const jobPostings = pgTable('clarity_job_postings', {
   applicantLocationRequirements: text('applicant_location_requirements').array().notNull().default(sql`'{}'::text[]`),
   workplaceType: text('workplace_type'),
   employmentTypes: text('employment_types').array().notNull().default(sql`'{}'::text[]`),
+  seniority: text('seniority'),
 
   salaryMin: doublePrecision('salary_min'),
   salaryMax: doublePrecision('salary_max'),
@@ -734,6 +735,8 @@ export const jobPostings = pgTable('clarity_job_postings', {
   experienceRequirements: text('experience_requirements'),
   industry: text('industry'),
   occupationalCategory: text('occupational_category'),
+  department: text('department'),
+  benefits: text('benefits'),
   identifier: text('identifier'),
   directApply: boolean('direct_apply'),
 
@@ -765,10 +768,12 @@ export const jobPostings = pgTable('clarity_job_postings', {
   index('clarity_job_postings_search_idx').using('gin', table.searchVector),
   index('clarity_job_postings_countries_idx').using('gin', table.locationCountries),
   index('clarity_job_postings_employment_types_idx').using('gin', table.employmentTypes),
+  index('clarity_job_postings_seniority_idx').on(table.seniority),
   index('clarity_job_postings_skills_idx').using('gin', table.skills),
   index('clarity_job_postings_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
   check('clarity_job_postings_status_check', sql`${table.status} in ('active', 'expired', 'closed', 'removed', 'stale')`),
   check('clarity_job_postings_workplace_check', sql`${table.workplaceType} is null or ${table.workplaceType} in ('remote', 'hybrid', 'onsite')`),
+  check('clarity_job_postings_seniority_check', sql`${table.seniority} is null or ${table.seniority} in ('intern', 'entry', 'mid', 'senior', 'lead', 'director', 'executive')`),
   check('clarity_job_postings_source_type_check', sql`${table.sourceType} in ('web', 'verified_site', 'first_party', 'feed')`),
   check('clarity_job_postings_salary_interval_check', sql`${table.salaryInterval} is null or ${table.salaryInterval} in ('hour', 'day', 'week', 'month', 'year')`),
   check('clarity_job_postings_salary_currency_check', sql`${table.salaryCurrency} is null or ${table.salaryCurrency} ~ '^[A-Z]{3}$'`),
@@ -832,14 +837,41 @@ export const jobFeeds = pgTable('clarity_job_feeds', {
   lastStatus: text('last_status'),
   lastError: text('last_error'),
   listingsSeen: integer('listings_seen').notNull().default(0),
+  /**
+   * Where the backfill walk of a paginated source resumes: the provider's own
+   * opaque page token or offset, or null when the last walk reached the end.
+   * Every poll still reads the newest page first, so new listings never wait
+   * for a deep walk to finish.
+   */
+  cursor: text('cursor'),
+  /**
+   * The feed whose listings linked to this board, when Clarity registered it
+   * by discovery rather than an operator registering it.
+   */
+  discoveredFromFeedId: text('discovered_from_feed_id'),
   ...timestampColumns(),
 }, (table) => [
   unique('clarity_job_feeds_kind_identifier_unique').on(table.kind, table.identifier),
   index('clarity_job_feeds_due_idx').on(table.enabled, table.nextPollAt),
-  check('clarity_job_feeds_kind_check', sql`${table.kind} in ('greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'remoteok', 'remotive', 'arbeitnow', 'rss')`),
+  check('clarity_job_feeds_kind_check', sql`${table.kind} in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap', 'indeed_xml', 'dvinci', 'hrmanager', 'eploy', 'jobscore', 'keka', 'hirehive', 'emply', 'easycruit', 'zvoove', 'jobsoid', 'kalibrr', 'hiringthing', 'trakstar', 'crelate', 'wp_job_manager', 'directory', 'jobboardly', 'jobbnorge', 'pageup')`),
   check('clarity_job_feeds_status_check', sql`${table.lastStatus} is null or ${table.lastStatus} in ('ok', 'error')`),
   check('clarity_job_feeds_interval_check', sql`${table.pollIntervalSeconds} >= 900`),
   check('clarity_job_feeds_listings_check', sql`${table.listingsSeen} >= 0`),
+]);
+
+/**
+ * Which feed delivered which listing document, and when it last did. A source
+ * that lists its whole board on every poll proves a listing withdrawn by no
+ * longer listing it; this is the record that makes that inference possible
+ * (search/jobs/feeds/presence.ts). Removing either side removes the link.
+ */
+export const jobFeedListings = pgTable('clarity_job_feed_listings', {
+  feedId: text('feed_id').notNull().references(() => jobFeeds.id, { onDelete: 'cascade' }),
+  documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.feedId, table.documentId] }),
+  index('clarity_job_feed_listings_document_idx').on(table.documentId),
 ]);
 
 /**

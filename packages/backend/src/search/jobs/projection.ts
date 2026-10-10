@@ -8,14 +8,14 @@
  */
 import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
-import type { JobLocation, JobSourceType } from '@clarity/shared-types';
+import type { JobFieldSource, JobLocation, JobSourceType } from '@clarity/shared-types';
 
 import { getDb, type ClarityExecutor } from '../../db/index.js';
 import { jobClusters, jobPostings, jobPostingSignatures, searchDocuments } from '../../db/schema/index.js';
-import { chunkText, embedChunks, replaceDocumentChunks } from '../chunking.js';
+import { chunkText, documentChunksCurrent, embedChunks, replaceDocumentChunks } from '../chunking.js';
 import { canonicalSourceRank, jobClusterSignatures } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
-import { JOB_RECRAWL_INTERVAL_SECONDS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
+import { JOB_RECRAWL_INTERVAL_SECONDS, JOB_RETENTION_DAYS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
 import { markdownToPlainText } from './markdown.js';
 import { resolveJobLocations } from './locations.js';
 import { createPlaceResolver } from '../places/repository.js';
@@ -56,6 +56,7 @@ function textIndexSource(posting: ExtractedJobPosting): string {
     posting.employmentTypes.join(' '),
     posting.workplaceType ?? '',
     posting.occupationalCategory ?? '',
+    posting.department ?? '',
     posting.industry ?? '',
     markdownToPlainText(posting.description).slice(0, 8_000),
   ].filter(Boolean).join('\n');
@@ -89,6 +90,7 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       validThrough: posting.validThrough ?? null,
       lastSeenAt: input.observedAt,
       documentStatus: input.documentStatus,
+      sourceType: input.sourceType,
     });
     const values = {
       documentId: input.documentId,
@@ -111,6 +113,7 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       applicantLocationRequirements: posting.applicantLocationRequirements,
       workplaceType: posting.workplaceType,
       employmentTypes: posting.employmentTypes,
+      seniority: posting.seniority,
       salaryMin: posting.salary?.min,
       salaryMax: posting.salary?.max,
       salaryCurrency: posting.salary?.currency,
@@ -124,6 +127,8 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       experienceRequirements: posting.experienceRequirements,
       industry: posting.industry,
       occupationalCategory: posting.occupationalCategory,
+      department: posting.department,
+      benefits: posting.benefits,
       identifier: posting.identifier,
       directApply: posting.directApply,
       publishedAt: posting.publishedAt,
@@ -264,6 +269,40 @@ async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<v
     .where(eq(jobClusters.id, clusterId));
 }
 
+/** Job documents deleted per retention pass, so one pass never holds long locks. */
+const RETENTION_BATCH = 500;
+
+/**
+ * Retention: a job document none of whose listings is active, and none seen
+ * for `JOB_RETENTION_DAYS`, is deleted — its listings, chunks, embeddings,
+ * signatures, reports and feed links go with it by cascade. The clusters its
+ * listings belonged to re-elect a canonical copy, or disappear when empty.
+ * Returns how many documents were deleted.
+ */
+export async function pruneInactiveJobDocuments(limit = RETENTION_BATCH): Promise<number> {
+  return getDb().transaction(async (tx) => {
+    const doomed = await tx.execute<{ id: string }>(sql`
+      select ${searchDocuments.id} as id from ${searchDocuments}
+      where ${searchDocuments.documentType} = 'job'
+        and coalesce(${searchDocuments.fetchedAt}, ${searchDocuments.updatedAt}) < now() - interval '${sql.raw(String(JOB_RETENTION_DAYS))} days'
+        and not exists (
+          select 1 from ${jobPostings}
+          where ${jobPostings.documentId} = ${searchDocuments.id}
+            and (${jobPostings.status} = 'active' or ${jobPostings.lastSeenAt} >= now() - interval '${sql.raw(String(JOB_RETENTION_DAYS))} days')
+        )
+      order by ${searchDocuments.updatedAt}
+      limit ${limit}
+      for update skip locked`);
+    const ids = doomed.map((row) => row.id);
+    if (ids.length === 0) return 0;
+    const clusters = await tx.selectDistinct({ clusterId: jobPostings.clusterId }).from(jobPostings)
+      .where(and(inArray(jobPostings.documentId, ids), sql`${jobPostings.clusterId} is not null`));
+    await tx.delete(searchDocuments).where(inArray(searchDocuments.id, ids));
+    for (const { clusterId } of clusters) if (clusterId) await electCanonical(tx, clusterId);
+    return ids.length;
+  });
+}
+
 /** Extractor identity recorded on chunks produced from an ingested payload. */
 const INGEST_EXTRACTOR_VERSION = 'jobposting-ingest-1';
 
@@ -280,6 +319,22 @@ export interface JobIngestInput {
   sourceType: JobSourceType;
   submittedByApplicationId?: string;
   observedAt: Date;
+  /** Provenance recorded on every extracted field; `api` unless a feed poll says otherwise. */
+  fieldSource?: JobFieldSource;
+  /**
+   * When the payload itself was fetched, if earlier than `observedAt` — a
+   * listing re-observed on its board but whose detail was read on a previous
+   * poll keeps that detail's fetch time.
+   */
+  fetchedAt?: Date;
+}
+
+/** The structured data and fetch time stored for a listing URL, if Clarity has indexed it. */
+export async function storedJobDocument(canonicalUrl: string): Promise<{ structuredData: unknown[]; fetchedAt: Date | null } | undefined> {
+  const [row] = await getDb().select({ structuredData: searchDocuments.structuredData, fetchedAt: searchDocuments.fetchedAt })
+    .from(searchDocuments).where(eq(searchDocuments.canonicalUrl, canonicalUrl)).limit(1);
+  if (!row || !Array.isArray(row.structuredData)) return undefined;
+  return { structuredData: row.structuredData as unknown[], fetchedAt: row.fetchedAt };
 }
 
 /**
@@ -292,17 +347,24 @@ export interface JobIngestInput {
  * a crawler to discover it.
  */
 export async function ingestJobPosting(input: JobIngestInput): Promise<{ documentId: string; jobPostingIds: string[] }> {
-  const postings = extractJobPostings(input.structuredData, input.canonicalUrl, input.observedAt.toISOString(), 'api');
+  const postings = extractJobPostings(input.structuredData, input.canonicalUrl, input.observedAt.toISOString(), input.fieldSource ?? 'api');
   if (postings.length === 0) throw new Error('no_job_posting');
 
   const [primary] = postings;
   const body = postings.map(textIndexSource).join('\n\n');
   const chunks = chunkText(body);
+  // A feed re-delivers every live listing on every poll. When the indexed text
+  // and its embedded chunks are exactly what this payload would produce, the
+  // chunks are kept and nothing is re-embedded; the listing is still
+  // re-projected below, so lastSeenAt and every column stay current.
+  const chunksCurrent = await documentChunksCurrent(getDb(), input.canonicalUrl, body, chunks.length, INGEST_EXTRACTOR_VERSION);
   let embeddings: number[][] | undefined;
-  try {
-    embeddings = await embedChunks(chunks.map((chunk) => chunk.text));
-  } catch {
-    embeddings = undefined;
+  if (!chunksCurrent) {
+    try {
+      embeddings = await embedChunks(chunks.map((chunk) => chunk.text));
+    } catch {
+      embeddings = undefined;
+    }
   }
 
   return getDb().transaction(async (tx) => {
@@ -318,7 +380,7 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       fieldEvidence: primary.evidence,
       publisherName: primary.employerName,
       publishedAt: primary.publishedAt ?? null,
-      fetchedAt: input.observedAt,
+      fetchedAt: input.fetchedAt ?? input.observedAt,
       indexedAt: input.observedAt,
       nextFetchAt: new Date(input.observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000),
     };
@@ -326,7 +388,7 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       .values({ id: crypto.randomUUID(), requestedUrl: input.canonicalUrl, canonicalUrl: input.canonicalUrl, ...mutable })
       .onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: { ...mutable, updatedAt: input.observedAt } })
       .returning();
-    await replaceDocumentChunks(tx, document.id, chunks, embeddings, INGEST_EXTRACTOR_VERSION);
+    if (!chunksCurrent) await replaceDocumentChunks(tx, document.id, chunks, embeddings, INGEST_EXTRACTOR_VERSION);
     const jobPostingIds = await projectJobPostings(tx, {
       documentId: document.id,
       documentStatus: 'indexed',

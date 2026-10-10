@@ -1,22 +1,75 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { parseJobFeed } from '../adapters.js';
-import { JOB_FEED_KINDS, jobFeedUrl } from '../endpoints.js';
+import { JOB_FEED_KINDS, assertJobFeedIdentifier, jobFeedRequest, jobFeedUrl } from '../endpoints.js';
 
 const extractedAt = '2026-09-09T00:00:00.000Z';
 const context = (kind: (typeof JOB_FEED_KINDS)[number], identifier: string) => ({
   kind, identifier, requestUrl: jobFeedUrl(kind, identifier), extractedAt,
 });
 
+/** A valid identifier per kind; most kinds take a company slug. */
+const SAMPLE_IDENTIFIERS: Partial<Record<(typeof JOB_FEED_KINDS)[number], string>> = {
+  rss: 'https://example.com/jobs.rss',
+  sitemap: 'https://example.com/sitemap-jobs.xml#/jobs/',
+  devitjobs: 'devitjobs.uk',
+  workday: 'acme.wd5/External_Careers',
+  freehire: 'source=workday&countries=us',
+  oracle: 'jpmc.fa.oraclecloud.com/CX_1001',
+  phenom: 'jobs.thermofisher.com/global/en',
+  eightfold: 'paypal.eightfold.ai/paypal.com',
+  successfactors: 'jobs.schaeffler.com',
+  jobvite: 'nutanix/qKr9VfwZ',
+  jibe: 'careers.mcafee.com',
+  madgex: 'jobs.chronicle.com',
+  rss_jsonld: 'https://djinni.co/jobs/rss/',
+  indeed_xml: 'https://aidevboard.com/feed/indeed.xml',
+  eploy: 'jobs.le.ac.uk',
+  jobboardly: 'etcareers.com',
+  jobbnorge: 'jobbnorge',
+  pageup: 'https://jobs.unicef.org/cw/en-us/rss',
+  emply: 'albertslund/da',
+  wp_job_manager: 'https://workew.com',
+  directory: 'https://careers.jobscore.com/sitemaps/careers.xml.gz',
+  eures: 'de',
+};
+
 describe('keyless job feed endpoints', () => {
   it('builds a public URL for every supported kind and needs no credential', () => {
     for (const kind of JOB_FEED_KINDS) {
-      const url = new URL(jobFeedUrl(kind, kind === 'rss' ? 'https://example.com/jobs.rss' : 'acme'));
-      expect(url.protocol).toBe('https:');
-      expect(url.search).not.toMatch(/key|token|secret|api[_-]?key/i);
+      const request = jobFeedRequest(kind, SAMPLE_IDENTIFIERS[kind] ?? 'acme');
+      const url = new URL(request.url);
+      expect(url.protocol, kind).toBe('https:');
+      expect(url.search, kind).not.toMatch(/[?&](?:api[_-]?key|key|access[_-]?token|token|secret|password|auth[a-z]*)=/i);
+      expect(request.body ?? '', kind).not.toMatch(/"(?:api[_-]?key|access[_-]?token|token|secret|password|auth[a-z]*)"\s*:/i);
       expect(url.username).toBe('');
       expect(url.password).toBe('');
     }
+  });
+
+  it('resumes a paginated source from its cursor', () => {
+    expect(new URL(jobFeedRequest('smartrecruiters', 'acme', '200').url).searchParams.get('offset')).toBe('200');
+    expect(new URL(jobFeedRequest('aidevboard', 'aidevboard', '3').url).searchParams.get('page')).toBe('3');
+    expect(new URL(jobFeedRequest('jobicy', 'jobicy', 'abc').url).searchParams.get('cursor')).toBe('abc');
+    expect(JSON.parse(jobFeedRequest('workday', 'acme.wd5/External_Careers?jobFamilyGroup=abc123', '40').body ?? '{}'))
+      .toEqual({ limit: 20, offset: 40, searchText: '', appliedFacets: { jobFamilyGroup: ['abc123'] } });
+  });
+
+  it('seeds only feeds the providers accept', () => {
+    const seed = readFileSync(new URL('../../../../../drizzle/0020_seed_job_feeds.sql', import.meta.url), 'utf8');
+    const rows = [...seed.matchAll(/\(gen_random_uuid\(\)::text, '([^']+)', '([^']+)', '[^']+'\)/g)];
+    expect(rows.length).toBeGreaterThan(10);
+    for (const [, kind, identifier] of rows) {
+      expect(JOB_FEED_KINDS, kind).toContain(kind);
+      expect(() => assertJobFeedIdentifier(kind as (typeof JOB_FEED_KINDS)[number], identifier), `${kind}:${identifier}`).not.toThrow();
+    }
+  });
+
+  it('never asks freehire for sources whose terms keep them out of third-party search', () => {
+    const excluded = new URL(jobFeedRequest('freehire', 'freehire').url).searchParams.getAll('source_exclude');
+    expect(excluded).toEqual(expect.arrayContaining(['adzuna', 'himalayas', 'themuse', 'remotive']));
   });
 
   it('refuses an identifier that would fetch the wrong board', () => {
@@ -24,6 +77,11 @@ describe('keyless job feed endpoints', () => {
     expect(() => jobFeedUrl('lever', 'acme/../evil')).toThrow();
     expect(() => jobFeedUrl('rss', 'http://example.com/feed')).toThrow('https');
     expect(() => jobFeedUrl('rss', 'not a url')).toThrow();
+    expect(() => jobFeedUrl('rss', 'https://user:pass@example.com/feed')).toThrow('credentials');
+    expect(() => jobFeedUrl('devitjobs', 'evil.example')).toThrow('Identifier for devitjobs');
+    expect(() => jobFeedUrl('workday', 'acme.wd5')).toThrow();
+    expect(() => jobFeedUrl('freehire', 'api_key=1')).toThrow();
+    expect(() => jobFeedUrl('personio', 'acme.evil.com')).toThrow();
   });
 });
 

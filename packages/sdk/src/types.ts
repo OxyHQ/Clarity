@@ -1,5 +1,5 @@
 import type {
-  CountryCode, CurrencyCode, JobEmploymentType, JobLifecycleStatus, JobSalaryInterval, JobWorkplaceType, PlaceKind,
+  CountryCode, CurrencyCode, JobEmploymentType, JobLifecycleStatus, JobSalaryInterval, JobSeniority, JobWorkplaceType, PlaceKind,
 } from './vocabularies.js';
 
 export type SearchMode = 'lexical' | 'semantic' | 'hybrid';
@@ -235,6 +235,8 @@ export interface JobPosting {
   applicantLocationRequirements: string[];
   workplaceType?: JobWorkplaceType;
   employmentTypes: JobEmploymentType[];
+  /** Career level, only when the source states one that maps unambiguously. */
+  seniority?: JobSeniority;
   salary?: JobSalary;
   skills: string[];
   /** Markdown, same contract as `description`. */
@@ -247,6 +249,10 @@ export interface JobPosting {
   experienceRequirements?: string;
   industry?: string;
   occupationalCategory?: string;
+  /** The team or department the source files the role under, as stated. */
+  department?: string;
+  /** Markdown, same contract as `description`. */
+  benefits?: string;
   identifier?: string;
   directApply?: boolean;
   publishedAt?: string;
@@ -285,6 +291,7 @@ export interface JobSearchRequest {
   locations?: string[];
   workplaceTypes?: JobWorkplaceType[];
   employmentTypes?: JobEmploymentType[];
+  seniorities?: JobSeniority[];
   employers?: string[];
   sourceDomains?: string[];
   skills?: string[];

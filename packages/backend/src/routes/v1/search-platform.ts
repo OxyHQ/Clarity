@@ -26,7 +26,9 @@ import { closeJobPostingsForDocument, ingestJobPosting } from '../../search/jobs
 import { validateJobPostingPayload } from '../../search/jobs/ingest-validation.js';
 import { createPlaceResolver, getPlace, placeSearchSchema, searchPlaces } from '../../search/places/repository.js';
 import { jobReportSchema, reportJobPosting } from '../../search/jobs/reports.js';
-import { JOB_FEED_IDENTIFIER_MEANING, JOB_FEED_KINDS, jobFeedUrl } from '../../search/jobs/feeds/endpoints.js';
+import {
+  JOB_FEED_IDENTIFIER_MEANING, JOB_FEED_KINDS, assertJobFeedIdentifier, jobFeedMinPollIntervalSeconds,
+} from '../../search/jobs/feeds/endpoints.js';
 
 const router = Router();
 router.use(authenticateResource);
@@ -522,16 +524,18 @@ router.post('/jobs/feeds', requireResourceScope('clarity:index'), async (req, re
   try {
     // Resolve now so a malformed identifier fails at registration rather than
     // silently fetching the wrong board on the next poll.
-    jobFeedUrl(input.kind, input.identifier);
+    assertJobFeedIdentifier(input.kind, input.identifier);
   } catch (error) {
     sendError(res, 400, 'invalid_request', error instanceof Error ? error.message : 'Invalid feed identifier', req);
     return;
   }
+  // A source whose published terms ask for fewer requests gets no more than that.
+  const pollIntervalSeconds = Math.max(input.pollIntervalSeconds, jobFeedMinPollIntervalSeconds(input.kind));
   const [row] = await getDb().insert(jobFeeds)
-    .values({ id: crypto.randomUUID(), kind: input.kind, identifier: input.identifier, label: input.label, pollIntervalSeconds: input.pollIntervalSeconds })
+    .values({ id: crypto.randomUUID(), kind: input.kind, identifier: input.identifier, label: input.label, pollIntervalSeconds })
     .onConflictDoUpdate({
       target: [jobFeeds.kind, jobFeeds.identifier],
-      set: { label: input.label, pollIntervalSeconds: input.pollIntervalSeconds, enabled: true, updatedAt: new Date() },
+      set: { label: input.label, pollIntervalSeconds, enabled: true, updatedAt: new Date() },
     })
     .returning();
   res.status(201).json(publicJobFeed(row));
@@ -657,6 +661,7 @@ function publicJobFeed(row: typeof jobFeeds.$inferSelect) {
     enabled: row.enabled, pollIntervalSeconds: row.pollIntervalSeconds,
     lastPolledAt: row.lastPolledAt?.toISOString(), lastStatus: row.lastStatus ?? undefined,
     lastError: row.lastError ?? undefined, listingsSeen: row.listingsSeen,
+    discoveredFromFeedId: row.discoveredFromFeedId ?? undefined,
   };
 }
 function publicSite(row: typeof searchSites.$inferSelect) { return { id: row.id, origin: row.origin, verifiedDomainId: row.verifiedDomainId, status: row.status, crawlEnabled: row.crawlEnabled, recrawlIntervalSeconds: row.recrawlIntervalSeconds, maxPagesPerCrawl: row.maxPagesPerCrawl, sitemapUrls: row.sitemapUrls, feedUrls: row.feedUrls, nextCrawlAt: row.nextCrawlAt?.toISOString() }; }

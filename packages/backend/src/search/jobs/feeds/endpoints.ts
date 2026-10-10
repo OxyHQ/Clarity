@@ -12,68 +12,49 @@
  */
 import type { JobFeedKind } from '@clarity/shared-types';
 
-export const JOB_FEED_KINDS = [
-  'greenhouse', 'lever', 'ashby', 'workable', 'recruitee', 'smartrecruiters',
-  'remoteok', 'remotive', 'arbeitnow', 'rss',
-] as const satisfies readonly JobFeedKind[];
+import type { JobFeedRequest } from './provider.js';
+import { JOB_FEED_PROVIDERS, jobFeedProvider } from './registry.js';
+
+/** Non-empty, in registry order, so it can back a `z.enum` directly. */
+export const JOB_FEED_KINDS = Object.keys(JOB_FEED_PROVIDERS) as [JobFeedKind, ...JobFeedKind[]];
 
 /** How a kind's `identifier` column is interpreted, for operators and errors. */
-export const JOB_FEED_IDENTIFIER_MEANING: Readonly<Record<JobFeedKind, string>> = Object.freeze({
-  greenhouse: 'the board token in boards.greenhouse.io/<token>',
-  lever: 'the company slug in jobs.lever.co/<slug>',
-  ashby: 'the job board name in jobs.ashbyhq.com/<name>',
-  workable: 'the account slug in apply.workable.com/<slug>',
-  recruitee: 'the company slug in <slug>.recruitee.com',
-  smartrecruiters: 'the company identifier in careers.smartrecruiters.com/<company>',
-  remoteok: 'unused; leave it as the kind name',
-  remotive: 'unused, or a category slug',
-  arbeitnow: 'unused; leave it as the kind name',
-  rss: 'the absolute https URL of the RSS or Atom feed',
-});
-
-/** Kinds whose identifier is a whole URL rather than a slug. */
-export const URL_IDENTIFIER_KINDS: ReadonlySet<JobFeedKind> = new Set<JobFeedKind>(['rss']);
-
-/** Kinds that take no identifier because the endpoint is a single fixed URL. */
-export const FIXED_ENDPOINT_KINDS: ReadonlySet<JobFeedKind> = new Set<JobFeedKind>([
-  'remoteok', 'arbeitnow',
-]);
+export const JOB_FEED_IDENTIFIER_MEANING: Readonly<Record<JobFeedKind, string>> = Object.freeze(
+  Object.fromEntries(JOB_FEED_KINDS.map((kind) => [kind, JOB_FEED_PROVIDERS[kind].identifier.meaning])) as Record<JobFeedKind, string>,
+);
 
 const SLUG = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,100}$/;
 
 /**
- * The request URL for one feed. Throws rather than guessing, so a malformed
- * identifier fails at registration instead of quietly fetching the wrong board.
+ * Validates an identifier for its kind. Throws rather than guessing, so a
+ * malformed identifier fails at registration instead of quietly fetching the
+ * wrong board.
  */
-export function jobFeedUrl(kind: JobFeedKind, identifier: string): string {
-  if (URL_IDENTIFIER_KINDS.has(kind)) {
-    const url = new URL(identifier);
-    if (url.protocol !== 'https:') throw new Error('An RSS feed identifier must be an https URL');
-    return url.toString();
+export function assertJobFeedIdentifier(kind: JobFeedKind, identifier: string): void {
+  const { identifier: rule } = jobFeedProvider(kind);
+  if (rule.shape === 'url') {
+    const parsed = new URL(identifier);
+    if (parsed.protocol !== 'https:') throw new Error(`A ${kind} feed identifier must be an https URL`);
+    if (parsed.username || parsed.password) throw new Error('A feed URL may not carry credentials');
+    return;
   }
-  if (!FIXED_ENDPOINT_KINDS.has(kind) && !SLUG.test(identifier)) {
-    throw new Error(`Identifier for ${kind} must be ${JOB_FEED_IDENTIFIER_MEANING[kind]}`);
-  }
-  const slug = encodeURIComponent(identifier);
-  switch (kind) {
-    case 'greenhouse': return `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs?content=true`;
-    case 'lever': return `https://api.lever.co/v0/postings/${slug}?mode=json`;
-    case 'ashby': return `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`;
-    case 'workable': return `https://apply.workable.com/api/v1/widget/accounts/${slug}?details=true`;
-    case 'recruitee': return `https://${slug}.recruitee.com/api/offers/`;
-    case 'smartrecruiters': return `https://api.smartrecruiters.com/v1/companies/${slug}/postings`;
-    case 'remoteok': return 'https://remoteok.com/api';
-    case 'remotive': return identifier && identifier !== 'remotive'
-      ? `https://remotive.com/api/remote-jobs?category=${slug}`
-      : 'https://remotive.com/api/remote-jobs';
-    case 'arbeitnow': return 'https://www.arbeitnow.com/api/job-board-api';
-    default: throw new Error(`Unsupported job feed kind: ${String(kind)}`);
-  }
+  if (rule.shape === 'none') return;
+  if (rule.shape === 'optional' && (identifier === '' || identifier === kind)) return;
+  if (!(rule.pattern ?? SLUG).test(identifier)) throw new Error(`Identifier for ${kind} must be ${rule.meaning}`);
 }
 
-/** Accept header per kind, so a server can content-negotiate correctly. */
-export function jobFeedAccept(kind: JobFeedKind): string {
-  return kind === 'rss'
-    ? 'application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.8'
-    : 'application/json';
+/** The request for one page of a feed; `cursor` is absent for the newest page. */
+export function jobFeedRequest(kind: JobFeedKind, identifier: string, cursor?: string): JobFeedRequest {
+  assertJobFeedIdentifier(kind, identifier);
+  return jobFeedProvider(kind).request(identifier, cursor);
+}
+
+/** The URL of a feed's first page. */
+export function jobFeedUrl(kind: JobFeedKind, identifier: string): string {
+  return jobFeedRequest(kind, identifier).url;
+}
+
+/** The shortest poll interval a kind's published terms allow. */
+export function jobFeedMinPollIntervalSeconds(kind: JobFeedKind): number {
+  return jobFeedProvider(kind).minPollIntervalSeconds ?? 900;
 }

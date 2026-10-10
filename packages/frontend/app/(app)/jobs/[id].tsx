@@ -110,7 +110,9 @@ export default function JobDetailScreen() {
                 <Text className="text-2xl font-semibold text-foreground">{posting.title}</Text>
                 <View className="flex-row items-center gap-1.5">
                   <Building2 size={14} color={colors.mutedForeground} />
-                  <Text className="text-base text-muted-foreground">{posting.employer.name}</Text>
+                  <Text className="text-base text-muted-foreground">
+                    {posting.department ? `${posting.employer.name} · ${posting.department}` : posting.employer.name}
+                  </Text>
                 </View>
               </View>
 
@@ -143,8 +145,15 @@ export default function JobDetailScreen() {
                 ) : null}
               </View>
 
-              {posting.employmentTypes.length > 0 ? (
+              {posting.seniority || posting.employmentTypes.length > 0 ? (
                 <View className="flex-row flex-wrap gap-1.5">
+                  {posting.seniority ? (
+                    <View className="rounded-md bg-muted px-2 py-1">
+                      <Text className="text-[11px] font-medium text-muted-foreground">
+                        {t(`jobs.seniority.${posting.seniority}`)}
+                      </Text>
+                    </View>
+                  ) : null}
                   {posting.employmentTypes.map((type) => (
                     <View key={type} className="rounded-md bg-muted px-2 py-1">
                       <Text className="text-[11px] font-medium text-muted-foreground">
@@ -214,6 +223,13 @@ export default function JobDetailScreen() {
                 <View className="gap-2">
                   <Text className="text-sm font-medium text-foreground">{t("jobs.responsibilitiesHeading")}</Text>
                   <ClarityMarkdown content={posting.responsibilities} colors={markdownColors} />
+                </View>
+              ) : null}
+
+              {posting.benefits ? (
+                <View className="gap-2">
+                  <Text className="text-sm font-medium text-foreground">{t("jobs.benefitsHeading")}</Text>
+                  <ClarityMarkdown content={posting.benefits} colors={markdownColors} />
                 </View>
               ) : null}
 

@@ -24,6 +24,12 @@ export type JobEmploymentType =
   | 'per_diem'
   | 'other';
 
+/**
+ * Career level as the source states it, junior to senior. Mirrors
+ * `JOB_SENIORITY_LEVELS` in `@clarity.surf/sdk/vocabularies`.
+ */
+export type JobSeniority = 'intern' | 'entry' | 'mid' | 'senior' | 'lead' | 'director' | 'executive';
+
 /** Normalized `schema.org/MonetaryAmount.unitText`. */
 export type JobSalaryInterval = 'hour' | 'day' | 'week' | 'month' | 'year';
 
@@ -46,19 +52,77 @@ export type JobSourceType = 'web' | 'verified_site' | 'first_party' | 'feed';
 /**
  * A keyless public listing endpoint Clarity polls: an ATS board API, an
  * aggregator's open JSON API, or an RSS/Atom feed. No source requires a
- * credential — Clarity registers with nobody to read a public board.
+ * credential — Clarity registers with nobody to read a public board. The
+ * order mirrors the backend registry (`search/jobs/feeds/registry.ts`).
  */
 export type JobFeedKind =
   | 'greenhouse'
   | 'lever'
+  | 'lever_eu'
   | 'ashby'
   | 'workable'
   | 'recruitee'
   | 'smartrecruiters'
+  | 'personio'
+  | 'breezy'
+  | 'gem'
+  | 'pinpoint'
+  | 'teamtailor'
+  | 'manatal'
+  | 'rippling'
+  | 'bamboohr'
+  | 'polymer'
+  | 'workday'
   | 'remoteok'
   | 'remotive'
   | 'arbeitnow'
-  | 'rss';
+  | 'aidevboard'
+  | 'jobicy'
+  | 'workingnomads'
+  | 'devitjobs'
+  | 'artificialintelligencejobs'
+  | 'freehire'
+  | 'fourdayweek'
+  | 'jobtech'
+  | 'weworkremotely'
+  | 'oracle'
+  | 'phenom'
+  | 'eightfold'
+  | 'successfactors'
+  | 'jobvite'
+  | 'hireology'
+  | 'softgarden'
+  | 'jibe'
+  | 'homerun'
+  | 'madgex'
+  | 'getonboard'
+  | 'eures'
+  | 'feinaactiva'
+  | 'karrierenrw'
+  | 'jobsadminch'
+  | 'rss'
+  | 'rss_jsonld'
+  | 'sitemap'
+  | 'indeed_xml'
+  | 'dvinci'
+  | 'hrmanager'
+  | 'eploy'
+  | 'jobscore'
+  | 'keka'
+  | 'hirehive'
+  | 'emply'
+  | 'easycruit'
+  | 'zvoove'
+  | 'jobsoid'
+  | 'kalibrr'
+  | 'hiringthing'
+  | 'trakstar'
+  | 'crelate'
+  | 'wp_job_manager'
+  | 'directory'
+  | 'jobboardly'
+  | 'jobbnorge'
+  | 'pageup';
 
 export interface JobFeed {
   id: string;
@@ -72,6 +136,8 @@ export interface JobFeed {
   lastStatus?: 'ok' | 'error';
   lastError?: string;
   listingsSeen: number;
+  /** The feed whose listings linked to this board, when Clarity registered it by discovery. */
+  discoveredFromFeedId?: string;
 }
 
 export interface RegisterJobFeedRequest {
@@ -161,6 +227,8 @@ export interface JobPosting {
   applicantLocationRequirements: string[];
   workplaceType?: JobWorkplaceType;
   employmentTypes: JobEmploymentType[];
+  /** Career level, only when the source states one that maps unambiguously. */
+  seniority?: JobSeniority;
 
   salary?: JobSalary;
 
@@ -175,6 +243,10 @@ export interface JobPosting {
   experienceRequirements?: string;
   industry?: string;
   occupationalCategory?: string;
+  /** The team or department the source files the role under, as stated. */
+  department?: string;
+  /** Markdown, same contract as `description`. */
+  benefits?: string;
 
   /** Source-declared requisition/identifier, used for conservative dedupe. */
   identifier?: string;
@@ -215,6 +287,7 @@ export interface JobSearchRequest {
   locations?: string[];
   workplaceTypes?: JobWorkplaceType[];
   employmentTypes?: JobEmploymentType[];
+  seniorities?: JobSeniority[];
   /** Employer display name or employer domain. */
   employers?: string[];
   /** Host of the listing URL, for source-scoped queries. */

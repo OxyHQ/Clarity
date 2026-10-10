@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { JOB_STALE_AFTER_DAYS, jobLifecycleStatus } from '../lifecycle.js';
+import { JOB_STALE_AFTER_DAYS, jobLifecycleStatus, JOB_FEED_STALE_AFTER_DAYS } from '../lifecycle.js';
 
 const now = new Date('2026-09-09T00:00:00.000Z');
 const days = (count: number) => new Date(now.getTime() - count * 24 * 60 * 60 * 1000);
@@ -26,6 +26,10 @@ describe('job lifecycle policy', () => {
   it('degrades an unexpiring listing to stale only after the documented window', () => {
     expect(jobLifecycleStatus({ lastSeenAt: days(JOB_STALE_AFTER_DAYS - 1), now })).toBe('active');
     expect(jobLifecycleStatus({ lastSeenAt: days(JOB_STALE_AFTER_DAYS + 1), now })).toBe('stale');
+    // A feed re-delivers its listings every few hours, so its silence counts sooner.
+    expect(jobLifecycleStatus({ lastSeenAt: days(JOB_FEED_STALE_AFTER_DAYS - 1), sourceType: 'feed', now })).toBe('active');
+    expect(jobLifecycleStatus({ lastSeenAt: days(JOB_FEED_STALE_AFTER_DAYS + 1), sourceType: 'feed', now })).toBe('stale');
+    expect(jobLifecycleStatus({ lastSeenAt: days(JOB_FEED_STALE_AFTER_DAYS + 1), sourceType: 'web', now })).toBe('active');
   });
 
   it('reports a withdrawn listing as closed and a removed document as removed', () => {

@@ -90,8 +90,9 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
 - `POST /v1/jobs/ingest` — the publisher boundary (`clarity:index`). A
   structured `JobPosting` payload requires a verified site for the URL's host.
 - `GET/POST /v1/jobs/feeds`, `DELETE /v1/jobs/feeds/:id` (`clarity:index`) —
-  the keyless public boards and RSS feeds Clarity polls for listings. Sources
-  are rows, not a hardcoded list, and none holds a credential.
+  the keyless public boards, aggregators and RSS feeds Clarity polls for
+  listings (kinds and identifiers in `docs/jobs.mdx`). Sources are rows, not a
+  hardcoded list, none holds a credential, and robots.txt is honoured.
 
 ## Market data
 

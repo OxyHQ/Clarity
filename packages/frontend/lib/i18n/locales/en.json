@@ -302,6 +302,7 @@
     "skillsHeading": "Skills",
     "qualificationsHeading": "Qualifications",
     "responsibilitiesHeading": "Responsibilities",
+    "benefitsHeading": "Benefits",
     "postedToday": "Posted today",
     "disclaimer": "Clarity Jobs shows public postings only. Searching or opening a listing never identifies you to an employer.",
     "report": "Report this listing",
@@ -330,6 +331,15 @@
       "volunteer": "Volunteer",
       "per_diem": "Per diem",
       "other": "Other"
+    },
+    "seniority": {
+      "intern": "Internship level",
+      "entry": "Entry level",
+      "mid": "Mid level",
+      "senior": "Senior",
+      "lead": "Lead / Staff",
+      "director": "Director",
+      "executive": "Executive"
     },
     "interval": {
       "hour": "hour",

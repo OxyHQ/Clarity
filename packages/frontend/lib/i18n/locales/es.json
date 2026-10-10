@@ -302,6 +302,7 @@
     "skillsHeading": "Habilidades",
     "qualificationsHeading": "Requisitos",
     "responsibilitiesHeading": "Responsabilidades",
+    "benefitsHeading": "Beneficios",
     "postedToday": "Publicada hoy",
     "disclaimer": "Clarity Jobs solo muestra ofertas públicas. Buscar o abrir una oferta nunca te identifica ante el empleador.",
     "report": "Denunciar esta oferta",
@@ -330,6 +331,15 @@
       "volunteer": "Voluntariado",
       "per_diem": "Por días",
       "other": "Otro"
+    },
+    "seniority": {
+      "intern": "Nivel prácticas",
+      "entry": "Nivel inicial",
+      "mid": "Nivel intermedio",
+      "senior": "Senior",
+      "lead": "Lead / Staff",
+      "director": "Dirección",
+      "executive": "Ejecutivo"
     },
     "interval": {
       "hour": "hora",

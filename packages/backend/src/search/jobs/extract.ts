@@ -21,6 +21,7 @@ import type {
   JobFieldSource,
   JobLocation,
   JobSalary,
+  JobSeniority,
   JobWorkplaceType,
 } from '@clarity/shared-types';
 
@@ -32,6 +33,7 @@ import {
   normalizeEmploymentType,
   normalizeJobTitle,
   normalizeSalaryInterval,
+  normalizeSeniority,
   urlDomain,
 } from './taxonomy.js';
 import { markdownToPlainText, toJobMarkdown } from './markdown.js';
@@ -53,6 +55,7 @@ export interface ExtractedJobPosting {
   applicantLocationRequirements: string[];
   workplaceType?: JobWorkplaceType;
   employmentTypes: JobEmploymentType[];
+  seniority?: JobSeniority;
   salary?: JobSalary;
   skills: string[];
   qualifications?: string;
@@ -61,6 +64,8 @@ export interface ExtractedJobPosting {
   experienceRequirements?: string;
   industry?: string;
   occupationalCategory?: string;
+  department?: string;
+  benefits?: string;
   identifier?: string;
   directApply?: boolean;
   publishedAt?: Date;
@@ -207,7 +212,8 @@ function address(value: unknown): JobLocation | undefined {
   const region = text(node['addressRegion']);
   const country = text(node['addressCountry']);
   const postalCode = text(node['postalCode']);
-  const raw = [locality, region, country].filter(Boolean).join(', ');
+  // A PostalAddress `name` is the address as its publisher wrote it.
+  const raw = text(node['name']) ?? [locality, region, country].filter(Boolean).join(', ');
   if (!raw) return undefined;
   const countryCode = country ? normalizeCountry(country) : undefined;
   return {
@@ -274,12 +280,21 @@ function salary(node: Node): JobSalary | undefined {
 }
 
 /**
- * Workplace type is DERIVED, and only from explicit structured signals:
- * `jobLocationType: TELECOMMUTE` alone means remote; the same flag together
- * with a physical `jobLocation` means hybrid; a physical location without the
- * flag means onsite. Anything else stays undefined.
+ * A source that states the workplace outright (`workplaceType: "remote"`, as
+ * Clarity's feed adapters and several ATS emit) is taken at its word.
+ * Otherwise workplace type is DERIVED, and only from explicit structured
+ * signals: `jobLocationType: TELECOMMUTE` alone means remote; the same flag
+ * together with a physical `jobLocation` means hybrid; a physical location
+ * without the flag means onsite. Anything else stays undefined.
  */
+const STATED_WORKPLACE: Readonly<Record<string, JobWorkplaceType>> = Object.freeze({
+  remote: 'remote', hybrid: 'hybrid', onsite: 'onsite', office: 'onsite', inoffice: 'onsite', inperson: 'onsite',
+});
+
 function workplaceType(node: Node, physicalLocations: JobLocation[]): JobWorkplaceType | undefined {
+  const stated = text(node['workplaceType']);
+  const explicit = stated ? STATED_WORKPLACE[stated.toLowerCase().replace(/[^a-z]/g, '')] : undefined;
+  if (explicit) return explicit;
   const declared = list(node['jobLocationType']).map((item) => item.toUpperCase());
   const telecommute = declared.some((item) => item.includes('TELECOMMUTE'));
   if (telecommute) return physicalLocations.length > 0 ? 'hybrid' : 'remote';
@@ -296,6 +311,24 @@ function identifier(value: unknown): string | undefined {
     ? text((node as Node)['value']) ?? text((node as Node)['identifier']) ?? text(node)
     : text(node);
   return resolved && resolved.length <= 200 ? resolved : undefined;
+}
+
+/**
+ * `seniority` is not a schema.org property, but it is what Clarity's own feed
+ * adapters emit and what several ATS embed; only a label that maps onto one
+ * level is kept.
+ */
+function seniority(node: Node): JobSeniority | undefined {
+  const raw = text(node['seniority']);
+  return raw ? normalizeSeniority(raw) : undefined;
+}
+
+/** `schema.org/JobPosting.employmentUnit` — the Organization the role sits in. */
+function department(node: Node): string | undefined {
+  const unit = node['employmentUnit'];
+  if (Array.isArray(unit)) return unit.map((item) => department({ employmentUnit: item })).find(Boolean);
+  if (unit && typeof unit === 'object') return text((unit as Node)['name']);
+  return text(unit);
 }
 
 export function extractJobPostings(
@@ -351,6 +384,7 @@ export function extractJobPostings(
           .map(normalizeEmploymentType)
           .filter((item): item is JobEmploymentType => Boolean(item)),
       )],
+      ...(seniority(node) ? { seniority: seniority(node) } : {}),
       ...(salary(node) ? { salary: salary(node) } : {}),
       skills: list(node['skills']),
       ...(markdown(node['qualifications']) ? { qualifications: markdown(node['qualifications']) } : {}),
@@ -359,6 +393,8 @@ export function extractJobPostings(
       ...(markdown(node['experienceRequirements']) ? { experienceRequirements: markdown(node['experienceRequirements']) } : {}),
       ...(text(node['industry']) ? { industry: text(node['industry']) } : {}),
       ...(text(node['occupationalCategory']) ? { occupationalCategory: text(node['occupationalCategory']) } : {}),
+      ...(department(node) ? { department: department(node) } : {}),
+      ...(markdown(node['jobBenefits']) ? { benefits: markdown(node['jobBenefits']) } : {}),
       ...(resolvedIdentifier ? { identifier: resolvedIdentifier } : {}),
       ...(typeof node['directApply'] === 'boolean' ? { directApply: node['directApply'] } : {}),
       ...(date(node['datePosted']) ? { publishedAt: date(node['datePosted']) } : {}),
@@ -377,6 +413,7 @@ export function extractJobPostings(
     record('applicantLocationRequirements', posting.applicantLocationRequirements.length ? posting.applicantLocationRequirements : undefined);
     record('workplaceType', posting.workplaceType);
     record('employmentTypes', posting.employmentTypes.length ? posting.employmentTypes : undefined);
+    record('seniority', posting.seniority);
     record('salary', posting.salary);
     record('skills', posting.skills.length ? posting.skills : undefined);
     record('qualifications', posting.qualifications);
@@ -385,6 +422,8 @@ export function extractJobPostings(
     record('experienceRequirements', posting.experienceRequirements);
     record('industry', posting.industry);
     record('occupationalCategory', posting.occupationalCategory);
+    record('department', posting.department);
+    record('benefits', posting.benefits);
     record('identifier', posting.identifier);
     record('directApply', posting.directApply);
     record('publishedAt', posting.publishedAt);

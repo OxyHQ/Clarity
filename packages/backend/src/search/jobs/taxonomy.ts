@@ -12,6 +12,7 @@ import {
   JOB_EMPLOYMENT_TYPES,
   JOB_LIFECYCLE_STATUSES,
   JOB_SALARY_INTERVALS,
+  JOB_SENIORITY_LEVELS,
   JOB_WORKPLACE_TYPES,
   isCountryCode,
   isCurrencyCode,
@@ -19,6 +20,7 @@ import {
   type CurrencyCode,
   type JobEmploymentType,
   type JobSalaryInterval,
+  type JobSeniority,
 } from '@clarity.surf/sdk/vocabularies';
 
 import { markdownToPlainText } from './markdown.js';
@@ -31,7 +33,7 @@ export { repairMojibake } from './markdown.js';
  * that already read them from here.
  */
 export { COUNTRY_CODES, CURRENCY_CODES, isCountryCode, isCurrencyCode } from '@clarity.surf/sdk/vocabularies';
-export { JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES };
+export { JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_SENIORITY_LEVELS, JOB_WORKPLACE_TYPES };
 export const JOB_SOURCE_TYPES = ['web', 'verified_site', 'first_party'] as const;
 
 /** `schema.org` employment codes, plus the unambiguous spellings sites use. */
@@ -52,6 +54,22 @@ const EMPLOYMENT_TYPE_BY_TOKEN: Readonly<Record<string, JobEmploymentType>> = Ob
   volunteer: 'volunteer',
   perdiem: 'per_diem',
   other: 'other',
+});
+
+/**
+ * Career-level labels the public boards actually publish, folded to letters
+ * only. Labels that straddle two levels ("mid-senior", "associate",
+ * "experienced", "any") are deliberately missing: they stay absent rather than
+ * being rounded to a level the source did not state.
+ */
+const SENIORITY_BY_TOKEN: Readonly<Record<string, JobSeniority>> = Object.freeze({
+  intern: 'intern', internship: 'intern', student: 'intern', trainee: 'intern', workingstudent: 'intern',
+  entry: 'entry', junior: 'entry', jr: 'entry', graduate: 'entry', newgrad: 'entry', beginner: 'entry',
+  mid: 'mid', midweight: 'mid', intermediate: 'mid',
+  senior: 'senior', sr: 'senior',
+  lead: 'lead', teamlead: 'lead', staff: 'lead', principal: 'lead', manager: 'lead', management: 'lead',
+  director: 'director', head: 'director', headof: 'director',
+  executive: 'executive', vp: 'executive', vicepresident: 'executive', clevel: 'executive', csuite: 'executive',
 });
 
 const SALARY_INTERVAL_BY_TOKEN: Readonly<Record<string, JobSalaryInterval>> = Object.freeze({
@@ -154,6 +172,13 @@ export function foldCase(value: string): string {
 export function normalizeEmploymentType(value: string): JobEmploymentType | undefined {
   const token = foldCase(value).replace(/[^a-z]/g, '');
   return EMPLOYMENT_TYPE_BY_TOKEN[token];
+}
+
+/** A stated career level, or undefined when the label is unknown or straddles two levels. */
+export function normalizeSeniority(value: string): JobSeniority | undefined {
+  // `Entry Level`, `entry_level` and `Entry-level` all fold to `entry`.
+  const token = foldCase(value).replace(/[^a-z]/g, '');
+  return SENIORITY_BY_TOKEN[token] ?? SENIORITY_BY_TOKEN[token.replace(/level$/, '')];
 }
 
 export function normalizeSalaryInterval(value: string): JobSalaryInterval | undefined {
