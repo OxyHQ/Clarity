@@ -490,6 +490,26 @@ never per viewer.
    same listing arriving by crawl instead of racing it. A re-delivered listing
    whose indexed text is unchanged keeps its chunks and is not re-embedded.
 
+   **Boards are discovered from listings.** When a listing's own URL or its
+   application link points at an ATS board Clarity reads directly —
+   `job-boards.greenhouse.io/<token>`, `jobs.lever.co/<slug>`,
+   `jobs.ashbyhq.com/<name>`, `<tenant>.wd<N>.myworkdayjobs.com/<site>`, a
+   Personio, Recruitee, Breezy, Pinpoint, Teamtailor or BambooHR subdomain, and
+   the rest of `feeds/discovery.ts` — that board is registered as a feed of its
+   own, labelled with the employer name the listing gave and recorded with
+   `discoveredFromFeedId`. Recognition is by host and path only, checked
+   against the provider's identifier rule; at most 25 new boards per poll; a
+   board that already exists — operator-registered or disabled — is left
+   untouched; and a discovered board that answers 404/410 is disabled rather
+   than retried. An aggregator thus seeds the native feeds that carry each
+   employer's full data and its own lifecycle.
+
+   **Feeds run in their own loop** beside the crawl loop, so a long walk never
+   holds up page crawling. Each round claims up to eight due feeds under
+   `FOR UPDATE SKIP LOCKED` (pushing them 30 minutes out while they are polled)
+   and polls four at a time, so several workers share the table without
+   polling one feed twice.
+
    Promotion, ranking and engagement fields a source carries (`is_featured`,
    `is_sticky`, `quality_score`, `ispromoted`, `cpc`, view and vote counters)
    are never read, and neither is any contact person's name, email or phone.

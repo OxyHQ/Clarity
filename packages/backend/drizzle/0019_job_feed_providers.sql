@@ -1,6 +1,7 @@
 -- oxy:deploy-phase=pre
 ALTER TABLE "clarity_job_feeds" DROP CONSTRAINT "clarity_job_feeds_kind_check";--> statement-breakpoint
 ALTER TABLE "clarity_job_feeds" ADD COLUMN "cursor" text;--> statement-breakpoint
+ALTER TABLE "clarity_job_feeds" ADD COLUMN "discovered_from_feed_id" text;--> statement-breakpoint
 ALTER TABLE "clarity_job_postings" ADD COLUMN "seniority" text;--> statement-breakpoint
 ALTER TABLE "clarity_job_postings" ADD COLUMN "department" text;--> statement-breakpoint
 ALTER TABLE "clarity_job_postings" ADD COLUMN "benefits" text;--> statement-breakpoint

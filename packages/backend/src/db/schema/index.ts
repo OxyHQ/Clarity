@@ -844,6 +844,11 @@ export const jobFeeds = pgTable('clarity_job_feeds', {
    * for a deep walk to finish.
    */
   cursor: text('cursor'),
+  /**
+   * The feed whose listings linked to this board, when Clarity registered it
+   * by discovery rather than an operator registering it.
+   */
+  discoveredFromFeedId: text('discovered_from_feed_id'),
   ...timestampColumns(),
 }, (table) => [
   unique('clarity_job_feeds_kind_identifier_unique').on(table.kind, table.identifier),

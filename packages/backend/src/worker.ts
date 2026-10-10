@@ -340,14 +340,37 @@ async function runJobMaintenance(): Promise<void> {
   try {
     const sweep = await sweepJobLifecycle();
     const recrawls = await enqueueJobRecrawls();
-    // Supply, after upkeep: a failing feed is recorded on its own row, so this
-    // never blocks the sweep or the recrawls above.
-    const feeds = await pollDueJobFeeds();
-    console.info('Job corpus maintenance completed', { ...sweep, recrawls, feeds });
+    console.info('Job corpus maintenance completed', { ...sweep, recrawls });
   } catch (error) {
     console.error('Job corpus maintenance failed', {
       error: error instanceof Error ? error.message : 'unknown maintenance failure',
     });
+  }
+}
+
+/** How long the feed loop rests when no feed is due. */
+const feedIdleMs = 30 * 1000;
+
+/**
+ * The supply side runs beside the crawl loop rather than inside the
+ * maintenance pass, so a long feed walk never holds up page crawling and
+ * feeds are polled as soon as they fall due. Feeds are claimed under SKIP
+ * LOCKED, so several workers share them without polling one twice.
+ */
+async function runFeedLoop(isStopping: () => boolean): Promise<void> {
+  while (!isStopping()) {
+    let idle = true;
+    try {
+      const feeds = await pollDueJobFeeds();
+      idle = feeds.polled + feeds.failed === 0;
+      if (!idle) console.info('Job feeds polled', feeds);
+    } catch (error) {
+      console.error('Job feed polling failed', { error: error instanceof Error ? error.message : 'unknown feed failure' });
+    }
+    // Rest in short steps so a shutdown is not held up by an idle wait.
+    for (let waited = 0; idle && waited < feedIdleMs && !isStopping(); waited += 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
   }
 }
 
@@ -366,6 +389,7 @@ async function main() {
   let nextIconRefreshAt = 0;
   process.once('SIGTERM', () => { stopping = true; });
   process.once('SIGINT', () => { stopping = true; });
+  const feedLoop = runFeedLoop(() => stopping);
   while (!stopping) {
     if (Date.now() >= nextMaintenanceAt) {
       nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
@@ -380,6 +404,7 @@ async function main() {
     if (page) await processPage(page);
     else await new Promise((resolve) => setTimeout(resolve, 1000));
   }
+  await feedLoop;
   await activity?.stop();
   await closePostgres();
 }

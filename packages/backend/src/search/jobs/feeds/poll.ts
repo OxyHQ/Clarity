@@ -16,7 +16,7 @@
  * A feed is polled on its own interval and a failure is recorded on the row
  * rather than thrown, so one dead board cannot stop the others.
  */
-import { and, eq, lte, sql } from 'drizzle-orm';
+import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
 import type { JobFeedKind } from '@clarity/shared-types';
@@ -27,15 +27,22 @@ import { canonicalizePublicUrl } from '../../query-primitives.js';
 import type { ExtractedJobPosting } from '../extract.js';
 import { ingestJobPosting, storedJobDocument } from '../projection.js';
 import { parseJobFeedPage } from './adapters.js';
+import { boardFromUrl, type DiscoveredBoard } from './discovery.js';
 import { jobFeedRequest } from './endpoints.js';
 import type { JobFeedContext, JobFeedPage, JobFeedRequest } from './provider.js';
 import { jobFeedProvider } from './registry.js';
 import { FEED_USER_AGENT, assertRobotsAllow, robotsAllowUrl } from './robots.js';
 
-/** Feeds considered per maintenance pass. */
-const FEEDS_PER_PASS = 25;
-/** Wall-clock budget for one pass; feeds not reached stay due for the next one. */
-const PASS_BUDGET_MS = 5 * 60 * 1000;
+/** Feeds claimed per round, and how many of them are polled at once. */
+const FEEDS_PER_ROUND = 8;
+const POLL_CONCURRENCY = 4;
+/**
+ * A claimed feed is not due again for this long, so a second worker never
+ * polls it concurrently and a worker that dies mid-poll only delays it.
+ */
+const CLAIM_SECONDS = 30 * 60;
+/** New boards one poll may register by discovery; the rest are found again on later polls. */
+const DISCOVERIES_PER_POLL = 25;
 /** Pages read from one source in one poll, the newest page included. */
 const PAGES_PER_POLL = 10;
 /** Listings projected from one source in one poll. A board dump is not a crawl budget. */
@@ -53,6 +60,12 @@ export interface JobFeedPollResult {
   polled: number;
   listings: number;
   failed: number;
+  discovered: number;
+}
+
+/** A board found through a feed's listings, with the employer name its listings gave. */
+export interface DiscoveredFeed extends DiscoveredBoard {
+  label: string;
 }
 
 export interface JobFeedPollOutcome {
@@ -62,6 +75,8 @@ export interface JobFeedPollOutcome {
   rejected: number;
   /** Where the next poll resumes the backfill, or null when the walk reached the end. */
   cursor: string | null;
+  /** ATS boards the listings link to that this feed is not itself. */
+  discovered: DiscoveredFeed[];
 }
 
 async function readBody(request: JobFeedRequest, maxBodyBytes = MAX_BODY_BYTES): Promise<string> {
@@ -122,7 +137,15 @@ export async function pollJobFeed(
   const kind = feed.kind as JobFeedKind;
   const { detail } = jobFeedProvider(kind);
   const seen = new Set<string>();
-  const outcome: JobFeedPollOutcome = { stored: 0, rejected: 0, cursor: null };
+  const outcome: JobFeedPollOutcome = { stored: 0, rejected: 0, cursor: null, discovered: [] };
+  const boards = new Set<string>([`${feed.kind}:${feed.identifier}`]);
+  const discover = (listing: ExtractedJobPosting): void => {
+    for (const board of [boardFromUrl(listing.applyUrl), boardFromUrl(listing.canonicalUrl)]) {
+      if (!board || boards.has(`${board.kind}:${board.identifier}`)) continue;
+      boards.add(`${board.kind}:${board.identifier}`);
+      outcome.discovered.push({ ...board, label: listing.employerName });
+    }
+  };
   let detailBudget = DETAILS_PER_POLL;
 
   /**
@@ -169,6 +192,7 @@ export async function pollJobFeed(
       // two pages of one poll is projected once.
       if (seen.has(canonicalUrl)) continue;
       seen.add(canonicalUrl);
+      discover(listing);
       // The listing's own page is governed by its own origin's robots.txt.
       if (!await robotsAllowUrl(canonicalUrl)) continue;
       try {
@@ -300,42 +324,87 @@ export function toJsonLd(listing: ExtractedJobPosting): Record<string, unknown> 
   };
 }
 
-/** Polls every feed that is due, within the pass budget. One failure never blocks the rest. */
-export async function pollDueJobFeeds(): Promise<JobFeedPollResult> {
-  const database = getDb();
-  const startedAt = Date.now();
-  const due = await database.select().from(jobFeeds)
-    .where(and(eq(jobFeeds.enabled, true), lte(jobFeeds.nextPollAt, new Date())))
-    .orderBy(jobFeeds.nextPollAt)
-    .limit(FEEDS_PER_PASS);
-
-  const result: JobFeedPollResult = { polled: 0, listings: 0, failed: 0 };
-  for (const feed of due) {
-    if (Date.now() - startedAt > PASS_BUDGET_MS) break;
-    try {
-      const outcome = await pollJobFeed(feed);
-      result.polled += 1;
-      result.listings += outcome.stored;
-      await database.update(jobFeeds).set({
-        lastPolledAt: new Date(),
-        nextPollAt: sql`now() + (${feed.pollIntervalSeconds} * interval '1 second')`,
-        lastStatus: 'ok',
-        lastError: outcome.rejected > 0 ? `${outcome.rejected} listing(s) could not be projected` : null,
-        listingsSeen: outcome.stored,
-        cursor: outcome.cursor,
-        updatedAt: new Date(),
-      }).where(eq(jobFeeds.id, feed.id));
-    } catch (error) {
-      result.failed += 1;
-      // Back off a failing feed rather than hammering it every pass.
-      await database.update(jobFeeds).set({
-        lastPolledAt: new Date(),
-        nextPollAt: sql`now() + (${Math.max(feed.pollIntervalSeconds, 3_600)} * interval '1 second')`,
-        lastStatus: 'error',
-        lastError: (error instanceof Error ? error.message : 'unknown feed failure').slice(0, 500),
-        updatedAt: new Date(),
-      }).where(eq(jobFeeds.id, feed.id));
+/**
+ * Claims up to `limit` due feeds for this worker: each is pushed out of the
+ * due window before it is polled, under SKIP LOCKED, so concurrent workers
+ * never pick the same feed.
+ */
+async function claimDueFeeds(limit: number): Promise<Array<typeof jobFeeds.$inferSelect>> {
+  return getDb().transaction(async (tx) => {
+    const due = await tx.select().from(jobFeeds)
+      .where(and(eq(jobFeeds.enabled, true), lte(jobFeeds.nextPollAt, new Date())))
+      .orderBy(jobFeeds.nextPollAt)
+      .limit(limit)
+      .for('update', { skipLocked: true });
+    if (due.length > 0) {
+      await tx.update(jobFeeds)
+        .set({ nextPollAt: sql`now() + (${CLAIM_SECONDS} * interval '1 second')` })
+        .where(inArray(jobFeeds.id, due.map((feed) => feed.id)));
     }
+    return due;
+  });
+}
+
+/**
+ * Registers boards found through a feed. A board already registered — by an
+ * operator or an earlier discovery — is left exactly as it is, disabled ones
+ * included.
+ */
+async function registerDiscoveredFeeds(from: typeof jobFeeds.$inferSelect, found: readonly DiscoveredFeed[]): Promise<number> {
+  if (found.length === 0) return 0;
+  const inserted = await getDb().insert(jobFeeds)
+    .values(found.slice(0, DISCOVERIES_PER_POLL).map((board) => ({
+      id: crypto.randomUUID(),
+      kind: board.kind,
+      identifier: board.identifier,
+      label: board.label.slice(0, 200),
+      discoveredFromFeedId: from.id,
+    })))
+    .onConflictDoNothing({ target: [jobFeeds.kind, jobFeeds.identifier] })
+    .returning({ id: jobFeeds.id });
+  return inserted.length;
+}
+
+async function pollClaimedFeed(feed: typeof jobFeeds.$inferSelect, result: JobFeedPollResult): Promise<void> {
+  const database = getDb();
+  try {
+    const outcome = await pollJobFeed(feed);
+    result.polled += 1;
+    result.listings += outcome.stored;
+    await database.update(jobFeeds).set({
+      lastPolledAt: new Date(),
+      nextPollAt: sql`now() + (${feed.pollIntervalSeconds} * interval '1 second')`,
+      lastStatus: 'ok',
+      lastError: outcome.rejected > 0 ? `${outcome.rejected} listing(s) could not be projected` : null,
+      listingsSeen: outcome.stored,
+      cursor: outcome.cursor,
+      updatedAt: new Date(),
+    }).where(eq(jobFeeds.id, feed.id));
+    result.discovered += await registerDiscoveredFeeds(feed, outcome.discovered);
+  } catch (error) {
+    result.failed += 1;
+    // A discovered board that does not exist was a wrong guess about a URL,
+    // not an outage: it is switched off rather than retried forever. An
+    // operator's own registration only ever backs off.
+    const missing = error instanceof Error && /^feed responded (?:404|410)$/.test(error.message);
+    // Back off a failing feed rather than hammering it every pass.
+    await database.update(jobFeeds).set({
+      ...(missing && feed.discoveredFromFeedId ? { enabled: false } : {}),
+      lastPolledAt: new Date(),
+      nextPollAt: sql`now() + (${Math.max(feed.pollIntervalSeconds, 3_600)} * interval '1 second')`,
+      lastStatus: 'error',
+      lastError: (error instanceof Error ? error.message : 'unknown feed failure').slice(0, 500),
+      updatedAt: new Date(),
+    }).where(eq(jobFeeds.id, feed.id));
   }
+}
+
+/** Claims and polls one round of due feeds, a few at a time. One failure never blocks the rest. */
+export async function pollDueJobFeeds(): Promise<JobFeedPollResult> {
+  const result: JobFeedPollResult = { polled: 0, listings: 0, failed: 0, discovered: 0 };
+  const queue = await claimDueFeeds(FEEDS_PER_ROUND);
+  await Promise.all(Array.from({ length: Math.min(POLL_CONCURRENCY, queue.length) }, async () => {
+    for (let feed = queue.shift(); feed; feed = queue.shift()) await pollClaimedFeed(feed, result);
+  }));
   return result;
 }

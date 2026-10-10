@@ -1,5 +1,5 @@
 {
-  "id": "dc2a1b56-51fc-45c9-84f4-2411dadef076",
+  "id": "c7188b32-de33-4baf-8b8f-b9f97ae2083a",
   "prevId": "7664cfa2-b6de-41dd-b9be-a6280ba5adae",
   "version": "7",
   "dialect": "postgresql",
@@ -1366,6 +1366,12 @@
         },
         "cursor": {
           "name": "cursor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "discovered_from_feed_id": {
+          "name": "discovered_from_feed_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false

@@ -661,6 +661,7 @@ function publicJobFeed(row: typeof jobFeeds.$inferSelect) {
     enabled: row.enabled, pollIntervalSeconds: row.pollIntervalSeconds,
     lastPolledAt: row.lastPolledAt?.toISOString(), lastStatus: row.lastStatus ?? undefined,
     lastError: row.lastError ?? undefined, listingsSeen: row.listingsSeen,
+    discoveredFromFeedId: row.discoveredFromFeedId ?? undefined,
   };
 }
 function publicSite(row: typeof searchSites.$inferSelect) { return { id: row.id, origin: row.origin, verifiedDomainId: row.verifiedDomainId, status: row.status, crawlEnabled: row.crawlEnabled, recrawlIntervalSeconds: row.recrawlIntervalSeconds, maxPagesPerCrawl: row.maxPagesPerCrawl, sitemapUrls: row.sitemapUrls, feedUrls: row.feedUrls, nextCrawlAt: row.nextCrawlAt?.toISOString() }; }

@@ -49,7 +49,7 @@ function offsetOf(url: string): number {
 function feed(cursor: string | null) {
   return {
     id: 'f', kind: 'smartrecruiters', identifier: 'acme', label: null, enabled: true, pollIntervalSeconds: 21_600,
-    nextPollAt: new Date(), lastPolledAt: null, lastStatus: null, lastError: null, listingsSeen: 0, cursor,
+    nextPollAt: new Date(), lastPolledAt: null, lastStatus: null, lastError: null, listingsSeen: 0, cursor, discoveredFromFeedId: null,
     createdAt: new Date(), updatedAt: new Date(),
   };
 }
@@ -64,7 +64,7 @@ describe('feed polling', () => {
     };
     const outcome = await pollJobFeed(feed(null), { pageDelayMs: 0 });
     expect(requested.map(offsetOf)).toEqual([0, 100, 200]);
-    expect(outcome).toEqual({ stored: 250, rejected: 0, cursor: null });
+    expect(outcome).toMatchObject({ stored: 250, rejected: 0, cursor: null, discovered: [] });
     expect(new Set(ingested).size).toBe(250);
   });
 
@@ -115,6 +115,20 @@ describe('feed polling', () => {
       'https://acme.bamboohr.com/careers/3/detail',
     ]);
     expect(outcome.stored).toBe(3);
+  });
+
+  it('reports the ATS boards an aggregator\'s listings link to, once each', async () => {
+    respond = () => ({ status: 200, body: JSON.stringify({ has_next: false, jobs: [
+      { id: '1', title: 'A', company_name: 'Dataiku', url: 'https://aidevboard.com/job/1', apply_url: 'https://job-boards.greenhouse.io/dataiku/jobs/1' },
+      { id: '2', title: 'B', company_name: 'Dataiku', url: 'https://aidevboard.com/job/2', apply_url: 'https://job-boards.greenhouse.io/dataiku/jobs/2' },
+      { id: '3', title: 'C', company_name: 'Spotify', url: 'https://aidevboard.com/job/3', apply_url: 'https://jobs.lever.co/spotify/x' },
+      { id: '4', title: 'D', company_name: 'Own site', url: 'https://aidevboard.com/job/4', apply_url: 'https://own.example/jobs/4' },
+    ] }) });
+    const outcome = await pollJobFeed({ ...feed(null), kind: 'aidevboard', identifier: 'aidevboard' }, { pageDelayMs: 0 });
+    expect(outcome.discovered).toEqual([
+      { kind: 'greenhouse', identifier: 'dataiku', label: 'Dataiku' },
+      { kind: 'lever', identifier: 'spotify', label: 'Spotify' },
+    ]);
   });
 
   it('fails the poll when the newest page cannot be read', async () => {

@@ -99,6 +99,8 @@ export interface JobFeed {
   lastStatus?: 'ok' | 'error';
   lastError?: string;
   listingsSeen: number;
+  /** The feed whose listings linked to this board, when Clarity registered it by discovery. */
+  discoveredFromFeedId?: string;
 }
 
 export interface RegisterJobFeedRequest {
