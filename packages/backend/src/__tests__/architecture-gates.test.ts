@@ -91,6 +91,48 @@ describe('architecture gates', () => {
     expect(deployScript).not.toContain('--force-new-deployment');
   });
 
+  it('reads runtime secrets from SSM only: no workflow writes SSM or reads an app secret', () => {
+    // SSM (`/oxy/clarity/*`, SecureString) is the single source of runtime
+    // secrets; a value is set or rotated with `aws ssm put-parameter --overwrite`
+    // by its owner (oxy-infra runbook 46). Until 2026-10-10 the backend deploy
+    // copied GitHub repo secrets into SSM on every run, which made GitHub the
+    // source of truth for production credentials. Every workflow is read, not
+    // only the deploy, and comments are stripped so the explanation in the
+    // workflow cannot trip the gate.
+    const ciOnlySecrets = [
+      'ADD_TO_PROJECT_TOKEN',
+      'CLOUDFLARE_ACCOUNT_ID',
+      'CLOUDFLARE_API_TOKEN',
+      'GITHUB_TOKEN',
+      'NPM_TOKEN',
+    ];
+    const workflowsRoot = join(repoRoot, '.github', 'workflows');
+    const workflows = readdirSync(workflowsRoot)
+      .filter((file) => file.endsWith('.yml') || file.endsWith('.yaml'))
+      .map((file) => ({
+        file,
+        executable: readFileSync(join(workflowsRoot, file), 'utf8')
+          .split('\n')
+          .filter((line) => !line.trimStart().startsWith('#'))
+          .join('\n'),
+      }));
+    expect(workflows.map(({ file }) => file)).toContain('deploy-aws.yml');
+
+    const secretsReadBy = (executable: string): string[] =>
+      [...executable.matchAll(/\bsecrets\.([A-Za-z0-9_]+)/g)].map((match) => match[1]);
+    const named = workflows.flatMap(({ executable }) => secretsReadBy(executable));
+    expect(named.length, 'no secret is read anywhere, so the matcher measures nothing').toBeGreaterThan(0);
+    for (const name of new Set(named)) {
+      expect(ciOnlySecrets, `a workflow reads app secret ${name} from GitHub`).toContain(name);
+    }
+    for (const { file, executable } of workflows) {
+      expect(executable, `${file} writes SSM`).not.toMatch(/ssm\s+put-parameter/);
+      expect(executable, file).not.toMatch(/\$\{\{[^}]*toJSON\s*\(\s*secrets\s*\)/);
+    }
+    const backend = workflows.find(({ file }) => file === 'deploy-aws.yml');
+    expect(secretsReadBy(backend?.executable ?? '')).toEqual([]);
+  });
+
   it('has one AWS backend deployment path and no stale App Platform or SST declarations', () => {
     const packageJson = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as {
       devDependencies?: Record<string, string>;
