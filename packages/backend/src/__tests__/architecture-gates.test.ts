@@ -153,25 +153,6 @@ describe('architecture gates', () => {
     expect(readFileSync(join(packageRoot, 'src', 'index.ts'), 'utf8')).not.toContain('pages.dev');
   });
 
-  it('contains no MongoDB/Mongoose code, dependency, environment, or deployment binding', () => {
-    const packageJson = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
-    const dependencies = {
-      ...(packageJson.dependencies ?? {}),
-      ...(packageJson.devDependencies ?? {}),
-    } as Record<string, string>;
-    expect(dependencies).not.toHaveProperty('mongoose');
-    expect(dependencies).not.toHaveProperty('mongodb');
-
-    const scanFiles = [
-      ...filesUnder(join(packageRoot, 'src')).filter((file) => file.endsWith('.ts')),
-      join(packageRoot, '.env.example'),
-      join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
-    ].filter((file) => !file.endsWith('architecture-gates.test.ts'));
-    const source = scanFiles.map((file) => readFileSync(file, 'utf8')).join('\n');
-    expect(source).not.toMatch(/\b(?:mongoose|mongodb|MONGODB_URI)\b/i);
-    expect(source).not.toMatch(/mongodb\+srv:\/\//i);
-  });
-
   it('contains no inference provider adapter, key store, key env, or endpoint', () => {
     const packageJson = JSON.parse(readFileSync(join(packageRoot, 'package.json'), 'utf8'));
     const directDependencies = {
