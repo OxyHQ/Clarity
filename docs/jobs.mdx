@@ -54,7 +54,17 @@ title, description, hiring organization (name, URL, logo), employment type,
 `datePosted`, `validThrough`, job locations, applicant location requirements,
 base salary (currency, min/max, unit), identifier/requisition id, direct-apply
 flag, qualifications, responsibilities, skills, education and experience
-requirements, industry, occupational category, and the listing/apply URL.
+requirements, benefits (`jobBenefits`), industry, occupational category,
+department (`employmentUnit`), career level (`seniority`), and the listing/apply
+URL.
+
+`seniority` is a closed vocabulary — `intern`, `entry`, `mid`, `senior`,
+`lead`, `director`, `executive` — filled only when the source's label maps
+onto exactly one level ("Entry Level", "Midweight", "C-Level"). Labels that
+straddle levels ("Mid-Senior", "Associate", "Experienced", "Any") leave it
+absent; it is never read from a title. An explicit `workplaceType` of
+`remote`, `hybrid` or `onsite` is taken as stated before the
+`jobLocationType`/`jobLocation` derivation runs.
 
 Two rules hold everywhere:
 
@@ -62,16 +72,16 @@ Two rules hold everywhere:
   unmappable `employmentType`, a salary without a currency or a unit, an
   unparseable date — all dropped rather than guessed.
 - **Everything carries provenance.** Each normalized field records whether it
-  came from JSON-LD (`json_ld`) or from an ingestion payload (`api`), with the
-  extraction timestamp, in `field_evidence`.
+  came from JSON-LD (`json_ld`), an ingestion payload (`api`) or a registered
+  feed (`feed`), with the extraction timestamp, in `field_evidence`.
 
 ### Listing text is Markdown
 
-`description`, `qualifications`, `responsibilities`, `educationRequirements` and
-`experienceRequirements` are stored and returned as **Markdown** — a CommonMark
-subset — so a consumer can show the headings, lists and links the source
-published. Every other text field (title, employer name, industry,
-occupational category, locations, skills) is plain text.
+`description`, `qualifications`, `responsibilities`, `educationRequirements`,
+`experienceRequirements` and `benefits` are stored and returned as **Markdown** —
+a CommonMark subset — so a consumer can show the headings, lists and links the
+source published. Every other text field (title, employer name, industry,
+occupational category, department, locations, skills) is plain text.
 
 | Source HTML | Markdown |
 | --- | --- |
@@ -284,7 +294,7 @@ and freshness. When the embedding route is unavailable, hybrid degrades to
 lexical and says so in `degraded`; explicit `semantic` fails with `503`.
 
 Filters: `locations` (country name/code, city, region, or macro-region),
-`workplaceTypes`, `employmentTypes`, `employers` (name or domain),
+`workplaceTypes`, `employmentTypes`, `seniorities`, `employers` (name or domain),
 `sourceDomains`, `skills`, `salary` (`min`/`max`/`currency`/`interval`),
 `publishedAfter`/`publishedBefore`, `statuses`, `includeDuplicates`, `limit` and
 an opaque `cursor`.
@@ -379,55 +389,114 @@ never per viewer.
    permitted boards. Nothing assumes an ATS.
 
 2. **Registered public feeds** — the supply side. Clarity polls keyless public
-   endpoints on their own interval and projects what they return:
+   endpoints on their own interval and projects what they return. Each source
+   is one provider module in `src/search/jobs/feeds/providers/` that owns its
+   endpoint, identifier rule, paging and mapping; `registry.ts` lists them.
 
-   | Kind | Identifier | Endpoint |
-   | --- | --- | --- |
-   | `greenhouse` | board token | `boards-api.greenhouse.io/v1/boards/<token>/jobs?content=true` |
-   | `lever` | company slug | `api.lever.co/v0/postings/<slug>?mode=json` |
-   | `ashby` | job board name | `api.ashbyhq.com/posting-api/job-board/<name>` |
-   | `workable` | account slug | `apply.workable.com/api/v1/widget/accounts/<slug>` |
-   | `recruitee` | company slug | `<slug>.recruitee.com/api/offers/` |
-   | `smartrecruiters` | company id | `api.smartrecruiters.com/v1/companies/<id>/postings` |
-   | `remoteok` | — | `remoteok.com/api` |
-   | `remotive` | optional category | `remotive.com/api/remote-jobs` |
-   | `arbeitnow` | — | `arbeitnow.com/api/job-board-api` |
-   | `rss` | feed URL | any RSS or Atom job feed |
+   Applicant tracking systems — one company's own board per feed:
+
+   | Kind | Identifier | Endpoint | Pages | Detail |
+   | --- | --- | --- | --- | --- |
+   | `greenhouse` | board token | `boards-api.greenhouse.io/v1/boards/<token>/jobs?content=true&pay_transparency=true` | one | — |
+   | `lever` / `lever_eu` | company slug | `api.lever.co` / `api.eu.lever.co` `/v0/postings/<slug>?mode=json` | one | — |
+   | `ashby` | job board name | `api.ashbyhq.com/posting-api/job-board/<name>?includeCompensation=true` | one | — |
+   | `workable` | account slug | `apply.workable.com/api/v1/widget/accounts/<slug>?details=true` | one | v2 job: requirements, benefits, workplace |
+   | `recruitee` | company slug | `<slug>.recruitee.com/api/offers/` | one | — |
+   | `smartrecruiters` | company id | `api.smartrecruiters.com/v1/companies/<id>/postings` | offset | — |
+   | `personio` | subdomain | `<co>.jobs.personio.de/xml` | one | — |
+   | `breezy` | subdomain | `<co>.breezy.hr/json?verbose=true` | one | — |
+   | `gem` | board path | `api.gem.com/job_board/v0/<board>/job_posts/` | one | — |
+   | `pinpoint` | subdomain | `<co>.pinpointhq.com/postings.json` | one | — |
+   | `teamtailor` | subdomain | `<co>.teamtailor.com/jobs.json` (embedded `JobPosting`) | one | — |
+   | `manatal` | career page slug | `api.manatal.com/open/v3/career-page/<slug>/jobs/` | page | — |
+   | `rippling` | board slug | `ats.rippling.com/api/v2/board/<slug>/jobs` | page | description, pay, type, date |
+   | `bamboohr` | subdomain | `<co>.bamboohr.com/careers/list` | one | description, level, date |
+   | `polymer` | organization slug | `api.polymer.co/v1/hire/organizations/<slug>/jobs` | page | description, type, department |
+   | `workday` | `<tenant>.wd<N>/<site>[?facet=id]` | `POST <tenant>.wd<N>.myworkdayjobs.com/wday/cxs/<tenant>/<site>/jobs` | offset (2,000-row window) | description, locations, time type, req id, date |
+
+   Aggregators and boards — one feed covers many employers:
+
+   | Kind | Identifier | Endpoint | Pages |
+   | --- | --- | --- | --- |
+   | `remoteok` | — | `remoteok.com/api` | one |
+   | `remotive` | optional category | `remotive.com/api/remote-jobs` | one |
+   | `arbeitnow` | — | `arbeitnow.com/api/job-board-api` | page |
+   | `aidevboard` | — | `aidevboard.com/api/v1/jobs` | page |
+   | `jobicy` | — | `jobicy.com/api/v2/remote-jobs` (last 7 days) | cursor |
+   | `workingnomads` | — | `workingnomads.com/api/exposed_jobs/` | one |
+   | `weworkremotely` | optional category | `weworkremotely.com/remote-jobs.rss` | one |
+   | `devitjobs` | site host | `<devitjobs.uk\|devitjobs.com\|germantechjobs.de\|swissdevjobs.ch\|devitjobs.nl>/job_feed.xml` | one |
+   | `artificialintelligencejobs` | — | `artificialintelligencejobs.co/api/jobs` | offset |
+   | `fourdayweek` | — | `4dayweek.io/api/v2/jobs` | page |
+   | `jobtech` | optional occupation field | `jobsearch.api.jobtechdev.se/search` (Sweden, CC0) | offset (2,100-row window) |
+   | `freehire` | `freehire` or a slice (`source=workday&countries=us`) | `freehire.me/api/v1/agent/jobs/search` | offset (10,000-row window) |
+   | `rss` | feed URL | any RSS or Atom job feed | one |
 
    **Every one is keyless.** Clarity registers with nobody to read a public
    board, so no source here holds a credential and none may ever be added that
    does — a source needing a key belongs behind an explicit partner agreement,
-   not in this table. A registration test asserts no built endpoint carries a
-   key, token or secret parameter.
+   not in this table. A registration test asserts no built request carries a
+   key, token or secret. For the same reason Clarity never reads another
+   aggregator's copy of a source whose terms keep it out of third-party search
+   or need a key: `freehire` always excludes Adzuna, Reed, Himalayas and The
+   Muse, and the sources Clarity reads directly so their own attribution
+   stands.
+
+   **robots.txt is honoured.** Before any feed request the endpoint's origin
+   robots.txt is read (cached for a day) and ClarityBot stays out of any path
+   it disallows — the group naming ClarityBot if there is one, otherwise `*`,
+   longest rule wins per RFC 9309. `Content-Signal: search=no` opts an origin
+   out entirely, which several Teamtailor boards do, and `Crawl-delay` paces
+   requests. Each listing's own page is checked the same way and skipped when
+   disallowed. A blocked feed records the reason on its row; as of
+   2026-10-10 that includes the whole SmartRecruiters API (only LinkedInBot is
+   allowed) and Remotive's `/api/`.
+
+   **Paginated sources are read head first, then backfilled.** Every poll
+   reads the newest page, then resumes the deep walk where the last poll
+   stopped (`clarity_job_feeds.cursor`), up to ten pages and 1,000 listings a
+   poll with a pause between pages. New listings never wait behind a long
+   backfill, and a source with tens of thousands of listings is covered over
+   successive polls. A cursor the source rejects on resume restarts the walk;
+   a failure deeper in a walk keeps its place.
+
+   **Summary-only sources are completed from their detail endpoint** (the
+   *Detail* column). A detail stays current for three days; until then a
+   re-listed posting is re-observed from what was stored, so a board of
+   thousands of jobs costs thousands of requests once, not on every poll. At
+   most 150 details are fetched per poll; a posting waiting for its detail is
+   not stored half-complete.
 
    Sources are **data, not a hardcoded list**: adding a company's board is a row
-   through `POST /v1/jobs/feeds`, not a deploy. A malformed identifier is
-   rejected at registration rather than silently fetching the wrong board, and a
-   failing feed backs off and records the error on its own row instead of
-   blocking the others.
+   through `POST /v1/jobs/feeds`, not a deploy. The row's `label` is the
+   employer name for sources that publish none of their own (a Lever slug, a
+   Workday legal entity). A malformed identifier is rejected at registration
+   rather than silently fetching the wrong board; a source whose terms ask for
+   fewer requests (Remotive: four a day, Jobicy: hourly) gets its interval
+   raised to that; and a failing feed backs off and records the error on its
+   own row instead of blocking the others. One malformed listing never costs
+   the rest of its feed.
 
-   Where a provider's payload happens to embed `schema.org/JobPosting`
-   JSON-LD, that is parsed with the SAME extractor a crawl uses. In practice
-   the public board APIs above ship their fields directly rather than
-   embedded JSON-LD — a live check of Greenhouse and Rippling career *pages*
-   on 2026-09-09 found zero `JobPosting` JSON-LD blocks across both (see
-   [OxyHQ/Clarity#19](https://github.com/OxyHQ/Clarity/issues/19)), which is
-   exactly why the feed path exists: those two providers are reachable through
-   Clarity Jobs *only* by a registered board API or feed, never by a generic
-   crawl of their hosted page. Every adapter re-expresses its listing as
-   `JobPosting` before projection either way, so one normalizer defines every
-   field and a listing arriving by feed deduplicates against the same listing
-   arriving by crawl instead of racing it. Feed-sourced fields record
-   `source: 'feed'` in their evidence.
+   Where a provider's payload embeds `schema.org/JobPosting` JSON-LD (Teamtailor
+   always, Greenhouse and Ashby sometimes) it is parsed with the SAME extractor
+   a crawl uses. Every other mapping is built from one set of helpers
+   (`feeds/listing.ts`) that keep the extractor's rules — a stated value or
+   nothing; a salary only with a known currency and interval (a free-text
+   salary only when amount, currency and interval are all written out, and a
+   bare `$` only for a stated country that uses it); a trailing two-letter US
+   state is a region, never the country sharing its code. Every listing is
+   then re-expressed as `JobPosting` before projection, so one normalizer
+   defines every field and a listing arriving by feed deduplicates against the
+   same listing arriving by crawl instead of racing it. A re-delivered listing
+   whose indexed text is unchanged keeps its chunks and is not re-embedded.
 
-   The listing's own URL stays its canonical source. Clarity indexes these
-   boards; it does not republish them.
+   Promotion, ranking and engagement fields a source carries (`is_featured`,
+   `is_sticky`, `quality_score`, `ispromoted`, `cpc`, view and vote counters)
+   are never read, and neither is any contact person's name, email or phone.
 
-   **Rippling** is not yet a supported `kind`: its hosted board
-   (`ats.rippling.com/<company>/jobs`) carries no `JobPosting` JSON-LD either,
-   and unlike the table above it has no confirmed public, keyless JSON API to
-   register as a feed. Adding it needs that endpoint verified first — this
-   table has never shipped a guessed one, and it will not start here.
+   The listing's own URL stays its canonical source: an aggregator's listing
+   page when Clarity read it there, with the employer's application link as
+   `applyUrl`. Clarity indexes these boards; it does not republish them.
 3. **Verified sites** — an employer verifies its careers domain through the
    existing site flow and Clarity keeps it recrawled.
 4. **First-party publishers** — a product that just published, updated or closed

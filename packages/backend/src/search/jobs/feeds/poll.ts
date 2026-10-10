@@ -7,6 +7,12 @@
  * uses, and each listing keeps its own URL as its canonical source — Clarity
  * indexes these boards, it does not republish them.
  *
+ * A paginated source is read HEAD FIRST, then backfilled: every poll reads the
+ * newest page, then resumes the deep walk where the previous poll stopped
+ * (`clarity_job_feeds.cursor`). New listings therefore never wait behind a
+ * long backfill, and a source with tens of thousands of listings is still
+ * covered completely over successive polls.
+ *
  * A feed is polled on its own interval and a failure is recorded on the row
  * rather than thrown, so one dead board cannot stop the others.
  */
@@ -18,14 +24,28 @@ import type { JobFeedKind } from '@clarity/shared-types';
 import { getDb } from '../../../db/index.js';
 import { jobFeeds } from '../../../db/schema/index.js';
 import { canonicalizePublicUrl } from '../../query-primitives.js';
-import { ingestJobPosting } from '../projection.js';
-import { parseJobFeed } from './adapters.js';
-import { jobFeedAccept, jobFeedUrl } from './endpoints.js';
+import type { ExtractedJobPosting } from '../extract.js';
+import { ingestJobPosting, storedJobDocument } from '../projection.js';
+import { parseJobFeedPage } from './adapters.js';
+import { jobFeedRequest } from './endpoints.js';
+import type { JobFeedContext, JobFeedPage, JobFeedRequest } from './provider.js';
+import { jobFeedProvider } from './registry.js';
+import { FEED_USER_AGENT, assertRobotsAllow, robotsAllowUrl } from './robots.js';
 
-/** Feeds fetched per maintenance pass. Bounded so one pass stays predictable. */
-const FEEDS_PER_PASS = 5;
-/** Listings taken from a single response. A board dump is not a crawl budget. */
-const MAX_LISTINGS_PER_FEED = 200;
+/** Feeds considered per maintenance pass. */
+const FEEDS_PER_PASS = 25;
+/** Wall-clock budget for one pass; feeds not reached stay due for the next one. */
+const PASS_BUDGET_MS = 5 * 60 * 1000;
+/** Pages read from one source in one poll, the newest page included. */
+const PAGES_PER_POLL = 10;
+/** Listings projected from one source in one poll. A board dump is not a crawl budget. */
+const MAX_LISTINGS_PER_POLL = 1_000;
+/** Pause between two pages of the same source, so a backfill never bursts. */
+const PAGE_DELAY_MS = 1_000;
+/** Detail requests per poll, for sources whose list is only a summary. */
+const DETAILS_PER_POLL = 150;
+/** How long a fetched detail stays current when the source does not say. */
+const DETAIL_TTL_SECONDS = 3 * 24 * 60 * 60;
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const HEADERS_TIMEOUT_MS = 15_000;
 
@@ -35,12 +55,24 @@ export interface JobFeedPollResult {
   failed: number;
 }
 
-async function readBody(url: string, kind: JobFeedKind): Promise<string> {
-  const result = await safeFetch(url, {
+export interface JobFeedPollOutcome {
+  /** Listings projected this poll. */
+  stored: number;
+  /** Listings the source returned that could not be projected. */
+  rejected: number;
+  /** Where the next poll resumes the backfill, or null when the walk reached the end. */
+  cursor: string | null;
+}
+
+async function readBody(request: JobFeedRequest, maxBodyBytes = MAX_BODY_BYTES): Promise<string> {
+  const result = await safeFetch(request.url, {
+    method: request.method,
     headers: {
-      'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)',
-      accept: jobFeedAccept(kind),
+      'User-Agent': FEED_USER_AGENT,
+      accept: request.accept,
+      ...(request.body === undefined ? {} : { 'content-type': 'application/json' }),
     },
+    ...(request.body === undefined ? {} : { body: request.body }),
     maxRedirects: 3,
     headersTimeoutMs: HEADERS_TIMEOUT_MS,
   });
@@ -53,53 +85,154 @@ async function readBody(url: string, kind: JobFeedKind): Promise<string> {
   for await (const chunk of result.response) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     bytes += buffer.length;
-    if (bytes > MAX_BODY_BYTES) { result.response.destroy(); throw new Error('feed body too large'); }
+    if (bytes > maxBodyBytes) { result.response.destroy(); throw new Error('feed body too large'); }
     chunks.push(buffer);
   }
   return Buffer.concat(chunks).toString('utf8');
 }
 
-/** Fetches one feed and projects its listings. Returns how many it stored. */
-export async function pollJobFeed(feed: typeof jobFeeds.$inferSelect): Promise<number> {
-  const observedAt = new Date();
-  const requestUrl = jobFeedUrl(feed.kind as JobFeedKind, feed.identifier);
-  const body = await readBody(requestUrl, feed.kind as JobFeedKind);
-  const listings = parseJobFeed(feed.kind as JobFeedKind, body, {
-    kind: feed.kind as JobFeedKind,
-    identifier: feed.identifier,
-    requestUrl,
-    extractedAt: observedAt.toISOString(),
-  }).slice(0, MAX_LISTINGS_PER_FEED);
+/** Reads a request the origin's robots.txt allows, after the pause it asks for. */
+async function politeRead(request: JobFeedRequest, pauseMs: number, maxBodyBytes?: number): Promise<string> {
+  const crawlDelaySeconds = await assertRobotsAllow(request.url);
+  const wait = Math.max(pauseMs, crawlDelaySeconds * 1000);
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  return readBody(request, maxBodyBytes);
+}
 
-  let stored = 0;
-  for (const listing of listings) {
-    let canonicalUrl: string;
-    try {
-      canonicalUrl = canonicalizePublicUrl(listing.canonicalUrl);
-    } catch {
-      continue; // A listing without a public URL has no canonical source to cite.
+async function readPage(feed: typeof jobFeeds.$inferSelect, observedAt: Date, pauseMs: number, cursor?: string): Promise<JobFeedPage> {
+  const kind = feed.kind as JobFeedKind;
+  const request = jobFeedRequest(kind, feed.identifier, cursor);
+  const body = await politeRead(request, pauseMs, jobFeedProvider(kind).maxBodyBytes);
+  return parseJobFeedPage(kind, body, {
+    kind,
+    identifier: feed.identifier,
+    requestUrl: request.url,
+    extractedAt: observedAt.toISOString(),
+    ...(cursor === undefined ? {} : { cursor }),
+    ...(feed.label ? { label: feed.label } : {}),
+  });
+}
+
+/** Fetches one feed — its newest page, then the next stretch of its backfill — and projects the listings. */
+export async function pollJobFeed(
+  feed: typeof jobFeeds.$inferSelect,
+  { pageDelayMs = PAGE_DELAY_MS }: { pageDelayMs?: number } = {},
+): Promise<JobFeedPollOutcome> {
+  const observedAt = new Date();
+  const kind = feed.kind as JobFeedKind;
+  const { detail } = jobFeedProvider(kind);
+  const seen = new Set<string>();
+  const outcome: JobFeedPollOutcome = { stored: 0, rejected: 0, cursor: null };
+  let detailBudget = DETAILS_PER_POLL;
+
+  /**
+   * The listing as it should be stored: as listed, or completed by its detail
+   * endpoint. A detail still current is not fetched again — the stored
+   * payload is re-observed instead. Undefined means "not this poll".
+   */
+  const complete = async (listing: ExtractedJobPosting, canonicalUrl: string): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
+    if (!detail) return { structuredData: [jobPostingLd(listing)] };
+    const stored = await storedJobDocument(canonicalUrl);
+    const ttlMs = (detail.ttlSeconds ?? DETAIL_TTL_SECONDS) * 1000;
+    if (stored?.fetchedAt && observedAt.getTime() - stored.fetchedAt.getTime() < ttlMs) {
+      return { structuredData: stored.structuredData, fetchedAt: stored.fetchedAt };
     }
-    // Each listing is its own document at its own URL, exactly as a crawl of
-    // that page would have produced, so both paths deduplicate against each
-    // other instead of racing to own the row.
-    await ingestJobPosting({
-      canonicalUrl,
-      structuredData: [{ '@context': 'https://schema.org', '@type': 'JobPosting', ...toJsonLd(listing) }],
-      siteId: null,
-      sourceType: 'feed',
-      observedAt,
-    });
-    stored += 1;
+    const request = detail.request(listing, feed.identifier);
+    if (!request || detailBudget <= 0) return undefined;
+    detailBudget -= 1;
+    try {
+      const body = await politeRead(request, pageDelayMs);
+      const context: JobFeedContext = {
+        kind, identifier: feed.identifier, requestUrl: request.url, extractedAt: observedAt.toISOString(),
+        ...(feed.label ? { label: feed.label } : {}),
+      };
+      const completed = detail.parse(body, listing, context);
+      return completed ? { structuredData: [jobPostingLd(completed)] } : undefined;
+    } catch {
+      // A detail that cannot be read now is retried next poll; a stale copy
+      // is better than none in the meantime.
+      return stored ? { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) } : undefined;
+    }
+  };
+
+  const project = async (listings: readonly ExtractedJobPosting[]): Promise<void> => {
+    for (const listing of listings) {
+      if (seen.size >= MAX_LISTINGS_PER_POLL) return;
+      let canonicalUrl: string;
+      try {
+        canonicalUrl = canonicalizePublicUrl(listing.canonicalUrl);
+      } catch {
+        outcome.rejected += 1;
+        continue; // A listing without a public URL has no canonical source to cite.
+      }
+      // Offset-paged sources shift while they are walked; a listing seen on
+      // two pages of one poll is projected once.
+      if (seen.has(canonicalUrl)) continue;
+      seen.add(canonicalUrl);
+      // The listing's own page is governed by its own origin's robots.txt.
+      if (!await robotsAllowUrl(canonicalUrl)) continue;
+      try {
+        const payload = await complete(listing, canonicalUrl);
+        if (!payload) continue;
+        // Each listing is its own document at its own URL, exactly as a crawl
+        // of that page would have produced, so both paths deduplicate against
+        // each other instead of racing to own the row.
+        await ingestJobPosting({
+          canonicalUrl,
+          structuredData: payload.structuredData,
+          siteId: null,
+          sourceType: 'feed',
+          fieldSource: 'feed',
+          observedAt,
+          ...(payload.fetchedAt ? { fetchedAt: payload.fetchedAt } : {}),
+        });
+        outcome.stored += 1;
+      } catch {
+        // One malformed listing never costs the rest of the feed.
+        outcome.rejected += 1;
+      }
+    }
+  };
+
+  const head = await readPage(feed, observedAt, 0);
+  await project(head.listings);
+  if (outcome.rejected > 0 && outcome.stored === 0) throw new Error('no listing in the feed could be projected');
+
+  // A single-page source has nothing to resume. Otherwise continue the
+  // backfill where the last poll stopped, or start it after the head page.
+  let cursor = head.nextCursor ? (feed.cursor ?? head.nextCursor) : undefined;
+  let pages = 1;
+  while (cursor && pages < PAGES_PER_POLL && seen.size < MAX_LISTINGS_PER_POLL) {
+    let next: JobFeedPage;
+    try {
+      next = await readPage(feed, observedAt, pageDelayMs, cursor);
+    } catch {
+      // A cursor the source rejects on resume has expired: the walk restarts
+      // from the top next time. A failure deeper in this walk is kept, so a
+      // transient error does not throw away the progress made.
+      if (cursor === feed.cursor) cursor = undefined;
+      break;
+    }
+    pages += 1;
+    await project(next.listings);
+    cursor = next.listings.length > 0 ? next.nextCursor : undefined;
   }
-  return stored;
+  outcome.cursor = cursor ?? null;
+  return outcome;
+}
+
+function jobPostingLd(listing: ExtractedJobPosting): Record<string, unknown> {
+  return { '@context': 'https://schema.org', '@type': 'JobPosting', ...toJsonLd(listing) };
 }
 
 /**
  * The listing is re-expressed as `schema.org/JobPosting` so it re-enters
  * through the one normalizer every source shares. A mapping that skipped this
- * would be a second, silently divergent definition of the same fields.
+ * would be a second, silently divergent definition of the same fields. The
+ * three non-schema.org keys (`workplaceType`, `seniority`, `directApplyUrl`)
+ * are the ones that normalizer reads for exactly this purpose.
  */
-function toJsonLd(listing: Awaited<ReturnType<typeof parseJobFeed>>[number]): Record<string, unknown> {
+export function toJsonLd(listing: ExtractedJobPosting): Record<string, unknown> {
   return {
     title: listing.title,
     ...(listing.description ? { description: listing.description } : {}),
@@ -107,23 +240,36 @@ function toJsonLd(listing: Awaited<ReturnType<typeof parseJobFeed>>[number]): Re
       '@type': 'Organization',
       name: listing.employerName,
       ...(listing.employerUrl ? { url: listing.employerUrl } : {}),
+      ...(listing.employerLogoUrl ? { logo: listing.employerLogoUrl } : {}),
     },
     ...(listing.locations.length > 0 ? {
-      jobLocation: listing.locations.map((location) => ({
-        '@type': 'Place',
-        address: {
-          '@type': 'PostalAddress',
-          ...(location.locality ? { addressLocality: location.locality } : {}),
-          ...(location.region ? { addressRegion: location.region } : {}),
-          ...(location.countryCode ?? location.country ? { addressCountry: location.countryCode ?? location.country } : {}),
-        },
-      })),
+      jobLocation: listing.locations.map((location) => {
+        // The code, when there is one, is what every reader resolves; a
+        // country name is only as good as the normalizer's vocabulary.
+        const country = location.countryCode ?? location.country;
+        const structured = Boolean(location.locality || location.region || country);
+        return {
+          '@type': 'Place',
+          // A location the source gave only as text stays that text, and a
+          // structured one keeps the source's wording as its name.
+          address: structured ? {
+            '@type': 'PostalAddress',
+            name: location.raw,
+            ...(location.locality ? { addressLocality: location.locality } : {}),
+            ...(location.region ? { addressRegion: location.region } : {}),
+            ...(country ? { addressCountry: country } : {}),
+            ...(location.postalCode ? { postalCode: location.postalCode } : {}),
+          } : location.raw,
+        };
+      }),
     } : {}),
     ...(listing.workplaceType === 'remote' || listing.workplaceType === 'hybrid' ? { jobLocationType: 'TELECOMMUTE' } : {}),
+    ...(listing.workplaceType ? { workplaceType: listing.workplaceType } : {}),
     ...(listing.applicantLocationRequirements.length > 0 ? {
       applicantLocationRequirements: listing.applicantLocationRequirements.map((name) => ({ '@type': 'Country', name })),
     } : {}),
     ...(listing.employmentTypes.length > 0 ? { employmentType: listing.employmentTypes.map((type) => type.toUpperCase()) } : {}),
+    ...(listing.seniority ? { seniority: listing.seniority } : {}),
     ...(listing.salary ? {
       baseSalary: {
         '@type': 'MonetaryAmount',
@@ -137,16 +283,27 @@ function toJsonLd(listing: Awaited<ReturnType<typeof parseJobFeed>>[number]): Re
       },
     } : {}),
     ...(listing.skills.length > 0 ? { skills: listing.skills.join(', ') } : {}),
+    ...(listing.qualifications ? { qualifications: listing.qualifications } : {}),
+    ...(listing.responsibilities ? { responsibilities: listing.responsibilities } : {}),
+    ...(listing.educationRequirements ? { educationRequirements: listing.educationRequirements } : {}),
+    ...(listing.experienceRequirements ? { experienceRequirements: listing.experienceRequirements } : {}),
+    ...(listing.benefits ? { jobBenefits: listing.benefits } : {}),
+    ...(listing.industry ? { industry: listing.industry } : {}),
+    ...(listing.occupationalCategory ? { occupationalCategory: listing.occupationalCategory } : {}),
+    ...(listing.department ? { employmentUnit: { '@type': 'Organization', name: listing.department } } : {}),
     ...(listing.identifier ? { identifier: listing.identifier } : {}),
+    ...(listing.directApply === undefined ? {} : { directApply: listing.directApply }),
     ...(listing.publishedAt ? { datePosted: listing.publishedAt.toISOString() } : {}),
     ...(listing.validThrough ? { validThrough: listing.validThrough.toISOString() } : {}),
     url: listing.canonicalUrl,
+    ...(listing.applyUrl && listing.applyUrl !== listing.canonicalUrl ? { directApplyUrl: listing.applyUrl } : {}),
   };
 }
 
-/** Polls every feed that is due. One failure never blocks the rest. */
+/** Polls every feed that is due, within the pass budget. One failure never blocks the rest. */
 export async function pollDueJobFeeds(): Promise<JobFeedPollResult> {
   const database = getDb();
+  const startedAt = Date.now();
   const due = await database.select().from(jobFeeds)
     .where(and(eq(jobFeeds.enabled, true), lte(jobFeeds.nextPollAt, new Date())))
     .orderBy(jobFeeds.nextPollAt)
@@ -154,16 +311,18 @@ export async function pollDueJobFeeds(): Promise<JobFeedPollResult> {
 
   const result: JobFeedPollResult = { polled: 0, listings: 0, failed: 0 };
   for (const feed of due) {
+    if (Date.now() - startedAt > PASS_BUDGET_MS) break;
     try {
-      const stored = await pollJobFeed(feed);
+      const outcome = await pollJobFeed(feed);
       result.polled += 1;
-      result.listings += stored;
+      result.listings += outcome.stored;
       await database.update(jobFeeds).set({
         lastPolledAt: new Date(),
         nextPollAt: sql`now() + (${feed.pollIntervalSeconds} * interval '1 second')`,
         lastStatus: 'ok',
-        lastError: null,
-        listingsSeen: stored,
+        lastError: outcome.rejected > 0 ? `${outcome.rejected} listing(s) could not be projected` : null,
+        listingsSeen: outcome.stored,
+        cursor: outcome.cursor,
         updatedAt: new Date(),
       }).where(eq(jobFeeds.id, feed.id));
     } catch (error) {

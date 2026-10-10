@@ -10,7 +10,8 @@
 import { JOB_RANKING_SIGNALS } from './ranking-contract.js';
 import { JOB_STALE_AFTER_DAYS } from './lifecycle.js';
 import {
-  CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_REGIONS, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
+  CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_REGIONS, JOB_SALARY_INTERVALS, JOB_SENIORITY_LEVELS,
+  JOB_WORKPLACE_TYPES,
 } from './taxonomy.js';
 
 export const CLARITY_JOBS_CAPABILITY = {
@@ -24,7 +25,7 @@ export const CLARITY_JOBS_CAPABILITY = {
     attribution: 'Always show source.canonicalUrl. Clarity indexed the listing; it is not the employer.',
     staleAfterDays: JOB_STALE_AFTER_DAYS,
     locationFormat: 'locations[].countryCode is ISO 3166-1 alpha-2; locations[].placeId, when present, is a GeoNames id resolvable with GET /v1/places/:id. A location without placeId was not matched to a single place.',
-    textFormat: 'description, qualifications, responsibilities, educationRequirements and experienceRequirements are Markdown with no raw HTML; snippet and every other text field are plain text.',
+    textFormat: 'description, qualifications, responsibilities, educationRequirements, experienceRequirements and benefits are Markdown with no raw HTML; snippet and every other text field are plain text.',
   },
   ranking: { signals: JOB_RANKING_SIGNALS, commercialSignals: 'none' },
   parameters: {
@@ -39,6 +40,10 @@ export const CLARITY_JOBS_CAPABILITY = {
       },
       workplaceTypes: { type: 'array', items: { type: 'string', enum: [...JOB_WORKPLACE_TYPES] } },
       employmentTypes: { type: 'array', items: { type: 'string', enum: [...JOB_EMPLOYMENT_TYPES] } },
+      seniorities: {
+        type: 'array', items: { type: 'string', enum: [...JOB_SENIORITY_LEVELS] },
+        description: 'Career level as the listing states it. Listings that state no level are excluded when this is set.',
+      },
       employers: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 200 }, description: 'Employer name or employer domain.' },
       sourceDomains: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 253 } },
       skills: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 80 } },

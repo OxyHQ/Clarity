@@ -8,7 +8,7 @@
 import { eq, sql } from 'drizzle-orm';
 
 import type { ClarityExecutor } from '../db/index.js';
-import { searchChunks } from '../db/schema/index.js';
+import { searchChunks, searchDocuments } from '../db/schema/index.js';
 import { CLARITY_EMBEDDING_MODEL, createOxyEmbeddings } from '../lib/oxy-embeddings.js';
 
 const CHUNK_STRIDE = 1600;
@@ -32,6 +32,33 @@ export async function embedChunks(texts: readonly string[]): Promise<number[][]>
     embeddings.push(...await createOxyEmbeddings(texts.slice(start, start + EMBEDDING_BATCH)));
   }
   return embeddings;
+}
+
+/**
+ * True when the document at `canonicalUrl` already indexes exactly
+ * `mainContent`, chunked by `extractorVersion`, with every one of its
+ * `chunkCount` chunks embedded by the current model — so re-chunking and
+ * re-embedding it would reproduce what is stored.
+ */
+export async function documentChunksCurrent(
+  executor: ClarityExecutor,
+  canonicalUrl: string,
+  mainContent: string,
+  chunkCount: number,
+  extractorVersion: string,
+): Promise<boolean> {
+  const [row] = await executor.select({
+    mainContent: searchDocuments.mainContent,
+    embedded: sql<number>`(
+      select count(*)::int from ${searchChunks}
+      where ${searchChunks.documentId} = ${searchDocuments.id}
+        and ${searchChunks.extractorVersion} = ${extractorVersion}
+        and ${searchChunks.embeddingModel} = ${CLARITY_EMBEDDING_MODEL}
+        and ${searchChunks.embedding} is not null
+    )`,
+    total: sql<number>`(select count(*)::int from ${searchChunks} where ${searchChunks.documentId} = ${searchDocuments.id})`,
+  }).from(searchDocuments).where(eq(searchDocuments.canonicalUrl, canonicalUrl)).limit(1);
+  return Boolean(row) && row.mainContent === mainContent && row.embedded === chunkCount && row.total === chunkCount;
 }
 
 /** Replaces a document's chunks. Missing embeddings leave it lexically searchable. */

@@ -134,6 +134,13 @@
       "when": 1791387611992,
       "tag": "0018_resolve_priority",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791590866654,
+      "tag": "0019_job_feed_providers",
+      "breakpoints": true
     }
   ]
 }

@@ -87,6 +87,16 @@ export const JOB_EMPLOYMENT_TYPES = [
 ] as const;
 export type JobEmploymentType = (typeof JOB_EMPLOYMENT_TYPES)[number];
 
+/**
+ * Career level as the source states it, ordered junior to senior, which is the
+ * order a picker should show them in. `lead` covers staff, principal and team
+ * lead roles; `director` covers heads of function; `executive` covers VP and
+ * C-level. A source label that does not map onto exactly one of these (for
+ * example "mid-senior" or "any") leaves the field absent.
+ */
+export const JOB_SENIORITY_LEVELS = ['intern', 'entry', 'mid', 'senior', 'lead', 'director', 'executive'] as const;
+export type JobSeniority = (typeof JOB_SENIORITY_LEVELS)[number];
+
 /** Ordered by duration, which is the order a picker should show them in. */
 export const JOB_SALARY_INTERVALS = ['hour', 'day', 'week', 'month', 'year'] as const;
 export type JobSalaryInterval = (typeof JOB_SALARY_INTERVALS)[number];

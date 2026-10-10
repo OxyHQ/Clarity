@@ -21,7 +21,7 @@ import { eq, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import type {
-  JobEmploymentType, JobLifecycleStatus, JobLocation, JobPosting, JobSalaryInterval,
+  JobEmploymentType, JobLifecycleStatus, JobLocation, JobPosting, JobSalaryInterval, JobSeniority,
   JobSearchResponse, JobSearchResult, JobSource, JobSourceType, JobWorkplaceType,
 } from '@clarity/shared-types';
 
@@ -32,8 +32,8 @@ import { canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLi
 import { activeJobPredicate } from './lifecycle.js';
 import { markdownToPlainText } from './markdown.js';
 import {
-  CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_WORKPLACE_TYPES,
-  annualizeSalary, normalizeCountry, resolveRegion,
+  CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_SENIORITY_LEVELS,
+  JOB_WORKPLACE_TYPES, annualizeSalary, normalizeCountry, resolveRegion,
 } from './taxonomy.js';
 import { publicImageUrl } from '../image-cache.js';
 
@@ -62,6 +62,7 @@ export const jobSearchSchema = z.object({
   locations: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
   workplaceTypes: z.array(z.enum(JOB_WORKPLACE_TYPES)).max(JOB_WORKPLACE_TYPES.length).optional(),
   employmentTypes: z.array(z.enum(JOB_EMPLOYMENT_TYPES)).max(JOB_EMPLOYMENT_TYPES.length).optional(),
+  seniorities: z.array(z.enum(JOB_SENIORITY_LEVELS)).max(JOB_SENIORITY_LEVELS.length).optional(),
   employers: z.array(z.string().trim().min(1).max(200)).max(20).optional(),
   sourceDomains: z.array(z.string().trim().max(253).regex(domainPattern)).max(20).optional(),
   skills: z.array(z.string().trim().min(1).max(80)).max(20).optional(),
@@ -136,6 +137,9 @@ function filterClauses(input: JobSearchInput): SQL[] {
   }
   if (input.employmentTypes?.length) {
     filters.push(sql`${jobPostings.employmentTypes} && ${textArray(input.employmentTypes)}`);
+  }
+  if (input.seniorities?.length) {
+    filters.push(sql`${jobPostings.seniority} in (${sql.join(input.seniorities.map((level) => sql`${level}`), sql`, `)})`);
   }
   if (input.employers?.length) {
     const values = input.employers.map((employer) => employer.toLowerCase());
@@ -371,6 +375,7 @@ export function serializeJobPosting(row: JobRow, clusterMembers: readonly JobRow
     applicantLocationRequirements: row.applicantLocationRequirements,
     ...(row.workplaceType ? { workplaceType: row.workplaceType as JobWorkplaceType } : {}),
     employmentTypes: row.employmentTypes as JobEmploymentType[],
+    ...(row.seniority ? { seniority: row.seniority as JobSeniority } : {}),
     ...(row.salaryCurrency && row.salaryInterval ? {
       salary: {
         ...(row.salaryMin === null ? {} : { min: row.salaryMin }),
@@ -386,6 +391,8 @@ export function serializeJobPosting(row: JobRow, clusterMembers: readonly JobRow
     ...(row.experienceRequirements ? { experienceRequirements: row.experienceRequirements } : {}),
     ...(row.industry ? { industry: row.industry } : {}),
     ...(row.occupationalCategory ? { occupationalCategory: row.occupationalCategory } : {}),
+    ...(row.department ? { department: row.department } : {}),
+    ...(row.benefits ? { benefits: row.benefits } : {}),
     ...(row.identifier ? { identifier: row.identifier } : {}),
     ...(row.directApply === null ? {} : { directApply: row.directApply }),
     ...(row.publishedAt ? { publishedAt: row.publishedAt.toISOString() } : {}),

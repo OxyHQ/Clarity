@@ -44,6 +44,7 @@ export type {
 
 export type {
   JobWorkplaceType,
+  JobSeniority,
   JobEmploymentType,
   JobSalaryInterval,
   JobLifecycleStatus,

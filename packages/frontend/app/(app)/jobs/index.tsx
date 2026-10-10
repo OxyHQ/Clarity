@@ -17,6 +17,7 @@ import type {
   JobEmploymentType,
   JobSearchRequest,
   JobSearchResult,
+  JobSeniority,
   JobWorkplaceType,
 } from "@clarity/shared-types";
 
@@ -33,6 +34,7 @@ import { Button, GlyphButton } from "@oxy.so/bloom/button";
 import { Chip } from "@oxy.so/bloom/chip";
 
 const WORKPLACE_TYPES: JobWorkplaceType[] = ["remote", "hybrid", "onsite"];
+const SENIORITY_LEVELS: JobSeniority[] = ["intern", "entry", "mid", "senior", "lead", "director", "executive"];
 const EMPLOYMENT_TYPES: JobEmploymentType[] = [
   "full_time",
   "part_time",
@@ -106,8 +108,15 @@ function JobCard({ job, onPress }: { job: JobSearchResult; onPress: () => void }
 
       <MetaRow job={job} />
 
-      {job.employmentTypes.length > 0 ? (
+      {job.seniority || job.employmentTypes.length > 0 ? (
         <View className="flex-row flex-wrap gap-1.5 pt-0.5">
+          {job.seniority ? (
+            <View className="rounded-md bg-muted px-2 py-0.5">
+              <Text className="text-[10px] font-medium text-muted-foreground">
+                {t(`jobs.seniority.${job.seniority}`)}
+              </Text>
+            </View>
+          ) : null}
           {job.employmentTypes.map((type) => (
             <View key={type} className="rounded-md bg-muted px-2 py-0.5">
               <Text className="text-[10px] font-medium text-muted-foreground">
@@ -154,6 +163,7 @@ export default function JobsScreen() {
   const [location, setLocation] = useState("");
   const [workplaceTypes, setWorkplaceTypes] = useState<JobWorkplaceType[]>([]);
   const [employmentTypes, setEmploymentTypes] = useState<JobEmploymentType[]>([]);
+  const [seniorities, setSeniorities] = useState<JobSeniority[]>([]);
   const [salaryMin, setSalaryMin] = useState("");
   const [recency, setRecency] = useState<Recency>("any");
 
@@ -165,6 +175,7 @@ export default function JobsScreen() {
       ...(location ? { locations: [location] } : {}),
       ...(workplaceTypes.length ? { workplaceTypes } : {}),
       ...(employmentTypes.length ? { employmentTypes } : {}),
+      ...(seniorities.length ? { seniorities } : {}),
       ...(Number.isFinite(minimum) && minimum > 0
         ? { salary: { min: minimum, interval: "year" as const } }
         : {}),
@@ -173,7 +184,7 @@ export default function JobsScreen() {
         : {}),
       limit: 20,
     };
-  }, [query, location, workplaceTypes, employmentTypes, salaryMin, recency]);
+  }, [query, location, workplaceTypes, employmentTypes, seniorities, salaryMin, recency]);
 
   const search = useJobSearch(request);
   const jobs = useMemo(
@@ -271,6 +282,19 @@ export default function JobsScreen() {
                   onCheckedChange={() => setEmploymentTypes((current) => toggle(current, type))}
                 >
                   {t(`jobs.employment.${type}`)}
+                </Chip>
+              ))}
+            </View>
+            <View className="flex-row flex-wrap gap-2">
+              {SENIORITY_LEVELS.map((level) => (
+                <Chip
+                  key={level}
+                  size="xl"
+                  role="checkbox"
+                  checked={seniorities.includes(level)}
+                  onCheckedChange={() => setSeniorities((current) => toggle(current, level))}
+                >
+                  {t(`jobs.seniority.${level}`)}
                 </Chip>
               ))}
             </View>
