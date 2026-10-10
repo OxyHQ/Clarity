@@ -575,6 +575,15 @@ export const crawlPages = pgTable('clarity_crawl_pages', {
   index('clarity_crawl_pages_lease_idx').on(table.status, table.availableAt, table.leaseExpiresAt),
   index('clarity_crawl_pages_url_status_idx').on(table.url, table.status),
   index('clarity_crawl_pages_priority_idx').on(table.status, table.priority.desc(), table.availableAt, table.leaseExpiresAt),
+  // The worker's claim (`leaseNextPage`): queued/retry pages in EXACTLY its
+  // ORDER BY, partial on the two claimable statuses. Without it Postgres can
+  // not walk an index in that order (the status OR splits it), so every claim
+  // seq-scanned all pages and sorted ~520k rows to keep one — measured on
+  // 2026-10-10 as the largest single CPU consumer of the shared oxy-postgres
+  // (569 ms per claim on a same-size copy; 0.11 ms with this index).
+  index('clarity_crawl_pages_claim_idx')
+    .on(table.priority.desc(), table.availableAt, table.createdAt, table.id)
+    .where(sql`${table.status} in ('queued', 'retry')`),
 ]);
 
 export const fetchAttempts = pgTable('clarity_fetch_attempts', {
