@@ -24,6 +24,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && cp cjs-package.json dist/cjs/package.json",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
     "prepublishOnly": "bun run test && bun run build"
   },
   "devDependencies": {

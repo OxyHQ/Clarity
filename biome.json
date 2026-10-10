@@ -166,6 +166,17 @@
           }
         }
       }
+    },
+    {
+      "includes": [
+        "packages/frontend/**",
+        "!packages/frontend/scripts/**",
+        "!packages/frontend/worker/**",
+        "!packages/frontend/*.config.js",
+        "!packages/frontend/*.config.mjs",
+        "!packages/frontend/*.config.ts"
+      ],
+      "plugins": ["./biome-plugins/expo-env-vars.grit"]
     }
   ]
 }
