@@ -50,7 +50,7 @@ unattested cutover.
 ## 5. Validate
 
 ```bash
-bun run --filter @clarity/backend lint
+bun run lint            # Biome (lint + format check), whole repo — CI runs `bunx biome ci .`
 bun run --filter @clarity/backend test
 bun run build:backend
 ```

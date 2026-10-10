@@ -38,7 +38,7 @@ function primaryLanguageIn(column: SQL, languages: string[]): SQL {
 export interface NewsQuery { limit?: unknown; languages?: unknown; language?: unknown }
 
 /** The document columns a news card needs — everything but the page text. */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- dropped on purpose: a card never needs the page text
+// `_mainContent` is dropped on purpose: a card never needs the page text.
 const { mainContent: _mainContent, ...cardColumns } = getTableColumns(searchDocuments);
 
 /**
