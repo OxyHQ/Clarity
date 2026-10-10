@@ -169,6 +169,13 @@
       "when": 1791603291900,
       "tag": "0023_seed_br_tn_job_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791621431774,
+      "tag": "0024_useful_valkyrie",
+      "breakpoints": true
     }
   ]
 }
