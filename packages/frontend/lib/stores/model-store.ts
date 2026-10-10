@@ -16,15 +16,13 @@ export const useModelStore = create<ModelState>()(
       selectedModel: 'clarity-v1',
       baseModel: 'clarity-v1',
 
-      setSelectedModel: (model) =>
-        set({ selectedModel: model }),
+      setSelectedModel: (model) => set({ selectedModel: model }),
 
-      setBaseModel: (model) =>
-        set({ baseModel: model }),
+      setBaseModel: (model) => set({ baseModel: model }),
     }),
     {
       name: 'chat-storage', // keep same key for backwards compat
       storage: createJSONStorage(() => AsyncStorage),
-    }
-  )
+    },
+  ),
 );

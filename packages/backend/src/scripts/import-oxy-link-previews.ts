@@ -20,7 +20,9 @@ async function main(): Promise<void> {
   if (!inputArgument) throw new Error('Usage: bun import:oxy-link-previews <export.ndjson>');
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
 
-  const { manifest, records } = parseLegacyLinkPreviewExport(await readFile(resolve(inputArgument), 'utf8'));
+  const { manifest, records } = parseLegacyLinkPreviewExport(
+    await readFile(resolve(inputArgument), 'utf8'),
+  );
   connectPostgres(process.env.DATABASE_URL);
   const database = getDb();
 
@@ -28,49 +30,62 @@ async function main(): Promise<void> {
     for (const record of records) {
       const id = documentId(record.canonicalUrl);
       const importedAt = date(record.resolvedAt) ?? date(record.updatedAt) ?? new Date();
-      const [document] = await transaction.insert(searchDocuments).values({
-        id,
-        requestedUrl: record.requestedUrl,
-        finalUrl: record.canonicalUrl,
-        canonicalUrl: record.canonicalUrl,
-        status: 'indexed',
-        documentType: 'page',
-        title: record.title,
-        description: record.description,
-        publisherName: record.siteName,
-        imageUrl: record.imageUrl,
-        faviconUrl: record.faviconUrl,
-        structuredData: [{ source: 'oxy_link_preview', resolverVersion: record.resolverVersion }],
-        fieldEvidence: { import: { format: manifest.format, version: manifest.version, sourceId: record.id } },
-        fetchedAt: importedAt,
-        indexedAt: importedAt,
-      }).onConflictDoUpdate({
-        target: searchDocuments.canonicalUrl,
-        set: {
+      const [document] = await transaction
+        .insert(searchDocuments)
+        .values({
+          id,
           requestedUrl: record.requestedUrl,
           finalUrl: record.canonicalUrl,
+          canonicalUrl: record.canonicalUrl,
           status: 'indexed',
+          documentType: 'page',
           title: record.title,
           description: record.description,
           publisherName: record.siteName,
           imageUrl: record.imageUrl,
           faviconUrl: record.faviconUrl,
           structuredData: [{ source: 'oxy_link_preview', resolverVersion: record.resolverVersion }],
-          fieldEvidence: { import: { format: manifest.format, version: manifest.version, sourceId: record.id } },
+          fieldEvidence: {
+            import: { format: manifest.format, version: manifest.version, sourceId: record.id },
+          },
           fetchedAt: importedAt,
           indexedAt: importedAt,
-          updatedAt: new Date(),
-        },
-      }).returning({ id: searchDocuments.id });
+        })
+        .onConflictDoUpdate({
+          target: searchDocuments.canonicalUrl,
+          set: {
+            requestedUrl: record.requestedUrl,
+            finalUrl: record.canonicalUrl,
+            status: 'indexed',
+            title: record.title,
+            description: record.description,
+            publisherName: record.siteName,
+            imageUrl: record.imageUrl,
+            faviconUrl: record.faviconUrl,
+            structuredData: [
+              { source: 'oxy_link_preview', resolverVersion: record.resolverVersion },
+            ],
+            fieldEvidence: {
+              import: { format: manifest.format, version: manifest.version, sourceId: record.id },
+            },
+            fetchedAt: importedAt,
+            indexedAt: importedAt,
+            updatedAt: new Date(),
+          },
+        })
+        .returning({ id: searchDocuments.id });
       if (!document) throw new Error(`Document upsert returned no row for ${record.canonicalUrl}`);
-      await transaction.insert(searchDocumentAliases).values({
-        url: record.requestedUrl,
-        documentId: document.id,
-        kind: 'requested',
-      }).onConflictDoUpdate({
-        target: searchDocumentAliases.url,
-        set: { documentId: document.id, kind: 'requested', discoveredAt: sql`now()` },
-      });
+      await transaction
+        .insert(searchDocumentAliases)
+        .values({
+          url: record.requestedUrl,
+          documentId: document.id,
+          kind: 'requested',
+        })
+        .onConflictDoUpdate({
+          target: searchDocumentAliases.url,
+          set: { documentId: document.id, kind: 'requested', discoveredAt: sql`now()` },
+        });
     }
   });
 
@@ -79,7 +94,9 @@ async function main(): Promise<void> {
 
 void main()
   .catch((error: unknown) => {
-    process.stderr.write(`Import failed: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(
+      `Import failed: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
     process.exitCode = 1;
   })
   .finally(closePostgres);

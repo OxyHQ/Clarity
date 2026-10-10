@@ -28,7 +28,14 @@ export type JobEmploymentType =
  * Career level as the source states it, junior to senior. Mirrors
  * `JOB_SENIORITY_LEVELS` in `@clarity.surf/sdk/vocabularies`.
  */
-export type JobSeniority = 'intern' | 'entry' | 'mid' | 'senior' | 'lead' | 'director' | 'executive';
+export type JobSeniority =
+  | 'intern'
+  | 'entry'
+  | 'mid'
+  | 'senior'
+  | 'lead'
+  | 'director'
+  | 'executive';
 
 /** Normalized `schema.org/MonetaryAmount.unitText`. */
 export type JobSalaryInterval = 'hour' | 'day' | 'week' | 'month' | 'year';
@@ -312,7 +319,12 @@ export interface JobSearchResponse {
 }
 
 export type JobReportReason =
-  | 'scam' | 'already_filled' | 'duplicate' | 'misleading' | 'discriminatory' | 'other';
+  | 'scam'
+  | 'already_filled'
+  | 'duplicate'
+  | 'misleading'
+  | 'discriminatory'
+  | 'other';
 
 /**
  * A reader's report about a listing. Clarity stores no reporter identity, and a

@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 
 export interface Attachment {
   id: string;
@@ -12,7 +12,7 @@ export interface Attachment {
 
 type ChatIdState = {
   id: string;
-  from: "history" | "newChat" | "sidebar" | "url";
+  from: 'history' | 'newChat' | 'sidebar' | 'url';
 } | null;
 
 interface StoreState {
@@ -26,7 +26,9 @@ interface StoreState {
   setBottomChatHeightHandler: (value: boolean) => void;
   bottomChatHeightHandler: boolean;
   chatId: ChatIdState;
-  setChatId: (value: { id: string; from: "history" | "newChat" | "sidebar" | "url" } | null) => void;
+  setChatId: (
+    value: { id: string; from: 'history' | 'newChat' | 'sidebar' | 'url' } | null,
+  ) => void;
   setFocusKeyboard: (value: boolean) => void;
   focusKeyboard: boolean;
 
@@ -60,9 +62,7 @@ export const useStore = create<StoreState>((set, get) => ({
     })),
   updateAttachment: (id: string, updates: Partial<Attachment>) =>
     set((state) => ({
-      attachments: state.attachments.map((a) =>
-        a.id === id ? { ...a, ...updates } : a
-      ),
+      attachments: state.attachments.map((a) => (a.id === id ? { ...a, ...updates } : a)),
     })),
   removeAttachment: (id: string) =>
     set((state) => ({
@@ -70,15 +70,15 @@ export const useStore = create<StoreState>((set, get) => ({
     })),
   clearAttachments: () => set({ attachments: [] }),
   bottomChatHeightHandler: false,
-  setBottomChatHeightHandler: (value: boolean) =>
-    set({ bottomChatHeightHandler: value }),
+  setBottomChatHeightHandler: (value: boolean) => set({ bottomChatHeightHandler: value }),
   chatId: null,
   setChatId: (value) => set({ chatId: value }),
   focusKeyboard: false,
   setFocusKeyboard: (value: boolean) => set({ focusKeyboard: value }),
 
   pendingInitialMessage: null,
-  setPendingInitialMessage: (message: string | Array<{ type: string; [key: string]: any }>) => set({ pendingInitialMessage: message }),
+  setPendingInitialMessage: (message: string | Array<{ type: string; [key: string]: any }>) =>
+    set({ pendingInitialMessage: message }),
   clearPendingInitialMessage: () => set({ pendingInitialMessage: null }),
 
   activeSkillId: null,

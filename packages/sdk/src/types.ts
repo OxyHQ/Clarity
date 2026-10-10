@@ -1,17 +1,48 @@
 import type {
-  CountryCode, CurrencyCode, JobEmploymentType, JobLifecycleStatus, JobSalaryInterval, JobSeniority, JobWorkplaceType, PlaceKind,
+  CountryCode,
+  CurrencyCode,
+  JobEmploymentType,
+  JobLifecycleStatus,
+  JobSalaryInterval,
+  JobSeniority,
+  JobWorkplaceType,
+  PlaceKind,
 } from './vocabularies.js';
 
 export type SearchMode = 'lexical' | 'semantic' | 'hybrid';
-export type DocumentStatus = 'discovered' | 'fetching' | 'extracted' | 'indexed' | 'blocked' | 'failed' | 'removed';
-export type DocumentType = 'page' | 'article' | 'news' | 'job' | 'product' | 'video' | 'event' | 'recipe' | 'profile' | 'documentation' | 'other';
+export type DocumentStatus =
+  | 'discovered'
+  | 'fetching'
+  | 'extracted'
+  | 'indexed'
+  | 'blocked'
+  | 'failed'
+  | 'removed';
+export type DocumentType =
+  | 'page'
+  | 'article'
+  | 'news'
+  | 'job'
+  | 'product'
+  | 'video'
+  | 'event'
+  | 'recipe'
+  | 'profile'
+  | 'documentation'
+  | 'other';
 
 /**
  * Status of an asynchronous crawl/index operation.
  *
  * `clarity.jobs` is employment. Crawl and index work is `clarity.operations`.
  */
-export type OperationStatus = 'queued' | 'running' | 'succeeded' | 'partial' | 'failed' | 'cancelled';
+export type OperationStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'partial'
+  | 'failed'
+  | 'cancelled';
 
 export interface RequestOptions {
   signal?: AbortSignal;
@@ -105,8 +136,13 @@ export interface NewsRequest {
   cursor?: string;
 }
 
-export interface IndexUrlsRequest { urls: string[]; }
-export interface ResolveRequest { urls: string[]; waitMs?: number; }
+export interface IndexUrlsRequest {
+  urls: string[];
+}
+export interface ResolveRequest {
+  urls: string[];
+  waitMs?: number;
+}
 export interface ResolveResult {
   url: string;
   document?: Document;
@@ -141,9 +177,29 @@ export interface Site {
   nextCrawlAt?: string;
 }
 
-export interface CreateSiteRequest { origin: string; verifiedDomainId: string; sitemapUrls?: string[]; feedUrls?: string[]; }
-export type UpdateSiteRequest = Partial<Pick<Site, 'crawlEnabled' | 'recrawlIntervalSeconds' | 'maxPagesPerCrawl' | 'sitemapUrls' | 'feedUrls' | 'status'>>;
-export interface UsageBucket { operation: 'search' | 'fetch_started' | 'page_indexed' | 'browser_render'; quantity: number; periodStart: string; periodEnd: string; }
+export interface CreateSiteRequest {
+  origin: string;
+  verifiedDomainId: string;
+  sitemapUrls?: string[];
+  feedUrls?: string[];
+}
+export type UpdateSiteRequest = Partial<
+  Pick<
+    Site,
+    | 'crawlEnabled'
+    | 'recrawlIntervalSeconds'
+    | 'maxPagesPerCrawl'
+    | 'sitemapUrls'
+    | 'feedUrls'
+    | 'status'
+  >
+>;
+export interface UsageBucket {
+  operation: 'search' | 'fetch_started' | 'page_indexed' | 'browser_render';
+  quantity: number;
+  periodStart: string;
+  periodEnd: string;
+}
 /**
  * The caller's effective limits. `null` is "no limit": one of Oxy's own
  * applications has no monthly quota, site or crawl count — only the technical
@@ -175,7 +231,11 @@ export interface ClarityErrorBody {
 export type JobSourceType = 'web' | 'verified_site' | 'first_party';
 export type JobFieldSource = 'json_ld' | 'html' | 'feed' | 'api';
 
-export interface JobEvidence { source: JobFieldSource; selector?: string; extractedAt: string; }
+export interface JobEvidence {
+  source: JobFieldSource;
+  selector?: string;
+  extractedAt: string;
+}
 
 export interface JobLocation {
   /** The location as the source wrote it. */
@@ -201,7 +261,12 @@ export interface JobSalary {
   interval: JobSalaryInterval;
 }
 
-export interface JobEmployer { name: string; url?: string; domain?: string; logoUrl?: string; }
+export interface JobEmployer {
+  name: string;
+  url?: string;
+  domain?: string;
+  logoUrl?: string;
+}
 
 /** One place this opening is published. Grouping never discards a source. */
 export interface JobSource {
@@ -335,7 +400,12 @@ export interface JobIngestResult {
 }
 
 export type JobReportReason =
-  | 'scam' | 'already_filled' | 'duplicate' | 'misleading' | 'discriminatory' | 'other';
+  | 'scam'
+  | 'already_filled'
+  | 'duplicate'
+  | 'misleading'
+  | 'discriminatory'
+  | 'other';
 
 /**
  * A reader's report about a listing. Clarity stores no reporter identity, and a
@@ -402,4 +472,3 @@ export interface PlaceSearchResponse {
   /** Prefix matches first, then by population. */
   data: Place[];
 }
-

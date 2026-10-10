@@ -34,7 +34,10 @@ export function useWelcomeSuggestions() {
   return useQuery<Suggestion[]>({
     queryKey: queryKeys.suggestions.welcome,
     queryFn: async () => {
-      const data = await client.post<{ suggestions: Suggestion[] }>(API_ROUTES.suggestions.welcome, { count: 4 });
+      const data = await client.post<{ suggestions: Suggestion[] }>(
+        API_ROUTES.suggestions.welcome,
+        { count: 4 },
+      );
       return data.suggestions;
     },
     staleTime: 1000 * 60 * 15, // 15 minutes
@@ -49,8 +52,7 @@ export function useWelcomeSuggestions() {
 export function useRecordSuggestionUsage() {
   const client = useApiClient();
   return useMutation({
-    mutationFn: (suggestionId: string) =>
-      client.post(API_ROUTES.suggestions.use(suggestionId), {}),
+    mutationFn: (suggestionId: string) => client.post(API_ROUTES.suggestions.use(suggestionId), {}),
   });
 }
 
@@ -62,7 +64,10 @@ export function useSearchSuggestions(query: string) {
   return useQuery<Suggestion[]>({
     queryKey: queryKeys.suggestions.search(query),
     queryFn: async () => {
-      const data = await client.post<{ suggestions: Suggestion[] }>(API_ROUTES.suggestions.search, { query, limit: 6 });
+      const data = await client.post<{ suggestions: Suggestion[] }>(API_ROUTES.suggestions.search, {
+        query,
+        limit: 6,
+      });
       return data.suggestions;
     },
     enabled: query.trim().length >= 2,

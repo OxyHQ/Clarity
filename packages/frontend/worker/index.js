@@ -18,38 +18,38 @@ import { observeEdgeRequest } from '@oxy.so/telemetry/edge';
  */
 
 const STATIC_EXTENSIONS = new Set([
-  ".css",
-  ".js",
-  ".mjs",
-  ".json",
-  ".map",
-  ".wasm",
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".svg",
-  ".ico",
-  ".webp",
-  ".avif",
-  ".woff",
-  ".woff2",
-  ".ttf",
-  ".otf",
-  ".eot",
-  ".mp3",
-  ".mp4",
-  ".webm",
-  ".ogg",
-  ".wav",
-  ".pdf",
-  ".xml",
-  ".txt",
+  '.css',
+  '.js',
+  '.mjs',
+  '.json',
+  '.map',
+  '.wasm',
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.svg',
+  '.ico',
+  '.webp',
+  '.avif',
+  '.woff',
+  '.woff2',
+  '.ttf',
+  '.otf',
+  '.eot',
+  '.mp3',
+  '.mp4',
+  '.webm',
+  '.ogg',
+  '.wav',
+  '.pdf',
+  '.xml',
+  '.txt',
 ]);
 
 function getExtension(pathname) {
-  const lastDot = pathname.lastIndexOf(".");
-  return lastDot === -1 ? "" : pathname.slice(lastDot).toLowerCase();
+  const lastDot = pathname.lastIndexOf('.');
+  return lastDot === -1 ? '' : pathname.slice(lastDot).toLowerCase();
 }
 
 const assetWorker = {
@@ -60,14 +60,14 @@ const assetWorker = {
 
     // Try the asset pipeline first.
     const assetResponse = await env.ASSETS.fetch(request);
-    const contentType = assetResponse.headers.get("content-type") || "";
+    const contentType = assetResponse.headers.get('content-type') || '';
 
     // Detect when the platform returns an HTML fallback for a static-asset URL.
     // If the URL has a known static extension but the response is HTML, the
     // actual file doesn't exist (e.g., stale hashed bundle from a previous
     // deploy). Return a clean 404 instead of HTML with the wrong MIME type.
-    if (STATIC_EXTENSIONS.has(extension) && contentType.includes("text/html")) {
-      return new Response("Not Found", { status: 404 });
+    if (STATIC_EXTENSIONS.has(extension) && contentType.includes('text/html')) {
+      return new Response('Not Found', { status: 404 });
     }
 
     // For non-asset paths (SPA navigation routes), the platform's index.html
@@ -78,6 +78,12 @@ const assetWorker = {
 
 export default {
   fetch(request, env, ctx) {
-    return observeEdgeRequest({ service: 'clarity', request, env, ctx, next: () => assetWorker.fetch(request, env) });
+    return observeEdgeRequest({
+      service: 'clarity',
+      request,
+      env,
+      ctx,
+      next: () => assetWorker.fetch(request, env),
+    });
   },
 };

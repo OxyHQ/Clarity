@@ -86,12 +86,19 @@ export async function getPlans(filter?: Record<string, unknown>): Promise<PlanDa
   if (typeof filter?.product === 'string') conditions.push(eq(plans.product, filter.product));
   if (typeof filter?.isActive === 'boolean') conditions.push(eq(plans.isActive, filter.isActive));
   if (typeof filter?.isFree === 'boolean') conditions.push(eq(plans.isFree, filter.isFree));
-  return getDb().select().from(plans).where(conditions.length > 0 ? and(...conditions) : undefined) as Promise<PlanData[]>;
+  return getDb()
+    .select()
+    .from(plans)
+    .where(conditions.length > 0 ? and(...conditions) : undefined) as Promise<PlanData[]>;
 }
 
 export async function getCreditPackages(active?: boolean): Promise<CreditPackageData[]> {
-  return getDb().select().from(creditPackages)
-    .where(active === undefined ? undefined : eq(creditPackages.isActive, active)) as Promise<CreditPackageData[]>;
+  return getDb()
+    .select()
+    .from(creditPackages)
+    .where(active === undefined ? undefined : eq(creditPackages.isActive, active)) as Promise<
+    CreditPackageData[]
+  >;
 }
 
 export async function getFeatures(): Promise<FeatureData[]> {
@@ -99,7 +106,9 @@ export async function getFeatures(): Promise<FeatureData[]> {
 }
 
 export async function getPlanFeatures(planId?: string): Promise<PlanFeatureData[]> {
-  return getDb().select().from(planFeatures)
+  return getDb()
+    .select()
+    .from(planFeatures)
     .where(planId ? eq(planFeatures.planId, planId) : undefined) as Promise<PlanFeatureData[]>;
 }
 
@@ -108,11 +117,21 @@ export async function updatePlan(
   updates: Record<string, unknown>,
 ): Promise<PlanData | null> {
   const allowed = {
-    ...(typeof updates.stripeProductId === 'string' ? { stripeProductId: updates.stripeProductId } : {}),
-    ...(typeof updates.stripeMonthlyPriceId === 'string' ? { stripeMonthlyPriceId: updates.stripeMonthlyPriceId } : {}),
-    ...(typeof updates.stripeAnnualPriceId === 'string' ? { stripeAnnualPriceId: updates.stripeAnnualPriceId } : {}),
+    ...(typeof updates.stripeProductId === 'string'
+      ? { stripeProductId: updates.stripeProductId }
+      : {}),
+    ...(typeof updates.stripeMonthlyPriceId === 'string'
+      ? { stripeMonthlyPriceId: updates.stripeMonthlyPriceId }
+      : {}),
+    ...(typeof updates.stripeAnnualPriceId === 'string'
+      ? { stripeAnnualPriceId: updates.stripeAnnualPriceId }
+      : {}),
     updatedAt: new Date(),
   };
-  const [row] = await getDb().update(plans).set(allowed).where(eq(plans.planId, planId)).returning();
-  return row as PlanData | undefined ?? null;
+  const [row] = await getDb()
+    .update(plans)
+    .set(allowed)
+    .where(eq(plans.planId, planId))
+    .returning();
+  return (row as PlanData | undefined) ?? null;
 }

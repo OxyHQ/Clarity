@@ -1,4 +1,4 @@
-import { Button, type ButtonProps } from "@oxy.so/bloom/button";
+import { Button, type ButtonProps } from '@oxy.so/bloom/button';
 import {
   Dialog,
   DialogContent,
@@ -6,8 +6,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { useTranslation } from "@/hooks/useTranslation";
+} from '@/components/ui/dialog';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface ConfirmationDialogProps {
   open: boolean;
@@ -28,7 +28,7 @@ export function ConfirmationDialog({
   description,
   confirmText,
   cancelText,
-  confirmTone = "accent",
+  confirmTone = 'accent',
   onConfirm,
   loading = false,
 }: ConfirmationDialogProps) {
@@ -49,7 +49,8 @@ export function ConfirmationDialog({
 
         <DialogFooter className="gap-2 mt-2">
           <Button
-            appearance="outline" tone="neutral"
+            appearance="outline"
+            tone="neutral"
             className="flex-1"
             onPress={() => onOpenChange(false)}
             disabled={loading}
@@ -57,7 +58,8 @@ export function ConfirmationDialog({
             {cancelText || t('common.cancel')}
           </Button>
           <Button
-            appearance="solid" tone={confirmTone}
+            appearance="solid"
+            tone={confirmTone}
             className="flex-1"
             onPress={handleConfirm}
             disabled={loading}

@@ -1,11 +1,11 @@
-import { ScrollView } from "react-native";
-import type React from "react";
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import { ScrollView } from 'react-native';
+import type React from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 import {
   useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
-} from "react-native";
+} from 'react-native';
 
 export interface ScrollAdaptRef {
   scrollRight: (index: number) => void;
@@ -59,4 +59,4 @@ export const ScrollAdapt = forwardRef<ScrollAdaptRef, ScrollAdaptProps>(
   },
 );
 
-ScrollAdapt.displayName = "ScrollAdapt";
+ScrollAdapt.displayName = 'ScrollAdapt';

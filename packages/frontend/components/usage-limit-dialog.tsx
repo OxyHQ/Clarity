@@ -85,9 +85,10 @@ export function UsageLimitDialog({ error, onDismiss }: UsageLimitDialogProps) {
   } else if (showUpgrade) {
     description = t('usageLimit.limitReachedDescription');
   } else {
-    description = countdown > 0
-      ? t('usageLimit.slowDownDescription', { time: formatCountdown(countdown) })
-      : t('usageLimit.slowDownGeneric');
+    description =
+      countdown > 0
+        ? t('usageLimit.slowDownDescription', { time: formatCountdown(countdown) })
+        : t('usageLimit.slowDownGeneric');
   }
 
   return (
@@ -132,7 +133,12 @@ export function UsageLimitDialog({ error, onDismiss }: UsageLimitDialogProps) {
               <Button onPress={handleUpgrade} className="flex-1">
                 {t('usageLimit.upgradePlan')}
               </Button>
-              <Button appearance="outline" tone="neutral" onPress={handleBuyCredits} className="flex-1">
+              <Button
+                appearance="outline"
+                tone="neutral"
+                onPress={handleBuyCredits}
+                className="flex-1"
+              >
                 {t('usageLimit.buyCredits')}
               </Button>
             </>
@@ -153,7 +159,9 @@ export function UsageLimitDialog({ error, onDismiss }: UsageLimitDialogProps) {
             </>
           ) : (
             <Button appearance="outline" tone="neutral" onPress={onDismiss} className="flex-1">
-              {countdown > 0 ? t('usageLimit.tryAgainIn', { time: formatCountdown(countdown) }) : t('usageLimit.gotIt')}
+              {countdown > 0
+                ? t('usageLimit.tryAgainIn', { time: formatCountdown(countdown) })
+                : t('usageLimit.gotIt')}
             </Button>
           )}
         </DialogFooter>

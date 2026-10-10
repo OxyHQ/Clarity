@@ -77,16 +77,18 @@ export function createLogger(subsystem: string) {
  * Use as a safety net before logging user-facing messages.
  */
 export function sanitizeForLog(value: string): string {
-  return value
-    // Common opaque secret prefix
-    .replace(/sk-[a-zA-Z0-9_-]{20,}/g, 'sk-[REDACTED]')
-    // Slack tokens
-    .replace(/xoxb-[a-zA-Z0-9_-]+/g, 'xoxb-[REDACTED]')
-    .replace(/xoxp-[a-zA-Z0-9_-]+/g, 'xoxp-[REDACTED]')
-    // Bearer tokens
-    .replace(/Bearer\s+[a-zA-Z0-9._-]+/gi, 'Bearer [REDACTED]')
-    // Generic key- prefix
-    .replace(/key-[a-zA-Z0-9]{20,}/g, 'key-[REDACTED]');
+  return (
+    value
+      // Common opaque secret prefix
+      .replace(/sk-[a-zA-Z0-9_-]{20,}/g, 'sk-[REDACTED]')
+      // Slack tokens
+      .replace(/xoxb-[a-zA-Z0-9_-]+/g, 'xoxb-[REDACTED]')
+      .replace(/xoxp-[a-zA-Z0-9_-]+/g, 'xoxp-[REDACTED]')
+      // Bearer tokens
+      .replace(/Bearer\s+[a-zA-Z0-9._-]+/gi, 'Bearer [REDACTED]')
+      // Generic key- prefix
+      .replace(/key-[a-zA-Z0-9]{20,}/g, 'key-[REDACTED]')
+  );
 }
 
 // Pre-built loggers for common subsystems

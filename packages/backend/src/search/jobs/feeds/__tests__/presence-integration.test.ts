@@ -8,7 +8,9 @@ import { closeAbsentListings, recordFeedPresence } from '../presence.js';
 
 vi.mock('../../../../lib/oxy-embeddings.js', () => ({
   CLARITY_EMBEDDING_MODEL: 'test-embedding-model',
-  createOxyEmbeddings: vi.fn(async (texts: string[]) => texts.map(() => Array.from({ length: 1024 }, () => 0.1))),
+  createOxyEmbeddings: vi.fn(async (texts: string[]) =>
+    texts.map(() => Array.from({ length: 1024 }, () => 0.1)),
+  ),
 }));
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
@@ -20,28 +22,45 @@ const feedIds = [crypto.randomUUID(), crypto.randomUUID()];
 async function ingest(name: string, observedAt = new Date()): Promise<string> {
   const { documentId } = await ingestJobPosting({
     canonicalUrl: url(name),
-    structuredData: [{ '@type': 'JobPosting', title: `Role ${name}`, hiringOrganization: { name: 'Acme' }, url: url(name) }],
-    siteId: null, sourceType: 'feed', fieldSource: 'feed', observedAt,
+    structuredData: [
+      {
+        '@type': 'JobPosting',
+        title: `Role ${name}`,
+        hiringOrganization: { name: 'Acme' },
+        url: url(name),
+      },
+    ],
+    siteId: null,
+    sourceType: 'feed',
+    fieldSource: 'feed',
+    observedAt,
   });
   return documentId;
 }
 
 async function statusOf(name: string): Promise<string | undefined> {
-  const [row] = await getDb().select({ status: jobPostings.status }).from(jobPostings).where(eq(jobPostings.canonicalUrl, url(name)));
+  const [row] = await getDb()
+    .select({ status: jobPostings.status })
+    .from(jobPostings)
+    .where(eq(jobPostings.canonicalUrl, url(name)));
   return row?.status;
 }
 
 suite('withdrawal by absence and retention (PostgreSQL)', () => {
   beforeAll(async () => {
     connectPostgres(databaseUrl);
-    await getDb().insert(jobFeeds).values([
-      { id: feedIds[0], kind: 'greenhouse', identifier: `presence-${run}-a` },
-      { id: feedIds[1], kind: 'lever', identifier: `presence-${run}-b` },
-    ]);
+    await getDb()
+      .insert(jobFeeds)
+      .values([
+        { id: feedIds[0], kind: 'greenhouse', identifier: `presence-${run}-a` },
+        { id: feedIds[1], kind: 'lever', identifier: `presence-${run}-b` },
+      ]);
   });
 
   afterAll(async () => {
-    await getDb().delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, ['a', 'b', 'c', 'old', 'live'].map(url)));
+    await getDb()
+      .delete(searchDocuments)
+      .where(inArray(searchDocuments.canonicalUrl, ['a', 'b', 'c', 'old', 'live'].map(url)));
     await getDb().delete(jobFeeds).where(inArray(jobFeeds.id, feedIds));
     await closePostgres();
   });
@@ -67,8 +86,14 @@ suite('withdrawal by absence and retention (PostgreSQL)', () => {
     const old = await ingest('old');
     await ingest('live');
     const longAgo = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000);
-    await getDb().update(jobPostings).set({ status: 'closed', closedAt: longAgo, lastSeenAt: longAgo }).where(eq(jobPostings.documentId, old));
-    await getDb().update(searchDocuments).set({ fetchedAt: longAgo, updatedAt: longAgo }).where(eq(searchDocuments.id, old));
+    await getDb()
+      .update(jobPostings)
+      .set({ status: 'closed', closedAt: longAgo, lastSeenAt: longAgo })
+      .where(eq(jobPostings.documentId, old));
+    await getDb()
+      .update(searchDocuments)
+      .set({ fetchedAt: longAgo, updatedAt: longAgo })
+      .where(eq(searchDocuments.id, old));
 
     let pruned = 0;
     for (let pass = 0; pass < 20; pass += 1) {
@@ -77,7 +102,9 @@ suite('withdrawal by absence and retention (PostgreSQL)', () => {
       if (deleted === 0) break;
     }
     expect(pruned).toBeGreaterThanOrEqual(1);
-    expect(await getDb().select().from(searchDocuments).where(eq(searchDocuments.id, old))).toHaveLength(0);
+    expect(
+      await getDb().select().from(searchDocuments).where(eq(searchDocuments.id, old)),
+    ).toHaveLength(0);
     expect(await statusOf('live')).toBe('active');
   });
 });

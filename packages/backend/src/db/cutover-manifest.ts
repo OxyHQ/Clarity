@@ -46,10 +46,7 @@ const collectionSchema = z.object({
   sourceName: z.string().min(1).max(200),
   sourceCount: z.number().int().nonnegative(),
   sourceIdSha256: sha256Schema,
-  disposition: z.discriminatedUnion('kind', [
-    localDispositionSchema,
-    externalDispositionSchema,
-  ]),
+  disposition: z.discriminatedUnion('kind', [localDispositionSchema, externalDispositionSchema]),
 });
 
 const runtimeReceiptSchema = z.object({
@@ -89,9 +86,10 @@ export function canonicalJson(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   const object = value as Record<string, unknown>;
-  return `{${Object.keys(object).sort().map((key) => (
-    `${JSON.stringify(key)}:${canonicalJson(object[key])}`
-  )).join(',')}}`;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(object[key])}`)
+    .join(',')}}`;
 }
 
 export function hashIdSet(ids: readonly string[]): string {
@@ -127,12 +125,10 @@ export function validateCutoverManifest(value: unknown): CutoverManifest {
     throw new Error('source collection names must be unique');
   }
 
-  const local = manifest.collections.filter((item) => (
-    item.disposition.kind === 'clarity-postgres'
-  ));
-  const localTargets = local.map((item) => (
-    item.disposition.kind === 'clarity-postgres' ? item.disposition.targetTable : ''
-  ));
+  const local = manifest.collections.filter((item) => item.disposition.kind === 'clarity-postgres');
+  const localTargets = local.map((item) =>
+    item.disposition.kind === 'clarity-postgres' ? item.disposition.targetTable : '',
+  );
   if (new Set(localTargets).size !== localTargets.length) {
     throw new Error('each Clarity target table must have one source collection');
   }
@@ -158,10 +154,10 @@ export function validateCutoverManifest(value: unknown): CutoverManifest {
     }
   }
 
-  const runtimeReceipts = Object.values(manifest.runtimeEvidence)
-    .filter((value): value is { receiptId: string; verifiedAt: string } => (
-      typeof value === 'object' && value !== null && 'receiptId' in value && 'verifiedAt' in value
-    ));
+  const runtimeReceipts = Object.values(manifest.runtimeEvidence).filter(
+    (value): value is { receiptId: string; verifiedAt: string } =>
+      typeof value === 'object' && value !== null && 'receiptId' in value && 'verifiedAt' in value,
+  );
   const runtimeReceiptIds = runtimeReceipts.map((receipt) => receipt.receiptId);
   if (new Set(runtimeReceiptIds).size !== runtimeReceiptIds.length) {
     throw new Error('runtime evidence receipt IDs must be unique');

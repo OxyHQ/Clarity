@@ -129,7 +129,9 @@ export function useSubscription(product?: 'clarity' | 'codea') {
     queryKey: queryKeys.billing.subscription(product),
     queryFn: async () => {
       const params = product ? `?product=${product}` : '';
-      const data = await client.get<{ subscription: Subscription | null }>(`/billing/subscription${params}`);
+      const data = await client.get<{ subscription: Subscription | null }>(
+        `/billing/subscription${params}`,
+      );
       return data.subscription;
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
@@ -148,7 +150,7 @@ export function useSubscription(product?: 'clarity' | 'codea') {
  */
 export function useSubscriptionPolling(
   product?: 'clarity' | 'codea',
-  options?: { enabled?: boolean; intervalMs?: number; maxAttempts?: number }
+  options?: { enabled?: boolean; intervalMs?: number; maxAttempts?: number },
 ) {
   const { enabled = false, intervalMs = 2000, maxAttempts = 15 } = options || {};
   const client = useApiClient();
@@ -157,7 +159,9 @@ export function useSubscriptionPolling(
     queryKey: queryKeys.billing.subscriptionPoll(product),
     queryFn: async () => {
       const params = product ? `?product=${product}` : '';
-      const data = await client.get<{ subscription: Subscription | null }>(`/billing/subscription${params}`);
+      const data = await client.get<{ subscription: Subscription | null }>(
+        `/billing/subscription${params}`,
+      );
       return data.subscription;
     },
     enabled,
@@ -205,7 +209,11 @@ export function useCreateCheckout() {
       successUrl: string;
       cancelUrl: string;
     }) =>
-      client.post<{ url: string }>('/billing/checkout/credits', { packageId, successUrl, cancelUrl }),
+      client.post<{ url: string }>('/billing/checkout/credits', {
+        packageId,
+        successUrl,
+        cancelUrl,
+      }),
   });
 }
 
@@ -221,7 +229,11 @@ export function useCreateCustomCheckout() {
       successUrl: string;
       cancelUrl: string;
     }) =>
-      client.post<{ url: string }>('/billing/checkout/custom-credits', { credits, successUrl, cancelUrl }),
+      client.post<{ url: string }>('/billing/checkout/custom-credits', {
+        credits,
+        successUrl,
+        cancelUrl,
+      }),
   });
 }
 
@@ -232,7 +244,12 @@ export interface CreditPriceInfo {
 }
 
 export function useCreditPrice() {
-  return useAuthQuery<CreditPriceInfo>(queryKeys.credits.price, '/billing/credit-price', undefined, { staleTime: 600_000 });
+  return useAuthQuery<CreditPriceInfo>(
+    queryKeys.credits.price,
+    '/billing/credit-price',
+    undefined,
+    { staleTime: 600_000 },
+  );
 }
 
 export function useCreateSubscriptionCheckout() {
@@ -249,7 +266,12 @@ export function useCreateSubscriptionCheckout() {
       successUrl: string;
       cancelUrl: string;
     }) =>
-      client.post<{ url: string }>('/billing/checkout/subscription', { planId, billingPeriod, successUrl, cancelUrl }),
+      client.post<{ url: string }>('/billing/checkout/subscription', {
+        planId,
+        billingPeriod,
+        successUrl,
+        cancelUrl,
+      }),
   });
 }
 
@@ -279,7 +301,8 @@ export function useCancelSubscription() {
   const queryClient = useQueryClient();
   const client = useApiClient();
   return useMutation({
-    mutationFn: (input?: { subscriptionId: string }) => client.post('/billing/subscription/cancel', input),
+    mutationFn: (input?: { subscriptionId: string }) =>
+      client.post('/billing/subscription/cancel', input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.entitlements });
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscriptions });
@@ -314,7 +337,12 @@ const FREE_ENTITLEMENTS: Entitlements = {
 };
 
 export function useEntitlements() {
-  return useAuthQuery<Entitlements>(queryKeys.billing.entitlements, '/billing/entitlements', undefined, {
-    placeholderData: FREE_ENTITLEMENTS,
-  });
+  return useAuthQuery<Entitlements>(
+    queryKeys.billing.entitlements,
+    '/billing/entitlements',
+    undefined,
+    {
+      placeholderData: FREE_ENTITLEMENTS,
+    },
+  );
 }

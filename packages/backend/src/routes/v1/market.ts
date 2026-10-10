@@ -18,10 +18,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 
 import {
-  CLARITY_MARKET_CAPABILITY, getMarketQuote, MarketDataError,
+  CLARITY_MARKET_CAPABILITY,
+  getMarketQuote,
+  MarketDataError,
 } from '../../lib/market-data.js';
 import {
-  authenticateResource, requireResourceRequestRate, requireResourceScope, sendError,
+  authenticateResource,
+  requireResourceRequestRate,
+  requireResourceScope,
+  sendError,
 } from '../../middleware/resource-auth.js';
 
 const router = Router();
@@ -29,21 +34,43 @@ router.use(authenticateResource);
 router.use(requireResourceRequestRate);
 
 /** A CoinGecko id, symbol or name, or a FairCoin alias. Never a URL or a path. */
-const assetSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9 .-]*$/i);
-const quoteQuerySchema = z.object({ currency: z.string().trim().regex(/^[a-z]{2,10}$/i).default('usd') });
+const assetSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9][a-z0-9 .-]*$/i);
+const quoteQuerySchema = z.object({
+  currency: z
+    .string()
+    .trim()
+    .regex(/^[a-z]{2,10}$/i)
+    .default('usd'),
+});
 
-router.get('/capability', requireResourceScope('clarity:market'), (_req, res) => res.json(CLARITY_MARKET_CAPABILITY));
+router.get('/capability', requireResourceScope('clarity:market'), (_req, res) =>
+  res.json(CLARITY_MARKET_CAPABILITY),
+);
 
 router.get('/quote/:asset', requireResourceScope('clarity:market'), async (req, res) => {
   const asset = assetSchema.safeParse(req.params.asset);
   if (!asset.success) {
-    sendError(res, 400, 'invalid_request', 'asset must be a cryptocurrency id, symbol or name', req);
+    sendError(
+      res,
+      400,
+      'invalid_request',
+      'asset must be a cryptocurrency id, symbol or name',
+      req,
+    );
     return;
   }
   const query = quoteQuerySchema.safeParse(req.query);
   if (!query.success) {
     sendError(res, 400, 'invalid_request', 'currency must be an ISO currency code', req, {
-      issues: query.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+      issues: query.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
     });
     return;
   }

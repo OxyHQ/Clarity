@@ -12,7 +12,8 @@ const TRACKING = /^(?:utm_[a-z]+|trackid|ref|source|src|sid|origin)$/i;
 export function withoutTracking(value: string): string {
   try {
     const url = new URL(value);
-    for (const key of [...url.searchParams.keys()]) if (TRACKING.test(key)) url.searchParams.delete(key);
+    for (const key of [...url.searchParams.keys()])
+      if (TRACKING.test(key)) url.searchParams.delete(key);
     return url.toString();
   } catch {
     return value;
@@ -21,8 +22,15 @@ export function withoutTracking(value: string): string {
 
 export const jsonLdPage: JobFeedListingPage = {
   parse(html, reference, context) {
-    const [posting] = extractJobPostings(jsonLdBlocks(html), reference.url, context.extractedAt, 'feed');
+    const [posting] = extractJobPostings(
+      jsonLdBlocks(html),
+      reference.url,
+      context.extractedAt,
+      'feed',
+    );
     // The page is the listing: its own URL is canonical whatever the JSON-LD says.
-    return posting ? { ...posting, canonicalUrl: reference.url, applyUrl: posting.applyUrl ?? reference.url } : undefined;
+    return posting
+      ? { ...posting, canonicalUrl: reference.url, applyUrl: posting.applyUrl ?? reference.url }
+      : undefined;
   },
 };

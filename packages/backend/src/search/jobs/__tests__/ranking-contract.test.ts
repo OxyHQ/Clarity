@@ -30,12 +30,37 @@ function code(file: string): string {
 }
 
 const COMMERCIAL_TOKENS = [
-  'stripe', 'billing', 'subscription', 'invoice', 'payment', 'checkout', 'coupon',
-  'plans', 'planId', 'planSnapshot', 'entitlement', 'credit', 'tier', 'sponsor',
-  'promoted', 'advertis', 'adSpend', 'mercaria', 'monetiz', 'boostAmount', 'bid',
+  'stripe',
+  'billing',
+  'subscription',
+  'invoice',
+  'payment',
+  'checkout',
+  'coupon',
+  'plans',
+  'planId',
+  'planSnapshot',
+  'entitlement',
+  'credit',
+  'tier',
+  'sponsor',
+  'promoted',
+  'advertis',
+  'adSpend',
+  'mercaria',
+  'monetiz',
+  'boostAmount',
+  'bid',
 ];
 
-const IDENTITY_TOKENS = ['oxyUserId', 'req.user', 'delegatedUserId', 'sessionId', 'viewerId', 'X-Oxy-User-Id'];
+const IDENTITY_TOKENS = [
+  'oxyUserId',
+  'req.user',
+  'delegatedUserId',
+  'sessionId',
+  'viewerId',
+  'X-Oxy-User-Id',
+];
 
 /** Matches a token only where an identifier could actually start. */
 function mentions(source: string, token: string): boolean {
@@ -86,10 +111,15 @@ describe('Clarity Jobs ranking contract', () => {
     };
     for (const file of rankingSources()) {
       const source = code(file);
-      const schemaImport = /import\s*\{([^}]*)\}\s*from\s*'[^']*db\/schema\/index\.js'/.exec(source);
+      const schemaImport = /import\s*\{([^}]*)\}\s*from\s*'[^']*db\/schema\/index\.js'/.exec(
+        source,
+      );
       if (!schemaImport) continue;
       const name = file.slice(file.lastIndexOf('/') + 1);
-      const imported = schemaImport[1].split(',').map((entry) => entry.trim()).filter(Boolean);
+      const imported = schemaImport[1]
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter(Boolean);
       for (const table of imported) {
         expect(allowedTables[name] ?? [], `${name} imports table ${table}`).toContain(table);
       }
@@ -104,8 +134,14 @@ describe('Clarity Jobs ranking contract', () => {
 
   it('never joins a product table into a job query', () => {
     const forbiddenTables = [
-      'clarity_subscriptions', 'clarity_plans', 'clarity_plan_features', 'clarity_billing_customers',
-      'clarity_credit_packages', 'clarity_features', 'clarity_conversations', 'clarity_messages',
+      'clarity_subscriptions',
+      'clarity_plans',
+      'clarity_plan_features',
+      'clarity_billing_customers',
+      'clarity_credit_packages',
+      'clarity_features',
+      'clarity_conversations',
+      'clarity_messages',
     ];
     for (const file of rankingSources()) {
       const source = code(file);
@@ -127,10 +163,7 @@ describe('Clarity Jobs ranking contract', () => {
   });
 
   it('carries no viewer identity into job search or the public jobs surface', () => {
-    const surfaces = [
-      ...rankingSources(),
-      join(backendSource, 'routes', 'jobs.ts'),
-    ];
+    const surfaces = [...rankingSources(), join(backendSource, 'routes', 'jobs.ts')];
     for (const file of surfaces) {
       const source = code(file);
       for (const token of IDENTITY_TOKENS) {
@@ -147,7 +180,10 @@ describe('Clarity Jobs ranking contract', () => {
   });
 
   it('reserves /v1/jobs for employment and /v1/operations for crawl work', () => {
-    const platform = readFileSync(join(backendSource, 'routes', 'v1', 'search-platform.ts'), 'utf8');
+    const platform = readFileSync(
+      join(backendSource, 'routes', 'v1', 'search-platform.ts'),
+      'utf8',
+    );
     expect(platform).toContain("router.get('/operations/:id'");
     expect(platform).toContain("router.post('/operations/:id/cancel'");
     expect(platform).not.toMatch(/router\.(get|post)\('\/jobs\/:id\/cancel'/);

@@ -2,7 +2,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { buildClarityAgentBootstrap, CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
+import {
+  buildClarityAgentBootstrap,
+  CLARITY_AGENT_MANIFEST,
+} from '../lib/clarity-agent-manifest.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const repoRoot = resolve(packageRoot, '..', '..');
@@ -42,11 +45,24 @@ describe('architecture gates', () => {
       attestationId: 'wl_1553bb11eb957512b3cdc956',
     });
     expect(CLARITY_AGENT_MANIFEST.publicApplication.scopes).toEqual(['user:read']);
-    expect(CLARITY_AGENT_MANIFEST.backendApplication.scopes).toEqual(['user:read', 'inference:invoke']);
+    expect(CLARITY_AGENT_MANIFEST.backendApplication.scopes).toEqual([
+      'user:read',
+      'inference:invoke',
+    ]);
     expect(CLARITY_AGENT_MANIFEST.capabilityGrants).toEqual(['web', 'artifacts', 'memory']);
-    expect(CLARITY_AGENT_MANIFEST.capabilityGrants).not.toEqual(expect.arrayContaining([
-      'browser', 'shell', 'files', 'messaging', 'automation', 'delegation', 'mcp', 'integration', 'agent',
-    ]));
+    expect(CLARITY_AGENT_MANIFEST.capabilityGrants).not.toEqual(
+      expect.arrayContaining([
+        'browser',
+        'shell',
+        'files',
+        'messaging',
+        'automation',
+        'delegation',
+        'mcp',
+        'integration',
+        'agent',
+      ]),
+    );
     const prompt = readFileSync(join(packageRoot, 'prompts', 'base.md'), 'utf8');
     expect(buildClarityAgentBootstrap(prompt).systemPrompt.content).toBe(prompt);
 
@@ -57,27 +73,47 @@ describe('architecture gates', () => {
     const botRoutes = readFileSync(join(packageRoot, 'src', 'routes', 'bots.ts'), 'utf8');
     expect(botRoutes).toMatch(/check-token\/:token', authenticateToken,/);
 
-    const conversationRoutes = readFileSync(join(packageRoot, 'src', 'routes', 'conversations.ts'), 'utf8');
+    const conversationRoutes = readFileSync(
+      join(packageRoot, 'src', 'routes', 'conversations.ts'),
+      'utf8',
+    );
     expect(conversationRoutes).not.toContain('agentId');
 
-    const frontend = readFileSync(join(repoRoot, 'packages', 'frontend', 'hooks', 'useStreamingChat.ts'), 'utf8');
+    const frontend = readFileSync(
+      join(repoRoot, 'packages', 'frontend', 'hooks', 'useStreamingChat.ts'),
+      'utf8',
+    );
     const requestBody = frontend.slice(
       frontend.indexOf('body: JSON.stringify({'),
       frontend.indexOf('signal: abortControllerRef.current.signal'),
     );
-    expect(requestBody).not.toMatch(/agentId|agentMode|skillIds?|mcpServerId|fallbackPolicy|reasoningEffort|thinkingMode|webSearch|role:\s*['"]system/);
+    expect(requestBody).not.toMatch(
+      /agentId|agentMode|skillIds?|mcpServerId|fallbackPolicy|reasoningEffort|thinkingMode|webSearch|role:\s*['"]system/,
+    );
 
-    const modelSelector = readFileSync(join(repoRoot, 'packages', 'frontend', 'components', 'model-selector.tsx'), 'utf8');
+    const modelSelector = readFileSync(
+      join(repoRoot, 'packages', 'frontend', 'components', 'model-selector.tsx'),
+      'utf8',
+    );
     expect(modelSelector).toContain("CLARITY_THINKING_MODEL_ID = 'clarity-thinking'");
     expect(modelSelector).not.toMatch(/id\.includes\(['"]thinking|thinkingModels\[[^\]]+\]/);
 
-    const layout = readFileSync(join(repoRoot, 'packages', 'frontend', 'app', '_layout.tsx'), 'utf8');
+    const layout = readFileSync(
+      join(repoRoot, 'packages', 'frontend', 'app', '_layout.tsx'),
+      'utf8',
+    );
     expect(layout).toContain(`clientId="${CLARITY_AGENT_MANIFEST.publicApplication.clientId}"`);
-    const deployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'), 'utf8');
-    const deployScript = readFileSync(join(repoRoot, '.github', 'scripts', 'deploy-ecs-service.sh'), 'utf8');
+    const deployment = readFileSync(
+      join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
+      'utf8',
+    );
+    const deployScript = readFileSync(
+      join(repoRoot, '.github', 'scripts', 'deploy-ecs-service.sh'),
+      'utf8',
+    );
     expect(deployment).toContain('AWS_REGION: us-west-2');
-    expect(deployment).toContain("workflows: [CI]");
-    expect(deployment).toContain("cancel-in-progress: false");
+    expect(deployment).toContain('workflows: [CI]');
+    expect(deployment).toContain('cancel-in-progress: false');
     expect(deployment).toContain('arn:aws:iam::237343248947:role/oxy-clarity-github-deploy');
     expect(deployment).toContain('SERVICE: clarity-api');
     expect(deployment).toContain('CONTAINER_NAME: clarity-api');
@@ -121,7 +157,10 @@ describe('architecture gates', () => {
     const secretsReadBy = (executable: string): string[] =>
       [...executable.matchAll(/\bsecrets\.([A-Za-z0-9_]+)/g)].map((match) => match[1]);
     const named = workflows.flatMap(({ executable }) => secretsReadBy(executable));
-    expect(named.length, 'no secret is read anywhere, so the matcher measures nothing').toBeGreaterThan(0);
+    expect(
+      named.length,
+      'no secret is read anywhere, so the matcher measures nothing',
+    ).toBeGreaterThan(0);
     for (const name of new Set(named)) {
       expect(ciOnlySecrets, `a workflow reads app secret ${name} from GitHub`).toContain(name);
     }
@@ -170,7 +209,10 @@ describe('architecture gates', () => {
     // Comments stripped first: the workflow explains at length why it does not
     // use `cloudflare/wrangler-action`, and a gate that reads prose would fail
     // on the explanation instead of on a reintroduction.
-    const frontendDeployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy.yml'), 'utf8')
+    const frontendDeployment = readFileSync(
+      join(repoRoot, '.github', 'workflows', 'deploy.yml'),
+      'utf8',
+    )
       .split('\n')
       .filter((line) => !line.trimStart().startsWith('#'))
       .join('\n');
@@ -190,7 +232,10 @@ describe('architecture gates', () => {
 
     // The Worker deploy is the frontend's alone. The backend is ECS, and a
     // Cloudflare credential must never turn up on that path.
-    const backendDeployment = readFileSync(join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'), 'utf8');
+    const backendDeployment = readFileSync(
+      join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
+      'utf8',
+    );
     expect(backendDeployment).not.toMatch(/CLOUDFLARE_|wrangler/);
     expect(readFileSync(join(packageRoot, 'src', 'index.ts'), 'utf8')).not.toContain('pages.dev');
   });
@@ -201,41 +246,67 @@ describe('architecture gates', () => {
       ...(packageJson.dependencies ?? {}),
       ...(packageJson.devDependencies ?? {}),
     } as Record<string, string>;
-    const forbiddenDirectPackages = Object.keys(directDependencies).filter((name) =>
-      name === 'ai' || /^@ai-sdk\/(?!react$)/.test(name)
+    const forbiddenDirectPackages = Object.keys(directDependencies).filter(
+      (name) => name === 'ai' || /^@ai-sdk\/(?!react$)/.test(name),
     );
     expect(forbiddenDirectPackages).toEqual([]);
 
-    const frontendPackageJson = JSON.parse(readFileSync(join(repoRoot, 'packages', 'frontend', 'package.json'), 'utf8'));
+    const frontendPackageJson = JSON.parse(
+      readFileSync(join(repoRoot, 'packages', 'frontend', 'package.json'), 'utf8'),
+    );
     const frontendDependencies = {
       ...(frontendPackageJson.dependencies ?? {}),
       ...(frontendPackageJson.devDependencies ?? {}),
     } as Record<string, string>;
     expect(frontendDependencies).not.toHaveProperty('ai');
     expect(frontendDependencies).not.toHaveProperty('openai');
-    expect(Object.keys(frontendDependencies).filter((name) => name.startsWith('@ai-sdk/'))).toEqual([]);
+    expect(Object.keys(frontendDependencies).filter((name) => name.startsWith('@ai-sdk/'))).toEqual(
+      [],
+    );
 
     const scanFiles = [
       ...filesUnder(join(packageRoot, 'src')).filter((file) => file.endsWith('.ts')),
       join(packageRoot, '.env.example'),
       join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
     ].filter((file) => !file.endsWith('architecture-gates.test.ts'));
-    const source = scanFiles.map((file) => `${relativeToRepo(file)}\n${readFileSync(file, 'utf8')}`).join('\n');
+    const source = scanFiles
+      .map((file) => `${relativeToRepo(file)}\n${readFileSync(file, 'utf8')}`)
+      .join('\n');
 
     const inferenceOwnerNames = [
-      'OPENAI', 'ANTHROPIC', 'GOOGLE', 'GROQ', 'MISTRAL', 'DEEPSEEK',
-      'TOGETHER', 'CEREBRAS', 'OPENROUTER', 'REPLICATE', 'COHERE',
-      'PERPLEXITY', 'SAMBANOVA', 'HYPERBOLIC', 'NOVITA', 'FIREWORKS', 'XAI',
-      'AI21', 'NEBIUS', 'NSCALE', 'CHUTES', 'OVH', 'ALIBABA', 'CLOUDFLARE',
+      'OPENAI',
+      'ANTHROPIC',
+      'GOOGLE',
+      'GROQ',
+      'MISTRAL',
+      'DEEPSEEK',
+      'TOGETHER',
+      'CEREBRAS',
+      'OPENROUTER',
+      'REPLICATE',
+      'COHERE',
+      'PERPLEXITY',
+      'SAMBANOVA',
+      'HYPERBOLIC',
+      'NOVITA',
+      'FIREWORKS',
+      'XAI',
+      'AI21',
+      'NEBIUS',
+      'NSCALE',
+      'CHUTES',
+      'OVH',
+      'ALIBABA',
+      'CLOUDFLARE',
       'SILICONFLOW',
     ];
-    const keyEnvPattern = new RegExp(
-      `\\b(?:${inferenceOwnerNames.join('|')})_(?:API_)?KEYS?\\b`,
-    );
+    const keyEnvPattern = new RegExp(`\\b(?:${inferenceOwnerNames.join('|')})_(?:API_)?KEYS?\\b`);
     expect(source).not.toMatch(keyEnvPattern);
     expect(source).not.toMatch(/\b(?:ProviderKey|INFERENCE_PROVIDER_SECRET_STORE)\b/);
     expect(source).not.toMatch(/internal\/providers|provider-key|gateway-client|provider-warmup/);
-    expect(source).not.toMatch(/https:\/\/(?:api\.)?(?:openai|anthropic|groq|together|cerebras|mistral|deepseek|fireworks|perplexity|sambanova|hyperbolic|novita|ai21|nebius|nscale|chutes|ovh|alibaba|siliconflow)\b/i);
+    expect(source).not.toMatch(
+      /https:\/\/(?:api\.)?(?:openai|anthropic|groq|together|cerebras|mistral|deepseek|fireworks|perplexity|sambanova|hyperbolic|novita|ai21|nebius|nscale|chutes|ovh|alibaba|siliconflow)\b/i,
+    );
 
     // Product/platform credentials and future listing/geocoding credentials
     // are separate from inference-provider custody. Do not broaden this gate
@@ -277,7 +348,9 @@ describe('architecture gates', () => {
   });
 
   it('keeps every generated migration explicitly phased and bind-free', () => {
-    const sqlFiles = filesUnder(join(packageRoot, 'drizzle')).filter((file) => file.endsWith('.sql'));
+    const sqlFiles = filesUnder(join(packageRoot, 'drizzle')).filter((file) =>
+      file.endsWith('.sql'),
+    );
     expect(sqlFiles.length).toBeGreaterThan(0);
     for (const file of sqlFiles) {
       const sql = readFileSync(file, 'utf8');

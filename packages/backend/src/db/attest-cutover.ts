@@ -36,15 +36,21 @@ export async function attestCutover(input: {
 
   connectPostgres(input.databaseUrl);
   try {
-    const result = await getDb().update(runtimeState).set({
-      status: 'cutover',
-      updatedAt: new Date(),
-    }).where(and(
-      eq(runtimeState.id, 'postgres-cutover'),
-      eq(runtimeState.status, 'reconciled'),
-      eq(runtimeState.sourceSnapshotHash, input.expectedSnapshotHash),
-      eq(runtimeState.aliaAgentIdSha256, sha256(input.agentId)),
-    )).returning({ id: runtimeState.id });
+    const result = await getDb()
+      .update(runtimeState)
+      .set({
+        status: 'cutover',
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(runtimeState.id, 'postgres-cutover'),
+          eq(runtimeState.status, 'reconciled'),
+          eq(runtimeState.sourceSnapshotHash, input.expectedSnapshotHash),
+          eq(runtimeState.aliaAgentIdSha256, sha256(input.agentId)),
+        ),
+      )
+      .returning({ id: runtimeState.id });
     if (result.length !== 1) {
       throw new Error('no matching reconciled snapshot is ready for cutover');
     }

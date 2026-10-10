@@ -26,16 +26,29 @@ export function newsLimit(requested: unknown): number {
  */
 export function newsLanguages(requested: unknown): string[] {
   if (typeof requested !== 'string') return [];
-  return [...new Set(requested.split(',').map((value) => value.trim().toLowerCase().split(/[-_]/)[0])
-    .filter((value) => /^[a-z]{2,3}$/.test(value)))].slice(0, 5);
+  return [
+    ...new Set(
+      requested
+        .split(',')
+        .map((value) => value.trim().toLowerCase().split(/[-_]/)[0])
+        .filter((value) => /^[a-z]{2,3}$/.test(value)),
+    ),
+  ].slice(0, 5);
 }
 
 function primaryLanguageIn(column: SQL, languages: string[]): SQL {
-  return sql`lower(split_part(replace(coalesce(${column}, ''), '_', '-'), '-', 1)) in (${sql.join(languages.map((language) => sql`${language}`), sql`, `)})`;
+  return sql`lower(split_part(replace(coalesce(${column}, ''), '_', '-'), '-', 1)) in (${sql.join(
+    languages.map((language) => sql`${language}`),
+    sql`, `,
+  )})`;
 }
 
 /** `languages` (or the SDK's single `language`) as sent on a query string. */
-export interface NewsQuery { limit?: unknown; languages?: unknown; language?: unknown }
+export interface NewsQuery {
+  limit?: unknown;
+  languages?: unknown;
+  language?: unknown;
+}
 
 /** The document columns a news card needs — everything but the page text. */
 // `_mainContent` is dropped on purpose: a card never needs the page text.
@@ -55,17 +68,30 @@ export async function listNewsStories(query: NewsQuery = {}) {
   const limit = newsLimit(query.limit);
   const languages = newsLanguages(query.languages ?? query.language);
   const db = getDb();
-  const stories = await db.select().from(newsStories)
-    .where(languages.length ? primaryLanguageIn(sql`${newsStories.language}`, languages) : undefined)
-    .orderBy(desc(newsStories.lastPublishedAt), desc(newsStories.rankingScore)).limit(limit);
+  const stories = await db
+    .select()
+    .from(newsStories)
+    .where(
+      languages.length ? primaryLanguageIn(sql`${newsStories.language}`, languages) : undefined,
+    )
+    .orderBy(desc(newsStories.lastPublishedAt), desc(newsStories.rankingScore))
+    .limit(limit);
   if (stories.length) {
-    const articles = await db.select({ storyId: newsStoryArticles.storyId, document: cardColumns })
-      .from(newsStoryArticles).innerJoin(searchDocuments, eq(newsStoryArticles.documentId, searchDocuments.id))
-      .where(inArray(newsStoryArticles.storyId, stories.map((story) => story.id)));
+    const articles = await db
+      .select({ storyId: newsStoryArticles.storyId, document: cardColumns })
+      .from(newsStoryArticles)
+      .innerJoin(searchDocuments, eq(newsStoryArticles.documentId, searchDocuments.id))
+      .where(
+        inArray(
+          newsStoryArticles.storyId,
+          stories.map((story) => story.id),
+        ),
+      );
     const icons = await iconHostsOf(articles.map((item) => item.document));
     return stories.map((story) => ({
       ...story,
-      articles: articles.filter((item) => item.storyId === story.id)
+      articles: articles
+        .filter((item) => item.storyId === story.id)
         .map((item) => ({ ...publicDocument(item.document, icons), highlights: [], score: 1 })),
     }));
   }
@@ -77,13 +103,23 @@ async function singleArticleStories(limit: number, languages: string[], now = Da
   // A row's stated date may still be unknown to its column (pages crawled
   // before dates were extracted), so the SQL cut is coarse — by publication or
   // index time — and the exact cut happens below, once each date is known.
-  const rows = await getDb().select(cardColumns).from(searchDocuments)
-    .where(and(
-      eq(searchDocuments.documentType, 'news'), eq(searchDocuments.status, 'indexed'), eq(searchDocuments.noindex, false),
-      sql`coalesce(${searchDocuments.publishedAt}, ${searchDocuments.indexedAt}) >= ${new Date(oldest).toISOString()}::timestamptz`,
-      ...(languages.length ? [primaryLanguageIn(sql`${searchDocuments.language}`, languages)] : []),
-    ))
-    .orderBy(sql`coalesce(${searchDocuments.publishedAt}, ${searchDocuments.indexedAt}) desc nulls last`)
+  const rows = await getDb()
+    .select(cardColumns)
+    .from(searchDocuments)
+    .where(
+      and(
+        eq(searchDocuments.documentType, 'news'),
+        eq(searchDocuments.status, 'indexed'),
+        eq(searchDocuments.noindex, false),
+        sql`coalesce(${searchDocuments.publishedAt}, ${searchDocuments.indexedAt}) >= ${new Date(oldest).toISOString()}::timestamptz`,
+        ...(languages.length
+          ? [primaryLanguageIn(sql`${searchDocuments.language}`, languages)]
+          : []),
+      ),
+    )
+    .orderBy(
+      sql`coalesce(${searchDocuments.publishedAt}, ${searchDocuments.indexedAt}) desc nulls last`,
+    )
     .limit(CANDIDATES);
   const seenTitles = new Set<string>();
   const articles = rows.flatMap((row) => {
@@ -95,8 +131,11 @@ async function singleArticleStories(limit: number, languages: string[], now = Da
     return [document];
   });
   // Dated articles first, newest first; an undated one cannot claim to be new.
-  articles.sort((a, b) => (b.publishedAt?.getTime() ?? -Infinity) - (a.publishedAt?.getTime() ?? -Infinity)
-    || (b.indexedAt?.getTime() ?? 0) - (a.indexedAt?.getTime() ?? 0));
+  articles.sort(
+    (a, b) =>
+      (b.publishedAt?.getTime() ?? -Infinity) - (a.publishedAt?.getTime() ?? -Infinity) ||
+      (b.indexedAt?.getTime() ?? 0) - (a.indexedAt?.getTime() ?? 0),
+  );
   const page = articles.slice(0, limit);
   const icons = await iconHostsOf(page);
   return page.map((document) => storyOfOne(document, icons));
@@ -111,7 +150,8 @@ function withStatedMetadata(row: DocumentCardRow, now: number): DocumentCardRow 
   const stated = metadataFromStructuredData(row.structuredData, now);
   return {
     ...row,
-    publishedAt: row.publishedAt ?? stated.publishedAt ?? dateFromUrl(row.canonicalUrl, now) ?? null,
+    publishedAt:
+      row.publishedAt ?? stated.publishedAt ?? dateFromUrl(row.canonicalUrl, now) ?? null,
     publisherName: row.publisherName ?? stated.publisher ?? null,
   };
 }

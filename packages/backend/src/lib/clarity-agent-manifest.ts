@@ -48,5 +48,8 @@ export function buildClarityAgentBootstrap(systemPrompt: string) {
   if (actualHash !== CLARITY_AGENT_MANIFEST.systemPrompt.sha256) {
     throw new Error('Clarity system prompt does not match the pinned manifest hash.');
   }
-  return { ...CLARITY_AGENT_MANIFEST, systemPrompt: { ...CLARITY_AGENT_MANIFEST.systemPrompt, content: systemPrompt } };
+  return {
+    ...CLARITY_AGENT_MANIFEST,
+    systemPrompt: { ...CLARITY_AGENT_MANIFEST.systemPrompt, content: systemPrompt },
+  };
 }

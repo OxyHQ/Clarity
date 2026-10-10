@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Base interface for items managed by a collection store.
@@ -15,8 +15,14 @@ export interface CollectionItem {
 }
 
 const COLORS = [
-  "#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b",
-  "#10b981", "#06b6d4", "#f97316", "#ef4444",
+  '#3b82f6',
+  '#8b5cf6',
+  '#ec4899',
+  '#f59e0b',
+  '#10b981',
+  '#06b6d4',
+  '#f97316',
+  '#ef4444',
 ];
 
 export function getRandomColor(): string {
@@ -69,7 +75,7 @@ export class CollectionPersister<T extends CollectionItem> {
 
   updateIn(items: T[], id: string, updates: Partial<T>): T[] {
     return items.map((item) =>
-      item.id === id ? { ...item, ...updates, updatedAt: new Date() } : item
+      item.id === id ? { ...item, ...updates, updatedAt: new Date() } : item,
     );
   }
 

@@ -1,27 +1,40 @@
-import { View, Pressable, Platform } from "react-native";
-import { toast } from "@oxy.so/bloom/toast";
-import { Image } from "expo-image";
-import { KeyboardAwareScrollView } from "@/lib/keyboard";
-import { CustomMarkdown } from "@/components/ui/markdown";
-import { Text } from "@/components/ui/text";
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
-import { processMessage } from "@/lib/message-processor";
-import { cn } from "@/lib/utils";
-import { ThinkingIndicator } from "@/lib/sdk";
+import { View, Pressable, Platform } from 'react-native';
+import { toast } from '@oxy.so/bloom/toast';
+import { Image } from 'expo-image';
+import { KeyboardAwareScrollView } from '@/lib/keyboard';
+import { CustomMarkdown } from '@/components/ui/markdown';
+import { Text } from '@/components/ui/text';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import type { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import { processMessage } from '@/lib/message-processor';
+import { cn } from '@/lib/utils';
+import { ThinkingIndicator } from '@/lib/sdk';
 import {
-  Copy, ThumbsUp, ThumbsDown, Pencil, Check, Share2,
-  Download, RefreshCw, MoreHorizontal, ChevronDown, ChevronUp,
-  Globe, MessageCircle, Clock, Brain, type LucideIcon,
-} from "lucide-react-native";
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  Pencil,
+  Check,
+  Share2,
+  Download,
+  RefreshCw,
+  MoreHorizontal,
+  ChevronDown,
+  ChevronUp,
+  Globe,
+  MessageCircle,
+  Clock,
+  Brain,
+  type LucideIcon,
+} from 'lucide-react-native';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@oxy.so/bloom/dropdown-menu";
-import { Button, GlyphButton } from "@oxy.so/bloom/button";
-import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
+} from '@oxy.so/bloom/dropdown-menu';
+import { Button, GlyphButton } from '@oxy.so/bloom/button';
+import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
 import Animated, {
   FadeInUp,
   useSharedValue,
@@ -30,28 +43,37 @@ import Animated, {
   withSequence,
   withTiming,
   cancelAnimation,
-} from "react-native-reanimated";
-import * as Clipboard from "expo-clipboard";
-import { Reasoning, ReasoningTrigger } from "@/components/ui/reasoning";
+} from 'react-native-reanimated';
+import * as Clipboard from 'expo-clipboard';
+import { Reasoning, ReasoningTrigger } from '@/components/ui/reasoning';
 import {
-  getToolLabel, getToolActiveLabel, getResearchActiveLabel, getToolCategory,
-  getTextFromContent, getImagesFromContent,
-} from "@/lib/sdk";
-import { useUIStore } from "@/lib/stores/ui-store";
-import { useStore } from "@/lib/globalStore";
-import type { Message as ProductMessage } from "@clarity/shared-types";
-import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
-import { ResearchProgressCard } from "@/lib/sdk";
-import type { ResearchProgress as ResearchProgressData } from "@/lib/sdk";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useApiClient } from "@/lib/api/use-api-client";
-import { useTranslation } from "@/hooks/useTranslation";
-import { MessageSources } from "@/components/message-sources";
+  getToolLabel,
+  getToolActiveLabel,
+  getResearchActiveLabel,
+  getToolCategory,
+  getTextFromContent,
+  getImagesFromContent,
+} from '@/lib/sdk';
+import { useUIStore } from '@/lib/stores/ui-store';
+import { useStore } from '@/lib/globalStore';
+import type { Message as ProductMessage } from '@clarity/shared-types';
+import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
+import { ResearchProgressCard } from '@/lib/sdk';
+import type { ResearchProgress as ResearchProgressData } from '@/lib/sdk';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useApiClient } from '@/lib/api/use-api-client';
+import { useTranslation } from '@/hooks/useTranslation';
+import { MessageSources } from '@/components/message-sources';
 import {
-  citationUrls, collectMessageSources, hostnameOf, linkCitations, resultDomains, type Source,
-} from "@/lib/message-sources";
+  citationUrls,
+  collectMessageSources,
+  hostnameOf,
+  linkCitations,
+  resultDomains,
+  type Source,
+} from '@/lib/message-sources';
 
-const isWeb = Platform.OS === "web";
+const isWeb = Platform.OS === 'web';
 
 type MessagePart = {
   type: string;
@@ -77,20 +99,20 @@ type ChatInterfaceProps = {
 };
 
 function isClarityMessage(m: Message): boolean {
-  return m.role === "assistant";
+  return m.role === 'assistant';
 }
 
 function getMessageText(message: Message): string {
-  let rawText = "";
+  let rawText = '';
   if (message.content) {
     rawText = getTextFromContent(message.content);
   } else if (message.parts && Array.isArray(message.parts)) {
     rawText = message.parts
-      .filter((part) => part.type === "text")
-      .map((part) => part.text || "")
-      .join("");
+      .filter((part) => part.type === 'text')
+      .map((part) => part.text || '')
+      .join('');
   }
-  const processed = processMessage(rawText, "app");
+  const processed = processMessage(rawText, 'app');
   return processed.text;
 }
 
@@ -104,7 +126,7 @@ function getMessageImages(message: Message): string[] {
 /** Count completed tool invocations for "Completed N steps" */
 function getCompletedStepsCount(message: Message): number {
   if (!message.toolInvocations) return 0;
-  return message.toolInvocations.filter((t) => t.state === "result").length;
+  return message.toolInvocations.filter((t) => t.state === 'result').length;
 }
 
 /** Pulsing bullet for tool execution status. */
@@ -113,11 +135,8 @@ const ToolBullet = React.memo(function ToolBullet({ isRunning }: { isRunning: bo
   React.useEffect(() => {
     if (isRunning) {
       opacity.value = withRepeat(
-        withSequence(
-          withTiming(0.3, { duration: 500 }),
-          withTiming(1, { duration: 500 })
-        ),
-        -1
+        withSequence(withTiming(0.3, { duration: 500 }), withTiming(1, { duration: 500 })),
+        -1,
       );
     } else {
       opacity.value = withTiming(1, { duration: 150 });
@@ -127,7 +146,7 @@ const ToolBullet = React.memo(function ToolBullet({ isRunning }: { isRunning: bo
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
     <Animated.View style={style}>
-      <Text style={{ color: isRunning ? "#eab308" : "#22c55e", fontSize: 10 }}>{"●"}</Text>
+      <Text style={{ color: isRunning ? '#eab308' : '#22c55e', fontSize: 10 }}>{'●'}</Text>
     </Animated.View>
   );
 });
@@ -151,7 +170,7 @@ const CompletedSteps = React.memo(function CompletedSteps({
   const [expanded, setExpanded] = useState(false);
   const completedCount = getCompletedStepsCount(message);
   const hasRunningTools = message.toolInvocations?.some(
-    (t) => t.state === "call" || t.state === "partial-call"
+    (t) => t.state === 'call' || t.state === 'partial-call',
   );
 
   if (completedCount === 0 && !hasRunningTools) return null;
@@ -165,12 +184,12 @@ const CompletedSteps = React.memo(function CompletedSteps({
         <ChevronDown
           size={14}
           className="text-muted-foreground"
-          style={expanded ? undefined : { transform: [{ rotate: "-90deg" }] }}
+          style={expanded ? undefined : { transform: [{ rotate: '-90deg' }] }}
         />
         <Text className="text-xs text-muted-foreground font-medium">
           {hasRunningTools
             ? `Working... (${completedCount} steps completed)`
-            : `Completed ${completedCount} step${completedCount !== 1 ? "s" : ""}`}
+            : `Completed ${completedCount} step${completedCount !== 1 ? 's' : ''}`}
         </Text>
       </Pressable>
 
@@ -182,18 +201,19 @@ const CompletedSteps = React.memo(function CompletedSteps({
           {message.toolInvocations?.map((t, ti) => {
             const key = t.toolCallId || `tool-${message.id}-${ti}`;
             const toolLabel = getToolLabel(t.toolName);
-            const CategoryIcon = CATEGORY_ICON[getToolCategory(t.toolName) ?? ""] ?? Globe;
-            const isRunning = t.state === "call" || t.state === "partial-call";
+            const CategoryIcon = CATEGORY_ICON[getToolCategory(t.toolName) ?? ''] ?? Globe;
+            const isRunning = t.state === 'call' || t.state === 'partial-call';
 
-            const args = t.args && typeof t.args === 'object' && !Array.isArray(t.args)
-              ? t.args as Record<string, unknown>
-              : null;
+            const args =
+              t.args && typeof t.args === 'object' && !Array.isArray(t.args)
+                ? (t.args as Record<string, unknown>)
+                : null;
             const url = typeof args?.url === 'string' ? args.url : undefined;
             const query = typeof args?.query === 'string' ? args.query : undefined;
             const hostname = url ? hostnameOf(url) : undefined;
             const domains = hostname ? [] : resultDomains(t);
 
-            const isDone = t.state === "result";
+            const isDone = t.state === 'result';
             return (
               <Pressable
                 key={key}
@@ -208,21 +228,31 @@ const CompletedSteps = React.memo(function CompletedSteps({
                   <Text className="text-xs text-foreground flex-1 flex-shrink">
                     <Text className="font-bold">{toolLabel}</Text>
                     {query ? (
-                      <Text className="text-muted-foreground"> "{query.length > 40 ? `${query.slice(0, 40)}...` : query}"</Text>
+                      <Text className="text-muted-foreground">
+                        {' '}
+                        "{query.length > 40 ? `${query.slice(0, 40)}...` : query}"
+                      </Text>
                     ) : null}
                   </Text>
                   {hostname && (
                     <View className="flex-row items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1 self-start">
                       <Globe size={11} className="text-muted-foreground shrink-0" />
-                      <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>{hostname}</Text>
+                      <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
+                        {hostname}
+                      </Text>
                     </View>
                   )}
                   {domains.length > 0 && (
                     <View className="flex-row flex-wrap gap-1">
                       {domains.map((domain) => (
-                        <View key={domain} className="flex-row items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1">
+                        <View
+                          key={domain}
+                          className="flex-row items-center gap-1.5 rounded-md bg-muted/60 px-2 py-1"
+                        >
                           <Globe size={11} className="text-muted-foreground shrink-0" />
-                          <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>{domain}</Text>
+                          <Text className="text-[11px] text-muted-foreground" numberOfLines={1}>
+                            {domain}
+                          </Text>
                         </View>
                       ))}
                     </View>
@@ -253,24 +283,24 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
   messageId: string;
   messageText: string;
   isCopied: boolean;
-  myVote: "up" | "down" | null;
+  myVote: 'up' | 'down' | null;
   sourcesCount: number;
   sourcesExpanded: boolean;
   onToggleSources: () => void;
   handleCopyMessage: (messageId: string, content: string) => void;
-  handleVote: (messageId: string, vote: "up" | "down") => void;
+  handleVote: (messageId: string, vote: 'up' | 'down') => void;
 }) {
   const { t } = useTranslation();
   const handleShare = useCallback(() => {
-    toast.info("Share coming soon");
+    toast.info('Share coming soon');
   }, []);
 
   const handleDownload = useCallback(() => {
-    toast.info("Download coming soon");
+    toast.info('Download coming soon');
   }, []);
 
   const handleRewrite = useCallback(() => {
-    toast.info("Rewrite coming soon");
+    toast.info('Rewrite coming soon');
   }, []);
 
   return (
@@ -282,28 +312,28 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
           glyphSize={14}
           icon={bloomIcon(Share2)}
           onPress={handleShare}
-          accessibilityLabel={t("actions.share")}
+          accessibilityLabel={t('actions.share')}
         />
         <GlyphButton
           size={32}
           glyphSize={14}
           icon={bloomIcon(Download)}
           onPress={handleDownload}
-          accessibilityLabel={t("actions.download")}
+          accessibilityLabel={t('actions.download')}
         />
         <GlyphButton
           size={32}
           glyphSize={14}
           icon={bloomIcon(isCopied ? Check : Copy)}
           onPress={() => handleCopyMessage(messageId, messageText)}
-          accessibilityLabel={t("actions.copy")}
+          accessibilityLabel={t('actions.copy')}
         />
         <GlyphButton
           size={32}
           glyphSize={14}
           icon={bloomIcon(RefreshCw)}
           onPress={handleRewrite}
-          accessibilityLabel={t("actions.rewrite")}
+          accessibilityLabel={t('actions.rewrite')}
         />
 
         {sourcesCount > 0 && (
@@ -314,7 +344,7 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
             onPress={onToggleSources}
             aria-expanded={sourcesExpanded}
           >
-            {`${sourcesCount} source${sourcesCount !== 1 ? "s" : ""}`}
+            {`${sourcesCount} source${sourcesCount !== 1 ? 's' : ''}`}
           </Button>
         )}
       </View>
@@ -325,23 +355,23 @@ const ResponseActionBar = React.memo(function ResponseActionBar({
           size={32}
           glyphSize={14}
           icon={bloomIcon(ThumbsUp)}
-          onPress={() => handleVote(messageId, "up")}
-          pressed={myVote === "up"}
-          accessibilityLabel={t("actions.goodResponse")}
+          onPress={() => handleVote(messageId, 'up')}
+          pressed={myVote === 'up'}
+          accessibilityLabel={t('actions.goodResponse')}
         />
         <GlyphButton
           size={32}
           glyphSize={14}
           icon={bloomIcon(ThumbsDown)}
-          onPress={() => handleVote(messageId, "down")}
-          pressed={myVote === "down"}
-          accessibilityLabel={t("actions.badResponse")}
+          onPress={() => handleVote(messageId, 'down')}
+          pressed={myVote === 'down'}
+          accessibilityLabel={t('actions.badResponse')}
         />
         <GlyphButton
           size={32}
           glyphSize={14}
           icon={bloomIcon(MoreHorizontal)}
-          accessibilityLabel={t("actions.more")}
+          accessibilityLabel={t('actions.more')}
         />
       </View>
     </View>
@@ -367,11 +397,11 @@ const AssistantContent = React.memo(function AssistantContent({
   isLoading?: boolean;
   isLastMessage: boolean;
   isCopied: boolean;
-  myVote: "up" | "down" | null;
+  myVote: 'up' | 'down' | null;
   sources: Source[];
   citations: ReadonlyMap<number, string>;
   handleCopyMessage: (messageId: string, content: string) => void;
-  handleVote: (messageId: string, vote: "up" | "down") => void;
+  handleVote: (messageId: string, vote: 'up' | 'down') => void;
   openThoughtPanel: (messageId: string) => void;
 }) {
   const msg = m as Message & {
@@ -391,14 +421,14 @@ const AssistantContent = React.memo(function AssistantContent({
   let activeStatus: string | undefined;
   if (showThinkingIndicator) {
     const activeTool = m.toolInvocations?.find(
-      (t) => t.state === "call" || t.state === "partial-call"
+      (t) => t.state === 'call' || t.state === 'partial-call',
     );
     if (activeTool) {
       activeStatus = getToolActiveLabel(activeTool.toolName);
-    } else if (msg.researchProgress?.phase && msg.researchProgress.phase !== "complete") {
+    } else if (msg.researchProgress?.phase && msg.researchProgress.phase !== 'complete') {
       activeStatus = getResearchActiveLabel(msg.researchProgress.phase);
     } else if (msg.thinking) {
-      activeStatus = "Reasoning...";
+      activeStatus = 'Reasoning...';
     }
   }
 
@@ -408,9 +438,7 @@ const AssistantContent = React.memo(function AssistantContent({
       <CompletedSteps message={m} openThoughtPanel={openThoughtPanel} />
 
       {/* Deep Research Progress */}
-      {msg.researchProgress != null && (
-        <ResearchProgressCard progress={msg.researchProgress} />
-      )}
+      {msg.researchProgress != null && <ResearchProgressCard progress={msg.researchProgress} />}
 
       {/* Thinking / Reasoning */}
       {msg.thinking != null && (
@@ -467,10 +495,10 @@ type MessageRowProps = {
   isLoading?: boolean;
   isLastMessage: boolean;
   isCopied: boolean;
-  myVote: "up" | "down" | null;
+  myVote: 'up' | 'down' | null;
   chatId: unknown;
   handleCopyMessage: (messageId: string, content: string) => void;
-  handleVote: (messageId: string, vote: "up" | "down") => void;
+  handleVote: (messageId: string, vote: 'up' | 'down') => void;
   openThoughtPanel: (messageId: string) => void;
   onStartEdit?: (messageId: string, content: string) => void;
 };
@@ -508,31 +536,23 @@ const MessageRow = React.memo(function MessageRow({
           ))}
         </View>
       )}
-      <Text className="font-sans text-base text-foreground font-normal">
-        {messageText}
-      </Text>
+      <Text className="font-sans text-base text-foreground font-normal">{messageText}</Text>
     </View>
   );
 
   // The links behind the answer: search results, pages read, research sources
   // Stable across streamed text: tool and research events are what change them.
-  const sources = useMemo(
-    () => collectMessageSources(m),
-    [m.toolInvocations, m.researchProgress],
-  );
-  const citations = useMemo(
-    () => citationUrls(m),
-    [m.toolInvocations, m.researchProgress],
-  );
+  const sources = useMemo(() => collectMessageSources(m), [m.toolInvocations, m.researchProgress]);
+  const citations = useMemo(() => citationUrls(m), [m.toolInvocations, m.researchProgress]);
 
   return (
     <Animated.View
       key={m.id || `msg-${index}`}
       entering={isNewMessage ? FadeInUp.springify() : undefined}
-      className={cn("w-full", index > 0 && "mt-4 md:mt-6")}
+      className={cn('w-full', index > 0 && 'mt-4 md:mt-6')}
     >
       {/* User message bubble */}
-      {m.role === "user" && (
+      {m.role === 'user' && (
         <View className="relative flex-row items-end gap-0.5 justify-end group">
           {/* Hover actions (web only) */}
           {isWeb && (
@@ -542,14 +562,14 @@ const MessageRow = React.memo(function MessageRow({
                 glyphSize={14}
                 icon={bloomIcon(Pencil)}
                 onPress={() => onStartEdit?.(m.id, messageText)}
-                accessibilityLabel={t("common.edit")}
+                accessibilityLabel={t('common.edit')}
               />
               <GlyphButton
                 size={32}
                 glyphSize={14}
                 icon={bloomIcon(isCopied ? Check : Copy)}
                 onPress={() => handleCopyMessage(m.id, messageText)}
-                accessibilityLabel={t("actions.copy")}
+                accessibilityLabel={t('actions.copy')}
               />
             </View>
           )}
@@ -559,23 +579,21 @@ const MessageRow = React.memo(function MessageRow({
           ) : (
             // Native: a tap on the bubble offers the actions the web shows on hover.
             <DropdownMenu>
-              <DropdownMenuTrigger asChild label={t("actions.more")}>
-                <Pressable>
-                  {bubble}
-                </Pressable>
+              <DropdownMenuTrigger asChild label={t('actions.more')}>
+                <Pressable>{bubble}</Pressable>
               </DropdownMenuTrigger>
               <DropdownMenuContent>
                 <DropdownMenuItem
                   leading={<MenuRowIcon icon={Copy} />}
                   onPress={() => handleCopyMessage(m.id, messageText)}
                 >
-                  {t("actions.copy")}
+                  {t('actions.copy')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   leading={<MenuRowIcon icon={Pencil} />}
                   onPress={() => onStartEdit?.(m.id, messageText)}
                 >
-                  {t("common.edit")}
+                  {t('common.edit')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -584,7 +602,7 @@ const MessageRow = React.memo(function MessageRow({
       )}
 
       {/* Assistant message */}
-      {m.role === "assistant" && (
+      {m.role === 'assistant' && (
         <AssistantContent
           m={m}
           messageText={messageText}
@@ -618,7 +636,7 @@ export const ChatInterface = React.memo(function ChatInterface({
 }: ChatInterfaceProps) {
   const { t } = useTranslation();
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [votedMessages, setVotedMessages] = useState<Record<string, "up" | "down">>({});
+  const [votedMessages, setVotedMessages] = useState<Record<string, 'up' | 'down'>>({});
   const voteInFlightRef = useRef<Set<string>>(new Set());
   const openThoughtPanel = useUIStore((s) => s.openThoughtPanel);
   const setThoughtMessages = useUIStore((s) => s.setThoughtMessages);
@@ -637,16 +655,17 @@ export const ChatInterface = React.memo(function ChatInterface({
   }, [messages.length]);
 
   const filteredMessages = useMemo(
-    () => messages.filter(
-      (message): message is Message => typeof message.id === "string" && message.id.length > 0,
-    ),
+    () =>
+      messages.filter(
+        (message): message is Message => typeof message.id === 'string' && message.id.length > 0,
+      ),
     [messages],
   );
 
   // Sync messages to the UI store so ThoughtPanel can access them
   const rightPanel = useUIStore((s) => s.rightPanel);
   useEffect(() => {
-    if (rightPanel === "thought") {
+    if (rightPanel === 'thought') {
       setThoughtMessages(messages);
     }
   }, [messages, setThoughtMessages, rightPanel]);
@@ -656,16 +675,16 @@ export const ChatInterface = React.memo(function ChatInterface({
       await Clipboard.setStringAsync(content);
       setCopiedMessageId(messageId);
       setTimeout(() => setCopiedMessageId(null), 2000);
-      toast.success(t("chat.copiedToClipboard"));
+      toast.success(t('chat.copiedToClipboard'));
       onCopyMessage?.(content);
     },
-    [onCopyMessage, t]
+    [onCopyMessage, t],
   );
 
   const handleVote = useCallback(
-    (messageId: string, vote: "up" | "down") => {
+    (messageId: string, vote: 'up' | 'down') => {
       if (voteInFlightRef.current.has(messageId)) return;
-      let newVote: "up" | "down" | null = null;
+      let newVote: 'up' | 'down' | null = null;
       setVotedMessages((prev) => {
         newVote = prev[messageId] === vote ? null : vote;
         if (newVote) return { ...prev, [messageId]: newVote };
@@ -676,7 +695,7 @@ export const ChatInterface = React.memo(function ChatInterface({
       voteInFlightRef.current.add(messageId);
       apiClient
         .patch(`/conversations/${chatId.id}/messages/${messageId}/vote`, { vote: newVote })
-        .then(() => toast.success(t("chat.thanksFeedback")))
+        .then(() => toast.success(t('chat.thanksFeedback')))
         .catch(() => {
           setVotedMessages((prev) => {
             const { [messageId]: _, ...rest } = prev;
@@ -685,7 +704,7 @@ export const ChatInterface = React.memo(function ChatInterface({
         })
         .finally(() => voteInFlightRef.current.delete(messageId));
     },
-    [chatId, t, apiClient]
+    [chatId, t, apiClient],
   );
 
   // Auto-scroll on new messages
@@ -698,7 +717,7 @@ export const ChatInterface = React.memo(function ChatInterface({
 
   const scrollContentStyle = useMemo(
     () => ({ flexGrow: 1, paddingTop: 80, paddingBottom: bottomPadding }),
-    [bottomPadding]
+    [bottomPadding],
   );
 
   return (
@@ -717,12 +736,12 @@ export const ChatInterface = React.memo(function ChatInterface({
           (conversationLoading ? (
             <View className="gap-5 py-4">
               <View className="items-end">
-                <Skeleton style={{ width: "65%", height: 48, borderRadius: 24 }} />
+                <Skeleton style={{ width: '65%', height: 48, borderRadius: 24 }} />
               </View>
               <View className="items-start gap-2.5">
-                <Skeleton style={{ width: "80%", height: 14, borderRadius: 8 }} />
-                <Skeleton style={{ width: "70%", height: 14, borderRadius: 8 }} />
-                <Skeleton style={{ width: "45%", height: 14, borderRadius: 8 }} />
+                <Skeleton style={{ width: '80%', height: 14, borderRadius: 8 }} />
+                <Skeleton style={{ width: '70%', height: 14, borderRadius: 8 }} />
+                <Skeleton style={{ width: '45%', height: 14, borderRadius: 8 }} />
               </View>
             </View>
           ) : null)}

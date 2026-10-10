@@ -1,27 +1,44 @@
-import React, { useMemo } from "react";
-import { View } from "react-native";
+import React, { useMemo } from 'react';
+import { View } from 'react-native';
 import { ClarityMarkdown } from '@/lib/sdk';
-import { useColorScheme } from "@/lib/useColorScheme";
-import {
-  CompactList,
-  Banner,
-  Comparison,
-  Timeline,
-  RichImage,
-  Credibility,
-} from "./rich-blocks";
+import { useColorScheme } from '@/lib/useColorScheme';
+import { CompactList, Banner, Comparison, Timeline, RichImage, Credibility } from './rich-blocks';
 
 // Parse special blocks from content
-function parseSpecialBlocks(content: string): Array<{ type: 'text' | 'block'; content: string; blockType?: string; data?: any }> {
-  const blocks: Array<{ type: 'text' | 'block'; content: string; blockType?: string; data?: any }> = [];
+function parseSpecialBlocks(
+  content: string,
+): Array<{ type: 'text' | 'block'; content: string; blockType?: string; data?: any }> {
+  const blocks: Array<{ type: 'text' | 'block'; content: string; blockType?: string; data?: any }> =
+    [];
 
   const patterns = [
-    { name: 'COMPACTLIST', regex: /\[(?:CLARITY_)?COMPACTLIST title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?COMPACTLIST\]/g },
-    { name: 'BANNER', regex: /\[(?:CLARITY_)?BANNER type="([^"]+)" title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?BANNER\]/g },
-    { name: 'COMPARISON', regex: /\[(?:CLARITY_)?COMPARISON title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?COMPARISON\]/g },
-    { name: 'TIMELINE', regex: /\[(?:CLARITY_)?TIMELINE title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?TIMELINE\]/g },
-    { name: 'IMAGE', regex: /\[(?:CLARITY_)?IMAGE url="([^"]+)"(?:\s+title="([^"]*)")?\s*(?:caption="([^"]*)")?\s*\/\]/g },
-    { name: 'CREDIBILITY', regex: /\[(?:CLARITY_)?CREDIBILITY level="(\d+)" source="([^"]+)"\s*\/\]/g },
+    {
+      name: 'COMPACTLIST',
+      regex:
+        /\[(?:CLARITY_)?COMPACTLIST title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?COMPACTLIST\]/g,
+    },
+    {
+      name: 'BANNER',
+      regex:
+        /\[(?:CLARITY_)?BANNER type="([^"]+)" title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?BANNER\]/g,
+    },
+    {
+      name: 'COMPARISON',
+      regex: /\[(?:CLARITY_)?COMPARISON title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?COMPARISON\]/g,
+    },
+    {
+      name: 'TIMELINE',
+      regex: /\[(?:CLARITY_)?TIMELINE title="([^"]+)"\]([\s\S]*?)\[\/(?:CLARITY_)?TIMELINE\]/g,
+    },
+    {
+      name: 'IMAGE',
+      regex:
+        /\[(?:CLARITY_)?IMAGE url="([^"]+)"(?:\s+title="([^"]*)")?\s*(?:caption="([^"]*)")?\s*\/\]/g,
+    },
+    {
+      name: 'CREDIBILITY',
+      regex: /\[(?:CLARITY_)?CREDIBILITY level="(\d+)" source="([^"]+)"\s*\/\]/g,
+    },
   ];
 
   let lastIndex = 0;
@@ -183,13 +200,16 @@ export function CustomMarkdown({ content }: { content: string }) {
   const { colors } = useColorScheme();
   const blocks = useMemo(() => parseSpecialBlocks(content), [content]);
 
-  const clarityColors = useMemo(() => ({
-    text: colors.foreground,
-    border: colors.border,
-    muted: colors.muted,
-    mutedForeground: colors.mutedForeground,
-    primary: colors.primary,
-  }), [colors.foreground, colors.border, colors.muted, colors.mutedForeground, colors.primary]);
+  const clarityColors = useMemo(
+    () => ({
+      text: colors.foreground,
+      border: colors.border,
+      muted: colors.muted,
+      mutedForeground: colors.mutedForeground,
+      primary: colors.primary,
+    }),
+    [colors.foreground, colors.border, colors.muted, colors.mutedForeground, colors.primary],
+  );
 
   return (
     <View>

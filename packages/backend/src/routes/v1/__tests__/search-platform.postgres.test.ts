@@ -22,34 +22,54 @@ const discoveredUrl = 'https://phones.example/pixel-11-pro-hands-on';
 const redirectedUrl = 'https://phones.example/old-review';
 const documentIds: string[] = [];
 
-const input = (query: string, mode: SearchInput['mode']): SearchInput => ({ query, mode, limit: 20 });
+const input = (query: string, mode: SearchInput['mode']): SearchInput => ({
+  query,
+  mode,
+  limit: 20,
+});
 
 suite('ranked search on Postgres', () => {
   beforeAll(async () => {
     connectPostgres(databaseUrl);
     const database = getDb();
-    await database.delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, [...urls, discoveredUrl]));
+    await database
+      .delete(searchDocuments)
+      .where(inArray(searchDocuments.canonicalUrl, [...urls, discoveredUrl]));
     const pages = [
-      { url: urls[0], title: 'Pixel 10 Pro review', description: 'The Pixel 10 Pro camera and battery, tested.' },
-      { url: urls[1], title: 'Growing tomatoes', description: 'Soil, water and sun for a summer harvest.' },
+      {
+        url: urls[0],
+        title: 'Pixel 10 Pro review',
+        description: 'The Pixel 10 Pro camera and battery, tested.',
+      },
+      {
+        url: urls[1],
+        title: 'Growing tomatoes',
+        description: 'Soil, water and sun for a summer harvest.',
+      },
     ];
     for (const page of pages) {
-      const [document] = await database.insert(searchDocuments).values({
-        id: crypto.randomUUID(),
-        requestedUrl: page.url,
-        canonicalUrl: page.url,
-        status: 'indexed',
-        documentType: 'article',
-        title: page.title,
-        description: page.description,
-        mainContent: page.description,
-        indexedAt: new Date(),
-      }).returning();
+      const [document] = await database
+        .insert(searchDocuments)
+        .values({
+          id: crypto.randomUUID(),
+          requestedUrl: page.url,
+          canonicalUrl: page.url,
+          status: 'indexed',
+          documentType: 'article',
+          title: page.title,
+          description: page.description,
+          mainContent: page.description,
+          indexedAt: new Date(),
+        })
+        .returning();
       documentIds.push(document.id);
       await replaceDocumentChunks(
         database,
         document.id,
-        [{ start: 0, end: page.description.length, text: page.description }, { start: 0, end: page.title.length, text: page.title }],
+        [
+          { start: 0, end: page.description.length, text: page.description },
+          { start: 0, end: page.title.length, text: page.title },
+        ],
         [embedding, embedding],
         'test-chunker',
       );
@@ -57,7 +77,9 @@ suite('ranked search on Postgres', () => {
   });
 
   afterAll(async () => {
-    await getDb().delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, [...urls, discoveredUrl]));
+    await getDb()
+      .delete(searchDocuments)
+      .where(inArray(searchDocuments.canonicalUrl, [...urls, discoveredUrl]));
     await closePostgres();
   });
 
@@ -78,8 +100,16 @@ suite('ranked search on Postgres', () => {
 
   it('records web discoveries as `discovered`, never ranks them, and never overwrites an indexed page', async () => {
     const recorded = await recordDiscoveredPages(getDb(), [
-      { canonicalUrl: discoveredUrl, title: 'Pixel 11 Pro hands-on', description: 'First impressions of the Pixel 11 Pro.' },
-      { canonicalUrl: urls[0], title: 'A search engine title', description: 'A search engine snippet.' },
+      {
+        canonicalUrl: discoveredUrl,
+        title: 'Pixel 11 Pro hands-on',
+        description: 'First impressions of the Pixel 11 Pro.',
+      },
+      {
+        canonicalUrl: urls[0],
+        title: 'A search engine title',
+        description: 'A search engine snippet.',
+      },
     ]);
 
     expect(recorded.map((row) => [row.canonicalUrl, row.status])).toEqual([
@@ -89,7 +119,9 @@ suite('ranked search on Postgres', () => {
     expect(recorded[1]).toMatchObject({ id: documentIds[0], title: 'Pixel 10 Pro review' });
 
     // Again, as a second search would: the same row, not a second one.
-    const [again] = await recordDiscoveredPages(getDb(), [{ canonicalUrl: discoveredUrl, title: 'Another title' }]);
+    const [again] = await recordDiscoveredPages(getDb(), [
+      { canonicalUrl: discoveredUrl, title: 'Another title' },
+    ]);
     expect(again).toMatchObject({ id: recorded[0].id, title: 'Pixel 11 Pro hands-on' });
 
     const ranks = await rankedSearch(input('Pixel 11 Pro', 'lexical'), undefined, 0);
@@ -99,11 +131,17 @@ suite('ranked search on Postgres', () => {
   it('finds a fetched page by the URL asked for, even when it was stored under another', async () => {
     // A crawl stores the page under its canonical URL; a redirect made that
     // differ from the one requested.
-    await getDb().update(searchDocuments)
+    await getDb()
+      .update(searchDocuments)
       .set({ requestedUrl: redirectedUrl, finalUrl: urls[0] })
       .where(inArray(searchDocuments.id, [documentIds[0]]));
 
-    const found = await fetchedDocuments([redirectedUrl, urls[1], discoveredUrl, 'https://nowhere.example/']);
+    const found = await fetchedDocuments([
+      redirectedUrl,
+      urls[1],
+      discoveredUrl,
+      'https://nowhere.example/',
+    ]);
 
     expect(found.get(redirectedUrl)?.id).toBe(documentIds[0]);
     expect(found.get(urls[1])?.id).toBe(documentIds[1]);

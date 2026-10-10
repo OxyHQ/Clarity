@@ -38,13 +38,19 @@ export interface DiscoveredPage {
   description?: string;
 }
 
-const searxngResponseSchema = z.object({
-  results: z.array(z.object({
-    url: z.string(),
-    title: z.string().optional(),
-    content: z.string().optional(),
-  }).passthrough()),
-}).passthrough();
+const searxngResponseSchema = z
+  .object({
+    results: z.array(
+      z
+        .object({
+          url: z.string(),
+          title: z.string().optional(),
+          content: z.string().optional(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
 
 /** The sidecar's origin, or `undefined` where there is none (tests, local runs). */
 function searxngUrl(): string | undefined {
@@ -67,7 +73,9 @@ export async function discoverWeb(input: WebDiscoveryQuery): Promise<DiscoveredP
 
   let body: unknown;
   try {
-    const response = await fetch(`${origin}/search?${params}`, { signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS) });
+    const response = await fetch(`${origin}/search?${params}`, {
+      signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
+    });
     if (!response.ok) throw new Error(`SearXNG answered ${response.status}`);
     body = await response.json();
   } catch (error) {
@@ -76,7 +84,10 @@ export async function discoverWeb(input: WebDiscoveryQuery): Promise<DiscoveredP
   }
   const parsed = searxngResponseSchema.safeParse(body);
   if (!parsed.success) {
-    log.v1.warn({ issues: parsed.error.issues.length }, 'Web discovery answered an unexpected shape');
+    log.v1.warn(
+      { issues: parsed.error.issues.length },
+      'Web discovery answered an unexpected shape',
+    );
     return [];
   }
 
@@ -89,7 +100,11 @@ export async function discoverWeb(input: WebDiscoveryQuery): Promise<DiscoveredP
       continue;
     }
     const host = new URL(canonicalUrl).hostname;
-    if (domains.length > 0 && !domains.some((domain) => host === domain || host.endsWith(`.${domain}`))) continue;
+    if (
+      domains.length > 0 &&
+      !domains.some((domain) => host === domain || host.endsWith(`.${domain}`))
+    )
+      continue;
     if (pages.has(canonicalUrl)) continue;
     pages.set(canonicalUrl, {
       canonicalUrl,
@@ -112,18 +127,33 @@ export async function recordDiscoveredPages(
   pages: readonly DiscoveredPage[],
 ): Promise<(typeof searchDocuments.$inferSelect)[]> {
   if (pages.length === 0) return [];
-  await executor.insert(searchDocuments).values(pages.map((page) => ({
-    id: crypto.randomUUID(),
-    requestedUrl: page.canonicalUrl,
-    canonicalUrl: page.canonicalUrl,
-    status: 'discovered',
-    documentType: 'page',
-    title: page.title,
-    description: page.description,
-  }))).onConflictDoNothing({ target: searchDocuments.canonicalUrl });
-  await registerHosts(executor, pages.map((page) => ({ url: page.canonicalUrl })));
-  const rows = await executor.select().from(searchDocuments)
-    .where(inArray(searchDocuments.canonicalUrl, pages.map((page) => page.canonicalUrl)));
+  await executor
+    .insert(searchDocuments)
+    .values(
+      pages.map((page) => ({
+        id: crypto.randomUUID(),
+        requestedUrl: page.canonicalUrl,
+        canonicalUrl: page.canonicalUrl,
+        status: 'discovered',
+        documentType: 'page',
+        title: page.title,
+        description: page.description,
+      })),
+    )
+    .onConflictDoNothing({ target: searchDocuments.canonicalUrl });
+  await registerHosts(
+    executor,
+    pages.map((page) => ({ url: page.canonicalUrl })),
+  );
+  const rows = await executor
+    .select()
+    .from(searchDocuments)
+    .where(
+      inArray(
+        searchDocuments.canonicalUrl,
+        pages.map((page) => page.canonicalUrl),
+      ),
+    );
   const byUrl = new Map(rows.map((row) => [row.canonicalUrl, row]));
   return pages.flatMap((page) => {
     const row = byUrl.get(page.canonicalUrl);

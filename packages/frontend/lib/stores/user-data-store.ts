@@ -59,8 +59,7 @@ export const useUserDataStore = create<UserDataState>()(
           lastFetch: Date.now(),
         }),
 
-      setLoading: (loading) =>
-        set({ loading }),
+      setLoading: (loading) => set({ loading }),
 
       clearMemory: () =>
         set({
@@ -82,6 +81,6 @@ export const useUserDataStore = create<UserDataState>()(
         memory: state.memory,
         lastFetch: state.lastFetch,
       }),
-    }
-  )
+    },
+  ),
 );

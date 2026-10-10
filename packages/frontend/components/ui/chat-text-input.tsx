@@ -1,4 +1,4 @@
-import * as React from "react";
+import * as React from 'react';
 import {
   TextInput,
   Platform,
@@ -7,8 +7,8 @@ import {
   type TextInputKeyPressEventData,
   type NativeSyntheticEvent as RNSyntheticEvent,
   type TextInputContentSizeChangeEventData,
-} from "react-native";
-import { cn } from "@/lib/utils";
+} from 'react-native';
+import { cn } from '@/lib/utils';
 
 type ChatTextInputProps = React.ComponentPropsWithoutRef<typeof TextInput> & {
   noFocus?: boolean;
@@ -24,23 +24,26 @@ type ChatTextInputProps = React.ComponentPropsWithoutRef<typeof TextInput> & {
 };
 
 const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
-  ({
-    className,
-    noFocus = false,
-    onEnterPress,
-    onCompletionKey,
-    onKeyPress,
-    maxHeight = 200,
-    minHeight = 44,
-    onContentSizeChange,
-    onHeightChange,
-    style,
-    disableEnterToSubmit = false,
-    disableAutoHeight = false,
-    onImagePaste,
-    fillContainer = false,
-    ...props
-  }, ref) => {
+  (
+    {
+      className,
+      noFocus = false,
+      onEnterPress,
+      onCompletionKey,
+      onKeyPress,
+      maxHeight = 200,
+      minHeight = 44,
+      onContentSizeChange,
+      onHeightChange,
+      style,
+      disableEnterToSubmit = false,
+      disableAutoHeight = false,
+      onImagePaste,
+      fillContainer = false,
+      ...props
+    },
+    ref,
+  ) => {
     const inputRef = React.useRef<TextInput>(null);
     // Stable DOM id for the wrapper so the web paste handler can resolve the
     // element via document.getElementById (react-native-web renders the RN `id`
@@ -95,16 +98,17 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
       };
     }, [onImagePaste, wrapperId]);
 
-    const handleKeyPress = (
-      e: NativeSyntheticEvent<TextInputKeyPressEventData>
-    ) => {
+    const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
       // Call the original onKeyPress if provided
       onKeyPress?.(e);
 
       const key = e.nativeEvent.key;
 
       // Arrow keys and Enter — autocomplete navigation
-      if (onCompletionKey && (key === "ArrowUp" || key === "ArrowDown" || key === "Enter" || key === "Escape")) {
+      if (
+        onCompletionKey &&
+        (key === 'ArrowUp' || key === 'ArrowDown' || key === 'Enter' || key === 'Escape')
+      ) {
         if (onCompletionKey(key)) {
           e.preventDefault();
           return;
@@ -112,7 +116,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
       }
 
       // Handle Enter key press (without Shift on web)
-      if (key === "Enter" && !disableEnterToSubmit) {
+      if (key === 'Enter' && !disableEnterToSubmit) {
         // `shiftKey` is present on web key events (react-native-web) but absent
         // from RN's TextInputKeyPressEventData; widen the type to read it safely.
         const nativeEvent: { key: string; shiftKey?: boolean } = e.nativeEvent;
@@ -123,9 +127,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
       }
     };
 
-    const handleContentSizeChange = (
-      e: RNSyntheticEvent<TextInputContentSizeChangeEventData>
-    ) => {
+    const handleContentSizeChange = (e: RNSyntheticEvent<TextInputContentSizeChangeEventData>) => {
       onContentSizeChange?.(e);
     };
 
@@ -139,35 +141,37 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
           ref={inputRef}
           accessibilityLabel="Message input"
           className={cn(
-            "native:text-md native:leading-[1.25] rounded-xl border border-input bg-background px-3.5 text-base text-foreground file:border-0 file:bg-transparent file:font-medium placeholder:text-muted-foreground web:flex web:w-full web:py-2 lg:text-sm",
-            "web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2",
-            !fillContainer && !props.multiline && "h-9",
-            fillContainer && "h-full",
-            noFocus && "web:focus-visible:ring-0 web:focus-visible:ring-offset-0",
-            props.editable === false && "opacity-50 web:cursor-not-allowed",
-            className
+            'native:text-md native:leading-[1.25] rounded-xl border border-input bg-background px-3.5 text-base text-foreground file:border-0 file:bg-transparent file:font-medium placeholder:text-muted-foreground web:flex web:w-full web:py-2 lg:text-sm',
+            'web:ring-offset-background web:focus-visible:outline-none web:focus-visible:ring-2 web:focus-visible:ring-ring web:focus-visible:ring-offset-2',
+            !fillContainer && !props.multiline && 'h-9',
+            fillContainer && 'h-full',
+            noFocus && 'web:focus-visible:ring-0 web:focus-visible:ring-offset-0',
+            props.editable === false && 'opacity-50 web:cursor-not-allowed',
+            className,
           )}
-          placeholderClassName={cn("text-muted-foreground", props.placeholderClassName)}
+          placeholderClassName={cn('text-muted-foreground', props.placeholderClassName)}
           onKeyPress={handleKeyPress}
           onContentSizeChange={handleContentSizeChange}
           scrollEnabled={fillContainer || props.multiline}
           style={[
             style,
-            !fillContainer && props.multiline && !disableAutoHeight && {
-              minHeight,
-              maxHeight,
-              overflow: 'scroll',
-              ...(Platform.OS === 'web' ? { fieldSizing: 'content' } : {}),
-            },
+            !fillContainer &&
+              props.multiline &&
+              !disableAutoHeight && {
+                minHeight,
+                maxHeight,
+                overflow: 'scroll',
+                ...(Platform.OS === 'web' ? { fieldSizing: 'content' } : {}),
+              },
             fillContainer && { flex: 1, height: '100%' },
           ]}
           {...props}
         />
       </View>
     );
-  }
+  },
 );
 
-ChatTextInput.displayName = "ChatTextInput";
+ChatTextInput.displayName = 'ChatTextInput';
 
 export { ChatTextInput };

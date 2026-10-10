@@ -14,13 +14,23 @@ export interface ResolveRecoveryScope {
  * Scope and cutoff are mandatory; default invocation is a read-only preview.
  */
 export async function recoverDuplicateResolves(scope: ResolveRecoveryScope, apply = false) {
-  if (!scope.ownerAccountId || !scope.applicationId || !Number.isFinite(scope.before.getTime())
-    || !Number.isInteger(scope.limit) || scope.limit < 1 || scope.limit > 5000) throw new Error('Invalid bounded resolve recovery scope');
+  if (
+    !scope.ownerAccountId ||
+    !scope.applicationId ||
+    !Number.isFinite(scope.before.getTime()) ||
+    !Number.isInteger(scope.limit) ||
+    scope.limit < 1 ||
+    scope.limit > 5000
+  )
+    throw new Error('Invalid bounded resolve recovery scope');
   return getDb().transaction(async (tx) => {
     if (!apply) await tx.execute(sql`set transaction read only`);
     await tx.execute(sql`set local statement_timeout = '30s'`);
     await tx.execute(sql`set local lock_timeout = '5s'`);
-    if (apply) await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${scope.ownerAccountId}:active_crawls`}, 0))`);
+    if (apply)
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`${scope.ownerAccountId}:active_crawls`}, 0))`,
+      );
     const candidates = sql`
       with ranked as (
         select p.id, p.job_id, p.url, p.status, p.attempt_count, p.lease_owner, p.lease_expires_at, p.created_at,
@@ -39,7 +49,9 @@ export async function recoverDuplicateResolves(scope: ResolveRecoveryScope, appl
         and lease_owner is null and lease_expires_at is null
         and created_at < ${scope.before.toISOString()}::timestamptz
       order by created_at, id limit ${scope.limit}`;
-    const rows = await tx.execute<{ id: string; job_id: string; url: string; retained_id: string }>(apply ? sql`
+    const rows = await tx.execute<{ id: string; job_id: string; url: string; retained_id: string }>(
+      apply
+        ? sql`
       with candidates as (${candidates}), locked as (
         select p.id, c.retained_id from clarity_crawl_pages p join candidates c on c.id = p.id
         where p.status = 'queued' and p.attempt_count = 0 and p.lease_owner is null and p.lease_expires_at is null
@@ -48,7 +60,9 @@ export async function recoverDuplicateResolves(scope: ResolveRecoveryScope, appl
       update clarity_crawl_pages p set status = 'failed', last_error_code = 'resolve_superseded',
         last_error_detail = 'Duplicate resolve; retained page ' || locked.retained_id, updated_at = now()
       from locked where p.id = locked.id
-      returning p.id, p.job_id, p.url, locked.retained_id` : candidates);
+      returning p.id, p.job_id, p.url, locked.retained_id`
+        : candidates,
+    );
     let operationsFinished = 0;
     if (apply && rows.length) {
       const ids = [...new Set(rows.map((row) => row.job_id))];
@@ -60,13 +74,25 @@ export async function recoverDuplicateResolves(scope: ResolveRecoveryScope, appl
           ) then 'cancelled' else 'partial' end,
           error_code = 'resolve_superseded', error_detail = 'Duplicate resolve pages coalesced; audit rows retained',
           finished_at = now(), updated_at = now()
-        where j.id in (${sql.join(ids.map((id) => sql`${id}`), sql`, `)})
+        where j.id in (${sql.join(
+          ids.map((id) => sql`${id}`),
+          sql`, `,
+        )})
           and j.owner_account_id = ${scope.ownerAccountId} and j.application_id = ${scope.applicationId}
           and j.status in ('queued', 'running')
           and not exists (select 1 from clarity_crawl_pages p where p.job_id = j.id and p.status not in ('succeeded', 'failed'))
         returning j.id`);
       operationsFinished = finished.length;
     }
-    return { apply, ownerAccountId: scope.ownerAccountId, applicationId: scope.applicationId, before: scope.before.toISOString(), limit: scope.limit, pages: rows.length, operationsFinished, sample: rows.slice(0, 10) };
+    return {
+      apply,
+      ownerAccountId: scope.ownerAccountId,
+      applicationId: scope.applicationId,
+      before: scope.before.toISOString(),
+      limit: scope.limit,
+      pages: rows.length,
+      operationsFinished,
+      sample: rows.slice(0, 10),
+    };
   });
 }

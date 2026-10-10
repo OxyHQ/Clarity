@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Pressable,
@@ -7,10 +7,10 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   ActivityIndicator,
-} from "react-native";
-import { Text } from "@/components/ui/text";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+} from 'react-native';
+import { Text } from '@/components/ui/text';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Search,
   Plus,
@@ -19,14 +19,11 @@ import {
   ChevronDown,
   ArrowLeft,
   Trash2,
-} from "lucide-react-native";
-import { useTranslation } from "@/hooks/useTranslation";
-import { useColorScheme } from "@/lib/useColorScheme";
-import {
-  useConversations,
-  useDeleteConversation,
-} from "@/lib/hooks/use-conversations";
-import type { HydratedConversation } from "@/lib/hooks/use-conversations";
+} from 'lucide-react-native';
+import { useTranslation } from '@/hooks/useTranslation';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { useConversations, useDeleteConversation } from '@/lib/hooks/use-conversations';
+import type { HydratedConversation } from '@/lib/hooks/use-conversations';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,17 +31,17 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@oxy.so/bloom/dropdown-menu";
-import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
-import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
-import { Button, GlyphButton } from "@oxy.so/bloom/button";
+} from '@oxy.so/bloom/dropdown-menu';
+import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
+import { Tabs, TabsTrigger } from '@oxy.so/bloom/tabs';
+import { Button, GlyphButton } from '@oxy.so/bloom/button';
 
 /* ================================================================
    Types
    ================================================================ */
 
-type TabId = "threads" | "media" | "apps" | "documents";
-type SortOrder = "newest" | "oldest";
+type TabId = 'threads' | 'media' | 'apps' | 'documents';
+type SortOrder = 'newest' | 'oldest';
 
 /* ================================================================
    Relative timestamp helper
@@ -58,15 +55,15 @@ function relativeTime(date: Date): string {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-  if (days < 7) return `${days} day${days === 1 ? "" : "s"} ago`;
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
 
   return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
   });
 }
 
@@ -75,10 +72,10 @@ function relativeTime(date: Date): string {
    ================================================================ */
 
 const TABS: { id: TabId; labelKey: string }[] = [
-  { id: "threads", labelKey: "history.tabs.threads" },
-  { id: "media", labelKey: "history.tabs.media" },
-  { id: "apps", labelKey: "history.tabs.apps" },
-  { id: "documents", labelKey: "history.tabs.documents" },
+  { id: 'threads', labelKey: 'history.tabs.threads' },
+  { id: 'media', labelKey: 'history.tabs.media' },
+  { id: 'apps', labelKey: 'history.tabs.apps' },
+  { id: 'documents', labelKey: 'history.tabs.documents' },
 ];
 
 function TabBar({
@@ -95,7 +92,7 @@ function TabBar({
       value={activeTab}
       onValueChange={(v) => onTabChange(v as TabId)}
       variant="underline"
-      label={t("history.title")}
+      label={t('history.title')}
     >
       {TABS.map((tab) => (
         <TabsTrigger key={tab.id} value={tab.id} label={t(tab.labelKey)} />
@@ -108,26 +105,20 @@ function TabBar({
    Sort dropdown
    ================================================================ */
 
-function SortDropdown({
-  value,
-  onChange,
-}: {
-  value: SortOrder;
-  onChange: (v: SortOrder) => void;
-}) {
+function SortDropdown({ value, onChange }: { value: SortOrder; onChange: (v: SortOrder) => void }) {
   const { t } = useTranslation();
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild label={t("history.sort")}>
+      <DropdownMenuTrigger asChild label={t('history.sort')}>
         <Button appearance="outline" tone="neutral" size="xs" trailingIcon={bloomIcon(ChevronDown)}>
-          {`${t("history.sort")}: ${t(`history.sort_${value}`)}`}
+          {`${t('history.sort')}: ${t(`history.sort_${value}`)}`}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as SortOrder)}>
-          <DropdownMenuRadioItem value="newest">{t("history.sort_newest")}</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="oldest">{t("history.sort_oldest")}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="newest">{t('history.sort_newest')}</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="oldest">{t('history.sort_oldest')}</DropdownMenuRadioItem>
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -152,14 +143,12 @@ const ThreadItem = React.memo(function ThreadItem({
 
   const preview = useMemo(() => {
     if (conversation.lastMessage) return conversation.lastMessage;
-    const assistantMsg = conversation.messages?.find((m) => m.role === "assistant");
+    const assistantMsg = conversation.messages?.find((m) => m.role === 'assistant');
     if (assistantMsg) {
-      const content = typeof assistantMsg.content === "string"
-        ? assistantMsg.content
-        : "";
+      const content = typeof assistantMsg.content === 'string' ? assistantMsg.content : '';
       return content.slice(0, 150);
     }
-    return "";
+    return '';
   }, [conversation.lastMessage, conversation.messages]);
 
   return (
@@ -171,17 +160,11 @@ const ThreadItem = React.memo(function ThreadItem({
             onPress={() => onNavigate(conversation.id)}
             className="flex-1 overflow-hidden cursor-pointer"
           >
-            <Text
-              className="font-sans text-base font-medium text-foreground"
-              numberOfLines={1}
-            >
-              {conversation.title || t("sidebar.newSearch")}
+            <Text className="font-sans text-base font-medium text-foreground" numberOfLines={1}>
+              {conversation.title || t('sidebar.newSearch')}
             </Text>
             {preview.length > 0 && (
-              <Text
-                className="mt-0.5 font-sans text-sm text-muted-foreground"
-                numberOfLines={2}
-              >
+              <Text className="mt-0.5 font-sans text-sm text-muted-foreground" numberOfLines={2}>
                 {preview}
               </Text>
             )}
@@ -189,12 +172,12 @@ const ThreadItem = React.memo(function ThreadItem({
 
           {/* Actions dropdown */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild label={t("actions.more")}>
+            <DropdownMenuTrigger asChild label={t('actions.more')}>
               <GlyphButton
                 size={28}
                 glyphSize={14}
                 icon={bloomIcon(MoreHorizontal)}
-                accessibilityLabel={t("actions.more")}
+                accessibilityLabel={t('actions.more')}
               />
             </DropdownMenuTrigger>
             <DropdownMenuContent>
@@ -203,7 +186,7 @@ const ThreadItem = React.memo(function ThreadItem({
                 leading={<MenuRowIcon icon={Trash2} tone="danger" />}
                 onPress={() => onDelete(conversation.id)}
               >
-                {t("common.delete")}
+                {t('common.delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -233,13 +216,9 @@ function EmptyState({ tab }: { tab: TabId }) {
   return (
     <View className="items-center justify-center py-16 px-6">
       <Clock size={32} className="text-muted-foreground mb-3" />
-      <Text className="text-base font-medium text-foreground mb-1">
-        {t("history.empty_title")}
-      </Text>
+      <Text className="text-base font-medium text-foreground mb-1">{t('history.empty_title')}</Text>
       <Text className="text-sm text-muted-foreground text-center">
-        {tab === "threads"
-          ? t("history.empty_threads")
-          : t("history.empty_other")}
+        {tab === 'threads' ? t('history.empty_threads') : t('history.empty_other')}
       </Text>
     </View>
   );
@@ -255,24 +234,18 @@ export default function HistoryScreen() {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
 
-  const [activeTab, setActiveTab] = useState<TabId>("threads");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
+  const [activeTab, setActiveTab] = useState<TabId>('threads');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
 
-  const {
-    data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isLoading,
-  } = useConversations();
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useConversations();
   const deleteMut = useDeleteConversation();
 
   // Flatten and sort all conversations
   const allConversations = useMemo(() => {
     const all = data?.pages.flatMap((p) => p.conversations) ?? [];
     const sorted = [...all].sort((a, b) => {
-      if (sortOrder === "newest") return b.updatedAt.getTime() - a.updatedAt.getTime();
+      if (sortOrder === 'newest') return b.updatedAt.getTime() - a.updatedAt.getTime();
       return a.updatedAt.getTime() - b.updatedAt.getTime();
     });
     return sorted;
@@ -282,9 +255,7 @@ export default function HistoryScreen() {
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return allConversations;
     const query = searchQuery.toLowerCase();
-    return allConversations.filter((conv) =>
-      conv.title?.toLowerCase().includes(query),
-    );
+    return allConversations.filter((conv) => conv.title?.toLowerCase().includes(query));
   }, [allConversations, searchQuery]);
 
   const handleNavigate = useCallback(
@@ -302,7 +273,7 @@ export default function HistoryScreen() {
   );
 
   const handleNewThread = useCallback(() => {
-    router.push("/(app)");
+    router.push('/(app)');
   }, [router]);
 
   const handleBack = useCallback(() => {
@@ -313,8 +284,7 @@ export default function HistoryScreen() {
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { layoutMeasurement, contentOffset, contentSize } = e.nativeEvent;
       if (
-        layoutMeasurement.height + contentOffset.y >=
-          contentSize.height - 100 &&
+        layoutMeasurement.height + contentOffset.y >= contentSize.height - 100 &&
         hasNextPage &&
         !isFetchingNextPage
       ) {
@@ -334,12 +304,12 @@ export default function HistoryScreen() {
             <View className="md:hidden">
               <GlyphButton
                 icon={bloomIcon(ArrowLeft)}
-                accessibilityLabel={t("common.back")}
+                accessibilityLabel={t('common.back')}
                 onPress={handleBack}
               />
             </View>
             <Text className="font-sans text-sm font-medium text-foreground select-none">
-              {t("history.title")}
+              {t('history.title')}
             </Text>
           </View>
 
@@ -351,12 +321,13 @@ export default function HistoryScreen() {
           {/* Right: New Thread button */}
           <View className="flex-row items-center gap-2">
             <Button
-              appearance="outline" tone="neutral"
+              appearance="outline"
+              tone="neutral"
               size="sm"
               leadingIcon={bloomIcon(Plus)}
               onPress={handleNewThread}
             >
-              {t("history.newThread")}
+              {t('history.newThread')}
             </Button>
           </View>
         </View>
@@ -382,7 +353,7 @@ export default function HistoryScreen() {
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder={t("history.searchPlaceholder")}
+              placeholder={t('history.searchPlaceholder')}
               placeholderTextColor={colors.mutedForeground}
               className="flex-1 min-w-0 bg-transparent text-foreground text-sm font-sans web:focus-visible:outline-none"
             />
@@ -390,14 +361,12 @@ export default function HistoryScreen() {
 
           {/* Filter bar */}
           <View className="flex-row items-center justify-between gap-2 py-4 bg-background">
-            <View className="flex-row items-center gap-2">
-              {/* Type filter placeholder */}
-            </View>
+            <View className="flex-row items-center gap-2">{/* Type filter placeholder */}</View>
             <SortDropdown value={sortOrder} onChange={setSortOrder} />
           </View>
 
           {/* Thread list or empty state */}
-          {activeTab !== "threads" ? (
+          {activeTab !== 'threads' ? (
             <EmptyState tab={activeTab} />
           ) : isLoading ? (
             <View className="items-center justify-center py-16">
@@ -407,10 +376,10 @@ export default function HistoryScreen() {
             searchQuery.trim() ? (
               <View className="items-center justify-center py-16 px-6">
                 <Text className="text-base font-medium text-foreground mb-1">
-                  {t("common.noResults")}
+                  {t('common.noResults')}
                 </Text>
                 <Text className="text-sm text-muted-foreground text-center">
-                  {t("common.tryDifferentSearch")}
+                  {t('common.tryDifferentSearch')}
                 </Text>
               </View>
             ) : (

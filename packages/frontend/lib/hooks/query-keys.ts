@@ -5,7 +5,8 @@ export const queryKeys = {
   },
   credits: {
     info: ['credits'] as const,
-    usage: (period?: string) => period ? ['credits-usage', period] as const : ['credits-usage'] as const,
+    usage: (period?: string) =>
+      period ? (['credits-usage', period] as const) : (['credits-usage'] as const),
     analytics: (period: string) => ['analytics', period] as const,
     price: ['credit-price'] as const,
     usageWarning: ['usage-warning'] as const,
@@ -24,7 +25,8 @@ export const queryKeys = {
     app: (id: string) => ['developer-app', id] as const,
     keys: (appId: string) => ['developer-keys', appId] as const,
     usage: (appId: string, period: string) => ['developer-usage', appId, period] as const,
-    keyUsage: (appId: string, keyId: string, period: string) => ['developer-key-usage', appId, keyId, period] as const,
+    keyUsage: (appId: string, keyId: string, period: string) =>
+      ['developer-key-usage', appId, keyId, period] as const,
     stats: ['developer-stats'] as const,
     modelsStats: ['models-stats'] as const,
   },
@@ -48,7 +50,8 @@ export const queryKeys = {
     detail: (id: string) => ['jobs', 'detail', id] as const,
   },
   news: {
-    list: (limit: number, languages: readonly string[]) => ['news', 'list', limit, ...languages] as const,
+    list: (limit: number, languages: readonly string[]) =>
+      ['news', 'list', limit, ...languages] as const,
   },
   market: {
     quotes: (assets: readonly string[]) => ['market', 'quotes', ...assets] as const,

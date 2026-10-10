@@ -1,6 +1,11 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 
-import type { JobPosting, JobReportRequest, JobSearchRequest, JobSearchResponse } from '@clarity/shared-types';
+import type {
+  JobPosting,
+  JobReportRequest,
+  JobSearchRequest,
+  JobSearchResponse,
+} from '@clarity/shared-types';
 
 import { requestPublicApi } from '../api/public-request';
 import { queryKeys } from './query-keys';
@@ -14,11 +19,12 @@ export function useJobSearch(request: JobSearchRequest, enabled = true) {
   return useInfiniteQuery({
     queryKey: queryKeys.jobs.search(request),
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) => requestPublicApi<JobSearchResponse>('/jobs/search', {
-      method: 'POST',
-      body: JSON.stringify({ ...request, ...(pageParam ? { cursor: pageParam } : {}) }),
-      signal,
-    }),
+    queryFn: ({ pageParam, signal }) =>
+      requestPublicApi<JobSearchResponse>('/jobs/search', {
+        method: 'POST',
+        body: JSON.stringify({ ...request, ...(pageParam ? { cursor: pageParam } : {}) }),
+        signal,
+      }),
     getNextPageParam: (lastPage: JobSearchResponse) => lastPage.nextCursor,
     placeholderData: keepPreviousData,
     staleTime: 60_000,
@@ -29,7 +35,11 @@ export function useJobSearch(request: JobSearchRequest, enabled = true) {
 export function useJobPosting(id: string | undefined) {
   return useQuery({
     queryKey: queryKeys.jobs.detail(id ?? ''),
-    queryFn: ({ signal }) => requestPublicApi<JobPosting>(`/jobs/${encodeURIComponent(id ?? '')}`, { method: 'GET', signal }),
+    queryFn: ({ signal }) =>
+      requestPublicApi<JobPosting>(`/jobs/${encodeURIComponent(id ?? '')}`, {
+        method: 'GET',
+        signal,
+      }),
     enabled: Boolean(id),
     staleTime: 60_000,
   });
@@ -41,9 +51,10 @@ export function useJobPosting(id: string | undefined) {
  */
 export function useReportJobPosting(id: string | undefined) {
   return useMutation({
-    mutationFn: (request: JobReportRequest) => requestPublicApi<{ status: string }>(
-      `/jobs/${encodeURIComponent(id ?? '')}/report`,
-      { method: 'POST', body: JSON.stringify(request) },
-    ),
+    mutationFn: (request: JobReportRequest) =>
+      requestPublicApi<{ status: string }>(`/jobs/${encodeURIComponent(id ?? '')}/report`, {
+        method: 'POST',
+        body: JSON.stringify(request),
+      }),
   });
 }

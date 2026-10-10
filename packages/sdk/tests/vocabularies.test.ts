@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  COUNTRY_CODES, CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS,
-  JOB_WORKPLACE_TYPES, PLACE_KINDS, isCountryCode, isCurrencyCode,
+  COUNTRY_CODES,
+  CURRENCY_CODES,
+  JOB_EMPLOYMENT_TYPES,
+  JOB_LIFECYCLE_STATUSES,
+  JOB_SALARY_INTERVALS,
+  JOB_WORKPLACE_TYPES,
+  PLACE_KINDS,
+  isCountryCode,
+  isCurrencyCode,
 } from '../src/vocabularies.js';
 
 function expectSortedUnique(values: readonly string[]): void {
@@ -12,7 +19,14 @@ function expectSortedUnique(values: readonly string[]): void {
 
 describe('closed vocabularies', () => {
   it('keeps every code list sorted and unique', () => {
-    for (const list of [CURRENCY_CODES, COUNTRY_CODES, JOB_WORKPLACE_TYPES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, PLACE_KINDS]) {
+    for (const list of [
+      CURRENCY_CODES,
+      COUNTRY_CODES,
+      JOB_WORKPLACE_TYPES,
+      JOB_EMPLOYMENT_TYPES,
+      JOB_LIFECYCLE_STATUSES,
+      PLACE_KINDS,
+    ]) {
       expectSortedUnique(list);
     }
   });
@@ -42,7 +56,21 @@ describe('closed vocabularies', () => {
   });
 
   it('leaves out funds, metals, testing and withdrawn codes', () => {
-    for (const code of ['XAU', 'XAG', 'XTS', 'XXX', 'XDR', 'BOV', 'CHE', 'USN', 'HRK', 'ANG', 'SLL', 'ZWL', 'BGN']) {
+    for (const code of [
+      'XAU',
+      'XAG',
+      'XTS',
+      'XXX',
+      'XDR',
+      'BOV',
+      'CHE',
+      'USN',
+      'HRK',
+      'ANG',
+      'SLL',
+      'ZWL',
+      'BGN',
+    ]) {
       expect(isCurrencyCode(code), code).toBe(false);
     }
     expect(isCurrencyCode('EUR')).toBe(true);

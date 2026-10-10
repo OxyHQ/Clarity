@@ -53,7 +53,10 @@ export function CompactList({ title, items }: { title: string; items: CompactLis
 // BANNER Component
 type BannerType = 'info' | 'success' | 'warning' | 'danger';
 
-const BANNER_CONFIG: Record<BannerType, { icon: any; bgColor: string; textColor: string; borderColor: string }> = {
+const BANNER_CONFIG: Record<
+  BannerType,
+  { icon: any; bgColor: string; textColor: string; borderColor: string }
+> = {
   info: {
     icon: Info,
     bgColor: 'bg-blue-50 dark:bg-blue-950/30',
@@ -80,7 +83,15 @@ const BANNER_CONFIG: Record<BannerType, { icon: any; bgColor: string; textColor:
   },
 };
 
-export function Banner({ type = 'info', title, content }: { type?: BannerType; title: string; content: string }) {
+export function Banner({
+  type = 'info',
+  title,
+  content,
+}: {
+  type?: BannerType;
+  title: string;
+  content: string;
+}) {
   const config = BANNER_CONFIG[type];
   const Icon = config.icon;
 
@@ -118,10 +129,14 @@ export function Comparison({
 }) {
   const getToneColor = (tone?: string) => {
     switch (tone) {
-      case 'success': return 'border-green-500/50';
-      case 'warning': return 'border-yellow-500/50';
-      case 'danger': return 'border-red-500/50';
-      default: return 'border-blue-500/50';
+      case 'success':
+        return 'border-green-500/50';
+      case 'warning':
+        return 'border-yellow-500/50';
+      case 'danger':
+        return 'border-red-500/50';
+      default:
+        return 'border-blue-500/50';
     }
   };
 
@@ -129,18 +144,30 @@ export function Comparison({
     <View className="my-2 rounded-lg border border-border bg-surface p-3">
       <Text className="font-semibold mb-2">{title}</Text>
       <View className="gap-2">
-        <View className={cn('rounded-md border-l-4 bg-zinc-50 dark:bg-zinc-800/50 p-2.5', getToneColor(left.tone))}>
+        <View
+          className={cn(
+            'rounded-md border-l-4 bg-zinc-50 dark:bg-zinc-800/50 p-2.5',
+            getToneColor(left.tone),
+          )}
+        >
           <Text className="font-medium mb-1">{left.title}</Text>
           <Text className="text-base text-muted-foreground">{left.content}</Text>
           {left.source && (
             <Text className="text-sm text-muted-foreground mt-1 italic">Source: {left.source}</Text>
           )}
         </View>
-        <View className={cn('rounded-md border-l-4 bg-zinc-50 dark:bg-zinc-800/50 p-2.5', getToneColor(right.tone))}>
+        <View
+          className={cn(
+            'rounded-md border-l-4 bg-zinc-50 dark:bg-zinc-800/50 p-2.5',
+            getToneColor(right.tone),
+          )}
+        >
           <Text className="font-medium mb-1">{right.title}</Text>
           <Text className="text-base text-muted-foreground">{right.content}</Text>
           {right.source && (
-            <Text className="text-sm text-muted-foreground mt-1 italic">Source: {right.source}</Text>
+            <Text className="text-sm text-muted-foreground mt-1 italic">
+              Source: {right.source}
+            </Text>
           )}
         </View>
         {conclusion && (
@@ -170,7 +197,10 @@ export function Timeline({ title, items }: { title: string; items: TimelineItem[
             <View className="items-center">
               <View className="h-2.5 w-2.5 rounded-full bg-primary" />
               {idx < items.length - 1 && (
-                <View className="w-0.5 flex-1 bg-zinc-300 dark:bg-zinc-600 mt-1" style={{ minHeight: 32 }} />
+                <View
+                  className="w-0.5 flex-1 bg-zinc-300 dark:bg-zinc-600 mt-1"
+                  style={{ minHeight: 32 }}
+                />
               )}
             </View>
             <View className="flex-1 pb-1">
@@ -188,7 +218,15 @@ export function Timeline({ title, items }: { title: string; items: TimelineItem[
 }
 
 // IMAGE Component
-export function RichImage({ url, title, caption }: { url: string; title?: string; caption?: string }) {
+export function RichImage({
+  url,
+  title,
+  caption,
+}: {
+  url: string;
+  title?: string;
+  caption?: string;
+}) {
   return (
     <View className="my-2">
       <Image
@@ -197,12 +235,8 @@ export function RichImage({ url, title, caption }: { url: string; title?: string
         style={{ aspectRatio: 16 / 9 }}
         contentFit="cover"
       />
-      {title && (
-        <Text className="font-medium mt-1.5">{title}</Text>
-      )}
-      {caption && (
-        <Text className="text-sm text-muted-foreground mt-0.5">{caption}</Text>
-      )}
+      {title && <Text className="font-medium mt-1.5">{title}</Text>}
+      {caption && <Text className="text-sm text-muted-foreground mt-0.5">{caption}</Text>}
     </View>
   );
 }
@@ -224,14 +258,12 @@ export function Credibility({ level, source }: { level: number; source: string }
             key={i}
             className={cn(
               'h-1.5 w-7 rounded-full',
-              i <= level ? getColor() : 'bg-zinc-300 dark:bg-zinc-600'
+              i <= level ? getColor() : 'bg-zinc-300 dark:bg-zinc-600',
             )}
           />
         ))}
       </View>
-      <Text className="text-sm text-muted-foreground">
-        Source: {source}
-      </Text>
+      <Text className="text-sm text-muted-foreground">Source: {source}</Text>
     </View>
   );
 }

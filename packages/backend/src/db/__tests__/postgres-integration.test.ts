@@ -43,50 +43,62 @@ function sourceRow(id: string, fields: Record<string, unknown>): Record<string, 
 
 function writeManifest(): void {
   const rows: Partial<Record<(typeof LOCAL_TARGETS)[number], Record<string, unknown>[]>> = {
-    clarity_conversations: [sourceRow('conversation-row', {
-      oxyUserId: 'user-1',
-      conversationId: 'conversation-1',
-      title: 'Imported',
-      source: 'app',
-      createdAt: { $date: { $numberLong: '1788307200000' } },
-      updatedAt: { $date: { $numberLong: '1788307200000' } },
-    })],
-    clarity_messages: [sourceRow('message-row', {
-      id: 'message-1',
-      oxyUserId: 'user-1',
-      conversationId: 'conversation-1',
-      role: 'user',
-      content: 'hello',
-    })],
-    clarity_suggestions: [sourceRow('suggestion-row', {
-      suggestionId: 'suggestion-1',
-      title: 'Imported suggestion',
-      text: 'Try this',
-      type: 'welcome',
-      usageCount: { $numberInt: '3' },
-      priority: { $numberLong: '9' },
-    })],
-    clarity_plans: [sourceRow('plan-row', {
-      planId: 'clarity-test-plan',
-      name: 'Test plan',
-      product: 'clarity',
-      modelIds: ['clarity-v1'],
-    })],
-    clarity_features: [sourceRow('feature-row', {
-      featureId: 'feature-test',
-      label: 'Test feature',
-      category: 'Core',
-    })],
-    clarity_plan_features: [sourceRow('plan-feature-row', {
-      planId: 'clarity-test-plan',
-      featureId: 'feature-test',
-    })],
+    clarity_conversations: [
+      sourceRow('conversation-row', {
+        oxyUserId: 'user-1',
+        conversationId: 'conversation-1',
+        title: 'Imported',
+        source: 'app',
+        createdAt: { $date: { $numberLong: '1788307200000' } },
+        updatedAt: { $date: { $numberLong: '1788307200000' } },
+      }),
+    ],
+    clarity_messages: [
+      sourceRow('message-row', {
+        id: 'message-1',
+        oxyUserId: 'user-1',
+        conversationId: 'conversation-1',
+        role: 'user',
+        content: 'hello',
+      }),
+    ],
+    clarity_suggestions: [
+      sourceRow('suggestion-row', {
+        suggestionId: 'suggestion-1',
+        title: 'Imported suggestion',
+        text: 'Try this',
+        type: 'welcome',
+        usageCount: { $numberInt: '3' },
+        priority: { $numberLong: '9' },
+      }),
+    ],
+    clarity_plans: [
+      sourceRow('plan-row', {
+        planId: 'clarity-test-plan',
+        name: 'Test plan',
+        product: 'clarity',
+        modelIds: ['clarity-v1'],
+      }),
+    ],
+    clarity_features: [
+      sourceRow('feature-row', {
+        featureId: 'feature-test',
+        label: 'Test feature',
+        category: 'Core',
+      }),
+    ],
+    clarity_plan_features: [
+      sourceRow('plan-feature-row', {
+        planId: 'clarity-test-plan',
+        featureId: 'feature-test',
+      }),
+    ],
   };
   delete rows.clarity_messages?.[0]?.updatedAt;
   const collections = LOCAL_TARGETS.map((targetTable) => {
     const targetRows = rows[targetTable] ?? [];
-    const content = targetRows.map((row) => JSON.stringify(row)).join('\n')
-      + (targetRows.length > 0 ? '\n' : '');
+    const content =
+      targetRows.map((row) => JSON.stringify(row)).join('\n') + (targetRows.length > 0 ? '\n' : '');
     const dataFile = `${targetTable}.jsonl`;
     writeFileSync(join(workspace, dataFile), content);
     return {
@@ -128,7 +140,8 @@ function writeManifest(): void {
 suite('PostgreSQL backfill and repository integration', () => {
   beforeAll(async () => {
     const databaseName = new URL(databaseUrl).pathname.slice(1);
-    if (databaseName !== 'clarity_ci') throw new Error('integration tests require database clarity_ci');
+    if (databaseName !== 'clarity_ci')
+      throw new Error('integration tests require database clarity_ci');
     const sql = postgres(databaseUrl, { max: 1 });
     await sql.unsafe(`truncate table
       clarity_backfill_receipts,
@@ -158,9 +171,10 @@ suite('PostgreSQL backfill and repository integration', () => {
 
   it('rolls back a collection when the bytes read do not match the manifest', async () => {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-    const suggestion = manifest.collections.find((item: { disposition?: { targetTable?: string } }) => (
-      item.disposition?.targetTable === 'clarity_suggestions'
-    ));
+    const suggestion = manifest.collections.find(
+      (item: { disposition?: { targetTable?: string } }) =>
+        item.disposition?.targetTable === 'clarity_suggestions',
+    );
     suggestion.disposition.dataSha256 = '0'.repeat(64);
     writeFileSync(badManifestPath, JSON.stringify(manifest));
 
@@ -207,8 +221,9 @@ suite('PostgreSQL backfill and repository integration', () => {
     )`;
     await sql.end();
 
-    await expect(runBackfill(manifestPath, databaseUrl))
-      .rejects.toThrow('target ID set is not an exact snapshot');
+    await expect(runBackfill(manifestPath, databaseUrl)).rejects.toThrow(
+      'target ID set is not an exact snapshot',
+    );
 
     const cleanup = postgres(databaseUrl, { max: 1 });
     await cleanup`delete from clarity_suggestions where id = 'substituted-row'`;
@@ -219,13 +234,15 @@ suite('PostgreSQL backfill and repository integration', () => {
   });
 
   it('requires explicit evidence before attesting cutover', async () => {
-    await expect(attestCutover({
-      databaseUrl,
-      manifestPath,
-      expectedSnapshotHash: snapshotHash,
-      confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
-      agentId: 'wrong-agent',
-    })).rejects.toThrow('canonical Clarity agent');
+    await expect(
+      attestCutover({
+        databaseUrl,
+        manifestPath,
+        expectedSnapshotHash: snapshotHash,
+        confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
+        agentId: 'wrong-agent',
+      }),
+    ).rejects.toThrow('canonical Clarity agent');
     await attestCutover({
       databaseUrl,
       manifestPath,
@@ -237,13 +254,15 @@ suite('PostgreSQL backfill and repository integration', () => {
 
   it('rolls back metadata and message replacement together, then cascades deletes', async () => {
     connectPostgres(databaseUrl);
-    await expect(replaceConversation({
-      oxyUserId: 'user-1',
-      conversationId: 'conversation-1',
-      title: 'Must roll back',
-      titleOnInsert: 'unused',
-      messages: [{ role: 'invalid' as 'user', content: 'bad' }],
-    })).rejects.toThrow();
+    await expect(
+      replaceConversation({
+        oxyUserId: 'user-1',
+        conversationId: 'conversation-1',
+        title: 'Must roll back',
+        titleOnInsert: 'unused',
+        messages: [{ role: 'invalid' as 'user', content: 'bad' }],
+      }),
+    ).rejects.toThrow();
     expect((await findConversation('user-1', 'conversation-1'))?.title).toBe('Imported');
     expect(await countMessages('user-1', 'conversation-1')).toBe(1);
 

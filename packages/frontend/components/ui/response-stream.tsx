@@ -1,12 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View } from "react-native";
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import Animated, { FadeIn } from "react-native-reanimated";
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import Animated, { FadeIn } from 'react-native-reanimated';
 
 // --- Types ---
 
-export type Mode = "typewriter" | "fade";
+export type Mode = 'typewriter' | 'fade';
 
 export type UseTextStreamOptions = {
   textStream: string | AsyncIterable<string>;
@@ -35,13 +35,13 @@ export type UseTextStreamResult = {
 function useTextStream({
   textStream,
   speed = 20,
-  mode = "typewriter",
+  mode = 'typewriter',
   onComplete,
   fadeDuration,
   segmentDelay,
   characterChunkSize,
 }: UseTextStreamOptions): UseTextStreamResult {
-  const [displayedText, setDisplayedText] = useState("");
+  const [displayedText, setDisplayedText] = useState('');
   const [isComplete, setIsComplete] = useState(false);
   const [segments, setSegments] = useState<{ text: string; index: number }[]>([]);
 
@@ -69,11 +69,11 @@ function useTextStream({
   }, [onComplete]);
 
   const getChunkSize = useCallback(() => {
-    if (typeof characterChunkSizeRef.current === "number") {
+    if (typeof characterChunkSizeRef.current === 'number') {
       return Math.max(1, characterChunkSizeRef.current);
     }
     const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
-    if (modeRef.current === "typewriter") {
+    if (modeRef.current === 'typewriter') {
       if (normalizedSpeed < 25) return 2;
       return Math.max(2, Math.round((normalizedSpeed - 25) / 8));
     }
@@ -81,7 +81,7 @@ function useTextStream({
   }, []);
 
   const getProcessingDelay = useCallback(() => {
-    if (typeof segmentDelayRef.current === "number") {
+    if (typeof segmentDelayRef.current === 'number') {
       return Math.max(0, segmentDelayRef.current);
     }
     const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
@@ -89,42 +89,43 @@ function useTextStream({
   }, []);
 
   const getFadeDuration = useCallback(() => {
-    if (typeof fadeDurationRef.current === "number")
-      return Math.max(10, fadeDurationRef.current);
+    if (typeof fadeDurationRef.current === 'number') return Math.max(10, fadeDurationRef.current);
     const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
     return Math.round(1000 / Math.sqrt(normalizedSpeed));
   }, []);
 
   const getSegmentDelay = useCallback(() => {
-    if (typeof segmentDelayRef.current === "number")
-      return Math.max(0, segmentDelayRef.current);
+    if (typeof segmentDelayRef.current === 'number') return Math.max(0, segmentDelayRef.current);
     const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
     return Math.max(1, Math.round(100 / Math.sqrt(normalizedSpeed)));
   }, []);
 
   const updateSegments = useCallback((text: string) => {
-    if (modeRef.current === "fade") {
+    if (modeRef.current === 'fade') {
       try {
-        if (typeof Intl !== "undefined" && Intl.Segmenter) {
-          const segmenter = new Intl.Segmenter("en", { granularity: "word" });
+        if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+          const segmenter = new Intl.Segmenter('en', { granularity: 'word' });
           const segmentIterator = segmenter.segment(text);
           setSegments(
             Array.from(segmentIterator).map((seg, idx) => ({
               text: seg.segment,
               index: idx,
-            }))
+            })),
           );
           return;
         }
       } catch (e) {
-        console.warn('[response-stream] Intl.Segmenter unavailable, falling back to whitespace split', e);
+        console.warn(
+          '[response-stream] Intl.Segmenter unavailable, falling back to whitespace split',
+          e,
+        );
       }
       // Fallback: split on whitespace
       setSegments(
         text
           .split(/(\s+)/)
           .filter(Boolean)
-          .map((word, idx) => ({ text: word, index: idx }))
+          .map((word, idx) => ({ text: word, index: idx })),
       );
     }
   }, []);
@@ -139,7 +140,7 @@ function useTextStream({
 
   const reset = useCallback(() => {
     currentIndexRef.current = 0;
-    setDisplayedText("");
+    setDisplayedText('');
     setSegments([]);
     setIsComplete(false);
     completedRef.current = false;
@@ -167,14 +168,11 @@ function useTextStream({
         }
 
         const chunkSize = getChunkSize();
-        const endIndex = Math.min(
-          currentIndexRef.current + chunkSize,
-          text.length
-        );
+        const endIndex = Math.min(currentIndexRef.current + chunkSize, text.length);
         const newDisplayedText = text.slice(0, endIndex);
 
         setDisplayedText(newDisplayedText);
-        if (modeRef.current === "fade") {
+        if (modeRef.current === 'fade') {
           updateSegments(newDisplayedText);
         }
 
@@ -189,14 +187,14 @@ function useTextStream({
 
       animationRef.current = requestAnimationFrame(streamContent);
     },
-    [getProcessingDelay, getChunkSize, updateSegments, markComplete]
+    [getProcessingDelay, getChunkSize, updateSegments, markComplete],
   );
 
   const processAsyncIterable = useCallback(
     async (stream: AsyncIterable<string>) => {
       const controller = new AbortController();
       streamRef.current = controller;
-      let displayed = "";
+      let displayed = '';
 
       try {
         for await (const chunk of stream) {
@@ -210,12 +208,12 @@ function useTextStream({
         markComplete();
       }
     },
-    [updateSegments, markComplete]
+    [updateSegments, markComplete],
   );
 
   const startStreaming = useCallback(() => {
     reset();
-    if (typeof textStream === "string") {
+    if (typeof textStream === 'string') {
       processStringTypewriter(textStream);
     } else if (textStream) {
       processAsyncIterable(textStream);
@@ -230,7 +228,7 @@ function useTextStream({
   }, []);
 
   const resume = useCallback(() => {
-    if (typeof textStream === "string" && !isComplete) {
+    if (typeof textStream === 'string' && !isComplete) {
       processStringTypewriter(textStream);
     }
   }, [textStream, isComplete, processStringTypewriter]);
@@ -271,38 +269,35 @@ export type ResponseStreamProps = {
 
 function ResponseStream({
   textStream,
-  mode = "typewriter",
+  mode = 'typewriter',
   speed = 20,
-  className = "",
+  className = '',
   onComplete,
   fadeDuration,
   segmentDelay,
   characterChunkSize,
 }: ResponseStreamProps) {
-  const { displayedText, segments, getFadeDuration, getSegmentDelay } =
-    useTextStream({
-      textStream,
-      speed,
-      mode,
-      onComplete,
-      fadeDuration,
-      segmentDelay,
-      characterChunkSize,
-    });
+  const { displayedText, segments, getFadeDuration, getSegmentDelay } = useTextStream({
+    textStream,
+    speed,
+    mode,
+    onComplete,
+    fadeDuration,
+    segmentDelay,
+    characterChunkSize,
+  });
 
   const fadeDur = getFadeDuration();
 
-  if (mode === "fade") {
+  if (mode === 'fade') {
     return (
-      <View className={cn("flex-row flex-wrap", className)}>
+      <View className={cn('flex-row flex-wrap', className)}>
         {segments.map((segment, idx) => (
           <Animated.View
             key={`${segment.text}-${idx}`}
             entering={FadeIn.duration(fadeDur).delay(idx * getSegmentDelay())}
           >
-            <Text className="text-base text-foreground leading-7">
-              {segment.text}
-            </Text>
+            <Text className="text-base text-foreground leading-7">{segment.text}</Text>
           </Animated.View>
         ))}
       </View>
@@ -311,10 +306,8 @@ function ResponseStream({
 
   // Typewriter mode
   return (
-    <View className={cn("", className)}>
-      <Text className="text-base text-foreground leading-7">
-        {displayedText}
-      </Text>
+    <View className={cn('', className)}>
+      <Text className="text-base text-foreground leading-7">{displayedText}</Text>
     </View>
   );
 }

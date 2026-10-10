@@ -11,11 +11,26 @@ import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { JobFieldSource, JobLocation, JobSourceType } from '@clarity/shared-types';
 
 import { getDb, type ClarityExecutor } from '../../db/index.js';
-import { jobClusters, jobPostings, jobPostingSignatures, searchDocuments } from '../../db/schema/index.js';
-import { chunkText, documentChunksCurrent, embedChunks, replaceDocumentChunks } from '../chunking.js';
+import {
+  jobClusters,
+  jobPostings,
+  jobPostingSignatures,
+  searchDocuments,
+} from '../../db/schema/index.js';
+import {
+  chunkText,
+  documentChunksCurrent,
+  embedChunks,
+  replaceDocumentChunks,
+} from '../chunking.js';
 import { canonicalSourceRank, jobClusterSignatures } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
-import { JOB_RECRAWL_INTERVAL_SECONDS, JOB_RETENTION_DAYS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
+import {
+  JOB_RECRAWL_INTERVAL_SECONDS,
+  JOB_RETENTION_DAYS,
+  jobLifecycleStatus,
+  type JobClosureReason,
+} from './lifecycle.js';
 import { markdownToPlainText } from './markdown.js';
 import { resolveJobLocations } from './locations.js';
 import { createPlaceResolver } from '../places/repository.js';
@@ -33,10 +48,14 @@ export interface JobProjectionInput {
 /** Countries a listing is explicitly attached to, including remote eligibility. */
 function countryCodes(posting: ExtractedJobPosting): string[] {
   const codes = new Set<string>();
-  for (const location of posting.locations) if (location.countryCode) codes.add(location.countryCode);
+  for (const location of posting.locations)
+    if (location.countryCode) codes.add(location.countryCode);
   for (const requirement of posting.applicantLocationRequirements) {
     const country = normalizeCountry(requirement);
-    if (country) { codes.add(country); continue; }
+    if (country) {
+      codes.add(country);
+      continue;
+    }
     for (const member of resolveRegion(requirement) ?? []) codes.add(member);
   }
   return [...codes];
@@ -59,7 +78,9 @@ function textIndexSource(posting: ExtractedJobPosting): string {
     posting.department ?? '',
     posting.industry ?? '',
     markdownToPlainText(posting.description).slice(0, 8_000),
-  ].filter(Boolean).join('\n');
+  ]
+    .filter(Boolean)
+    .join('\n');
 }
 
 /**
@@ -68,13 +89,18 @@ function textIndexSource(posting: ExtractedJobPosting): string {
  * the source has since removed would otherwise survive every recrawl; absent
  * becomes `null` instead.
  */
-export function clearAbsent<T extends Record<string, unknown>>(values: T): { [K in keyof T]: Exclude<T[K], undefined> | null } {
+export function clearAbsent<T extends Record<string, unknown>>(
+  values: T,
+): { [K in keyof T]: Exclude<T[K], undefined> | null } {
   return Object.fromEntries(
     Object.entries(values).map(([key, value]) => [key, value === undefined ? null : value]),
   ) as { [K in keyof T]: Exclude<T[K], undefined> | null };
 }
 
-export async function projectJobPostings(tx: ClarityExecutor, input: JobProjectionInput): Promise<string[]> {
+export async function projectJobPostings(
+  tx: ClarityExecutor,
+  input: JobProjectionInput,
+): Promise<string[]> {
   const sourceKeys = input.postings.map((posting) => posting.sourceKey);
 
   if (sourceKeys.length === 0) {
@@ -108,8 +134,16 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       employerKey: posting.employerKey,
       locations: posting.locations,
       locationCountries: countryCodes(posting),
-      locationRegions: [...new Set(posting.locations.flatMap((location) => location.region ? [location.region] : []))],
-      locationLocalities: [...new Set(posting.locations.flatMap((location) => location.locality ? [location.locality] : []))],
+      locationRegions: [
+        ...new Set(
+          posting.locations.flatMap((location) => (location.region ? [location.region] : [])),
+        ),
+      ],
+      locationLocalities: [
+        ...new Set(
+          posting.locations.flatMap((location) => (location.locality ? [location.locality] : [])),
+        ),
+      ],
       applicantLocationRequirements: posting.applicantLocationRequirements,
       workplaceType: posting.workplaceType,
       employmentTypes: posting.employmentTypes,
@@ -118,8 +152,14 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       salaryMax: posting.salary?.max,
       salaryCurrency: posting.salary?.currency,
       salaryInterval: posting.salary?.interval,
-      salaryAnnualMin: posting.salary?.min === undefined ? undefined : annualizeSalary(posting.salary.min, posting.salary.interval),
-      salaryAnnualMax: posting.salary?.max === undefined ? undefined : annualizeSalary(posting.salary.max, posting.salary.interval),
+      salaryAnnualMin:
+        posting.salary?.min === undefined
+          ? undefined
+          : annualizeSalary(posting.salary.min, posting.salary.interval),
+      salaryAnnualMax:
+        posting.salary?.max === undefined
+          ? undefined
+          : annualizeSalary(posting.salary.max, posting.salary.interval),
       skills: posting.skills,
       qualifications: posting.qualifications,
       responsibilities: posting.responsibilities,
@@ -143,7 +183,8 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       searchVector: sql`to_tsvector('simple', ${textIndexSource(posting)})`,
       lastSeenAt: input.observedAt,
     };
-    const [row] = await tx.insert(jobPostings)
+    const [row] = await tx
+      .insert(jobPostings)
       .values({ id: crypto.randomUUID(), firstSeenAt: input.observedAt, ...values })
       .onConflictDoUpdate({
         target: [jobPostings.documentId, jobPostings.sourceKey],
@@ -155,8 +196,15 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
     await tx.delete(jobPostingSignatures).where(eq(jobPostingSignatures.jobPostingId, row.id));
     const signatures = jobClusterSignatures(posting);
     if (signatures.length > 0) {
-      await tx.insert(jobPostingSignatures)
-        .values(signatures.map((signature) => ({ jobPostingId: row.id, signature: signature.value, kind: signature.kind })))
+      await tx
+        .insert(jobPostingSignatures)
+        .values(
+          signatures.map((signature) => ({
+            jobPostingId: row.id,
+            signature: signature.value,
+            kind: signature.kind,
+          })),
+        )
         .onConflictDoNothing();
     }
     await assignCluster(tx, row.id);
@@ -164,13 +212,21 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
 
   // Listings that vanished from this page were withdrawn: close them and let
   // their duplicate groups elect a copy that is still open.
-  const withdrawn = await tx.update(jobPostings)
-    .set({ status: 'closed', closedAt: input.observedAt, closureReason: 'posting_absent', updatedAt: new Date() })
-    .where(and(
-      eq(jobPostings.documentId, input.documentId),
-      notInArray(jobPostings.sourceKey, sourceKeys),
-      sql`${jobPostings.closedAt} is null`,
-    ))
+  const withdrawn = await tx
+    .update(jobPostings)
+    .set({
+      status: 'closed',
+      closedAt: input.observedAt,
+      closureReason: 'posting_absent',
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(jobPostings.documentId, input.documentId),
+        notInArray(jobPostings.sourceKey, sourceKeys),
+        sql`${jobPostings.closedAt} is null`,
+      ),
+    )
     .returning({ id: jobPostings.id });
   for (const row of withdrawn) await refreshClusterOf(tx, row.id);
 
@@ -183,7 +239,8 @@ export async function closeJobPostingsForDocument(
   documentId: string,
   reason: JobClosureReason,
 ): Promise<number> {
-  const closed = await tx.update(jobPostings)
+  const closed = await tx
+    .update(jobPostings)
     .set({ status: 'closed', closedAt: new Date(), closureReason: reason, updatedAt: new Date() })
     .where(and(eq(jobPostings.documentId, documentId), sql`${jobPostings.closedAt} is null`))
     .returning({ id: jobPostings.id });
@@ -197,7 +254,11 @@ export async function closeJobPostingsForDocument(
  * beyond its `cluster_id`, so a wrong grouping is undone by clearing it.
  */
 async function assignCluster(tx: ClarityExecutor, jobPostingId: string): Promise<void> {
-  const [current] = await tx.select({ clusterId: jobPostings.clusterId }).from(jobPostings).where(eq(jobPostings.id, jobPostingId)).limit(1);
+  const [current] = await tx
+    .select({ clusterId: jobPostings.clusterId })
+    .from(jobPostings)
+    .where(eq(jobPostings.id, jobPostingId))
+    .limit(1);
   const previousClusterId = current?.clusterId ?? null;
   const related = await tx.execute<{ id: string; clusterId: string | null }>(sql`
     select distinct other.id as id, other.cluster_id as "clusterId"
@@ -207,10 +268,15 @@ async function assignCluster(tx: ClarityExecutor, jobPostingId: string): Promise
     where mine.job_posting_id = ${jobPostingId}`);
 
   const memberIds = new Set<string>([jobPostingId, ...related.map((row) => row.id)]);
-  const clusterIds = [...new Set(related.flatMap((row) => row.clusterId ? [row.clusterId] : []))].sort();
+  const clusterIds = [
+    ...new Set(related.flatMap((row) => (row.clusterId ? [row.clusterId] : []))),
+  ].sort();
 
   if (memberIds.size === 1 && clusterIds.length === 0) {
-    await tx.update(jobPostings).set({ clusterId: null, updatedAt: new Date() }).where(eq(jobPostings.id, jobPostingId));
+    await tx
+      .update(jobPostings)
+      .set({ clusterId: null, updatedAt: new Date() })
+      .where(eq(jobPostings.id, jobPostingId));
     if (previousClusterId) await electCanonical(tx, previousClusterId);
     return;
   }
@@ -220,30 +286,44 @@ async function assignCluster(tx: ClarityExecutor, jobPostingId: string): Promise
     clusterId = crypto.randomUUID();
     await tx.insert(jobClusters).values({ id: clusterId, memberCount: memberIds.size });
   }
-  await tx.update(jobPostings).set({ clusterId, updatedAt: new Date() }).where(inArray(jobPostings.id, [...memberIds]));
+  await tx
+    .update(jobPostings)
+    .set({ clusterId, updatedAt: new Date() })
+    .where(inArray(jobPostings.id, [...memberIds]));
   if (clusterIds.length > 1) {
-    await tx.update(jobPostings).set({ clusterId, updatedAt: new Date() }).where(inArray(jobPostings.clusterId, clusterIds.slice(1)));
+    await tx
+      .update(jobPostings)
+      .set({ clusterId, updatedAt: new Date() })
+      .where(inArray(jobPostings.clusterId, clusterIds.slice(1)));
     await tx.delete(jobClusters).where(inArray(jobClusters.id, clusterIds.slice(1)));
   }
   await electCanonical(tx, clusterId);
-  if (previousClusterId && previousClusterId !== clusterId) await electCanonical(tx, previousClusterId);
+  if (previousClusterId && previousClusterId !== clusterId)
+    await electCanonical(tx, previousClusterId);
 }
 
 async function refreshClusterOf(tx: ClarityExecutor, jobPostingId: string): Promise<void> {
-  const [row] = await tx.select({ clusterId: jobPostings.clusterId }).from(jobPostings).where(eq(jobPostings.id, jobPostingId)).limit(1);
+  const [row] = await tx
+    .select({ clusterId: jobPostings.clusterId })
+    .from(jobPostings)
+    .where(eq(jobPostings.id, jobPostingId))
+    .limit(1);
   if (row?.clusterId) await electCanonical(tx, row.clusterId);
 }
 
 /** Elects the copy Clarity shows for a cluster; all members stay retrievable. */
 async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<void> {
-  const members = await tx.select({
-    id: jobPostings.id,
-    canonicalUrl: jobPostings.canonicalUrl,
-    employerDomain: jobPostings.employerDomain,
-    sourceType: jobPostings.sourceType,
-    firstSeenAt: jobPostings.firstSeenAt,
-    closedAt: jobPostings.closedAt,
-  }).from(jobPostings).where(eq(jobPostings.clusterId, clusterId));
+  const members = await tx
+    .select({
+      id: jobPostings.id,
+      canonicalUrl: jobPostings.canonicalUrl,
+      employerDomain: jobPostings.employerDomain,
+      sourceType: jobPostings.sourceType,
+      firstSeenAt: jobPostings.firstSeenAt,
+      closedAt: jobPostings.closedAt,
+    })
+    .from(jobPostings)
+    .where(eq(jobPostings.clusterId, clusterId));
   if (members.length === 0) {
     await tx.delete(jobClusters).where(eq(jobClusters.id, clusterId));
     return;
@@ -251,21 +331,28 @@ async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<v
   const ordered = [...members].sort((left, right) => {
     const openness = Number(Boolean(left.closedAt)) - Number(Boolean(right.closedAt));
     if (openness !== 0) return openness;
-    const rank = canonicalSourceRank({
-      canonicalUrl: left.canonicalUrl,
-      employerDomain: left.employerDomain ?? undefined,
-      sourceType: left.sourceType as JobSourceType,
-    }) - canonicalSourceRank({
-      canonicalUrl: right.canonicalUrl,
-      employerDomain: right.employerDomain ?? undefined,
-      sourceType: right.sourceType as JobSourceType,
-    });
+    const rank =
+      canonicalSourceRank({
+        canonicalUrl: left.canonicalUrl,
+        employerDomain: left.employerDomain ?? undefined,
+        sourceType: left.sourceType as JobSourceType,
+      }) -
+      canonicalSourceRank({
+        canonicalUrl: right.canonicalUrl,
+        employerDomain: right.employerDomain ?? undefined,
+        sourceType: right.sourceType as JobSourceType,
+      });
     if (rank !== 0) return rank;
     const seen = left.firstSeenAt.getTime() - right.firstSeenAt.getTime();
-    return seen !== 0 ? seen : (left.id < right.id ? -1 : 1);
+    return seen !== 0 ? seen : left.id < right.id ? -1 : 1;
   });
-  await tx.update(jobClusters)
-    .set({ canonicalJobPostingId: ordered[0].id, memberCount: members.length, updatedAt: new Date() })
+  await tx
+    .update(jobClusters)
+    .set({
+      canonicalJobPostingId: ordered[0].id,
+      memberCount: members.length,
+      updatedAt: new Date(),
+    })
     .where(eq(jobClusters.id, clusterId));
 }
 
@@ -295,7 +382,9 @@ export async function pruneInactiveJobDocuments(limit = RETENTION_BATCH): Promis
       for update skip locked`);
     const ids = doomed.map((row) => row.id);
     if (ids.length === 0) return 0;
-    const clusters = await tx.selectDistinct({ clusterId: jobPostings.clusterId }).from(jobPostings)
+    const clusters = await tx
+      .selectDistinct({ clusterId: jobPostings.clusterId })
+      .from(jobPostings)
       .where(and(inArray(jobPostings.documentId, ids), sql`${jobPostings.clusterId} is not null`));
     await tx.delete(searchDocuments).where(inArray(searchDocuments.id, ids));
     for (const { clusterId } of clusters) if (clusterId) await electCanonical(tx, clusterId);
@@ -330,9 +419,17 @@ export interface JobIngestInput {
 }
 
 /** The structured data and fetch time stored for a listing URL, if Clarity has indexed it. */
-export async function storedJobDocument(canonicalUrl: string): Promise<{ structuredData: unknown[]; fetchedAt: Date | null } | undefined> {
-  const [row] = await getDb().select({ structuredData: searchDocuments.structuredData, fetchedAt: searchDocuments.fetchedAt })
-    .from(searchDocuments).where(eq(searchDocuments.canonicalUrl, canonicalUrl)).limit(1);
+export async function storedJobDocument(
+  canonicalUrl: string,
+): Promise<{ structuredData: unknown[]; fetchedAt: Date | null } | undefined> {
+  const [row] = await getDb()
+    .select({
+      structuredData: searchDocuments.structuredData,
+      fetchedAt: searchDocuments.fetchedAt,
+    })
+    .from(searchDocuments)
+    .where(eq(searchDocuments.canonicalUrl, canonicalUrl))
+    .limit(1);
   if (!row || !Array.isArray(row.structuredData)) return undefined;
   return { structuredData: row.structuredData as unknown[], fetchedAt: row.fetchedAt };
 }
@@ -346,8 +443,15 @@ export async function storedJobDocument(canonicalUrl: string): Promise<{ structu
  * publisher's page stays the canonical source; this only removes the wait for
  * a crawler to discover it.
  */
-export async function ingestJobPosting(input: JobIngestInput): Promise<{ documentId: string; jobPostingIds: string[] }> {
-  const postings = extractJobPostings(input.structuredData, input.canonicalUrl, input.observedAt.toISOString(), input.fieldSource ?? 'api');
+export async function ingestJobPosting(
+  input: JobIngestInput,
+): Promise<{ documentId: string; jobPostingIds: string[] }> {
+  const postings = extractJobPostings(
+    input.structuredData,
+    input.canonicalUrl,
+    input.observedAt.toISOString(),
+    input.fieldSource ?? 'api',
+  );
   if (postings.length === 0) throw new Error('no_job_posting');
 
   const [primary] = postings;
@@ -357,7 +461,13 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
   // and its embedded chunks are exactly what this payload would produce, the
   // chunks are kept and nothing is re-embedded; the listing is still
   // re-projected below, so lastSeenAt and every column stay current.
-  const chunksCurrent = await documentChunksCurrent(getDb(), input.canonicalUrl, body, chunks.length, INGEST_EXTRACTOR_VERSION);
+  const chunksCurrent = await documentChunksCurrent(
+    getDb(),
+    input.canonicalUrl,
+    body,
+    chunks.length,
+    INGEST_EXTRACTOR_VERSION,
+  );
   let embeddings: number[][] | undefined;
   if (!chunksCurrent) {
     try {
@@ -374,7 +484,9 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       documentType: 'job',
       title: primary.title,
       // A removed description or date clears the stored one; siteId is kept when absent.
-      description: primary.description ? markdownToPlainText(primary.description).slice(0, 2_000) : null,
+      description: primary.description
+        ? markdownToPlainText(primary.description).slice(0, 2_000)
+        : null,
       mainContent: body,
       structuredData: input.structuredData,
       fieldEvidence: primary.evidence,
@@ -384,11 +496,21 @@ export async function ingestJobPosting(input: JobIngestInput): Promise<{ documen
       indexedAt: input.observedAt,
       nextFetchAt: new Date(input.observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000),
     };
-    const [document] = await tx.insert(searchDocuments)
-      .values({ id: crypto.randomUUID(), requestedUrl: input.canonicalUrl, canonicalUrl: input.canonicalUrl, ...mutable })
-      .onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: { ...mutable, updatedAt: input.observedAt } })
+    const [document] = await tx
+      .insert(searchDocuments)
+      .values({
+        id: crypto.randomUUID(),
+        requestedUrl: input.canonicalUrl,
+        canonicalUrl: input.canonicalUrl,
+        ...mutable,
+      })
+      .onConflictDoUpdate({
+        target: searchDocuments.canonicalUrl,
+        set: { ...mutable, updatedAt: input.observedAt },
+      })
       .returning();
-    if (!chunksCurrent) await replaceDocumentChunks(tx, document.id, chunks, embeddings, INGEST_EXTRACTOR_VERSION);
+    if (!chunksCurrent)
+      await replaceDocumentChunks(tx, document.id, chunks, embeddings, INGEST_EXTRACTOR_VERSION);
     const jobPostingIds = await projectJobPostings(tx, {
       documentId: document.id,
       documentStatus: 'indexed',

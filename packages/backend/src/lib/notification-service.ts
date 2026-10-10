@@ -37,8 +37,10 @@ import { log } from './logger.js';
 const expo = new Expo();
 
 function notificationData(notification: NotificationRow): Record<string, unknown> {
-  return notification.data && typeof notification.data === 'object' && !Array.isArray(notification.data)
-    ? notification.data as Record<string, unknown>
+  return notification.data &&
+    typeof notification.data === 'object' &&
+    !Array.isArray(notification.data)
+    ? (notification.data as Record<string, unknown>)
     : {};
 }
 
@@ -64,7 +66,10 @@ export interface SendNotificationOptions {
  * If explicit channels are provided, use those. Otherwise, default to in_app
  * plus any connected messaging accounts the user has.
  */
-async function resolveChannels(userId: string, explicit?: NotificationChannel[]): Promise<NotificationChannel[]> {
+async function resolveChannels(
+  userId: string,
+  explicit?: NotificationChannel[],
+): Promise<NotificationChannel[]> {
   if (explicit && explicit.length > 0) {
     return explicit;
   }
@@ -78,9 +83,7 @@ async function resolveChannels(userId: string, explicit?: NotificationChannel[])
     listActivePushTokens(userId).catch(() => []),
 
     // Web push: check if user has any active browser push subscriptions (only if VAPID configured)
-    VAPID_PUBLIC_KEY
-      ? listActiveWebPushSubscriptions(userId).catch(() => [])
-      : [],
+    VAPID_PUBLIC_KEY ? listActiveWebPushSubscriptions(userId).catch(() => []) : [],
   ]);
 
   if (pushTokens.length > 0 || webPushSubs.length > 0) {
@@ -140,7 +143,8 @@ async function deliverPush(userId: string, notification: NotificationRow): Promi
         ...notificationData(notification),
       },
       sound: 'default',
-      priority: notification.priority === 'urgent' || notification.priority === 'high' ? 'high' : 'normal',
+      priority:
+        notification.priority === 'urgent' || notification.priority === 'high' ? 'high' : 'normal',
       channelId: 'default',
     });
   }
@@ -165,9 +169,18 @@ async function deliverPush(userId: string, notification: NotificationRow): Promi
           }
         } else {
           // ticket.status === 'error'
-          const errorDetail = ticket as { status: 'error'; message: string; details?: { error: string } };
+          const errorDetail = ticket as {
+            status: 'error';
+            message: string;
+            details?: { error: string };
+          };
           log.general.warn(
-            { userId, token: chunk[i].to, error: errorDetail.message, errorCode: errorDetail.details?.error },
+            {
+              userId,
+              token: chunk[i].to,
+              error: errorDetail.message,
+              errorCode: errorDetail.details?.error,
+            },
             'Expo push ticket error',
           );
 
@@ -190,7 +203,7 @@ async function deliverPush(userId: string, notification: NotificationRow): Promi
 
   // Update lastUsedAt for active tokens
   if (anySucceeded) {
-    const activeTokenIds = tokens.filter(t => Expo.isExpoPushToken(t.token)).map(t => t.id);
+    const activeTokenIds = tokens.filter((t) => Expo.isExpoPushToken(t.token)).map((t) => t.id);
     await touchPushTokens(activeTokenIds);
   }
 
@@ -212,13 +225,19 @@ async function checkPushReceipts(receiptIds: ExpoPushReceiptId[]): Promise<void>
       for (const [receiptId, receipt] of Object.entries(receipts)) {
         if (receipt.status === 'error') {
           const { message, details } = receipt;
-          log.general.warn({ receiptId, message, error: details?.error }, 'Expo push receipt error');
+          log.general.warn(
+            { receiptId, message, error: details?.error },
+            'Expo push receipt error',
+          );
 
           // Deactivate invalid device tokens
           if (details?.error === 'DeviceNotRegistered') {
             // We can't directly map receiptId -> token, but Expo will stop delivering
             // to unregistered devices. The token gets deactivated on the next send attempt.
-            log.general.info({ receiptId }, 'Device not registered — token will be deactivated on next send');
+            log.general.info(
+              { receiptId },
+              'Device not registered — token will be deactivated on next send',
+            );
           }
         }
       }
@@ -258,22 +277,29 @@ async function deliverWebPush(userId: string, notification: NotificationRow): Pr
           payload,
         );
       } catch (error: unknown) {
-        const statusCode = error && typeof error === 'object' && 'statusCode' in error
-          ? error.statusCode
-          : undefined;
+        const statusCode =
+          error && typeof error === 'object' && 'statusCode' in error
+            ? error.statusCode
+            : undefined;
         if (statusCode === 410 || statusCode === 404) {
           // Subscription expired or invalid — deactivate
           await deactivateWebPushSubscriptionById(sub.id);
-          log.general.info({ userId, endpoint: sub.endpoint }, 'Web push subscription expired, deactivated');
+          log.general.info(
+            { userId, endpoint: sub.endpoint },
+            'Web push subscription expired, deactivated',
+          );
         } else {
-          log.general.warn({ err: error, userId, endpoint: sub.endpoint }, 'Web push delivery failed');
+          log.general.warn(
+            { err: error, userId, endpoint: sub.endpoint },
+            'Web push delivery failed',
+          );
         }
         throw error; // Re-throw so Promise.allSettled marks as rejected
       }
     }),
   );
 
-  return results.some(r => r.status === 'fulfilled');
+  return results.some((r) => r.status === 'fulfilled');
 }
 
 // ── Main send function ─────────────────────────────────────────────
@@ -304,7 +330,7 @@ export async function sendNotification(options: SendNotificationOptions): Promis
     body: body.slice(0, 4000), // Cap body length
     data,
     channels,
-    deliveryStatus: Object.fromEntries(channels.map(ch => [ch, 'pending'])),
+    deliveryStatus: Object.fromEntries(channels.map((ch) => [ch, 'pending'])),
     status: 'sent',
     priority,
     triggerId,
@@ -313,7 +339,9 @@ export async function sendNotification(options: SendNotificationOptions): Promis
   });
 
   // Deliver to each channel in parallel
-  const deliveryStatus = { ...(notification.deliveryStatus as Record<string, 'pending' | 'sent' | 'failed'>) };
+  const deliveryStatus = {
+    ...(notification.deliveryStatus as Record<string, 'pending' | 'sent' | 'failed'>),
+  };
   const deliveries = channels.map(async (channel) => {
     try {
       let success = false;
@@ -345,10 +373,7 @@ export async function sendNotification(options: SendNotificationOptions): Promis
   // Persist delivery status
   await updateDeliveryStatus(notification.id, deliveryStatus);
 
-  log.general.info(
-    { type, userId, channels, title: title.slice(0, 50) },
-    'Notification sent',
-  );
+  log.general.info({ type, userId, channels, title: title.slice(0, 50) }, 'Notification sent');
 
   return notification;
 }
@@ -367,6 +392,9 @@ export async function markAllAsRead(userId: string): Promise<number> {
   return markAllNotificationRowsAsRead(userId);
 }
 
-export async function dismissNotification(notificationId: string, userId: string): Promise<boolean> {
+export async function dismissNotification(
+  notificationId: string,
+  userId: string,
+): Promise<boolean> {
   return dismissNotificationRow(notificationId, userId);
 }

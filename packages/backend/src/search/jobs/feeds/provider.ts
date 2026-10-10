@@ -59,7 +59,11 @@ export interface JobFeedPage {
  * from storage.
  */
 export interface JobFeedListingPage {
-  parse(html: string, reference: JobFeedPageReference, context: JobFeedContext): ExtractedJobPosting | undefined;
+  parse(
+    html: string,
+    reference: JobFeedPageReference,
+    context: JobFeedContext,
+  ): ExtractedJobPosting | undefined;
   ttlSeconds?: number;
 }
 
@@ -85,7 +89,11 @@ export interface JobFeedIdentifier {
 export interface JobFeedDetail {
   request(listing: ExtractedJobPosting, identifier: string): JobFeedRequest | undefined;
   /** The listing completed with its detail, or undefined when the detail is not a live posting. */
-  parse(body: string, listing: ExtractedJobPosting, context: JobFeedContext): ExtractedJobPosting | undefined;
+  parse(
+    body: string,
+    listing: ExtractedJobPosting,
+    context: JobFeedContext,
+  ): ExtractedJobPosting | undefined;
   ttlSeconds?: number;
   /**
    * The summary is already a complete listing and the detail only enriches it:

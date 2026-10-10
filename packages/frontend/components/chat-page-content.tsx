@@ -1,50 +1,54 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { View, Pressable, type TextInput } from "react-native";
-import { useColorScheme } from "@/lib/useColorScheme";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardStickyView } from "@/lib/keyboard";
-import { LinearGradient } from "expo-linear-gradient";
-import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
-import { useStore } from "@/lib/globalStore";
-import { Globe, X, Brain, Search, Menu, ArrowUp } from "lucide-react-native";
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import { View, Pressable, type TextInput } from 'react-native';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { KeyboardStickyView } from '@/lib/keyboard';
+import { LinearGradient } from 'expo-linear-gradient';
+import type { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import { useStore } from '@/lib/globalStore';
+import { Globe, X, Brain, Search, Menu, ArrowUp } from 'lucide-react-native';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "@oxy.so/bloom/dropdown-menu";
-import { Text } from "@/components/ui/text";
-import { Button, CloseButton, GlyphButton } from "@oxy.so/bloom/button";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { PromptInput, type Attachment } from "@/components/ui/prompt-input";
-import { ScrollButton } from "@/components/ui/scroll-button";
-import { ChatInterface } from "@/components/chat-interface";
-import { ChatHeader, type ConversationTab } from "@/components/chat-header";
-import type { Message } from "@clarity/shared-types";
-import { toast } from "@oxy.so/bloom/toast";
-import { ComposerPill } from "@oxy.so/bloom/composer-panel";
-import type { ComposerPanelAddMenuGroup } from "@oxy.so/bloom/composer-panel";
-import { AlertTriangle, Pencil } from "lucide-react-native";
-import { CreditWarningBanner } from "@/components/credit-warning-banner";
-import { ModelSelector, getThinkingModelId, isThinkingModel } from "@/components/model-selector";
-import { useModelStore } from "@/lib/stores/model-store";
-import { useEntitlements } from "@/lib/hooks/use-billing";
-import { useRouter } from "expo-router";
-import { useTranslation } from "@/hooks/useTranslation";
-import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
-import { useUIStore } from "@/lib/stores/ui-store";
-import { useWindowDimensions } from "react-native";
-import { ScrollView } from "react-native";
-import { useImagePicker } from "@/hooks/useImagePicker";
-import { useDocumentPicker } from "@/hooks/useDocumentPicker";
-import { cn } from "@/lib/utils";
-import { Image } from "react-native";
-import { useSearchSuggestions, useRecordSuggestionUsage, useWelcomeSuggestions } from "@/lib/hooks/use-suggestions";
-import { useConversations, prefetchConversation } from "@/lib/hooks/use-conversations";
-import { useQueryClient } from "@tanstack/react-query";
-import { relativeTimeAgo } from "@/lib/relative-time";
+} from '@oxy.so/bloom/dropdown-menu';
+import { Text } from '@/components/ui/text';
+import { Button, CloseButton, GlyphButton } from '@oxy.so/bloom/button';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { PromptInput, type Attachment } from '@/components/ui/prompt-input';
+import { ScrollButton } from '@/components/ui/scroll-button';
+import { ChatInterface } from '@/components/chat-interface';
+import { ChatHeader, type ConversationTab } from '@/components/chat-header';
+import type { Message } from '@clarity/shared-types';
+import { toast } from '@oxy.so/bloom/toast';
+import { ComposerPill } from '@oxy.so/bloom/composer-panel';
+import type { ComposerPanelAddMenuGroup } from '@oxy.so/bloom/composer-panel';
+import { AlertTriangle, Pencil } from 'lucide-react-native';
+import { CreditWarningBanner } from '@/components/credit-warning-banner';
+import { ModelSelector, getThinkingModelId, isThinkingModel } from '@/components/model-selector';
+import { useModelStore } from '@/lib/stores/model-store';
+import { useEntitlements } from '@/lib/hooks/use-billing';
+import { useRouter } from 'expo-router';
+import { useTranslation } from '@/hooks/useTranslation';
+import { ClarityWordmark } from '@/components/ui/clarity-wordmark';
+import { useUIStore } from '@/lib/stores/ui-store';
+import { useWindowDimensions } from 'react-native';
+import { ScrollView } from 'react-native';
+import { useImagePicker } from '@/hooks/useImagePicker';
+import { useDocumentPicker } from '@/hooks/useDocumentPicker';
+import { cn } from '@/lib/utils';
+import { Image } from 'react-native';
+import {
+  useSearchSuggestions,
+  useRecordSuggestionUsage,
+  useWelcomeSuggestions,
+} from '@/lib/hooks/use-suggestions';
+import { useConversations, prefetchConversation } from '@/lib/hooks/use-conversations';
+import { useQueryClient } from '@tanstack/react-query';
+import { relativeTimeAgo } from '@/lib/relative-time';
 
-type Mode = "search" | "deepResearch";
+type Mode = 'search' | 'deepResearch';
 
 type HomeCard = {
   key: string;
@@ -55,28 +59,31 @@ type HomeCard = {
   onHoverIn?: () => void;
 };
 
-const MODE_CONFIG: Record<Mode, {
-  label: string;
-  icon: React.ComponentType<{ size: number; color: string }>;
-  color: string;
-  onToast: string;
-  offToast: string;
-  featureId?: string;
-}> = {
+const MODE_CONFIG: Record<
+  Mode,
+  {
+    label: string;
+    icon: React.ComponentType<{ size: number; color: string }>;
+    color: string;
+    onToast: string;
+    offToast: string;
+    featureId?: string;
+  }
+> = {
   search: {
-    label: "modes.searchLabel",
+    label: 'modes.searchLabel',
     icon: Globe,
-    color: "#3b82f6",
-    onToast: "modes.searchOn",
-    offToast: "modes.searchOff",
+    color: '#3b82f6',
+    onToast: 'modes.searchOn',
+    offToast: 'modes.searchOff',
   },
   deepResearch: {
-    label: "modes.deepResearchLabel",
+    label: 'modes.deepResearchLabel',
     icon: Search,
-    color: "#10b981",
-    onToast: "modes.deepResearchOn",
-    offToast: "modes.deepResearchOff",
-    featureId: "deep-research",
+    color: '#10b981',
+    onToast: 'modes.deepResearchOn',
+    offToast: 'modes.deepResearchOff',
+    featureId: 'deep-research',
   },
 };
 
@@ -95,15 +102,25 @@ interface ChatPageContentProps {
   conversationLoading?: boolean;
 }
 
-const ModeChip = ({ icon: Icon, label, color, onDismiss }: {
+const ModeChip = ({
+  icon: Icon,
+  label,
+  color,
+  onDismiss,
+}: {
   icon: React.ComponentType<{ size: number; color: string }>;
   label: string;
   color: string;
   onDismiss: () => void;
 }) => (
-  <View className="h-8 rounded-full px-3 flex-row items-center gap-1.5" style={{ backgroundColor: `${color}20` }}>
+  <View
+    className="h-8 rounded-full px-3 flex-row items-center gap-1.5"
+    style={{ backgroundColor: `${color}20` }}
+  >
     <Icon size={14} color={color} />
-    <Text className="text-xs font-medium" style={{ color }}>{label}</Text>
+    <Text className="text-xs font-medium" style={{ color }}>
+      {label}
+    </Text>
     <Pressable onPress={onDismiss} className="active:opacity-70">
       <X size={12} color={color} />
     </Pressable>
@@ -111,9 +128,18 @@ const ModeChip = ({ icon: Icon, label, color, onDismiss }: {
 );
 
 export const ChatPageContent = ({
-  messages, scrollViewRef, isLoading, onSubmit, onSuggestionPress,
-  onEditMessage, onStop, onClear, selectedModel, onModelChange,
-  disabled = false, conversationLoading,
+  messages,
+  scrollViewRef,
+  isLoading,
+  onSubmit,
+  onSuggestionPress,
+  onEditMessage,
+  onStop,
+  onClear,
+  selectedModel,
+  onModelChange,
+  disabled = false,
+  conversationLoading,
 }: ChatPageContentProps) => {
   const attachments = useStore((state) => state.attachments);
   const addAttachment = useStore((state) => state.addAttachment);
@@ -130,10 +156,13 @@ export const ChatPageContent = ({
   // Same suggestions endpoint the old WelcomeMessage used — works with or
   // without a session (global pool when anonymous, personalized when not).
   const { data: welcomeSuggestions } = useWelcomeSuggestions();
-  const handleOpenConversation = useCallback((id: string) => {
-    prefetchConversation(qc, id);
-    router.push(`/(app)/c/${id}`);
-  }, [qc, router]);
+  const handleOpenConversation = useCallback(
+    (id: string) => {
+      prefetchConversation(qc, id);
+      router.push(`/(app)/c/${id}`);
+    },
+    [qc, router],
+  );
   const [activeModes, setActiveModes] = useState<Set<Mode>>(new Set());
   const thinkingMode = isThinkingModel(selectedModel);
   const baseModel = useModelStore((s) => s.baseModel);
@@ -149,10 +178,10 @@ export const ChatPageContent = ({
     }
   }, [selectedModel, setBaseModel]);
 
-  const [inputValue, setInputValue] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [inputValue, setInputValue] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<ConversationTab>("answer");
+  const [activeTab, setActiveTab] = useState<ConversationTab>('answer');
   const { colors } = useColorScheme();
   const insets = useSafeAreaInsets();
   const [bottomBarHeight, setBottomBarHeight] = useState(160);
@@ -165,7 +194,7 @@ export const ChatPageContent = ({
   useEffect(() => {
     const trimmed = inputValue.trim();
     if (!trimmed || trimmed.length < 2) {
-      setDebouncedQuery("");
+      setDebouncedQuery('');
       return;
     }
     const timer = setTimeout(() => setDebouncedQuery(trimmed), 200);
@@ -180,7 +209,12 @@ export const ChatPageContent = ({
     if (!trimmed || trimmed.length < 2 || !searchSuggestions?.length) return [];
 
     const lower = trimmed.toLowerCase();
-    const results: Array<{ text: string; matchStart: number; matchEnd: number; suggestionId?: string }> = [];
+    const results: Array<{
+      text: string;
+      matchStart: number;
+      matchEnd: number;
+      suggestionId?: string;
+    }> = [];
     const seen = new Set<string>();
 
     for (const s of searchSuggestions) {
@@ -205,28 +239,31 @@ export const ChatPageContent = ({
     scrollViewRef.current?.scrollToEnd({ animated: true });
   }, [scrollViewRef]);
 
-  const toggleMode = useCallback((mode: Mode) => {
-    const config = MODE_CONFIG[mode];
-    if (config.featureId && !entitlements?.features[config.featureId]) {
-      toast.info(t("subscribe.featureRequiresPlan", { feature: t(config.label) }));
-      router.push("/(biglayout)/subscribe");
-      return;
-    }
-    setActiveModes((prev) => {
-      const next = new Set(prev);
-      if (next.has(mode)) {
-        next.delete(mode);
-        toast.info(t(config.offToast));
-      } else {
-        next.add(mode);
-        toast.info(t(config.onToast));
+  const toggleMode = useCallback(
+    (mode: Mode) => {
+      const config = MODE_CONFIG[mode];
+      if (config.featureId && !entitlements?.features[config.featureId]) {
+        toast.info(t('subscribe.featureRequiresPlan', { feature: t(config.label) }));
+        router.push('/(biglayout)/subscribe');
+        return;
       }
-      if (mode === "deepResearch") {
-        useStore.getState().setDeepResearchMode(next.has("deepResearch"));
-      }
-      return next;
-    });
-  }, [entitlements, t, router]);
+      setActiveModes((prev) => {
+        const next = new Set(prev);
+        if (next.has(mode)) {
+          next.delete(mode);
+          toast.info(t(config.offToast));
+        } else {
+          next.add(mode);
+          toast.info(t(config.onToast));
+        }
+        if (mode === 'deepResearch') {
+          useStore.getState().setDeepResearchMode(next.has('deepResearch'));
+        }
+        return next;
+      });
+    },
+    [entitlements, t, router],
+  );
 
   const handleStartEdit = useCallback((messageId: string, content: string) => {
     setEditingMessageId(messageId);
@@ -235,7 +272,7 @@ export const ChatPageContent = ({
 
   const handleCancelEdit = useCallback(() => {
     setEditingMessageId(null);
-    setInputValue("");
+    setInputValue('');
   }, []);
 
   const handleSubmit = useCallback(() => {
@@ -243,18 +280,21 @@ export const ChatPageContent = ({
     if (editingMessageId) {
       onEditMessage(editingMessageId, inputValue);
       setEditingMessageId(null);
-      setInputValue("");
+      setInputValue('');
       return;
     }
     onSubmit(inputValue, attachments.length > 0 ? attachments : undefined);
-    setInputValue("");
+    setInputValue('');
     useStore.getState().clearAttachments();
   }, [inputValue, isLoading, disabled, editingMessageId, onEditMessage, onSubmit, attachments]);
 
-  const handleSuggestionPress = useCallback((message: string) => {
-    if (isLoading) return;
-    onSuggestionPress(message);
-  }, [isLoading, onSuggestionPress]);
+  const handleSuggestionPress = useCallback(
+    (message: string) => {
+      if (isLoading) return;
+      onSuggestionPress(message);
+    },
+    [isLoading, onSuggestionPress],
+  );
 
   const isShowingRecent = recentConversations.length > 0;
   const homeCards = useMemo<HomeCard[]>(() => {
@@ -262,7 +302,7 @@ export const ChatPageContent = ({
       return recentConversations.map((conv) => ({
         key: conv.id,
         eyebrow: relativeTimeAgo(conv.updatedAt),
-        title: conv.title || t("sidebar.newSearch"),
+        title: conv.title || t('sidebar.newSearch'),
         description: conv.lastMessage,
         onPress: () => handleOpenConversation(conv.id),
         onHoverIn: () => prefetchConversation(qc, conv.id),
@@ -280,48 +320,61 @@ export const ChatPageContent = ({
         },
       };
     });
-  }, [isShowingRecent, recentConversations, welcomeSuggestions, t, handleOpenConversation, qc, recordUsage, handleSuggestionPress]);
+  }, [
+    isShowingRecent,
+    recentConversations,
+    welcomeSuggestions,
+    t,
+    handleOpenConversation,
+    qc,
+    recordUsage,
+    handleSuggestionPress,
+  ]);
 
   const handleThinkingMode = () => {
     if (thinkingMode) {
       onModelChange(baseModel);
-      toast.info(t("modes.thinkingOff"));
+      toast.info(t('modes.thinkingOff'));
     } else {
       onModelChange(getThinkingModelId());
-      toast.info(t("modes.thinkingOn"));
+      toast.info(t('modes.thinkingOn'));
     }
   };
 
-  const handleImagePaste = useCallback((files: File[]) => {
-    files.forEach((file) => {
-      const id = `paste-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      addAttachment({
-        id, uri: "", type: "image",
-        name: file.name || "Pasted image",
-        size: file.size || 0,
-        mimeType: file.type || "image/png",
-        isLoading: true,
+  const handleImagePaste = useCallback(
+    (files: File[]) => {
+      files.forEach((file) => {
+        const id = `paste-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        addAttachment({
+          id,
+          uri: '',
+          type: 'image',
+          name: file.name || 'Pasted image',
+          size: file.size || 0,
+          mimeType: file.type || 'image/png',
+          isLoading: true,
+        });
+        const reader = new FileReader();
+        reader.onload = () => {
+          useStore
+            .getState()
+            .updateAttachment(id, { uri: reader.result as string, isLoading: false });
+        };
+        reader.readAsDataURL(file);
       });
-      const reader = new FileReader();
-      reader.onload = () => {
-        useStore.getState().updateAttachment(id, { uri: reader.result as string, isLoading: false });
-      };
-      reader.readAsDataURL(file);
-    });
-  }, [addAttachment]);
+    },
+    [addAttachment],
+  );
 
   const modeMenuItems = (
     <>
       <DropdownMenuCheckboxItem
-        checked={activeModes.has("deepResearch")}
-        onCheckedChange={() => toggleMode("deepResearch")}
+        checked={activeModes.has('deepResearch')}
+        onCheckedChange={() => toggleMode('deepResearch')}
       >
         Deep research
       </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem
-        checked={thinkingMode}
-        onCheckedChange={handleThinkingMode}
-      >
+      <DropdownMenuCheckboxItem checked={thinkingMode} onCheckedChange={handleThinkingMode}>
         Thinking mode
       </DropdownMenuCheckboxItem>
     </>
@@ -330,36 +383,43 @@ export const ChatPageContent = ({
   const actionsLeftContent = (
     <>
       <Button
-        appearance={activeModes.has("search") ? "solid" : "outline"} tone={activeModes.has("search") ? "accent" : "neutral"}
+        appearance={activeModes.has('search') ? 'solid' : 'outline'}
+        tone={activeModes.has('search') ? 'accent' : 'neutral'}
         size="sm"
         iconOnly
         icon={bloomIcon(Globe)}
-        pressed={activeModes.has("search")}
-        onPress={() => toggleMode("search")}
-        accessibilityLabel={t("actions.webSearch")}
+        pressed={activeModes.has('search')}
+        onPress={() => toggleMode('search')}
+        accessibilityLabel={t('actions.webSearch')}
       />
 
       {thinkingMode && (
-        <ModeChip icon={Brain} label={t("modes.thinkingLabel")} color="#a855f7" onDismiss={handleThinkingMode} />
+        <ModeChip
+          icon={Brain}
+          label={t('modes.thinkingLabel')}
+          color="#a855f7"
+          onDismiss={handleThinkingMode}
+        />
       )}
 
-      {activeModes.has("deepResearch") && (
+      {activeModes.has('deepResearch') && (
         <ModeChip
           icon={MODE_CONFIG.deepResearch.icon}
           label={t(MODE_CONFIG.deepResearch.label)}
           color={MODE_CONFIG.deepResearch.color}
-          onDismiss={() => toggleMode("deepResearch")}
+          onDismiss={() => toggleMode('deepResearch')}
         />
       )}
 
       <DropdownMenu>
-        <DropdownMenuTrigger asChild label={t("actions.searchModes")}>
+        <DropdownMenuTrigger asChild label={t('actions.searchModes')}>
           <Button
-            appearance="outline" tone="neutral"
+            appearance="outline"
+            tone="neutral"
             size="sm"
             iconOnly
             icon={bloomIcon(Search)}
-            accessibilityLabel={t("actions.searchModes")}
+            accessibilityLabel={t('actions.searchModes')}
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start">
@@ -380,7 +440,7 @@ export const ChatPageContent = ({
         addAttachment({
           id: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           uri: asset.uri,
-          type: "image",
+          type: 'image',
           name: asset.name,
           size: asset.size,
           mimeType: asset.mimeType,
@@ -396,7 +456,7 @@ export const ChatPageContent = ({
         addAttachment({
           id: `doc-${Date.now()}-${Math.random().toString(36).slice(2)}`,
           uri: doc.uri,
-          type: "document",
+          type: 'document',
           name: doc.name,
           size: doc.size,
           mimeType: doc.mimeType,
@@ -405,29 +465,43 @@ export const ChatPageContent = ({
     }
   }, [addAttachment, pickDocument]);
 
-  const composerAddMenu: ComposerPanelAddMenuGroup[] = useMemo(() => [
-    {
-      label: "Add",
-      rows: [
-        { id: "upload-photos", label: "Upload files or images" },
-        { id: "upload-document", label: "Upload document" },
-      ],
-    },
-    {
-      label: "Modes",
-      rows: [
-        { id: "deep-research", label: t(MODE_CONFIG.deepResearch.label), description: activeModes.has("deepResearch") ? "On" : undefined },
-        { id: "thinking", label: t("modes.thinkingLabel"), description: thinkingMode ? "On" : undefined },
-      ],
-    },
-  ], [t, activeModes, thinkingMode]);
+  const composerAddMenu: ComposerPanelAddMenuGroup[] = useMemo(
+    () => [
+      {
+        label: 'Add',
+        rows: [
+          { id: 'upload-photos', label: 'Upload files or images' },
+          { id: 'upload-document', label: 'Upload document' },
+        ],
+      },
+      {
+        label: 'Modes',
+        rows: [
+          {
+            id: 'deep-research',
+            label: t(MODE_CONFIG.deepResearch.label),
+            description: activeModes.has('deepResearch') ? 'On' : undefined,
+          },
+          {
+            id: 'thinking',
+            label: t('modes.thinkingLabel'),
+            description: thinkingMode ? 'On' : undefined,
+          },
+        ],
+      },
+    ],
+    [t, activeModes, thinkingMode],
+  );
 
-  const handleAddMenuSelect = useCallback((rowId: string) => {
-    if (rowId === "upload-photos") handleAddPhotos();
-    else if (rowId === "upload-document") handleAddDocument();
-    else if (rowId === "deep-research") toggleMode("deepResearch");
-    else if (rowId === "thinking") handleThinkingMode();
-  }, [handleAddPhotos, handleAddDocument, toggleMode, handleThinkingMode]);
+  const handleAddMenuSelect = useCallback(
+    (rowId: string) => {
+      if (rowId === 'upload-photos') handleAddPhotos();
+      else if (rowId === 'upload-document') handleAddDocument();
+      else if (rowId === 'deep-research') toggleMode('deepResearch');
+      else if (rowId === 'thinking') handleThinkingMode();
+    },
+    [handleAddPhotos, handleAddDocument, toggleMode, handleThinkingMode],
+  );
 
   // ---- Conversation view: tab header + messages + sticky bottom follow-up input ----
   if (showConversationView) {
@@ -460,12 +534,12 @@ export const ChatPageContent = ({
           {/* Sticky bottom follow-up input */}
           <KeyboardStickyView
             offset={{ closed: 0, opened: 0 }}
-            style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 10 }}
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10 }}
             onLayout={(e) => setBottomBarHeight(e.nativeEvent.layout.height)}
           >
             {/* Gradient fade from content to input */}
             <LinearGradient
-              colors={["transparent", colors.background]}
+              colors={['transparent', colors.background]}
               locations={[0, 0.5]}
               style={{ paddingTop: 32, paddingBottom: insets.bottom }}
             >
@@ -475,21 +549,26 @@ export const ChatPageContent = ({
                 <View className="mx-auto w-full max-w-[720px] px-4 pb-1">
                   <View className="flex-row items-center gap-2 rounded-lg bg-destructive/10 px-3 py-2">
                     <AlertTriangle size={14} className="text-destructive" />
-                    <Text className="text-xs text-destructive flex-1">{t("usageLimit.limitReachedBanner")}</Text>
+                    <Text className="text-xs text-destructive flex-1">
+                      {t('usageLimit.limitReachedBanner')}
+                    </Text>
                   </View>
                 </View>
               )}
 
               <View className="mx-auto w-full max-w-[720px] px-4 md:px-6 py-3">
                 <View className="relative">
-                  <View style={{ position: "absolute", top: -48, right: 0, zIndex: -1 }}>
+                  <View style={{ position: 'absolute', top: -48, right: 0, zIndex: -1 }}>
                     <ScrollButton isAtBottom={isAtBottom} onScrollToBottom={handleScrollToBottom} />
                   </View>
                   {editingMessageId && (
                     <View className="flex-row items-center gap-2 mb-2 px-1">
                       <Pencil size={14} className="text-primary" />
                       <Text className="text-xs text-muted-foreground flex-1">Editing message</Text>
-                      <CloseButton onPress={handleCancelEdit} accessibilityLabel={t("actions.cancelEdit")} />
+                      <CloseButton
+                        onPress={handleCancelEdit}
+                        accessibilityLabel={t('actions.cancelEdit')}
+                      />
                     </View>
                   )}
                   <PromptInput
@@ -505,7 +584,9 @@ export const ChatPageContent = ({
                     onImagePaste={handleImagePaste}
                     autocomplete
                     leadingAddMenu
-                    placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask a follow-up..."}
+                    placeholder={
+                      disabled ? t('usageLimit.inputDisabledPlaceholder') : 'Ask a follow-up...'
+                    }
                     onStop={onStop}
                     actionsLeft={actionsLeftContent}
                   />
@@ -521,165 +602,194 @@ export const ChatPageContent = ({
   // ---- Landing: centered search page ----
   return (
     <View className="isolate relative flex h-auto max-h-screen min-w-0 min-h-0 grow flex-col overflow-hidden bg-background">
-          <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
-            <View className="mx-auto w-full max-w-screen-md px-4 md:px-6 h-full">
-                <View className="relative flex h-full flex-col">
+      <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
+        <View className="mx-auto w-full max-w-screen-md px-4 md:px-6 h-full">
+          <View className="relative flex h-full flex-col">
+            {/* Mobile header (hidden on desktop) */}
+            {!isLargeScreen && (
+              <View className="py-4 pr-4 pl-1 h-14 flex-row items-center justify-between border-b border-border/50">
+                <View className="gap-x-1 flex-row items-center">
+                  <GlyphButton
+                    size={36}
+                    glyphSize={20}
+                    icon={bloomIcon(Menu)}
+                    onPress={() => setSidebarOpen(true)}
+                    accessibilityLabel={t('actions.openMenu')}
+                  />
+                </View>
+              </View>
+            )}
 
-                  {/* Mobile header (hidden on desktop) */}
-                  {!isLargeScreen && (
-                    <View className="py-4 pr-4 pl-1 h-14 flex-row items-center justify-between border-b border-border/50">
-                      <View className="gap-x-1 flex-row items-center">
-                        <GlyphButton
-                          size={36}
-                          glyphSize={20}
-                          icon={bloomIcon(Menu)}
-                          onPress={() => setSidebarOpen(true)}
-                          accessibilityLabel={t("actions.openMenu")}
-                        />
-                      </View>
-                    </View>
-                  )}
+            {/* Search section (vertically centered) */}
+            <View className="w-full grow flex-col items-center justify-center md:justify-start md:mt-0 md:flex z-10">
+              {/* Spacer pushes content toward center */}
+              <View
+                style={{
+                  height: isLargeScreen ? dimensions.height * 0.3 : dimensions.height * 0.12,
+                }}
+              />
 
-                  {/* Search section (vertically centered) */}
-                  <View className="w-full grow flex-col items-center justify-center md:justify-start md:mt-0 md:flex z-10">
-                    {/* Spacer pushes content toward center */}
-                    <View style={{ height: isLargeScreen ? dimensions.height * 0.3 : dimensions.height * 0.12 }} />
+              {/* Search wrapper */}
+              <View className="relative flex w-full flex-col justify-center md:h-auto">
+                {/* Logo area */}
+                <View className="mb-6 flex w-full items-center justify-center pb-3">
+                  <View className="h-auto">
+                    <ClarityWordmark width={Math.min(dimensions.width * 0.5, 320)} />
+                  </View>
+                </View>
 
-                    {/* Search wrapper */}
-                    <View className="relative flex w-full flex-col justify-center md:h-auto">
+                {/* Search input — Bloom's real composer, used directly */}
+                <View className="w-full">
+                  <ComposerPill
+                    inputRef={landingInputRef}
+                    value={inputValue}
+                    onValueChange={setInputValue}
+                    onSubmit={handleSubmit}
+                    disabled={disabled}
+                    placeholder={
+                      disabled ? t('usageLimit.inputDisabledPlaceholder') : 'Ask anything...'
+                    }
+                    addMenu={composerAddMenu}
+                    onAddMenuSelect={handleAddMenuSelect}
+                  />
 
-                      {/* Logo area */}
-                      <View className="mb-6 flex w-full items-center justify-center pb-3">
-                        <View className="h-auto">
-                          <ClarityWordmark width={Math.min(dimensions.width * 0.5, 320)} />
-                        </View>
-                      </View>
-
-                      {/* Search input — Bloom's real composer, used directly */}
-                      <View className="w-full">
-                        <ComposerPill
-                          inputRef={landingInputRef}
-                          value={inputValue}
-                          onValueChange={setInputValue}
-                          onSubmit={handleSubmit}
-                          disabled={disabled}
-                          placeholder={disabled ? t("usageLimit.inputDisabledPlaceholder") : "Ask anything..."}
-                          addMenu={composerAddMenu}
-                          onAddMenuSelect={handleAddMenuSelect}
-                        />
-
-                        {/* Active mode tags + model selector — Bloom's composer has no slot
+                  {/* Active mode tags + model selector — Bloom's composer has no slot
                             for these; the model menu also has no room for the plan-lock
                             badge Clarity's own ModelSelector shows, so it stays separate. */}
-                        <View className="mt-2 flex-row items-center justify-between px-1">
-                          <View className="flex-row items-center gap-1.5 flex-wrap">
-                            <Button
-                              appearance={activeModes.has("search") ? "subtle" : "outline"} tone={activeModes.has("search") ? "accent" : "neutral"}
-                              size="sm"
-                              leadingIcon={bloomIcon(Globe)}
-                              pressed={activeModes.has("search")}
-                              onPress={() => toggleMode("search")}
-                            >
-                              Focus
-                            </Button>
-                            {activeModes.has("deepResearch") && (
-                              <ModeChip
-                                icon={MODE_CONFIG.deepResearch.icon}
-                                label={t(MODE_CONFIG.deepResearch.label)}
-                                color={MODE_CONFIG.deepResearch.color}
-                                onDismiss={() => toggleMode("deepResearch")}
-                              />
-                            )}
-                            {thinkingMode && (
-                              <ModeChip icon={Brain} label={t("modes.thinkingLabel")} color="#a855f7" onDismiss={handleThinkingMode} />
-                            )}
-                          </View>
-                          <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
-                        </View>
-
-                        {/* Autocomplete suggestions */}
-                        {completions.length > 0 && (
-                          <View className="mt-2 bg-card rounded-2xl border border-border/60 shadow-sm px-2 py-1">
-                            {completions.map((item) => (
-                              <Pressable
-                                key={item.suggestionId || item.text}
-                                onPress={() => {
-                                  if (item.suggestionId) recordUsage(item.suggestionId);
-                                  setInputValue(item.text);
-                                  onSubmit(item.text, attachments.length > 0 ? attachments : undefined);
-                                  useStore.getState().clearAttachments();
-                                }}
-                                className="px-2 py-2 active:bg-muted rounded-lg flex-row items-center"
-                              >
-                                <Search size={14} className="text-muted-foreground mr-3 shrink-0" />
-                                <Text className="text-sm text-foreground flex-1" numberOfLines={1}>
-                                  <Text className="text-foreground">{item.text.slice(0, item.matchStart)}</Text>
-                                  <Text className="text-primary font-medium">{item.text.slice(item.matchStart, item.matchEnd)}</Text>
-                                  <Text className="text-foreground">{item.text.slice(item.matchEnd)}</Text>
-                                </Text>
-                                <ArrowUp size={14} className="text-muted-foreground ml-2 shrink-0 rotate-45" />
-                              </Pressable>
-                            ))}
-                          </View>
-                        )}
-                      </View>
+                  <View className="mt-2 flex-row items-center justify-between px-1">
+                    <View className="flex-row items-center gap-1.5 flex-wrap">
+                      <Button
+                        appearance={activeModes.has('search') ? 'subtle' : 'outline'}
+                        tone={activeModes.has('search') ? 'accent' : 'neutral'}
+                        size="sm"
+                        leadingIcon={bloomIcon(Globe)}
+                        pressed={activeModes.has('search')}
+                        onPress={() => toggleMode('search')}
+                      >
+                        Focus
+                      </Button>
+                      {activeModes.has('deepResearch') && (
+                        <ModeChip
+                          icon={MODE_CONFIG.deepResearch.icon}
+                          label={t(MODE_CONFIG.deepResearch.label)}
+                          color={MODE_CONFIG.deepResearch.color}
+                          onDismiss={() => toggleMode('deepResearch')}
+                        />
+                      )}
+                      {thinkingMode && (
+                        <ModeChip
+                          icon={Brain}
+                          label={t('modes.thinkingLabel')}
+                          color="#a855f7"
+                          onDismiss={handleThinkingMode}
+                        />
+                      )}
                     </View>
+                    <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
+                  </View>
 
-                    {/* Recent / suggestions — one consistent card section either way, so
+                  {/* Autocomplete suggestions */}
+                  {completions.length > 0 && (
+                    <View className="mt-2 bg-card rounded-2xl border border-border/60 shadow-sm px-2 py-1">
+                      {completions.map((item) => (
+                        <Pressable
+                          key={item.suggestionId || item.text}
+                          onPress={() => {
+                            if (item.suggestionId) recordUsage(item.suggestionId);
+                            setInputValue(item.text);
+                            onSubmit(item.text, attachments.length > 0 ? attachments : undefined);
+                            useStore.getState().clearAttachments();
+                          }}
+                          className="px-2 py-2 active:bg-muted rounded-lg flex-row items-center"
+                        >
+                          <Search size={14} className="text-muted-foreground mr-3 shrink-0" />
+                          <Text className="text-sm text-foreground flex-1" numberOfLines={1}>
+                            <Text className="text-foreground">
+                              {item.text.slice(0, item.matchStart)}
+                            </Text>
+                            <Text className="text-primary font-medium">
+                              {item.text.slice(item.matchStart, item.matchEnd)}
+                            </Text>
+                            <Text className="text-foreground">
+                              {item.text.slice(item.matchEnd)}
+                            </Text>
+                          </Text>
+                          <ArrowUp
+                            size={14}
+                            className="text-muted-foreground ml-2 shrink-0 rotate-45"
+                          />
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Recent / suggestions — one consistent card section either way, so
                         the redesigned page looks the same with or without a session.
                         Real conversation history when there is any; otherwise real
                         suggestion prompts from the same endpoint the old welcome screen
                         used (works anonymously too). Nothing here is fabricated. */}
-                    {homeCards.length > 0 && (
-                      <View className="mt-10 w-full max-w-3xl">
-                        <View className="mb-3 flex-row items-center justify-between">
-                          <Text className="text-base font-medium text-foreground">
-                            {isShowingRecent ? "Recent" : t("welcome.suggestionsTitle")}
-                          </Text>
-                          {isShowingRecent && (
-                            <Pressable onPress={() => router.push("/(app)/history")}>
-                              <Text className="text-xs font-medium text-muted-foreground">{t("sidebar.seeAll")}</Text>
-                            </Pressable>
-                          )}
-                        </View>
-                        <View className="flex-row flex-wrap gap-2 justify-center md:justify-start">
-                          {homeCards.map((card) => (
-                            <Pressable
-                              key={card.key}
-                              onPress={card.onPress}
-                              onHoverIn={card.onHoverIn}
-                              className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
-                            >
-                              {card.eyebrow && (
-                                <View className="flex-row items-center gap-2 mb-1">
-                                  <Text className="flex-1 text-xs font-medium text-muted-foreground" numberOfLines={1}>
-                                    {card.eyebrow}
-                                  </Text>
-                                </View>
-                              )}
-                              <Text className="text-sm font-semibold text-foreground mb-1" numberOfLines={1}>
-                                {card.title}
-                              </Text>
-                              {card.description && (
-                                <Text className="text-xs leading-4 text-muted-foreground" numberOfLines={3}>
-                                  {card.description}
-                                </Text>
-                              )}
-                            </Pressable>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-
-                    {/* Powered by */}
-                    <Text className="mt-8 text-center text-xs text-muted-foreground/60">
-                      Clarity is powered by Alia AI
+              {homeCards.length > 0 && (
+                <View className="mt-10 w-full max-w-3xl">
+                  <View className="mb-3 flex-row items-center justify-between">
+                    <Text className="text-base font-medium text-foreground">
+                      {isShowingRecent ? 'Recent' : t('welcome.suggestionsTitle')}
                     </Text>
-
+                    {isShowingRecent && (
+                      <Pressable onPress={() => router.push('/(app)/history')}>
+                        <Text className="text-xs font-medium text-muted-foreground">
+                          {t('sidebar.seeAll')}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                  <View className="flex-row flex-wrap gap-2 justify-center md:justify-start">
+                    {homeCards.map((card) => (
+                      <Pressable
+                        key={card.key}
+                        onPress={card.onPress}
+                        onHoverIn={card.onHoverIn}
+                        className="w-full sm:w-[260px] rounded-xl border border-border/60 bg-card shadow-sm px-3 pt-2 pb-3 active:opacity-80"
+                      >
+                        {card.eyebrow && (
+                          <View className="flex-row items-center gap-2 mb-1">
+                            <Text
+                              className="flex-1 text-xs font-medium text-muted-foreground"
+                              numberOfLines={1}
+                            >
+                              {card.eyebrow}
+                            </Text>
+                          </View>
+                        )}
+                        <Text
+                          className="text-sm font-semibold text-foreground mb-1"
+                          numberOfLines={1}
+                        >
+                          {card.title}
+                        </Text>
+                        {card.description && (
+                          <Text
+                            className="text-xs leading-4 text-muted-foreground"
+                            numberOfLines={3}
+                          >
+                            {card.description}
+                          </Text>
+                        )}
+                      </Pressable>
+                    ))}
                   </View>
                 </View>
+              )}
+
+              {/* Powered by */}
+              <Text className="mt-8 text-center text-xs text-muted-foreground/60">
+                Clarity is powered by Alia AI
+              </Text>
             </View>
-          </ScrollView>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 };

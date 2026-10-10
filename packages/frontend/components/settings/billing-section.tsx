@@ -1,15 +1,32 @@
-import { View, Pressable, TextInput } from "react-native";
-import * as Linking from "expo-linking";
-import { Text } from "@/components/ui/text";
-import { Button } from "@oxy.so/bloom/button";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { useRouter } from "expo-router";
-import { CreditCard, ExternalLink, Sparkle, Crown, Calendar, ShoppingCart } from "lucide-react-native";
-import { useCredits } from "@/lib/hooks/use-credits";
-import { useSubscription, useSubscriptionPolling, useCancelSubscription, useCreatePortalSession, useTransactions, useCreditPackages, useCreateCheckout, useCreateCustomCheckout, useCreditPrice } from "@/lib/hooks/use-billing";
-import { useEffect, useState, useRef } from "react";
-import { toast } from "@oxy.so/bloom/toast";
-import { useTranslation } from "@/hooks/useTranslation";
+import { View, Pressable, TextInput } from 'react-native';
+import * as Linking from 'expo-linking';
+import { Text } from '@/components/ui/text';
+import { Button } from '@oxy.so/bloom/button';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { useRouter } from 'expo-router';
+import {
+  CreditCard,
+  ExternalLink,
+  Sparkle,
+  Crown,
+  Calendar,
+  ShoppingCart,
+} from 'lucide-react-native';
+import { useCredits } from '@/lib/hooks/use-credits';
+import {
+  useSubscription,
+  useSubscriptionPolling,
+  useCancelSubscription,
+  useCreatePortalSession,
+  useTransactions,
+  useCreditPackages,
+  useCreateCheckout,
+  useCreateCustomCheckout,
+  useCreditPrice,
+} from '@/lib/hooks/use-billing';
+import { useEffect, useState, useRef } from 'react';
+import { toast } from '@oxy.so/bloom/toast';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface BillingSectionProps {
   success?: boolean;
@@ -39,13 +56,16 @@ export function BillingSection({ success }: BillingSectionProps) {
   useEffect(() => {
     if (!success || toastShown.current) return;
 
-    if (polledSubscription && (polledSubscription.status === 'active' || polledSubscription.status === 'trialing')) {
+    if (
+      polledSubscription &&
+      (polledSubscription.status === 'active' || polledSubscription.status === 'trialing')
+    ) {
       toastShown.current = true;
       refetch();
       refetchSubscription();
       refetchTransactions();
       toast.success(t('billing.paymentSuccess'));
-      setTimeout(() => router.replace("/(app)/settings/usage"), 100);
+      setTimeout(() => router.replace('/(app)/settings/usage'), 100);
     }
   }, [success, polledSubscription]);
 
@@ -60,7 +80,7 @@ export function BillingSection({ success }: BillingSectionProps) {
         refetchSubscription();
         refetchTransactions();
         toast.success(t('billing.paymentSuccess'));
-        setTimeout(() => router.replace("/(app)/settings/usage"), 100);
+        setTimeout(() => router.replace('/(app)/settings/usage'), 100);
       }
     }, 32000);
     return () => clearTimeout(timeout);
@@ -78,7 +98,7 @@ export function BillingSection({ success }: BillingSectionProps) {
 
   const handleManagePayment = async () => {
     try {
-      const url = await createPortalMutation.mutateAsync(Linking.createURL("/settings/usage"));
+      const url = await createPortalMutation.mutateAsync(Linking.createURL('/settings/usage'));
       if (url) {
         await Linking.openURL(url);
       }
@@ -94,8 +114,8 @@ export function BillingSection({ success }: BillingSectionProps) {
     try {
       const { url } = await createCheckoutMutation.mutateAsync({
         packageId,
-        successUrl: Linking.createURL("/settings/usage?success=true"),
-        cancelUrl: Linking.createURL("/settings/usage"),
+        successUrl: Linking.createURL('/settings/usage?success=true'),
+        cancelUrl: Linking.createURL('/settings/usage'),
       });
       if (url) {
         await Linking.openURL(url);
@@ -120,8 +140,8 @@ export function BillingSection({ success }: BillingSectionProps) {
     try {
       const { url } = await createCustomCheckoutMutation.mutateAsync({
         credits: parsedCustomCredits,
-        successUrl: Linking.createURL("/settings/usage?success=true"),
-        cancelUrl: Linking.createURL("/settings/usage"),
+        successUrl: Linking.createURL('/settings/usage?success=true'),
+        cancelUrl: Linking.createURL('/settings/usage'),
       });
       if (url) {
         await Linking.openURL(url);
@@ -157,7 +177,7 @@ export function BillingSection({ success }: BillingSectionProps) {
           <Text className="text-sm font-semibold text-foreground">{t('credits.credits')}</Text>
           {!isSubscribed && (
             <Button
-              onPress={() => router.push("/(biglayout)/subscribe")}
+              onPress={() => router.push('/(biglayout)/subscribe')}
               size="sm"
               className="ml-auto"
             >
@@ -168,14 +188,20 @@ export function BillingSection({ success }: BillingSectionProps) {
         <View className="flex-row items-baseline justify-between">
           <Text className="text-sm text-muted-foreground">{t('credits.freeCredits')}</Text>
           <View className="flex-row items-baseline gap-1">
-            <Text className="text-xl font-bold text-foreground">{freeCredits.toLocaleString()}</Text>
-            <Text className="text-xs text-muted-foreground">/ {creditsInfo.freeLimit.toLocaleString()}</Text>
+            <Text className="text-xl font-bold text-foreground">
+              {freeCredits.toLocaleString()}
+            </Text>
+            <Text className="text-xs text-muted-foreground">
+              / {creditsInfo.freeLimit.toLocaleString()}
+            </Text>
           </View>
         </View>
         {creditsInfo.paidCredits > 0 && (
           <View className="flex-row items-baseline justify-between">
             <Text className="text-sm text-muted-foreground">{t('credits.paidCredits')}</Text>
-            <Text className="text-base font-semibold text-foreground">{creditsInfo.paidCredits.toLocaleString()}</Text>
+            <Text className="text-base font-semibold text-foreground">
+              {creditsInfo.paidCredits.toLocaleString()}
+            </Text>
           </View>
         )}
         {creditsInfo.dailyRefresh > 0 && (
@@ -184,7 +210,9 @@ export function BillingSection({ success }: BillingSectionProps) {
               <Calendar size={13} className="text-muted-foreground" />
               <Text className="text-xs text-muted-foreground">{t('credits.dailyRefresh')}</Text>
             </View>
-            <Text className="text-sm font-semibold text-foreground">+{creditsInfo.dailyRefresh}</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              +{creditsInfo.dailyRefresh}
+            </Text>
           </View>
         )}
       </View>
@@ -194,35 +222,46 @@ export function BillingSection({ success }: BillingSectionProps) {
         <View className="border border-border rounded-xl p-3 gap-3">
           <View className="flex-row items-center gap-2">
             <Crown size={16} className="text-foreground" />
-            <Text className="text-sm font-semibold text-foreground">{t('billing.activeSubscription')}</Text>
+            <Text className="text-sm font-semibold text-foreground">
+              {t('billing.activeSubscription')}
+            </Text>
           </View>
           <View className="flex-row items-baseline justify-between">
             <Text className="text-sm text-muted-foreground">{subscription.plan.name}</Text>
             <Text className="text-base font-semibold text-primary">
-              ${(subscription.plan.price / 100).toFixed(2)}{t('credits.perMonth')}
+              ${(subscription.plan.price / 100).toFixed(2)}
+              {t('credits.perMonth')}
             </Text>
           </View>
           <View className="flex-row items-baseline justify-between">
             <Text className="text-xs text-muted-foreground">
-              {t('billing.creditsPerMonth', { count: subscription.plan.creditsPerMonth.toLocaleString() })}
+              {t('billing.creditsPerMonth', {
+                count: subscription.plan.creditsPerMonth.toLocaleString(),
+              })}
             </Text>
             <Text className="text-xs text-muted-foreground">
               {subscription.cancelAtPeriodEnd
-                ? t('billing.cancelsOn', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString() })
-                : t('billing.renewsOn', { date: new Date(subscription.currentPeriodEnd).toLocaleDateString() })}
+                ? t('billing.cancelsOn', {
+                    date: new Date(subscription.currentPeriodEnd).toLocaleDateString(),
+                  })
+                : t('billing.renewsOn', {
+                    date: new Date(subscription.currentPeriodEnd).toLocaleDateString(),
+                  })}
             </Text>
           </View>
           <View className="flex-row gap-2 pt-1 border-t border-border">
             <Button
-              appearance="outline" tone="neutral"
-              onPress={() => router.push("/(biglayout)/subscribe")}
+              appearance="outline"
+              tone="neutral"
+              onPress={() => router.push('/(biglayout)/subscribe')}
               size="sm"
             >
               {t('billing.changePlan')}
             </Button>
             {!subscription.cancelAtPeriodEnd && (
               <Button
-                appearance="outline" tone="neutral"
+                appearance="outline"
+                tone="neutral"
                 onPress={handleCancelSubscription}
                 disabled={cancelSubscriptionMutation.isPending}
                 loading={cancelSubscriptionMutation.isPending}
@@ -240,7 +279,9 @@ export function BillingSection({ success }: BillingSectionProps) {
         <View className="border border-border rounded-xl p-3 gap-2">
           <View className="flex-row items-center gap-2 mb-1">
             <ShoppingCart size={14} className="text-muted-foreground" />
-            <Text className="text-xs font-medium text-muted-foreground">{t('credits.buyCredits')}</Text>
+            <Text className="text-xs font-medium text-muted-foreground">
+              {t('credits.buyCredits')}
+            </Text>
           </View>
           {packages.map((pkg) => (
             <Pressable
@@ -252,7 +293,9 @@ export function BillingSection({ success }: BillingSectionProps) {
               <View>
                 <Text className="text-sm font-medium text-foreground">{pkg.name}</Text>
                 <Text className="text-[10px] text-muted-foreground">
-                  {t('credits.perThousand', { price: `$${((pkg.price / pkg.credits) * 1000 / 100).toFixed(2)}` })}
+                  {t('credits.perThousand', {
+                    price: `$${(((pkg.price / pkg.credits) * 1000) / 100).toFixed(2)}`,
+                  })}
                 </Text>
               </View>
               <Text className="text-sm font-semibold text-foreground">
@@ -272,7 +315,8 @@ export function BillingSection({ success }: BillingSectionProps) {
               placeholderTextColor="#999"
             />
             <Button
-              appearance="outline" tone="neutral"
+              appearance="outline"
+              tone="neutral"
               onPress={handleCustomPurchase}
               disabled={!canBuyCustom || createCustomCheckoutMutation.isPending}
               size="sm"
@@ -287,9 +331,12 @@ export function BillingSection({ success }: BillingSectionProps) {
       {/* Payment Methods */}
       <View className="border border-border rounded-xl p-3">
         <View className="flex-row items-center justify-between">
-          <Text className="text-sm font-semibold text-foreground">{t('billing.paymentMethods')}</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {t('billing.paymentMethods')}
+          </Text>
           <Button
-            appearance="outline" tone="neutral"
+            appearance="outline"
+            tone="neutral"
             onPress={handleManagePayment}
             disabled={createPortalMutation.isPending}
             loading={createPortalMutation.isPending}
@@ -305,7 +352,9 @@ export function BillingSection({ success }: BillingSectionProps) {
       {/* Recent Transactions */}
       {transactionsData && transactionsData.transactions.length > 0 && (
         <View className="border border-border rounded-xl p-3 gap-2">
-          <Text className="text-sm font-semibold text-foreground">{t('billing.recentTransactions')}</Text>
+          <Text className="text-sm font-semibold text-foreground">
+            {t('billing.recentTransactions')}
+          </Text>
           {transactionsData.transactions.map((transaction, index) => (
             <View
               key={transaction._id}

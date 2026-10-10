@@ -45,7 +45,12 @@ const router = Router();
 router.use(anonymousRateLimit('anon:market:'));
 
 /** A CoinGecko id, symbol or name, or a FairCoin alias. Never a URL or a path. */
-const assetSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9 .-]*$/i);
+const assetSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[a-z0-9][a-z0-9 .-]*$/i);
 
 /**
  * One page of cards, and no more. Each asset costs several upstream calls on a
@@ -53,25 +58,51 @@ const assetSchema = z.string().trim().min(1).max(64).regex(/^[a-z0-9][a-z0-9 .-]
  */
 const MAX_ASSETS = 8;
 
-const quotesQuerySchema = z.object({
-  assets: z.string().trim().min(1).transform((value) => value.split(',').map((asset) => asset.trim()).filter(Boolean)),
-  currency: z.string().trim().regex(/^[a-z]{2,10}$/i).default('usd'),
-}).refine((query) => query.assets.length > 0 && query.assets.length <= MAX_ASSETS, {
-  message: `assets must name between 1 and ${MAX_ASSETS} assets`,
-  path: ['assets'],
-}).refine((query) => query.assets.every((asset) => assetSchema.safeParse(asset).success), {
-  message: 'each asset must be a cryptocurrency id, symbol or name',
-  path: ['assets'],
-});
+const quotesQuerySchema = z
+  .object({
+    assets: z
+      .string()
+      .trim()
+      .min(1)
+      .transform((value) =>
+        value
+          .split(',')
+          .map((asset) => asset.trim())
+          .filter(Boolean),
+      ),
+    currency: z
+      .string()
+      .trim()
+      .regex(/^[a-z]{2,10}$/i)
+      .default('usd'),
+  })
+  .refine((query) => query.assets.length > 0 && query.assets.length <= MAX_ASSETS, {
+    message: `assets must name between 1 and ${MAX_ASSETS} assets`,
+    path: ['assets'],
+  })
+  .refine((query) => query.assets.every((asset) => assetSchema.safeParse(asset).success), {
+    message: 'each asset must be a cryptocurrency id, symbol or name',
+    path: ['assets'],
+  });
 
 router.get('/capability', (_req, res) => res.json(CLARITY_MARKET_CAPABILITY));
 
 router.get('/quotes', async (req, res) => {
   const query = quotesQuerySchema.safeParse(req.query);
   if (!query.success) {
-    sendError(res, 400, 'invalid_request', 'assets must be a comma-separated list of cryptocurrency ids, symbols or names', req, {
-      issues: query.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
-    });
+    sendError(
+      res,
+      400,
+      'invalid_request',
+      'assets must be a comma-separated list of cryptocurrency ids, symbols or names',
+      req,
+      {
+        issues: query.error.issues.map((issue) => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      },
+    );
     return;
   }
   const { assets, currency } = query.data;
@@ -110,7 +141,11 @@ async function quoteResult(requested: string, currency: string): Promise<MarketQ
     };
   } catch (error) {
     if (error instanceof MarketDataError) {
-      return { requested, status: 'unavailable', error: { code: error.code, message: error.message } };
+      return {
+        requested,
+        status: 'unavailable',
+        error: { code: error.code, message: error.message },
+      };
     }
     log.general.error({ err: error, asset: requested }, 'Market quote failed');
     return {

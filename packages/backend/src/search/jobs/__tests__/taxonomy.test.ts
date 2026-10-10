@@ -58,7 +58,9 @@ describe('job taxonomy', () => {
   });
 
   it('folds titles and employers without collapsing distinct employers', () => {
-    expect(normalizeJobTitle('Senior  React-Native Engineer (Remote)')).toBe('senior react native engineer remote');
+    expect(normalizeJobTitle('Senior  React-Native Engineer (Remote)')).toBe(
+      'senior react native engineer remote',
+    );
     expect(employerKey('Acme', 'https://www.acme.example/careers')).toBe('domain:acme.example');
     expect(employerKey('Acme Corp', undefined)).toBe('name:acme corp');
     expect(employerKey('Acme Corp', undefined)).not.toBe(employerKey('Acme Studio', undefined));
@@ -77,7 +79,9 @@ describe('job taxonomy', () => {
     // RemoteOK's /api returns this exact codepoint sequence for "we're"
     // (2026-09-16): the apostrophe's UTF-8 bytes E2 80 99 came back as three
     // separate Latin-1 codepoints instead of one right single quote.
-    expect(repairMojibake('At ExtraHop, weâre on a mission')).toBe("At ExtraHop, we’re on a mission");
+    expect(repairMojibake('At ExtraHop, weâre on a mission')).toBe(
+      'At ExtraHop, we’re on a mission',
+    );
   });
 
   it('leaves correctly encoded text untouched, including real accents', () => {

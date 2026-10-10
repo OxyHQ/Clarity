@@ -38,25 +38,35 @@ export async function attestFreshInstall(input: {
 
   connectPostgres(input.databaseUrl);
   try {
-    const [existing] = await getDb().select({ status: runtimeState.status })
-      .from(runtimeState).where(eq(runtimeState.id, 'postgres-cutover')).limit(1);
+    const [existing] = await getDb()
+      .select({ status: runtimeState.status })
+      .from(runtimeState)
+      .where(eq(runtimeState.id, 'postgres-cutover'))
+      .limit(1);
     if (existing !== undefined) {
       throw new Error(
-        `postgres-cutover already records status "${existing.status}" — fresh-install attestation is only for a `
-        + 'deployment with no prior recorded state at all. Use attest-cutover.ts for a real migration.',
+        `postgres-cutover already records status "${existing.status}" — fresh-install attestation is only for a ` +
+          'deployment with no prior recorded state at all. Use attest-cutover.ts for a real migration.',
       );
     }
 
-    await getDb().insert(runtimeState).values({
-      id: 'postgres-cutover',
-      status: 'fresh_install',
-      aliaAgentIdSha256: sha256(input.agentId),
-    });
+    await getDb()
+      .insert(runtimeState)
+      .values({
+        id: 'postgres-cutover',
+        status: 'fresh_install',
+        aliaAgentIdSha256: sha256(input.agentId),
+      });
 
-    const [after] = await getDb().select({ status: runtimeState.status })
-      .from(runtimeState).where(eq(runtimeState.id, 'postgres-cutover')).limit(1);
+    const [after] = await getDb()
+      .select({ status: runtimeState.status })
+      .from(runtimeState)
+      .where(eq(runtimeState.id, 'postgres-cutover'))
+      .limit(1);
     if (after?.status !== 'fresh_install') {
-      throw new Error('fresh-install attestation did not take effect (a concurrent write may have raced it)');
+      throw new Error(
+        'fresh-install attestation did not take effect (a concurrent write may have raced it)',
+      );
     }
   } finally {
     await closePostgres();

@@ -1,25 +1,37 @@
-import { View, useWindowDimensions } from "react-native";
-import { Sparkles, Globe, ImageIcon, MoreHorizontal, Share2, Menu, FileDown, Settings, CircleHelp, Trash2, type LucideIcon } from "lucide-react-native";
-import { Button, GlyphButton } from "@oxy.so/bloom/button";
-import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { View, useWindowDimensions } from 'react-native';
+import {
+  Sparkles,
+  Globe,
+  ImageIcon,
+  MoreHorizontal,
+  Share2,
+  Menu,
+  FileDown,
+  Settings,
+  CircleHelp,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react-native';
+import { Button, GlyphButton } from '@oxy.so/bloom/button';
+import { Tabs, TabsTrigger } from '@oxy.so/bloom/tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@oxy.so/bloom/dropdown-menu";
-import { toast } from "@oxy.so/bloom/toast";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { useState } from "react";
-import { useTranslation } from "@/hooks/useTranslation";
-import { ModelSelector } from "@/components/model-selector";
-import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
-import { useUIStore } from "@/lib/stores/ui-store";
+} from '@oxy.so/bloom/dropdown-menu';
+import { toast } from '@oxy.so/bloom/toast';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useState } from 'react';
+import { useTranslation } from '@/hooks/useTranslation';
+import { ModelSelector } from '@/components/model-selector';
+import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
+import { useUIStore } from '@/lib/stores/ui-store';
 
-export type ConversationTab = "answer" | "links" | "images";
+export type ConversationTab = 'answer' | 'links' | 'images';
 
 interface ChatHeaderProps {
   title: string;
@@ -33,9 +45,9 @@ interface ChatHeaderProps {
 }
 
 const TAB_CONFIG: Array<{ id: ConversationTab; labelKey: string; icon: LucideIcon }> = [
-  { id: "answer", labelKey: "chatHeader.tabAnswer", icon: Sparkles },
-  { id: "links", labelKey: "chatHeader.tabLinks", icon: Globe },
-  { id: "images", labelKey: "chatHeader.tabImages", icon: ImageIcon },
+  { id: 'answer', labelKey: 'chatHeader.tabAnswer', icon: Sparkles },
+  { id: 'links', labelKey: 'chatHeader.tabLinks', icon: Globe },
+  { id: 'images', labelKey: 'chatHeader.tabImages', icon: ImageIcon },
 ];
 
 export function ChatHeader({
@@ -45,7 +57,7 @@ export function ChatHeader({
   onSearchPress,
   onClear,
   isConversation = false,
-  activeTab = "answer",
+  activeTab = 'answer',
   onTabChange,
 }: ChatHeaderProps) {
   const { t } = useTranslation();
@@ -69,19 +81,19 @@ export function ChatHeader({
   };
 
   const handleExport = () => {
-    toast.info(t("chatHeader.exportComingSoon"));
+    toast.info(t('chatHeader.exportComingSoon'));
   };
 
   const handleShare = () => {
-    toast.info(t("chatHeader.shareComingSoon"));
+    toast.info(t('chatHeader.shareComingSoon'));
   };
 
   const handleSettings = () => {
-    router.push("/(app)/settings");
+    router.push('/(app)/settings');
   };
 
   const handleHelp = () => {
-    toast.info(t("chatHeader.helpComingSoon"));
+    toast.info(t('chatHeader.helpComingSoon'));
   };
 
   // Non-conversation header (landing page)
@@ -99,23 +111,20 @@ export function ChatHeader({
                 glyphSize={20}
                 icon={bloomIcon(Menu)}
                 onPress={handleDrawerToggle}
-                accessibilityLabel={t("actions.openMenu")}
+                accessibilityLabel={t('actions.openMenu')}
               />
             )}
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelChange={onModelChange}
-            />
+            <ModelSelector selectedModel={selectedModel} onModelChange={onModelChange} />
           </View>
         </View>
 
         <ConfirmationDialog
           open={showClearDialog}
           onOpenChange={setShowClearDialog}
-          title={t("chatHeader.clearConfirmTitle")}
-          description={t("chatHeader.clearConfirmDescription")}
-          confirmText={t("chatHeader.clear")}
-          cancelText={t("common.cancel")}
+          title={t('chatHeader.clearConfirmTitle')}
+          description={t('chatHeader.clearConfirmDescription')}
+          confirmText={t('chatHeader.clear')}
+          cancelText={t('common.cancel')}
           confirmTone="danger"
           onConfirm={confirmClearConversation}
         />
@@ -126,10 +135,7 @@ export function ChatHeader({
   // Conversation header with tabs
   return (
     <>
-      <View
-        className="border-b border-border bg-background"
-        style={{ paddingTop: insets.top }}
-      >
+      <View className="border-b border-border bg-background" style={{ paddingTop: insets.top }}>
         <View className="mx-auto w-full max-w-[720px] px-4 md:px-6">
           <View className="flex-row items-center justify-between">
             {/* Left: drawer toggle (mobile) + tabs */}
@@ -140,7 +146,7 @@ export function ChatHeader({
                   glyphSize={20}
                   icon={bloomIcon(Menu)}
                   onPress={handleDrawerToggle}
-                  accessibilityLabel={t("actions.openMenu")}
+                  accessibilityLabel={t('actions.openMenu')}
                   style={{ marginRight: 4 }}
                 />
               )}
@@ -149,7 +155,7 @@ export function ChatHeader({
                 value={activeTab}
                 onValueChange={(value) => onTabChange?.(value as ConversationTab)}
                 variant="underline"
-                label={t("actions.conversationViews")}
+                label={t('actions.conversationViews')}
               >
                 {TAB_CONFIG.map((tab) => (
                   <TabsTrigger
@@ -165,23 +171,32 @@ export function ChatHeader({
             {/* Right: dots menu + share */}
             <View className="flex-row items-center gap-1">
               <DropdownMenu>
-                <DropdownMenuTrigger asChild label={t("actions.more")}>
+                <DropdownMenuTrigger asChild label={t('actions.more')}>
                   <GlyphButton
                     size={32}
                     glyphSize={18}
                     icon={bloomIcon(MoreHorizontal)}
-                    accessibilityLabel={t("actions.more")}
+                    accessibilityLabel={t('actions.more')}
                   />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem leading={<MenuRowIcon icon={FileDown} />} onPress={handleExport}>
-                    {t("chatHeader.export")}
+                  <DropdownMenuItem
+                    leading={<MenuRowIcon icon={FileDown} />}
+                    onPress={handleExport}
+                  >
+                    {t('chatHeader.export')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem leading={<MenuRowIcon icon={Settings} />} onPress={handleSettings}>
-                    {t("chatHeader.settings")}
+                  <DropdownMenuItem
+                    leading={<MenuRowIcon icon={Settings} />}
+                    onPress={handleSettings}
+                  >
+                    {t('chatHeader.settings')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem leading={<MenuRowIcon icon={CircleHelp} />} onPress={handleHelp}>
-                    {t("chatHeader.help")}
+                  <DropdownMenuItem
+                    leading={<MenuRowIcon icon={CircleHelp} />}
+                    onPress={handleHelp}
+                  >
+                    {t('chatHeader.help')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -189,13 +204,13 @@ export function ChatHeader({
                     leading={<MenuRowIcon icon={Trash2} tone="danger" />}
                     onPress={handleClearConversation}
                   >
-                    {t("chatHeader.clearConversation")}
+                    {t('chatHeader.clearConversation')}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
               <Button size="sm" leadingIcon={bloomIcon(Share2)} onPress={handleShare}>
-                {t("chatHeader.share")}
+                {t('chatHeader.share')}
               </Button>
             </View>
           </View>
@@ -205,10 +220,10 @@ export function ChatHeader({
       <ConfirmationDialog
         open={showClearDialog}
         onOpenChange={setShowClearDialog}
-        title={t("chatHeader.clearConfirmTitle")}
-        description={t("chatHeader.clearConfirmDescription")}
-        confirmText={t("chatHeader.clear")}
-        cancelText={t("common.cancel")}
+        title={t('chatHeader.clearConfirmTitle')}
+        description={t('chatHeader.clearConfirmDescription')}
+        confirmText={t('chatHeader.clear')}
+        cancelText={t('common.cancel')}
         confirmTone="danger"
         onConfirm={confirmClearConversation}
       />

@@ -1,20 +1,23 @@
-import { useEffect, useCallback, useRef } from "react";
-import { useRouter } from "expo-router";
-import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/hooks/query-keys";
-import { useStore, type Attachment } from "@/lib/globalStore";
-import { useStreamingChat } from "@/hooks/useStreamingChat";
-import { useConversation, useCreateConversation } from "@/lib/hooks/use-conversations";
-import { generateAPIUrl } from "@/lib/generate-api-url";
-import { buildMessageContent } from "@/lib/attachment-utils";
-import type { ScrollView as GHScrollView } from "react-native-gesture-handler";
+import { useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/hooks/query-keys';
+import { useStore, type Attachment } from '@/lib/globalStore';
+import { useStreamingChat } from '@/hooks/useStreamingChat';
+import { useConversation, useCreateConversation } from '@/lib/hooks/use-conversations';
+import { generateAPIUrl } from '@/lib/generate-api-url';
+import { buildMessageContent } from '@/lib/attachment-utils';
+import type { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 
 interface UseChatConversationOptions {
   conversationId?: string;
   selectedModel?: string;
 }
 
-export function useChatConversation({ conversationId, selectedModel }: UseChatConversationOptions = {}) {
+export function useChatConversation({
+  conversationId,
+  selectedModel,
+}: UseChatConversationOptions = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const scrollViewRef = useRef<GHScrollView>(null);
@@ -23,7 +26,11 @@ export function useChatConversation({ conversationId, selectedModel }: UseChatCo
   const wasLoadingRef = useRef(false);
 
   const pendingInitialMessage = useStore((state) => state.pendingInitialMessage);
-  const { data: conversation, isLoading: conversationQueryLoading, isFetching: conversationFetching } = useConversation(conversationId || "");
+  const {
+    data: conversation,
+    isLoading: conversationQueryLoading,
+    isFetching: conversationFetching,
+  } = useConversation(conversationId || '');
   const createConversationMutation = useCreateConversation();
 
   const {
@@ -69,19 +76,22 @@ export function useChatConversation({ conversationId, selectedModel }: UseChatCo
   // Track local message count via ref to avoid dependency cycle
   // (the effect calls setMessages which would change messages.length and re-trigger itself).
   const messagesLengthRef = useRef(0);
-  useEffect(() => { messagesLengthRef.current = messages.length; }, [messages.length]);
+  useEffect(() => {
+    messagesLengthRef.current = messages.length;
+  }, [messages.length]);
 
   // Sync chatId and load messages when conversation changes or when
   // seeded cache data upgrades to full data (messages go from empty to populated).
   const incomingMessagesLength = conversation?.messages?.length ?? 0;
   useEffect(() => {
-    useStore.getState().setChatId(conversationId ? { id: conversationId, from: "url" } : null);
+    useStore.getState().setChatId(conversationId ? { id: conversationId, from: 'url' } : null);
 
     if (!conversationId || conversationQueryLoading) return;
 
     const incomingMessages = conversation?.messages || [];
     const isNewConversation = lastConversationId.current !== conversationId;
-    const isDataUpgrade = !isNewConversation && incomingMessages.length > 0 && messagesLengthRef.current === 0;
+    const isDataUpgrade =
+      !isNewConversation && incomingMessages.length > 0 && messagesLengthRef.current === 0;
 
     if (!isNewConversation && !isDataUpgrade) return;
 
@@ -91,7 +101,7 @@ export function useChatConversation({ conversationId, selectedModel }: UseChatCo
     }
 
     const validMessages = incomingMessages
-      .filter(msg => msg?.role && msg?.content !== undefined)
+      .filter((msg) => msg?.role && msg?.content !== undefined)
       .map((msg, index) => ({
         ...msg,
         id: msg.id || `db-${conversationId}-${index}`,
@@ -115,54 +125,63 @@ export function useChatConversation({ conversationId, selectedModel }: UseChatCo
   }, [conversationId, pendingInitialMessage, isLoading, append]);
 
   // Actions
-  const sendMessage = useCallback(async (content: string, attachments?: Attachment[]) => {
-    if (!content.trim() || isLoading) return;
+  const sendMessage = useCallback(
+    async (content: string, attachments?: Attachment[]) => {
+      if (!content.trim() || isLoading) return;
 
-    useStore.getState().setBottomChatHeightHandler(true);
+      useStore.getState().setBottomChatHeightHandler(true);
 
-    const messageContent = attachments?.length
-      ? await buildMessageContent(content, attachments)
-      : content;
+      const messageContent = attachments?.length
+        ? await buildMessageContent(content, attachments)
+        : content;
 
-    append({
-      role: 'user',
-      content: messageContent,
-    });
-    useStore.getState().clearAttachments();
-  }, [isLoading, append]);
-
-  const createNewConversation = useCallback(async (initialMessage: string, attachments?: Attachment[]) => {
-    if (!initialMessage.trim()) return;
-
-    // If there are attachments, build multi-part content and store it as pending
-    if (attachments?.length) {
-      const messageContent = await buildMessageContent(initialMessage, attachments);
-      useStore.getState().setPendingInitialMessage(messageContent);
+      append({
+        role: 'user',
+        content: messageContent,
+      });
       useStore.getState().clearAttachments();
-    } else {
-      useStore.getState().setPendingInitialMessage(initialMessage);
-    }
+    },
+    [isLoading, append],
+  );
 
-    try {
-      // Create conversation on backend and get the ID
-      const newConversation = await createConversationMutation.mutateAsync();
+  const createNewConversation = useCallback(
+    async (initialMessage: string, attachments?: Attachment[]) => {
+      if (!initialMessage.trim()) return;
 
-      // Navigate to the new conversation
-      router.replace(`/(app)/c/${newConversation.id}`);
-    } catch {
-      // onError handler in useCreateConversation already shows a toast
-    }
-  }, [router, createConversationMutation]);
+      // If there are attachments, build multi-part content and store it as pending
+      if (attachments?.length) {
+        const messageContent = await buildMessageContent(initialMessage, attachments);
+        useStore.getState().setPendingInitialMessage(messageContent);
+        useStore.getState().clearAttachments();
+      } else {
+        useStore.getState().setPendingInitialMessage(initialMessage);
+      }
 
-  const editMessage = useCallback((messageId: string, newContent: string) => {
-    // Truncate to messages before the edited one, then re-send.
-    // setMessages eagerly syncs messagesRef so append reads truncated history.
-    setMessages(prev => {
-      const idx = prev.findIndex(msg => msg.id === messageId);
-      return idx < 0 ? prev : prev.slice(0, idx);
-    });
-    append({ role: 'user', content: newContent });
-  }, [setMessages, append]);
+      try {
+        // Create conversation on backend and get the ID
+        const newConversation = await createConversationMutation.mutateAsync();
+
+        // Navigate to the new conversation
+        router.replace(`/(app)/c/${newConversation.id}`);
+      } catch {
+        // onError handler in useCreateConversation already shows a toast
+      }
+    },
+    [router, createConversationMutation],
+  );
+
+  const editMessage = useCallback(
+    (messageId: string, newContent: string) => {
+      // Truncate to messages before the edited one, then re-send.
+      // setMessages eagerly syncs messagesRef so append reads truncated history.
+      setMessages((prev) => {
+        const idx = prev.findIndex((msg) => msg.id === messageId);
+        return idx < 0 ? prev : prev.slice(0, idx);
+      });
+      append({ role: 'user', content: newContent });
+    },
+    [setMessages, append],
+  );
 
   const stopGeneration = useCallback(() => {
     stop();
@@ -173,7 +192,8 @@ export function useChatConversation({ conversationId, selectedModel }: UseChatCo
   }, [setMessages]);
 
   // True while loading conversation messages (initial fetch or seeded→full upgrade)
-  const conversationLoading = conversationQueryLoading ||
+  const conversationLoading =
+    conversationQueryLoading ||
     (conversationFetching && (!conversation?.messages || conversation.messages.length === 0));
 
   return {

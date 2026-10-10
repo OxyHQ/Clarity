@@ -12,10 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "so.oxy.clarity",
       "infoPlist": {
-        "UIBackgroundModes": [
-          "audio",
-          "remote-notification"
-        ]
+        "UIBackgroundModes": ["audio", "remote-notification"]
       }
     },
     "android": {
@@ -27,10 +24,7 @@
       "googleServicesFile": "./google-services.json",
       "package": "so.oxy.clarity",
       "predictiveBackGestureEnabled": false,
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      "permissions": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"]
     },
     "web": {
       "bundler": "metro",

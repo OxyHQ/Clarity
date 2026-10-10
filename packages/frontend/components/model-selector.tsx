@@ -1,5 +1,5 @@
-import { ChevronDown, Lock } from "lucide-react-native";
-import { Button } from "@oxy.so/bloom/button";
+import { ChevronDown, Lock } from 'lucide-react-native';
+import { Button } from '@oxy.so/bloom/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,17 +12,17 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-} from "@oxy.so/bloom/dropdown-menu";
-import { View } from "react-native";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { Text } from "@/components/ui/text";
-import { useState, useEffect, useMemo } from "react";
-import { useRouter } from "expo-router";
-import config from "@/lib/config";
-import { useEntitlements } from "@/lib/hooks/use-billing";
-import { toast } from "@oxy.so/bloom/toast";
-import { useTranslation } from "@/hooks/useTranslation";
-import type { ClarityModelsResponse } from "@clarity/shared-types";
+} from '@oxy.so/bloom/dropdown-menu';
+import { View } from 'react-native';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { Text } from '@/components/ui/text';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'expo-router';
+import config from '@/lib/config';
+import { useEntitlements } from '@/lib/hooks/use-billing';
+import { toast } from '@oxy.so/bloom/toast';
+import { useTranslation } from '@/hooks/useTranslation';
+import type { ClarityModelsResponse } from '@clarity/shared-types';
 
 interface Model {
   id: string;
@@ -56,30 +56,21 @@ function ModelRadioItem({ model, isLocked }: { model: Model; isLocked: boolean }
     <DropdownMenuRadioItem value={model.id}>
       <View className={`flex-col gap-0.5 flex-1 ${isLocked ? 'opacity-50' : ''}`}>
         <View className="flex-row items-center gap-1.5">
-          <Text className="text-sm font-medium text-foreground">
-            {model.name}
-          </Text>
+          <Text className="text-sm font-medium text-foreground">{model.name}</Text>
           {isLocked && <Lock size={11} className="text-muted-foreground" />}
           {model.requiredPlan && (
             <View className="bg-primary/10 px-1.5 py-0.5 rounded-full">
-              <Text className="text-[10px] font-semibold text-primary">
-                {model.requiredPlan}
-              </Text>
+              <Text className="text-[10px] font-semibold text-primary">{model.requiredPlan}</Text>
             </View>
           )}
         </View>
-        <Text className="text-xs text-muted-foreground">
-          {model.description}
-        </Text>
+        <Text className="text-xs text-muted-foreground">{model.description}</Text>
       </View>
     </DropdownMenuRadioItem>
   );
 }
 
-export function ModelSelector({
-  selectedModel = "clarity-v1",
-  onModelChange,
-}: ModelSelectorProps) {
+export function ModelSelector({ selectedModel = 'clarity-v1', onModelChange }: ModelSelectorProps) {
   const [value, setValue] = useState(selectedModel);
   const [models, setModels] = useState<Model[]>(cachedModels || []);
   const [loading, setLoading] = useState(!cachedModels);
@@ -100,8 +91,8 @@ export function ModelSelector({
       fetch(`${config.apiUrl}/v1/models?chat=true`)
         .then((res) => res.json() as Promise<ClarityModelsResponse>)
         .then((data) => {
-          const fetchedModels = data.data
-            ?.map((m) => ({
+          const fetchedModels =
+            data.data?.map((m) => ({
               id: m.id,
               name: m.name,
               description: m.description ?? '',
@@ -115,7 +106,13 @@ export function ModelSelector({
         .catch((error) => {
           console.error('[ModelSelector] Error fetching models:', error);
           cachedModels = [
-            { id: "clarity-v1", name: "Clarity V1", description: "Balanced performance", requiredPlan: null, isLegacy: false },
+            {
+              id: 'clarity-v1',
+              name: 'Clarity V1',
+              description: 'Balanced performance',
+              requiredPlan: null,
+              isLegacy: false,
+            },
           ];
           setModels(cachedModels);
           setLoading(false);
@@ -125,7 +122,7 @@ export function ModelSelector({
 
   const handleValueChange = (modelId: string) => {
     if (!allowedIds.has(modelId)) {
-      const model = models.find(m => m.id === modelId);
+      const model = models.find((m) => m.id === modelId);
       toast.info(t('subscribe.modelRequiresPlan', { plan: model?.requiredPlan || 'Go' }));
       router.push('/(biglayout)/subscribe');
       return;
@@ -136,10 +133,13 @@ export function ModelSelector({
 
   const currentModel = models.find((m) => m.id === value);
 
-  const { regularModels, legacyModels } = useMemo(() => ({
-    regularModels: models.filter(m => !m.isLegacy),
-    legacyModels: models.filter(m => m.isLegacy),
-  }), [models]);
+  const { regularModels, legacyModels } = useMemo(
+    () => ({
+      regularModels: models.filter((m) => !m.isLegacy),
+      legacyModels: models.filter((m) => m.isLegacy),
+    }),
+    [models],
+  );
 
   return (
     <DropdownMenu>
@@ -151,7 +151,7 @@ export function ModelSelector({
           trailingIcon={bloomIcon(ChevronDown)}
           accessibilityLabel={t('models.selectModel')}
         >
-          {currentModel?.name || "Clarity V1"}
+          {currentModel?.name || 'Clarity V1'}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" minWidth={256}>
@@ -173,7 +173,11 @@ export function ModelSelector({
                   <DropdownMenuSubContent minWidth={256}>
                     <DropdownMenuRadioGroup value={value} onValueChange={handleValueChange}>
                       {legacyModels.map((model) => (
-                        <ModelRadioItem key={model.id} model={model} isLocked={!allowedIds.has(model.id)} />
+                        <ModelRadioItem
+                          key={model.id}
+                          model={model}
+                          isLocked={!allowedIds.has(model.id)}
+                        />
                       ))}
                     </DropdownMenuRadioGroup>
                   </DropdownMenuSubContent>

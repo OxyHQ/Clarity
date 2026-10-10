@@ -5,25 +5,48 @@
  */
 import type { JobFeedProvider } from '../provider.js';
 import {
-  date, employmentTypesIn, get, json, listing, markdown, node, nodes, num, page, place, places,
-  salary, text, workplace, type Node,
+  date,
+  employmentTypesIn,
+  get,
+  json,
+  listing,
+  markdown,
+  node,
+  nodes,
+  num,
+  page,
+  place,
+  places,
+  salary,
+  text,
+  workplace,
+  type Node,
 } from '../listing.js';
 
 const PAGE_SIZE = 1000;
 
 function ripplingPlace(entry: Node) {
   return place({
-    locality: entry['city'], region: entry['state'], country: entry['country'], countryCode: entry['countryCode'], raw: entry['name'],
+    locality: entry['city'],
+    region: entry['state'],
+    country: entry['country'],
+    countryCode: entry['countryCode'],
+    raw: entry['name'],
   });
 }
 
 export const rippling: JobFeedProvider = {
   kind: 'rippling',
-  identifier: { meaning: 'the board slug in ats.rippling.com/<slug>/jobs', shape: 'slug', pattern: /^[a-z0-9][a-z0-9-]{0,100}$/ },
+  identifier: {
+    meaning: 'the board slug in ats.rippling.com/<slug>/jobs',
+    shape: 'slug',
+    pattern: /^[a-z0-9][a-z0-9-]{0,100}$/,
+  },
   completeListing: true,
-  request: (identifier, cursor) => get(
-    `https://ats.rippling.com/api/v2/board/${encodeURIComponent(identifier)}/jobs?page=${Number(cursor ?? 0)}&pageSize=${PAGE_SIZE}`,
-  ),
+  request: (identifier, cursor) =>
+    get(
+      `https://ats.rippling.com/api/v2/board/${encodeURIComponent(identifier)}/jobs?page=${Number(cursor ?? 0)}&pageSize=${PAGE_SIZE}`,
+    ),
   parse(body, context) {
     const payload = node(json(body, 'rippling'));
     const rows = nodes(payload['items']);
@@ -34,7 +57,9 @@ export const rippling: JobFeedProvider = {
     }
     const listings = [...byJob.entries()].map(([id, group]) => {
       const locations = group.flatMap((row) => nodes(row['locations']));
-      const workplaces = new Set(locations.map((entry) => workplace(entry['workplaceType'])).filter(Boolean));
+      const workplaces = new Set(
+        locations.map((entry) => workplace(entry['workplaceType'])).filter(Boolean),
+      );
       return listing({
         title: text(group[0]['name']),
         employerName: context.label ?? context.identifier,
@@ -52,9 +77,12 @@ export const rippling: JobFeedProvider = {
     return page(listings, current + 1 < totalPages ? String(current + 1) : undefined);
   },
   detail: {
-    request: (posting, identifier) => posting.identifier
-      ? get(`https://ats.rippling.com/api/v2/board/${encodeURIComponent(identifier)}/jobs/${encodeURIComponent(posting.identifier)}`)
-      : undefined,
+    request: (posting, identifier) =>
+      posting.identifier
+        ? get(
+            `https://ats.rippling.com/api/v2/board/${encodeURIComponent(identifier)}/jobs/${encodeURIComponent(posting.identifier)}`,
+          )
+        : undefined,
     parse(body, posting, context) {
       const job = node(json(body, 'rippling'));
       if (job['unlistedFromSearch'] === true) return undefined;
@@ -68,7 +96,14 @@ export const rippling: JobFeedProvider = {
         description: markdown(description['company'], description['role']),
         // Rippling's id and label are swapped ("Salaried, full-time" / "SALARIED_FT").
         employmentTypes: employmentTypesIn(employment['id'], employment['label']),
-        salary: range ? salary({ min: range['rangeStart'], max: range['rangeEnd'], currency: range['currency'], interval: range['frequency'] }) : undefined,
+        salary: range
+          ? salary({
+              min: range['rangeStart'],
+              max: range['rangeEnd'],
+              currency: range['currency'],
+              interval: range['frequency'],
+            })
+          : undefined,
         publishedAt: date(job['createdOn']),
       });
     },

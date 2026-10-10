@@ -9,12 +9,29 @@
  */
 import type { JobFeedProvider } from '../provider.js';
 import {
-  DOLLAR_BY_COUNTRY, XML_ACCEPT, elements, employmentTypes, get, listing, markdown, page, place, places, salaryText,
-  tag, text,
+  DOLLAR_BY_COUNTRY,
+  XML_ACCEPT,
+  elements,
+  employmentTypes,
+  get,
+  listing,
+  markdown,
+  page,
+  place,
+  places,
+  salaryText,
+  tag,
+  text,
 } from '../listing.js';
 import { normalizeCountry } from '../../taxonomy.js';
 
-const SITES = ['devitjobs.uk', 'devitjobs.com', 'germantechjobs.de', 'swissdevjobs.ch', 'devitjobs.nl'] as const;
+const SITES = [
+  'devitjobs.uk',
+  'devitjobs.com',
+  'germantechjobs.de',
+  'swissdevjobs.ch',
+  'devitjobs.nl',
+] as const;
 
 /** `dd.mm.yyyy`. */
 function dottedDate(value: string | undefined): Date | undefined {
@@ -26,34 +43,47 @@ function dottedDate(value: string | undefined): Date | undefined {
 
 export const devitjobs: JobFeedProvider = {
   kind: 'devitjobs',
-  identifier: { meaning: `one of ${SITES.join(', ')}`, shape: 'slug', pattern: new RegExp(`^(?:${SITES.map((site) => site.replace(/\./g, '\\.')).join('|')})$`) },
+  identifier: {
+    meaning: `one of ${SITES.join(', ')}`,
+    shape: 'slug',
+    pattern: new RegExp(`^(?:${SITES.map((site) => site.replace(/\./g, '\\.')).join('|')})$`),
+  },
   completeListing: true,
   request: (identifier) => get(`https://${identifier}/job_feed.xml`, XML_ACCEPT),
   // devitjobs.com publishes its whole US board, over 20 MB, as one file.
   maxBodyBytes: 40 * 1024 * 1024,
   parse(body, context) {
-    return page(elements(body, 'job').map((job) => {
-      const where = text(tag(job, 'location'));
-      const remote = where ? /^full(?:y)?\s*remote$/i.test(where) : false;
-      const country = text(tag(job, 'country'));
-      const code = country ? normalizeCountry(country) : undefined;
-      const id = text(tag(job, 'id'))?.replace(/-W\d{1,2}$/, '');
-      return listing({
-        title: text(tag(job, 'title')) ?? text(tag(job, 'name')),
-        employerName: text(tag(job, 'company-name')) ?? text(tag(job, 'company')),
-        canonicalUrl: text(tag(job, 'url')) ?? text(tag(job, 'link')),
-        context,
-        description: markdown(tag(job, 'description')),
-        employerLogoUrl: text(tag(job, 'logo')),
-        locations: places([place({
-          locality: tag(job, 'city'), region: tag(job, 'region'), country, postalCode: tag(job, 'postal_code'),
-        })]),
-        ...(remote ? { workplaceType: 'remote' as const } : {}),
-        employmentTypes: employmentTypes(text(tag(job, 'job-type')) ?? text(tag(job, 'jobtype'))),
-        salary: salaryText(tag(job, 'salary'), { dollar: code ? DOLLAR_BY_COUNTRY[code] : undefined }),
-        identifier: id,
-        publishedAt: dottedDate(text(tag(job, 'pubdate'))),
-      });
-    }));
+    return page(
+      elements(body, 'job').map((job) => {
+        const where = text(tag(job, 'location'));
+        const remote = where ? /^full(?:y)?\s*remote$/i.test(where) : false;
+        const country = text(tag(job, 'country'));
+        const code = country ? normalizeCountry(country) : undefined;
+        const id = text(tag(job, 'id'))?.replace(/-W\d{1,2}$/, '');
+        return listing({
+          title: text(tag(job, 'title')) ?? text(tag(job, 'name')),
+          employerName: text(tag(job, 'company-name')) ?? text(tag(job, 'company')),
+          canonicalUrl: text(tag(job, 'url')) ?? text(tag(job, 'link')),
+          context,
+          description: markdown(tag(job, 'description')),
+          employerLogoUrl: text(tag(job, 'logo')),
+          locations: places([
+            place({
+              locality: tag(job, 'city'),
+              region: tag(job, 'region'),
+              country,
+              postalCode: tag(job, 'postal_code'),
+            }),
+          ]),
+          ...(remote ? { workplaceType: 'remote' as const } : {}),
+          employmentTypes: employmentTypes(text(tag(job, 'job-type')) ?? text(tag(job, 'jobtype'))),
+          salary: salaryText(tag(job, 'salary'), {
+            dollar: code ? DOLLAR_BY_COUNTRY[code] : undefined,
+          }),
+          identifier: id,
+          publishedAt: dottedDate(text(tag(job, 'pubdate'))),
+        });
+      }),
+    );
   },
 };

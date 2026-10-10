@@ -1,6 +1,6 @@
-import { useCallback, useRef, useState } from "react";
-import type { NativeScrollEvent, NativeSyntheticEvent, LayoutChangeEvent } from "react-native";
-import type { ScrollView } from "react-native";
+import { useCallback, useRef, useState } from 'react';
+import type { NativeScrollEvent, NativeSyntheticEvent, LayoutChangeEvent } from 'react-native';
+import type { ScrollView } from 'react-native';
 
 const THRESHOLD = 50;
 
@@ -12,8 +12,7 @@ export function useScrollToBottom(scrollRef: React.RefObject<ScrollView | null>)
 
   const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const distanceFromBottom =
-      contentSize.height - layoutMeasurement.height - contentOffset.y;
+    const distanceFromBottom = contentSize.height - layoutMeasurement.height - contentOffset.y;
     const atBottom = distanceFromBottom <= THRESHOLD;
     if (atBottom !== isAtBottomRef.current) {
       isAtBottomRef.current = atBottom;
@@ -23,23 +22,20 @@ export function useScrollToBottom(scrollRef: React.RefObject<ScrollView | null>)
     scrollHeightRef.current = layoutMeasurement.height;
   }, []);
 
-  const onContentSizeChange = useCallback(
-    (_w: number, h: number) => {
-      contentHeightRef.current = h;
-      const distanceFromBottom = h - scrollHeightRef.current;
-      if (distanceFromBottom <= THRESHOLD && !isAtBottomRef.current) {
-        isAtBottomRef.current = true;
-        setIsAtBottom(true);
-      }
-    },
-    []
-  );
+  const onContentSizeChange = useCallback((_w: number, h: number) => {
+    contentHeightRef.current = h;
+    const distanceFromBottom = h - scrollHeightRef.current;
+    if (distanceFromBottom <= THRESHOLD && !isAtBottomRef.current) {
+      isAtBottomRef.current = true;
+      setIsAtBottom(true);
+    }
+  }, []);
 
   const scrollToBottom = useCallback(
     (animated = true) => {
       scrollRef.current?.scrollToEnd({ animated });
     },
-    [scrollRef]
+    [scrollRef],
   );
 
   return {

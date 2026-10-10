@@ -15,7 +15,18 @@ export interface ExtractedDocument {
   publishedAt?: Date;
   modifiedAt?: Date;
   publisher?: string;
-  documentType: 'page' | 'article' | 'news' | 'job' | 'product' | 'video' | 'event' | 'recipe' | 'profile' | 'documentation' | 'other';
+  documentType:
+    | 'page'
+    | 'article'
+    | 'news'
+    | 'job'
+    | 'product'
+    | 'video'
+    | 'event'
+    | 'recipe'
+    | 'profile'
+    | 'documentation'
+    | 'other';
   structuredData: unknown[];
   evidence: Record<string, { source: string; selector?: string; extractedAt: string }>;
   noindex: boolean;
@@ -25,36 +36,60 @@ export interface ExtractedDocument {
 export function extractDocument(html: string, finalUrl: string): ExtractedDocument {
   const { document } = parseHTML(html);
   const extractedAt = new Date().toISOString();
-  const jsonLd = [...document.querySelectorAll('script[type="application/ld+json"]')].flatMap((element) => {
-    try {
-      const parsed: unknown = JSON.parse(element.textContent || 'null');
-      return Array.isArray(parsed) ? parsed : [parsed];
-    } catch {
-      return [];
-    }
-  }).filter((value) => value !== null);
+  const jsonLd = [...document.querySelectorAll('script[type="application/ld+json"]')]
+    .flatMap((element) => {
+      try {
+        const parsed: unknown = JSON.parse(element.textContent || 'null');
+        return Array.isArray(parsed) ? parsed : [parsed];
+      } catch {
+        return [];
+      }
+    })
+    .filter((value) => value !== null);
   // Read before Readability, which rewrites the document it is given.
   const fromJsonLd = metadataFromStructuredData(jsonLd);
-  const publishedAt = fromJsonLd.publishedAt
-    ?? plausibleDate(content(document, 'meta[property="article:published_time"]', 'content'))
-    ?? plausibleDate(content(document, 'meta[itemprop="datePublished"]', 'content'))
-    ?? plausibleDate(content(document, 'meta[name="date"]', 'content'))
-    ?? dateFromUrl(finalUrl);
-  const modifiedAt = fromJsonLd.modifiedAt
-    ?? plausibleDate(content(document, 'meta[property="article:modified_time"]', 'content'));
-  const publisher = fromJsonLd.publisher
-    ?? content(document, 'meta[property="og:site_name"]', 'content')?.slice(0, 200);
+  const publishedAt =
+    fromJsonLd.publishedAt ??
+    plausibleDate(content(document, 'meta[property="article:published_time"]', 'content')) ??
+    plausibleDate(content(document, 'meta[itemprop="datePublished"]', 'content')) ??
+    plausibleDate(content(document, 'meta[name="date"]', 'content')) ??
+    dateFromUrl(finalUrl);
+  const modifiedAt =
+    fromJsonLd.modifiedAt ??
+    plausibleDate(content(document, 'meta[property="article:modified_time"]', 'content'));
+  const publisher =
+    fromJsonLd.publisher ??
+    content(document, 'meta[property="og:site_name"]', 'content')?.slice(0, 200);
   const readable = new Readability(document).parse();
-  const title = content(document, 'meta[property="og:title"]', 'content') || readable?.title || document.title || undefined;
-  const description = content(document, 'meta[property="og:description"]', 'content') || content(document, 'meta[name="description"]', 'content') || readable?.excerpt || undefined;
+  const title =
+    content(document, 'meta[property="og:title"]', 'content') ||
+    readable?.title ||
+    document.title ||
+    undefined;
+  const description =
+    content(document, 'meta[property="og:description"]', 'content') ||
+    content(document, 'meta[name="description"]', 'content') ||
+    readable?.excerpt ||
+    undefined;
   const canonicalUrl = absolute(content(document, 'link[rel="canonical"]', 'href'), finalUrl);
-  const imageUrl = absolute(content(document, 'meta[property="og:image"]', 'content') || content(document, 'meta[name="twitter:image"]', 'content'), finalUrl);
+  const imageUrl = absolute(
+    content(document, 'meta[property="og:image"]', 'content') ||
+      content(document, 'meta[name="twitter:image"]', 'content'),
+    finalUrl,
+  );
   const faviconUrl = absolute(content(document, 'link[rel~="icon"]', 'href'), finalUrl);
-  const robots = `${content(document, 'meta[name="robots"]', 'content') || ''},${content(document, 'meta[name="googlebot"]', 'content') || ''}`.toLowerCase().split(',').map((item) => item.trim());
+  const robots =
+    `${content(document, 'meta[name="robots"]', 'content') || ''},${content(document, 'meta[name="googlebot"]', 'content') || ''}`
+      .toLowerCase()
+      .split(',')
+      .map((item) => item.trim());
   return {
     title,
     description,
-    mainContent: readable?.textContent?.trim() || document.body?.textContent?.replace(/\s+/g, ' ').trim() || undefined,
+    mainContent:
+      readable?.textContent?.trim() ||
+      document.body?.textContent?.replace(/\s+/g, ' ').trim() ||
+      undefined,
     language: document.documentElement.getAttribute('lang') || undefined,
     canonicalUrl,
     imageUrl,
@@ -65,32 +100,52 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
     documentType: classify(jsonLd),
     structuredData: jsonLd,
     evidence: {
-      ...(title ? { title: content(document, 'meta[property="og:title"]', 'content')
-        ? { source: 'html', selector: 'meta[property="og:title"]', extractedAt }
-        : { source: 'readability', extractedAt } } : {}),
+      ...(title
+        ? {
+            title: content(document, 'meta[property="og:title"]', 'content')
+              ? { source: 'html', selector: 'meta[property="og:title"]', extractedAt }
+              : { source: 'readability', extractedAt },
+          }
+        : {}),
       ...(description ? { description: { source: 'html', extractedAt } } : {}),
-      ...(canonicalUrl ? { canonicalUrl: { source: 'html', selector: 'link[rel="canonical"]', extractedAt } } : {}),
+      ...(canonicalUrl
+        ? { canonicalUrl: { source: 'html', selector: 'link[rel="canonical"]', extractedAt } }
+        : {}),
     },
     noindex: robots.includes('noindex'),
     nofollow: robots.includes('nofollow'),
   };
 }
 
-function content(document: ReturnType<typeof parseHTML>['document'], selector: string, attribute: string): string | undefined {
+function content(
+  document: ReturnType<typeof parseHTML>['document'],
+  selector: string,
+  attribute: string,
+): string | undefined {
   return document.querySelector(selector)?.getAttribute(attribute)?.trim() || undefined;
 }
 
 function absolute(value: string | undefined, base: string): string | undefined {
   if (!value) return undefined;
-  try { return new URL(value, base).toString(); } catch { return undefined; }
+  try {
+    return new URL(value, base).toString();
+  } catch {
+    return undefined;
+  }
 }
 
 function classify(values: unknown[]): ExtractedDocument['documentType'] {
-  const types = values.flatMap((value) => {
-    if (!value || typeof value !== 'object') return [];
-    const type = (value as Record<string, unknown>)['@type'];
-    return Array.isArray(type) ? type.filter((item): item is string => typeof item === 'string') : typeof type === 'string' ? [type] : [];
-  }).map((type) => type.toLowerCase());
+  const types = values
+    .flatMap((value) => {
+      if (!value || typeof value !== 'object') return [];
+      const type = (value as Record<string, unknown>)['@type'];
+      return Array.isArray(type)
+        ? type.filter((item): item is string => typeof item === 'string')
+        : typeof type === 'string'
+          ? [type]
+          : [];
+    })
+    .map((type) => type.toLowerCase());
   if (hasJobPosting(values)) return 'job';
   if (types.some((type) => type.includes('newsarticle'))) return 'news';
   if (types.some((type) => type.includes('article'))) return 'article';
@@ -99,6 +154,7 @@ function classify(values: unknown[]): ExtractedDocument['documentType'] {
   if (types.some((type) => type.includes('event'))) return 'event';
   if (types.some((type) => type.includes('recipe'))) return 'recipe';
   if (types.some((type) => type.includes('person') || type.includes('profile'))) return 'profile';
-  if (types.some((type) => type.includes('techarticle') || type.includes('api'))) return 'documentation';
+  if (types.some((type) => type.includes('techarticle') || type.includes('api')))
+    return 'documentation';
   return 'page';
 }

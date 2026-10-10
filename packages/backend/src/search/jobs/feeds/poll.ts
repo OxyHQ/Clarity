@@ -32,7 +32,12 @@ import { parseJobFeedPage } from './adapters.js';
 import { boardFromUrl, type DiscoveredBoard } from './discovery.js';
 import { jobFeedRequest } from './endpoints.js';
 import { noindex } from './listing.js';
-import type { JobFeedContext, JobFeedPage, JobFeedPageReference, JobFeedRequest } from './provider.js';
+import type {
+  JobFeedContext,
+  JobFeedPage,
+  JobFeedPageReference,
+  JobFeedRequest,
+} from './provider.js';
 import { jobFeedProvider } from './registry.js';
 import { closeAbsentListings, closeGoneListing, recordFeedPresence } from './presence.js';
 import { FEED_USER_AGENT, assertRobotsAllow, robotsAllowUrl } from './robots.js';
@@ -97,7 +102,12 @@ function gone(error: unknown): boolean {
 const FETCH_ATTEMPTS = 3;
 
 function transient(error: unknown): boolean {
-  return error instanceof Error && /ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|headers timeout|network/i.test(`${error.message} ${(error as { code?: string }).code ?? ''}`);
+  return (
+    error instanceof Error &&
+    /ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|headers timeout|network/i.test(
+      `${error.message} ${(error as { code?: string }).code ?? ''}`,
+    )
+  );
 }
 
 async function readBody(request: JobFeedRequest, maxBodyBytes = MAX_BODY_BYTES): Promise<string> {
@@ -132,12 +142,18 @@ async function readBodyOnce(request: JobFeedRequest, maxBodyBytes: number): Prom
   for await (const chunk of result.response) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     bytes += buffer.length;
-    if (bytes > maxBodyBytes) { result.response.destroy(); throw new Error('feed body too large'); }
+    if (bytes > maxBodyBytes) {
+      result.response.destroy();
+      throw new Error('feed body too large');
+    }
     chunks.push(buffer);
   }
   const raw = Buffer.concat(chunks);
   // Sitemaps are often served as .xml.gz without a Content-Encoding header.
-  const body = raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw, { maxOutputLength: maxBodyBytes * 4 }) : raw;
+  const body =
+    raw[0] === 0x1f && raw[1] === 0x8b
+      ? gunzipSync(raw, { maxOutputLength: maxBodyBytes * 4 })
+      : raw;
   return decodeBody(body, result.response.headers['content-type']);
 }
 
@@ -174,7 +190,12 @@ interface StreamWindow {
  * Reads items `offset` to `offset + take` of a streamed dump and stops the
  * download there, so a poll never holds more than its own window in memory.
  */
-async function readStreamWindow(request: JobFeedRequest, element: string, offset: number, take: number): Promise<StreamWindow> {
+async function readStreamWindow(
+  request: JobFeedRequest,
+  element: string,
+  offset: number,
+  take: number,
+): Promise<StreamWindow> {
   const crawlDelaySeconds = await assertRobotsAllow(request.url);
   const wait = reserveOriginSlot(new URL(request.url).origin, crawlDelaySeconds * 1000);
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
@@ -221,10 +242,14 @@ async function readStreamWindow(request: JobFeedRequest, element: string, offset
     for (;;) {
       const start = buffer.search(open);
       if (start < 0) break;
-      if (!headerDone) { window.header = buffer.slice(0, start).slice(0, 20_000); headerDone = true; }
+      if (!headerDone) {
+        window.header = buffer.slice(0, start).slice(0, 20_000);
+        headerDone = true;
+      }
       const end = buffer.indexOf(close, start);
       if (end < 0) {
-        if (buffer.length - start > MAX_STREAM_ITEM_CHARS) throw new Error(`a <${element}> item never closes`);
+        if (buffer.length - start > MAX_STREAM_ITEM_CHARS)
+          throw new Error(`a <${element}> item never closes`);
         buffer = buffer.slice(start);
         return false;
       }
@@ -232,11 +257,18 @@ async function readStreamWindow(request: JobFeedRequest, element: string, offset
       buffer = buffer.slice(end + close.length);
       if (index >= offset) window.items.push(item);
       index += 1;
-      if (window.items.length >= take) { window.reachedEnd = false; return true; }
+      if (window.items.length >= take) {
+        window.reachedEnd = false;
+        return true;
+      }
     }
     // Before the first item everything is header; after it, keep only what may still begin an item.
     if (!headerDone) {
-      if (buffer.length > 20_000) { window.header = buffer.slice(0, 20_000); headerDone = true; buffer = buffer.slice(-(element.length + 2)); }
+      if (buffer.length > 20_000) {
+        window.header = buffer.slice(0, 20_000);
+        headerDone = true;
+        buffer = buffer.slice(-(element.length + 2));
+      }
     } else if (buffer.length > element.length + 2) {
       buffer = buffer.slice(-(element.length + 2));
     }
@@ -260,14 +292,26 @@ function reserveOriginSlot(origin: string, gapMs: number): number {
 }
 
 /** Reads a request the origin's robots.txt allows, after the pause the origin and this feed ask for. */
-async function politeRead(request: JobFeedRequest, pauseMs: number, maxBodyBytes?: number): Promise<string> {
+async function politeRead(
+  request: JobFeedRequest,
+  pauseMs: number,
+  maxBodyBytes?: number,
+): Promise<string> {
   const crawlDelaySeconds = await assertRobotsAllow(request.url);
-  const wait = Math.max(pauseMs, reserveOriginSlot(new URL(request.url).origin, crawlDelaySeconds * 1000));
+  const wait = Math.max(
+    pauseMs,
+    reserveOriginSlot(new URL(request.url).origin, crawlDelaySeconds * 1000),
+  );
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
   return readBody(request, maxBodyBytes);
 }
 
-async function readPage(feed: typeof jobFeeds.$inferSelect, observedAt: Date, pauseMs: number, cursor?: string): Promise<JobFeedPage> {
+async function readPage(
+  feed: typeof jobFeeds.$inferSelect,
+  observedAt: Date,
+  pauseMs: number,
+  cursor?: string,
+): Promise<JobFeedPage> {
   const kind = feed.kind as JobFeedKind;
   const request = jobFeedRequest(kind, feed.identifier, cursor);
   const body = await politeRead(request, pauseMs, jobFeedProvider(kind).maxBodyBytes);
@@ -294,10 +338,20 @@ export async function pollJobFeed(
   /** Every listing URL the source listed this poll, ingested or not. */
   const listed = new Set<string>();
   const note = (url: string): void => {
-    try { listed.add(canonicalizePublicUrl(url)); } catch { /* not a public URL; nothing to record */ }
+    try {
+      listed.add(canonicalizePublicUrl(url));
+    } catch {
+      /* not a public URL; nothing to record */
+    }
   };
   const seen = new Set<string>();
-  const outcome: JobFeedPollOutcome = { stored: 0, rejected: 0, cursor: null, discovered: [], closed: 0 };
+  const outcome: JobFeedPollOutcome = {
+    stored: 0,
+    rejected: 0,
+    cursor: null,
+    discovered: [],
+    closed: 0,
+  };
   const boards = new Set<string>([`${feed.kind}:${feed.identifier}`]);
   const discover = (listing: ExtractedJobPosting): void => {
     for (const board of [boardFromUrl(listing.applyUrl), boardFromUrl(listing.canonicalUrl)]) {
@@ -313,7 +367,10 @@ export async function pollJobFeed(
    * endpoint. A detail still current is not fetched again — the stored
    * payload is re-observed instead. Undefined means "not this poll".
    */
-  const complete = async (listing: ExtractedJobPosting, canonicalUrl: string): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
+  const complete = async (
+    listing: ExtractedJobPosting,
+    canonicalUrl: string,
+  ): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
     if (!detail) return { structuredData: [jobPostingLd(listing)] };
     const stored = await storedJobDocument(canonicalUrl);
     const ttlMs = (detail.ttlSeconds ?? DETAIL_TTL_SECONDS) * 1000;
@@ -322,7 +379,11 @@ export async function pollJobFeed(
     }
     const request = detail.request(listing, feed.identifier);
     if (!request || detailBudget <= 0) {
-      if (stored) return { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) };
+      if (stored)
+        return {
+          structuredData: stored.structuredData,
+          ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}),
+        };
       return detail.optional ? { structuredData: [jobPostingLd(listing)] } : undefined;
     }
     detailBudget -= 1;
@@ -331,7 +392,9 @@ export async function pollJobFeed(
       const completed = detail.parse(body, listing, contextFor(request.url));
       // The listing is stored under the URL its board lists; a detail that
       // names another URL for it does not move the document.
-      return completed ? { structuredData: [jobPostingLd({ ...completed, canonicalUrl: listing.canonicalUrl })] } : undefined;
+      return completed
+        ? { structuredData: [jobPostingLd({ ...completed, canonicalUrl: listing.canonicalUrl })] }
+        : undefined;
     } catch (error) {
       if (gone(error)) {
         await closeGoneListing(canonicalUrl);
@@ -339,29 +402,46 @@ export async function pollJobFeed(
       }
       // A detail that cannot be read now is retried next poll; a stale copy
       // is better than none in the meantime.
-      if (stored) return { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) };
+      if (stored)
+        return {
+          structuredData: stored.structuredData,
+          ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}),
+        };
       return detail.optional ? { structuredData: [jobPostingLd(listing)] } : undefined;
     }
   };
 
   const contextFor = (requestUrl: string): JobFeedContext => ({
-    kind, identifier: feed.identifier, requestUrl, extractedAt: observedAt.toISOString(),
+    kind,
+    identifier: feed.identifier,
+    requestUrl,
+    extractedAt: observedAt.toISOString(),
     ...(feed.label ? { label: feed.label } : {}),
   });
 
   /** A page the source only links to, read through its own JSON-LD unless what is stored is still current. */
-  const readReference = async (reference: JobFeedPageReference, canonicalUrl: string): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
+  const readReference = async (
+    reference: JobFeedPageReference,
+    canonicalUrl: string,
+  ): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
     if (!listingPage) return undefined;
     const stored = await storedJobDocument(canonicalUrl);
     const ttlMs = (listingPage.ttlSeconds ?? DETAIL_TTL_SECONDS) * 1000;
-    const unchanged = stored?.fetchedAt && reference.lastModified && reference.lastModified <= stored.fetchedAt;
-    if (stored?.fetchedAt && (unchanged || observedAt.getTime() - stored.fetchedAt.getTime() < ttlMs)) {
+    const unchanged =
+      stored?.fetchedAt && reference.lastModified && reference.lastModified <= stored.fetchedAt;
+    if (
+      stored?.fetchedAt &&
+      (unchanged || observedAt.getTime() - stored.fetchedAt.getTime() < ttlMs)
+    ) {
       return { structuredData: stored.structuredData, fetchedAt: stored.fetchedAt };
     }
     if (detailBudget <= 0) return undefined;
     detailBudget -= 1;
     try {
-      const html = await politeRead({ url: canonicalUrl, method: 'GET', accept: 'text/html,application/xhtml+xml' }, pageDelayMs);
+      const html = await politeRead(
+        { url: canonicalUrl, method: 'GET', accept: 'text/html,application/xhtml+xml' },
+        pageDelayMs,
+      );
       // A page that asks not to be indexed is not indexed.
       if (noindex(html)) return undefined;
       const read = listingPage.parse(html, reference, contextFor(canonicalUrl));
@@ -371,7 +451,12 @@ export async function pollJobFeed(
         await closeGoneListing(canonicalUrl);
         return undefined;
       }
-      return stored ? { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) } : undefined;
+      return stored
+        ? {
+            structuredData: stored.structuredData,
+            ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}),
+          }
+        : undefined;
     }
   };
 
@@ -387,12 +472,17 @@ export async function pollJobFeed(
       }
       if (seen.has(canonicalUrl)) continue;
       seen.add(canonicalUrl);
-      if (!await robotsAllowUrl(canonicalUrl)) continue;
+      if (!(await robotsAllowUrl(canonicalUrl))) continue;
       try {
         const payload = await readReference(reference, canonicalUrl);
         if (!payload) continue;
         await ingestJobPosting({
-          canonicalUrl, structuredData: payload.structuredData, siteId: null, sourceType: 'feed', fieldSource: 'feed', observedAt,
+          canonicalUrl,
+          structuredData: payload.structuredData,
+          siteId: null,
+          sourceType: 'feed',
+          fieldSource: 'feed',
+          observedAt,
           ...(payload.fetchedAt ? { fetchedAt: payload.fetchedAt } : {}),
         });
         outcome.stored += 1;
@@ -418,7 +508,7 @@ export async function pollJobFeed(
       seen.add(canonicalUrl);
       discover(listing);
       // The listing's own page is governed by its own origin's robots.txt.
-      if (!await robotsAllowUrl(canonicalUrl)) continue;
+      if (!(await robotsAllowUrl(canonicalUrl))) continue;
       try {
         const payload = await complete(listing, canonicalUrl);
         if (!payload) continue;
@@ -445,14 +535,23 @@ export async function pollJobFeed(
   if (provider.stream) {
     const offset = Number(/^@(\d+)$/.exec(feed.cursor ?? '')?.[1] ?? 0);
     const request = jobFeedRequest(kind, feed.identifier);
-    const window = await readStreamWindow(request, provider.stream.element, offset, provider.stream.listingsPerPoll);
+    const window = await readStreamWindow(
+      request,
+      provider.stream.element,
+      offset,
+      provider.stream.listingsPerPoll,
+    );
     const streamed = provider.parse(window.header + window.items.join('\n'), {
-      kind, identifier: feed.identifier, requestUrl: request.url, extractedAt: observedAt.toISOString(),
+      kind,
+      identifier: feed.identifier,
+      requestUrl: request.url,
+      extractedAt: observedAt.toISOString(),
       ...(feed.label ? { label: feed.label } : {}),
     });
     for (const listing of streamed.listings) note(listing.canonicalUrl);
     await project(streamed.listings);
-    if (outcome.rejected > 0 && outcome.stored === 0) throw new Error('no listing in the feed could be projected');
+    if (outcome.rejected > 0 && outcome.stored === 0)
+      throw new Error('no listing in the feed could be projected');
     // The end of the dump wraps the walk to its start for the next poll.
     outcome.cursor = window.reachedEnd ? null : `@${offset + window.items.length}`;
     return settle(offset === 0 && window.reachedEnd);
@@ -473,14 +572,17 @@ export async function pollJobFeed(
   // A whole-board dump larger than one poll's budget is worked through in
   // turns: each poll starts where the previous one stopped (`@<offset>`) and
   // wraps around, so every listing is reached and none waits forever.
-  const dumpStart = !head.nextCursor && head.listings.length > MAX_LISTINGS_PER_POLL
-    ? (Number(/^@(\d+)$/.exec(feed.cursor ?? '')?.[1] ?? 0) % head.listings.length)
-    : 0;
+  const dumpStart =
+    !head.nextCursor && head.listings.length > MAX_LISTINGS_PER_POLL
+      ? Number(/^@(\d+)$/.exec(feed.cursor ?? '')?.[1] ?? 0) % head.listings.length
+      : 0;
   await project([...head.listings.slice(dumpStart), ...head.listings.slice(0, dumpStart)]);
   await projectReferences(head.references ?? []);
-  if (outcome.rejected > 0 && outcome.stored === 0) throw new Error('no listing in the feed could be projected');
+  if (outcome.rejected > 0 && outcome.stored === 0)
+    throw new Error('no listing in the feed could be projected');
   if (!head.nextCursor) {
-    if (head.listings.length > MAX_LISTINGS_PER_POLL) outcome.cursor = `@${(dumpStart + MAX_LISTINGS_PER_POLL) % head.listings.length}`;
+    if (head.listings.length > MAX_LISTINGS_PER_POLL)
+      outcome.cursor = `@${(dumpStart + MAX_LISTINGS_PER_POLL) % head.listings.length}`;
     // One response is the whole source: everything it lists was just seen.
     return settle(true);
   }
@@ -491,7 +593,11 @@ export async function pollJobFeed(
   // without a failure has read the whole source.
   const fromTheTop = !feed.cursor || feed.cursor.startsWith('@');
   let walkFailed = false;
-  let cursor = head.nextCursor ? (fromTheTop ? head.nextCursor : feed.cursor ?? head.nextCursor) : undefined;
+  let cursor = head.nextCursor
+    ? fromTheTop
+      ? head.nextCursor
+      : (feed.cursor ?? head.nextCursor)
+    : undefined;
   let pages = 1;
   while (cursor && pages < (pagesPerPoll ?? PAGES_PER_POLL) && seen.size < MAX_LISTINGS_PER_POLL) {
     let next: JobFeedPage;
@@ -509,7 +615,8 @@ export async function pollJobFeed(
     pages += 1;
     await project(next.listings);
     await projectReferences(next.references ?? []);
-    cursor = next.listings.length > 0 || (next.references?.length ?? 0) > 0 ? next.nextCursor : undefined;
+    cursor =
+      next.listings.length > 0 || (next.references?.length ?? 0) > 0 ? next.nextCursor : undefined;
   }
   outcome.cursor = cursor ?? null;
   return settle(fromTheTop && !walkFailed && cursor === undefined);
@@ -519,7 +626,8 @@ export async function pollJobFeed(
     await recordFeedPresence(feed.id, [...listed], observedAt);
     // A complete read that suddenly lists nothing is far likelier an outage or
     // a disabled feed than every posting withdrawn at once; it closes nothing.
-    if (completeListing && readEverything && listed.size > 0) outcome.closed = await closeAbsentListings(feed.id, observedAt);
+    if (completeListing && readEverything && listed.size > 0)
+      outcome.closed = await closeAbsentListings(feed.id, observedAt);
     return outcome;
   }
 }
@@ -545,61 +653,84 @@ export function toJsonLd(listing: ExtractedJobPosting): Record<string, unknown> 
       ...(listing.employerUrl ? { url: listing.employerUrl } : {}),
       ...(listing.employerLogoUrl ? { logo: listing.employerLogoUrl } : {}),
     },
-    ...(listing.locations.length > 0 ? {
-      jobLocation: listing.locations.map((location) => {
-        // The code, when there is one, is what every reader resolves; a
-        // country name is only as good as the normalizer's vocabulary.
-        const country = location.countryCode ?? location.country;
-        const structured = Boolean(location.locality || location.region || country);
-        return {
-          '@type': 'Place',
-          // A location the source gave only as text stays that text, and a
-          // structured one keeps the source's wording as its name.
-          address: structured ? {
-            '@type': 'PostalAddress',
-            name: location.raw,
-            ...(location.locality ? { addressLocality: location.locality } : {}),
-            ...(location.region ? { addressRegion: location.region } : {}),
-            ...(country ? { addressCountry: country } : {}),
-            ...(location.postalCode ? { postalCode: location.postalCode } : {}),
-          } : location.raw,
-        };
-      }),
-    } : {}),
-    ...(listing.workplaceType === 'remote' || listing.workplaceType === 'hybrid' ? { jobLocationType: 'TELECOMMUTE' } : {}),
+    ...(listing.locations.length > 0
+      ? {
+          jobLocation: listing.locations.map((location) => {
+            // The code, when there is one, is what every reader resolves; a
+            // country name is only as good as the normalizer's vocabulary.
+            const country = location.countryCode ?? location.country;
+            const structured = Boolean(location.locality || location.region || country);
+            return {
+              '@type': 'Place',
+              // A location the source gave only as text stays that text, and a
+              // structured one keeps the source's wording as its name.
+              address: structured
+                ? {
+                    '@type': 'PostalAddress',
+                    name: location.raw,
+                    ...(location.locality ? { addressLocality: location.locality } : {}),
+                    ...(location.region ? { addressRegion: location.region } : {}),
+                    ...(country ? { addressCountry: country } : {}),
+                    ...(location.postalCode ? { postalCode: location.postalCode } : {}),
+                  }
+                : location.raw,
+            };
+          }),
+        }
+      : {}),
+    ...(listing.workplaceType === 'remote' || listing.workplaceType === 'hybrid'
+      ? { jobLocationType: 'TELECOMMUTE' }
+      : {}),
     ...(listing.workplaceType ? { workplaceType: listing.workplaceType } : {}),
-    ...(listing.applicantLocationRequirements.length > 0 ? {
-      applicantLocationRequirements: listing.applicantLocationRequirements.map((name) => ({ '@type': 'Country', name })),
-    } : {}),
-    ...(listing.employmentTypes.length > 0 ? { employmentType: listing.employmentTypes.map((type) => type.toUpperCase()) } : {}),
+    ...(listing.applicantLocationRequirements.length > 0
+      ? {
+          applicantLocationRequirements: listing.applicantLocationRequirements.map((name) => ({
+            '@type': 'Country',
+            name,
+          })),
+        }
+      : {}),
+    ...(listing.employmentTypes.length > 0
+      ? { employmentType: listing.employmentTypes.map((type) => type.toUpperCase()) }
+      : {}),
     ...(listing.seniority ? { seniority: listing.seniority } : {}),
-    ...(listing.salary ? {
-      baseSalary: {
-        '@type': 'MonetaryAmount',
-        currency: listing.salary.currency,
-        value: {
-          '@type': 'QuantitativeValue',
-          ...(listing.salary.min === undefined ? {} : { minValue: listing.salary.min }),
-          ...(listing.salary.max === undefined ? {} : { maxValue: listing.salary.max }),
-          unitText: listing.salary.interval.toUpperCase(),
-        },
-      },
-    } : {}),
+    ...(listing.salary
+      ? {
+          baseSalary: {
+            '@type': 'MonetaryAmount',
+            currency: listing.salary.currency,
+            value: {
+              '@type': 'QuantitativeValue',
+              ...(listing.salary.min === undefined ? {} : { minValue: listing.salary.min }),
+              ...(listing.salary.max === undefined ? {} : { maxValue: listing.salary.max }),
+              unitText: listing.salary.interval.toUpperCase(),
+            },
+          },
+        }
+      : {}),
     ...(listing.skills.length > 0 ? { skills: listing.skills.join(', ') } : {}),
     ...(listing.qualifications ? { qualifications: listing.qualifications } : {}),
     ...(listing.responsibilities ? { responsibilities: listing.responsibilities } : {}),
-    ...(listing.educationRequirements ? { educationRequirements: listing.educationRequirements } : {}),
-    ...(listing.experienceRequirements ? { experienceRequirements: listing.experienceRequirements } : {}),
+    ...(listing.educationRequirements
+      ? { educationRequirements: listing.educationRequirements }
+      : {}),
+    ...(listing.experienceRequirements
+      ? { experienceRequirements: listing.experienceRequirements }
+      : {}),
     ...(listing.benefits ? { jobBenefits: listing.benefits } : {}),
     ...(listing.industry ? { industry: listing.industry } : {}),
     ...(listing.occupationalCategory ? { occupationalCategory: listing.occupationalCategory } : {}),
-    ...(listing.department ? { employmentUnit: { '@type': 'Organization', name: listing.department } } : {}),
+    ...(listing.department
+      ? { employmentUnit: { '@type': 'Organization', name: listing.department } }
+      : {}),
     ...(listing.identifier ? { identifier: listing.identifier } : {}),
     ...(listing.directApply === undefined ? {} : { directApply: listing.directApply }),
     ...(listing.publishedAt ? { datePosted: listing.publishedAt.toISOString() } : {}),
     ...(listing.validThrough ? { validThrough: listing.validThrough.toISOString() } : {}),
     url: listing.canonicalUrl,
-    ...(listing.applyUrl && listing.applyUrl !== listing.canonicalUrl ? { directApplyUrl: listing.applyUrl } : {}),
+    ...(listing.applyUrl && listing.applyUrl !== listing.canonicalUrl
+      ? { directApplyUrl: listing.applyUrl }
+      : {}),
   };
 }
 
@@ -611,21 +742,41 @@ export function toJsonLd(listing: ExtractedJobPosting): Record<string, unknown> 
 export async function claimDueFeeds(limit: number): Promise<Array<typeof jobFeeds.$inferSelect>> {
   return getDb().transaction(async (tx) => {
     // The longest-waiting feeds of each kind, at most a couple per kind.
-    const ranked = tx.select({
-      id: jobFeeds.id,
-      rank: sql<number>`row_number() over (partition by ${jobFeeds.kind} order by ${jobFeeds.nextPollAt})`.as('rank'),
-    }).from(jobFeeds)
+    const ranked = tx
+      .select({
+        id: jobFeeds.id,
+        rank: sql<number>`row_number() over (partition by ${jobFeeds.kind} order by ${jobFeeds.nextPollAt})`.as(
+          'rank',
+        ),
+      })
+      .from(jobFeeds)
       .where(and(eq(jobFeeds.enabled, true), lte(jobFeeds.nextPollAt, new Date())))
       .as('ranked');
-    const due = await tx.select().from(jobFeeds)
-      .where(inArray(jobFeeds.id, tx.select({ id: ranked.id }).from(ranked).where(lte(ranked.rank, FEEDS_PER_KIND_PER_ROUND))))
+    const due = await tx
+      .select()
+      .from(jobFeeds)
+      .where(
+        inArray(
+          jobFeeds.id,
+          tx
+            .select({ id: ranked.id })
+            .from(ranked)
+            .where(lte(ranked.rank, FEEDS_PER_KIND_PER_ROUND)),
+        ),
+      )
       .orderBy(jobFeeds.nextPollAt)
       .limit(limit)
       .for('update', { skipLocked: true });
     if (due.length > 0) {
-      await tx.update(jobFeeds)
+      await tx
+        .update(jobFeeds)
         .set({ nextPollAt: sql`now() + (${CLAIM_SECONDS} * interval '1 second')` })
-        .where(inArray(jobFeeds.id, due.map((feed) => feed.id)));
+        .where(
+          inArray(
+            jobFeeds.id,
+            due.map((feed) => feed.id),
+          ),
+        );
     }
     return due;
   });
@@ -636,44 +787,60 @@ export async function claimDueFeeds(limit: number): Promise<Array<typeof jobFeed
  * operator or an earlier discovery — is left exactly as it is, disabled ones
  * included.
  */
-async function registerDiscoveredFeeds(from: typeof jobFeeds.$inferSelect, found: readonly DiscoveredFeed[]): Promise<number> {
+async function registerDiscoveredFeeds(
+  from: typeof jobFeeds.$inferSelect,
+  found: readonly DiscoveredFeed[],
+): Promise<number> {
   if (found.length === 0) return 0;
   // Boards already registered are set aside first, so a directory of
   // thousands advances through new ones poll after poll.
-  const existing = await getDb().select({ kind: jobFeeds.kind, identifier: jobFeeds.identifier }).from(jobFeeds)
+  const existing = await getDb()
+    .select({ kind: jobFeeds.kind, identifier: jobFeeds.identifier })
+    .from(jobFeeds)
     .where(inArray(jobFeeds.identifier, [...new Set(found.map((board) => board.identifier))]));
   const known = new Set(existing.map((row) => `${row.kind}:${row.identifier}`));
-  const fresh = found.filter((board) => !known.has(`${board.kind}:${board.identifier}`))
+  const fresh = found
+    .filter((board) => !known.has(`${board.kind}:${board.identifier}`))
     .slice(0, jobFeedProvider(from.kind as JobFeedKind).discoveriesPerPoll ?? DISCOVERIES_PER_POLL);
   if (fresh.length === 0) return 0;
-  const inserted = await getDb().insert(jobFeeds)
-    .values(fresh.map((board) => ({
-      id: crypto.randomUUID(),
-      kind: board.kind,
-      identifier: board.identifier,
-      ...(board.label ? { label: board.label.slice(0, 200) } : {}),
-      discoveredFromFeedId: from.id,
-    })))
+  const inserted = await getDb()
+    .insert(jobFeeds)
+    .values(
+      fresh.map((board) => ({
+        id: crypto.randomUUID(),
+        kind: board.kind,
+        identifier: board.identifier,
+        ...(board.label ? { label: board.label.slice(0, 200) } : {}),
+        discoveredFromFeedId: from.id,
+      })),
+    )
     .onConflictDoNothing({ target: [jobFeeds.kind, jobFeeds.identifier] })
     .returning({ id: jobFeeds.id });
   return inserted.length;
 }
 
-async function pollClaimedFeed(feed: typeof jobFeeds.$inferSelect, result: JobFeedPollResult): Promise<void> {
+async function pollClaimedFeed(
+  feed: typeof jobFeeds.$inferSelect,
+  result: JobFeedPollResult,
+): Promise<void> {
   const database = getDb();
   try {
     const outcome = await pollJobFeed(feed);
     result.polled += 1;
     result.listings += outcome.stored;
-    await database.update(jobFeeds).set({
-      lastPolledAt: new Date(),
-      nextPollAt: sql`now() + (${feed.pollIntervalSeconds} * interval '1 second')`,
-      lastStatus: 'ok',
-      lastError: outcome.rejected > 0 ? `${outcome.rejected} listing(s) could not be projected` : null,
-      listingsSeen: outcome.stored,
-      cursor: outcome.cursor,
-      updatedAt: new Date(),
-    }).where(eq(jobFeeds.id, feed.id));
+    await database
+      .update(jobFeeds)
+      .set({
+        lastPolledAt: new Date(),
+        nextPollAt: sql`now() + (${feed.pollIntervalSeconds} * interval '1 second')`,
+        lastStatus: 'ok',
+        lastError:
+          outcome.rejected > 0 ? `${outcome.rejected} listing(s) could not be projected` : null,
+        listingsSeen: outcome.stored,
+        cursor: outcome.cursor,
+        updatedAt: new Date(),
+      })
+      .where(eq(jobFeeds.id, feed.id));
     result.discovered += await registerDiscoveredFeeds(feed, outcome.discovered);
   } catch (error) {
     result.failed += 1;
@@ -682,14 +849,17 @@ async function pollClaimedFeed(feed: typeof jobFeeds.$inferSelect, result: JobFe
     // operator's own registration only ever backs off.
     const missing = error instanceof Error && /^feed responded (?:404|410)$/.test(error.message);
     // Back off a failing feed rather than hammering it every pass.
-    await database.update(jobFeeds).set({
-      ...(missing && feed.discoveredFromFeedId ? { enabled: false } : {}),
-      lastPolledAt: new Date(),
-      nextPollAt: sql`now() + (${Math.max(feed.pollIntervalSeconds, 3_600)} * interval '1 second')`,
-      lastStatus: 'error',
-      lastError: (error instanceof Error ? error.message : 'unknown feed failure').slice(0, 500),
-      updatedAt: new Date(),
-    }).where(eq(jobFeeds.id, feed.id));
+    await database
+      .update(jobFeeds)
+      .set({
+        ...(missing && feed.discoveredFromFeedId ? { enabled: false } : {}),
+        lastPolledAt: new Date(),
+        nextPollAt: sql`now() + (${Math.max(feed.pollIntervalSeconds, 3_600)} * interval '1 second')`,
+        lastStatus: 'error',
+        lastError: (error instanceof Error ? error.message : 'unknown feed failure').slice(0, 500),
+        updatedAt: new Date(),
+      })
+      .where(eq(jobFeeds.id, feed.id));
   }
 }
 
@@ -697,8 +867,11 @@ async function pollClaimedFeed(feed: typeof jobFeeds.$inferSelect, result: JobFe
 export async function pollDueJobFeeds(): Promise<JobFeedPollResult> {
   const result: JobFeedPollResult = { polled: 0, listings: 0, failed: 0, discovered: 0 };
   const queue = await claimDueFeeds(FEEDS_PER_ROUND);
-  await Promise.all(Array.from({ length: Math.min(POLL_CONCURRENCY, queue.length) }, async () => {
-    for (let feed = queue.shift(); feed; feed = queue.shift()) await pollClaimedFeed(feed, result);
-  }));
+  await Promise.all(
+    Array.from({ length: Math.min(POLL_CONCURRENCY, queue.length) }, async () => {
+      for (let feed = queue.shift(); feed; feed = queue.shift())
+        await pollClaimedFeed(feed, result);
+    }),
+  );
   return result;
 }

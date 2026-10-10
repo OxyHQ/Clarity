@@ -26,7 +26,10 @@ function sitemapUrl(identifier: string): { url: string; prefix?: string } {
 
 export const sitemap: JobFeedProvider = {
   kind: 'sitemap',
-  identifier: { meaning: 'the https URL of a sitemap of posting pages, optionally #/path/prefix/', shape: 'url' },
+  identifier: {
+    meaning: 'the https URL of a sitemap of posting pages, optionally #/path/prefix/',
+    shape: 'url',
+  },
   completeListing: true,
   request: (identifier) => get(sitemapUrl(identifier).url, XML_ACCEPT),
   // A large portal's sitemap of postings runs to several megabytes.
@@ -41,8 +44,22 @@ export const sitemap: JobFeedProvider = {
     // is the same registrable domain, not the exact host.
     const apex = registrableApex(new URL(url).hostname);
     const entries = sitemapEntries(body)
-      .filter((entry) => { try { const target = new URL(entry.url); return (apex ? registrableApex(target.hostname) === apex : target.hostname === new URL(url).hostname) && (!prefix || target.pathname.startsWith(prefix)); } catch { return false; } })
-      .sort((left, right) => (right.lastModified?.getTime() ?? 0) - (left.lastModified?.getTime() ?? 0));
+      .filter((entry) => {
+        try {
+          const target = new URL(entry.url);
+          return (
+            (apex
+              ? registrableApex(target.hostname) === apex
+              : target.hostname === new URL(url).hostname) &&
+            (!prefix || target.pathname.startsWith(prefix))
+          );
+        } catch {
+          return false;
+        }
+      })
+      .sort(
+        (left, right) => (right.lastModified?.getTime() ?? 0) - (left.lastModified?.getTime() ?? 0),
+      );
     const offset = Number(context.cursor ?? 0) || 0;
     const references: JobFeedPageReference[] = entries.slice(offset, offset + PAGE_SIZE);
     return {

@@ -1,10 +1,10 @@
-import { View } from "react-native";
-import { Text } from "@/components/ui/text";
-import { Button } from "@oxy.so/bloom/button";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { useOxy } from "@oxy.so/services";
-import { useTranslation } from "@/hooks/useTranslation";
-import { ChevronRight } from "lucide-react-native";
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { Button } from '@oxy.so/bloom/button';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { useOxy } from '@oxy.so/services';
+import { useTranslation } from '@/hooks/useTranslation';
+import { ChevronRight } from 'lucide-react-native';
 
 export function AccountSection() {
   const { user, showBottomSheet } = useOxy();
@@ -12,7 +12,7 @@ export function AccountSection() {
 
   const displayName = user?.name?.displayName || t('common.user');
 
-  const initial = (user?.name?.displayName?.[0] || "U").toUpperCase();
+  const initial = (user?.name?.displayName?.[0] || 'U').toUpperCase();
 
   return (
     <View className="gap-6">
@@ -23,19 +23,18 @@ export function AccountSection() {
         </View>
         <View className="flex-1">
           <Text className="text-lg font-semibold">{displayName}</Text>
-          {user?.email && (
-            <Text className="text-sm text-muted-foreground">{user.email}</Text>
-          )}
+          {user?.email && <Text className="text-sm text-muted-foreground">{user.email}</Text>}
         </View>
       </View>
 
       {/* Manage Account */}
       <Button
-        appearance="outline" tone="neutral"
-        onPress={() => showBottomSheet?.("ManageAccount")}
+        appearance="outline"
+        tone="neutral"
+        onPress={() => showBottomSheet?.('ManageAccount')}
         trailingIcon={bloomIcon(ChevronRight)}
       >
-        {t("settings.account.title")}
+        {t('settings.account.title')}
       </Button>
     </View>
   );

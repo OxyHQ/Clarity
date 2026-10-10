@@ -5,41 +5,100 @@ import { z } from 'zod';
 
 import { getDb, type ClarityTransaction } from '../../db/index.js';
 import {
-  crawlJobs, crawlPages, jobFeeds, searchDocuments, searchSites,
-  searchChunks, searchUsageRollups,
+  crawlJobs,
+  crawlPages,
+  jobFeeds,
+  searchDocuments,
+  searchSites,
+  searchChunks,
+  searchUsageRollups,
 } from '../../db/schema/index.js';
-import { authenticateResource, requireResourceRequestRate, requireResourceScope, sendError } from '../../middleware/resource-auth.js';
+import {
+  authenticateResource,
+  requireResourceRequestRate,
+  requireResourceScope,
+  sendError,
+} from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
-import { consumeUsage, effectiveQuota, SANDBOX_QUOTAS, type QuotaMetric } from '../../search/quotas.js';
+import {
+  consumeUsage,
+  effectiveQuota,
+  SANDBOX_QUOTAS,
+  type QuotaMetric,
+} from '../../search/quotas.js';
 import { discoverWeb, recordDiscoveredPages } from '../../search/web-discovery.js';
-import { iconHostsOf, publicDocument, searchResult, type DocumentRow } from '../../search/public-document.js';
+import {
+  iconHostsOf,
+  publicDocument,
+  searchResult,
+  type DocumentRow,
+} from '../../search/public-document.js';
 import { listNewsStories } from '../../search/news.js';
 import {
-  canonicalizePublicUrl, decodeSearchCursor, encodeSearchCursor, escapeLike,
+  canonicalizePublicUrl,
+  decodeSearchCursor,
+  encodeSearchCursor,
+  escapeLike,
 } from '../../search/query-primitives.js';
 import { CLARITY_JOBS_CAPABILITY } from '../../search/jobs/capability.js';
 import {
-  JobsError, getJobPostingById, getJobPostingByUrl, jobCorpusStats, jobSearchSchema, searchJobs,
+  JobsError,
+  getJobPostingById,
+  getJobPostingByUrl,
+  jobCorpusStats,
+  jobSearchSchema,
+  searchJobs,
 } from '../../search/jobs/service.js';
 import { closeJobPostingsForDocument, ingestJobPosting } from '../../search/jobs/projection.js';
 import { validateJobPostingPayload } from '../../search/jobs/ingest-validation.js';
-import { createPlaceResolver, getPlace, placeSearchSchema, searchPlaces } from '../../search/places/repository.js';
+import {
+  createPlaceResolver,
+  getPlace,
+  placeSearchSchema,
+  searchPlaces,
+} from '../../search/places/repository.js';
 import { jobReportSchema, reportJobPosting } from '../../search/jobs/reports.js';
 import {
-  JOB_FEED_IDENTIFIER_MEANING, JOB_FEED_KINDS, assertJobFeedIdentifier, jobFeedMinPollIntervalSeconds,
+  JOB_FEED_IDENTIFIER_MEANING,
+  JOB_FEED_KINDS,
+  assertJobFeedIdentifier,
+  jobFeedMinPollIntervalSeconds,
 } from '../../search/jobs/feeds/endpoints.js';
 
 const router = Router();
 router.use(authenticateResource);
 router.use(requireResourceRequestRate);
 
-const documentTypes = ['page', 'article', 'news', 'job', 'product', 'video', 'event', 'recipe', 'profile', 'documentation', 'other'] as const;
+const documentTypes = [
+  'page',
+  'article',
+  'news',
+  'job',
+  'product',
+  'video',
+  'event',
+  'recipe',
+  'profile',
+  'documentation',
+  'other',
+] as const;
 const searchSchema = z.object({
   query: z.string().trim().min(1).max(500),
   mode: z.enum(['lexical', 'semantic', 'hybrid']).default('hybrid'),
   types: z.array(z.enum(documentTypes)).max(documentTypes.length).optional(),
-  domains: z.array(z.string().trim().max(253).regex(/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i)).max(50).optional(),
+  domains: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(253)
+        .regex(
+          /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i,
+        ),
+    )
+    .max(50)
+    .optional(),
   language: z.string().max(35).optional(),
   publishedAfter: z.coerce.date().optional(),
   publishedBefore: z.coerce.date().optional(),
@@ -49,8 +108,10 @@ const searchSchema = z.object({
 const urlsSchema = z.object({ urls: z.array(z.string().url()).min(1).max(50) });
 const resolveSchema = urlsSchema.extend({ waitMs: z.number().int().min(0).max(10_000).optional() });
 const createSiteSchema = z.object({
-  origin: z.string().url(), verifiedDomainId: z.string().min(1),
-  sitemapUrls: z.array(z.string().url()).max(20).default([]), feedUrls: z.array(z.string().url()).max(20).default([]),
+  origin: z.string().url(),
+  verifiedDomainId: z.string().min(1),
+  sitemapUrls: z.array(z.string().url()).max(20).default([]),
+  feedUrls: z.array(z.string().url()).max(20).default([]),
 });
 
 /**
@@ -67,27 +128,49 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
   if (!principal) return;
   const usage = await consumeUsage({ principal, operation: 'search' });
   if (!usage.accepted) {
-    sendError(res, 429, 'monthly_quota_exceeded', 'The monthly search quota has been exhausted', req, { metric: 'search_month', limit: usage.limit, used: usage.used });
+    sendError(
+      res,
+      429,
+      'monthly_quota_exceeded',
+      'The monthly search quota has been exhausted',
+      req,
+      { metric: 'search_month', limit: usage.limit, used: usage.used },
+    );
     return;
   }
   let queryEmbedding: number[] | undefined;
-  let degraded: { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' } | undefined;
+  let degraded:
+    | { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' }
+    | undefined;
   if (input.mode !== 'lexical') {
     try {
-      [queryEmbedding] = await createOxyEmbeddings([input.query], { signal: AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS) });
+      [queryEmbedding] = await createOxyEmbeddings([input.query], {
+        signal: AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS),
+      });
     } catch {
       if (input.mode === 'semantic') {
-        sendError(res, 503, 'semantic_unavailable', 'Semantic search is temporarily unavailable', req);
+        sendError(
+          res,
+          503,
+          'semantic_unavailable',
+          'Semantic search is temporarily unavailable',
+          req,
+        );
         return;
       }
       degraded = { from: 'hybrid', to: 'lexical', reason: 'embedding_route_unavailable' };
     }
   }
   const offset = decodeSearchCursor(input.cursor);
-  if (offset === undefined) { sendError(res, 400, 'invalid_cursor', 'The search cursor is invalid', req); return; }
+  if (offset === undefined) {
+    sendError(res, 400, 'invalid_cursor', 'The search cursor is invalid', req);
+    return;
+  }
   const ranks = await rankedSearch(input, queryEmbedding, offset);
   const ids = ranks.slice(0, input.limit).map((row) => row.documentId);
-  const documents = ids.length ? await getDb().select().from(searchDocuments).where(inArray(searchDocuments.id, ids)) : [];
+  const documents = ids.length
+    ? await getDb().select().from(searchDocuments).where(inArray(searchDocuments.id, ids))
+    : [];
   const documentsById = new Map(documents.map((row) => [row.id, row]));
   const data = ranks.slice(0, input.limit).flatMap((rank) => {
     const row = documentsById.get(rank.documentId);
@@ -95,33 +178,79 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
   });
   // What the index could not fill on the first page, the public web does. Not
   // for a type or date filter: a search engine's snippet can honour neither.
-  const discoverable = offset === 0 && data.length < input.limit
-    && !input.types?.length && !input.publishedAfter && !input.publishedBefore;
+  const discoverable =
+    offset === 0 &&
+    data.length < input.limit &&
+    !input.types?.length &&
+    !input.publishedAfter &&
+    !input.publishedBefore;
   if (discoverable) {
     const seen = new Set(data.map((result) => result.row.canonicalUrl));
-    const pages = await discoverWeb({ query: input.query, language: input.language, domains: input.domains, limit: input.limit });
-    const discovered = await recordDiscoveredPages(getDb(), pages.filter((page) => !seen.has(page.canonicalUrl)));
+    const pages = await discoverWeb({
+      query: input.query,
+      language: input.language,
+      domains: input.domains,
+      limit: input.limit,
+    });
+    const discovered = await recordDiscoveredPages(
+      getDb(),
+      pages.filter((page) => !seen.has(page.canonicalUrl)),
+    );
     // Below every indexed match: the index read the page, the engines did not.
     data.push(...discovered.slice(0, input.limit - data.length).map((row) => ({ row, score: 0 })));
   }
   const icons = await iconHostsOf(data.map((result) => result.row));
-  res.json({ data: data.map((result) => searchResult(result.row, result.score, icons)), mode: input.mode, ...(degraded ? { degraded } : {}), ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}) });
+  res.json({
+    data: data.map((result) => searchResult(result.row, result.score, icons)),
+    mode: input.mode,
+    ...(degraded ? { degraded } : {}),
+    ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}),
+  });
 });
 
 export type SearchInput = z.infer<typeof searchSchema>;
 
 /** The ranking behind `POST /v1/search`; exported for its Postgres suite. */
-export async function rankedSearch(input: SearchInput, embedding: number[] | undefined, offset: number) {
-  const filters: SQL[] = [sql`${searchDocuments.status} = 'indexed'`, sql`${searchDocuments.noindex} = false`];
-  if (input.types?.length) filters.push(sql`${searchDocuments.documentType} in (${sql.join(input.types.map((type) => sql`${type}`), sql`, `)})`);
+export async function rankedSearch(
+  input: SearchInput,
+  embedding: number[] | undefined,
+  offset: number,
+) {
+  const filters: SQL[] = [
+    sql`${searchDocuments.status} = 'indexed'`,
+    sql`${searchDocuments.noindex} = false`,
+  ];
+  if (input.types?.length)
+    filters.push(
+      sql`${searchDocuments.documentType} in (${sql.join(
+        input.types.map((type) => sql`${type}`),
+        sql`, `,
+      )})`,
+    );
   if (input.language) filters.push(sql`${searchDocuments.language} = ${input.language}`);
   // A raw `sql` parameter carries no column type, so bind timestamps as ISO
   // text with an explicit cast rather than handing the driver a Date.
-  if (input.publishedAfter) filters.push(sql`${searchDocuments.publishedAt} >= ${input.publishedAfter.toISOString()}::timestamptz`);
-  if (input.publishedBefore) filters.push(sql`${searchDocuments.publishedAt} <= ${input.publishedBefore.toISOString()}::timestamptz`);
+  if (input.publishedAfter)
+    filters.push(
+      sql`${searchDocuments.publishedAt} >= ${input.publishedAfter.toISOString()}::timestamptz`,
+    );
+  if (input.publishedBefore)
+    filters.push(
+      sql`${searchDocuments.publishedAt} <= ${input.publishedBefore.toISOString()}::timestamptz`,
+    );
   if (input.domains?.length) {
-    const domains = input.domains.map((domain) => new URL(`https://${domain}`).hostname.toLowerCase());
-    filters.push(sql`(${sql.join(domains.map((domain) => sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`), sql` or `)})`);
+    const domains = input.domains.map((domain) =>
+      new URL(`https://${domain}`).hostname.toLowerCase(),
+    );
+    filters.push(
+      sql`(${sql.join(
+        domains.map(
+          (domain) =>
+            sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`,
+        ),
+        sql` or `,
+      )})`,
+    );
   }
   const where = sql.join(filters, sql` and `);
   // Candidates first, one indexed arm each — the chunks' full-text index and
@@ -152,21 +281,28 @@ export async function rankedSearch(input: SearchInput, embedding: number[] | und
     where ${where}
     group by ${searchDocuments.id}
     order by rank limit 100`;
-  const semantic = embedding ? sql`
+  const semantic = embedding
+    ? sql`
     select ${searchDocuments.id} as document_id,
       row_number() over (order by min(${searchChunks.embedding} <=> ${JSON.stringify(embedding)}::vector) asc, ${searchDocuments.id}) as rank
     from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
     where ${where} and ${searchChunks.embedding} is not null
     group by ${searchDocuments.id}
-    order by rank limit 100` : undefined;
-  const statement = input.mode === 'hybrid' && semantic ? sql`
+    order by rank limit 100`
+    : undefined;
+  const statement =
+    input.mode === 'hybrid' && semantic
+      ? sql`
     with lexical as (${lexical}), semantic as (${semantic}), fused as (
       select coalesce(lexical.document_id, semantic.document_id) as document_id,
         coalesce(1.0 / (60 + lexical.rank), 0) + coalesce(1.0 / (60 + semantic.rank), 0) as score
       from lexical full outer join semantic on lexical.document_id = semantic.document_id
-    ) select document_id as "documentId", score from fused order by score desc, document_id limit ${input.limit + 1} offset ${offset}` : input.mode === 'semantic' && semantic ? sql`
+    ) select document_id as "documentId", score from fused order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
+      : input.mode === 'semantic' && semantic
+        ? sql`
     with semantic as (${semantic}) select document_id as "documentId", 1.0 / (60 + rank) as score
-    from semantic order by score desc, document_id limit ${input.limit + 1} offset ${offset}` : sql`
+    from semantic order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
+        : sql`
     with lexical as (${lexical}) select document_id as "documentId", 1.0 / (60 + rank) as score
     from lexical order by score desc, document_id limit ${input.limit + 1} offset ${offset}`;
   return getDb().execute<{ documentId: string; score: number }>(statement);
@@ -177,14 +313,32 @@ router.post('/index/urls', requireResourceScope('clarity:index'), async (req, re
   if (!input) return;
   const idempotencyKey = requireIdempotency(req, res);
   if (!idempotencyKey) return;
-  const operation = await createIndexOperation(req, input.urls.map(canonicalizePublicUrl), idempotencyKey);
-  if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
+  const operation = await createIndexOperation(
+    req,
+    input.urls.map(canonicalizePublicUrl),
+    idempotencyKey,
+  );
+  if (!operation) {
+    sendError(
+      res,
+      429,
+      'active_crawl_quota_exceeded',
+      'The active crawl quota has been exhausted',
+      req,
+    );
+    return;
+  }
   res.status(202).json(publicOperation(operation));
 });
 
 /** How often a waiting resolve looks at its crawl. */
 const RESOLVE_POLL_MS = 400;
-const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set(['succeeded', 'partial', 'failed', 'cancelled']);
+const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
+  'succeeded',
+  'partial',
+  'failed',
+  'cancelled',
+]);
 
 /**
  * Each requested URL's document, if Clarity has fetched it. A crawl stores a
@@ -194,15 +348,25 @@ const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set(['succeeded', 'partial'
  * fetched — does not count. Exported for its Postgres suite.
  */
 export async function fetchedDocuments(urls: readonly string[]): Promise<Map<string, DocumentRow>> {
-  const rows = await getDb().select().from(searchDocuments).where(or(
-    inArray(searchDocuments.canonicalUrl, urls),
-    inArray(searchDocuments.requestedUrl, urls),
-    inArray(searchDocuments.finalUrl, urls),
-  ));
+  const rows = await getDb()
+    .select()
+    .from(searchDocuments)
+    .where(
+      or(
+        inArray(searchDocuments.canonicalUrl, urls),
+        inArray(searchDocuments.requestedUrl, urls),
+        inArray(searchDocuments.finalUrl, urls),
+      ),
+    );
   const byUrl = new Map<string, DocumentRow>();
   for (const url of urls) {
-    const row = rows.find((candidate) => candidate.status !== 'discovered'
-      && (candidate.canonicalUrl === url || candidate.requestedUrl === url || candidate.finalUrl === url));
+    const row = rows.find(
+      (candidate) =>
+        candidate.status !== 'discovered' &&
+        (candidate.canonicalUrl === url ||
+          candidate.requestedUrl === url ||
+          candidate.finalUrl === url),
+    );
     if (row) byUrl.set(url, row);
   }
   return byUrl;
@@ -214,44 +378,90 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   const urls = input.urls.map(canonicalizePublicUrl);
   let byUrl = await fetchedDocuments(urls);
   const missing = [...new Set(urls.filter((url) => !byUrl.has(url)))];
-  const operations = missing.length ? await resolveIndexOperations(req, missing) : new Map<string, typeof crawlJobs.$inferSelect>();
+  const operations = missing.length
+    ? await resolveIndexOperations(req, missing)
+    : new Map<string, typeof crawlJobs.$inferSelect>();
   if (missing.length && operations.size === 0 && byUrl.size === 0) {
-    sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req);
+    sendError(
+      res,
+      429,
+      'active_crawl_quota_exceeded',
+      'The active crawl quota has been exhausted',
+      req,
+    );
     return;
   }
-  const statuses = new Map([...operations.values()].map((operation) => [operation.id, operation.status]));
+  const statuses = new Map(
+    [...operations.values()].map((operation) => [operation.id, operation.status]),
+  );
   const deadline = Date.now() + (input.waitMs ?? 0);
-  while ([...statuses.values()].some((status) => !TERMINAL_OPERATIONS.has(status)) && Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, Math.min(RESOLVE_POLL_MS, deadline - Date.now())));
-    const current = await getDb().select({ id: crawlJobs.id, status: crawlJobs.status }).from(crawlJobs).where(inArray(crawlJobs.id, [...statuses.keys()]));
+  while (
+    [...statuses.values()].some((status) => !TERMINAL_OPERATIONS.has(status)) &&
+    Date.now() < deadline
+  ) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, Math.min(RESOLVE_POLL_MS, deadline - Date.now())),
+    );
+    const current = await getDb()
+      .select({ id: crawlJobs.id, status: crawlJobs.status })
+      .from(crawlJobs)
+      .where(inArray(crawlJobs.id, [...statuses.keys()]));
     for (const operation of current) statuses.set(operation.id, operation.status);
   }
   if (input.waitMs) byUrl = await fetchedDocuments(urls);
   const unfetchedStatus = (url: string) => {
     const operation = operations.get(url);
     if (!operation) return 'throttled';
-    return !TERMINAL_OPERATIONS.has(statuses.get(operation.id) ?? operation.status) ? 'queued' : 'failed';
+    return !TERMINAL_OPERATIONS.has(statuses.get(operation.id) ?? operation.status)
+      ? 'queued'
+      : 'failed';
   };
   const pending = urls.some((url) => !byUrl.has(url) && unfetchedStatus(url) === 'queued');
   const icons = await iconHostsOf([...byUrl.values()]);
-  res.status(pending ? 202 : 200).json({ data: urls.map((url) => {
-    const document = byUrl.get(url);
-    return document
-      ? { url, document: publicDocument(document, icons), status: document.status }
-      : { url, operationId: operations.get(url)?.id, status: unfetchedStatus(url), ...(!operations.has(url) ? { error: { code: 'active_crawl_quota_exceeded', retryable: true } } : {}) };
-  }) });
+  res.status(pending ? 202 : 200).json({
+    data: urls.map((url) => {
+      const document = byUrl.get(url);
+      return document
+        ? { url, document: publicDocument(document, icons), status: document.status }
+        : {
+            url,
+            operationId: operations.get(url)?.id,
+            status: unfetchedStatus(url),
+            ...(!operations.has(url)
+              ? { error: { code: 'active_crawl_quota_exceeded', retryable: true } }
+              : {}),
+          };
+    }),
+  });
 });
 
 router.get('/documents/by-url', requireResourceScope('clarity:search'), async (req, res) => {
-  if (typeof req.query.url !== 'string') { sendError(res, 400, 'invalid_request', 'url is required', req); return; }
-  const [row] = await getDb().select().from(searchDocuments).where(eq(searchDocuments.canonicalUrl, canonicalizePublicUrl(req.query.url))).limit(1);
-  if (!row) { sendError(res, 404, 'document_not_found', 'Document not found', req); return; }
+  if (typeof req.query.url !== 'string') {
+    sendError(res, 400, 'invalid_request', 'url is required', req);
+    return;
+  }
+  const [row] = await getDb()
+    .select()
+    .from(searchDocuments)
+    .where(eq(searchDocuments.canonicalUrl, canonicalizePublicUrl(req.query.url)))
+    .limit(1);
+  if (!row) {
+    sendError(res, 404, 'document_not_found', 'Document not found', req);
+    return;
+  }
   res.json(publicDocument(row, await iconHostsOf([row])));
 });
 
 router.get('/documents/:id', requireResourceScope('clarity:search'), async (req, res) => {
-  const [row] = await getDb().select().from(searchDocuments).where(eq(searchDocuments.id, String(req.params.id))).limit(1);
-  if (!row) { sendError(res, 404, 'document_not_found', 'Document not found', req); return; }
+  const [row] = await getDb()
+    .select()
+    .from(searchDocuments)
+    .where(eq(searchDocuments.id, String(req.params.id)))
+    .limit(1);
+  if (!row) {
+    sendError(res, 404, 'document_not_found', 'Document not found', req);
+    return;
+  }
   res.json(publicDocument(row, await iconHostsOf([row])));
 });
 
@@ -262,7 +472,12 @@ router.get('/news', requireResourceScope('clarity:search'), async (req, res) => 
 router.get('/sites', requireResourceScope('clarity:sites:manage'), async (req, res) => {
   const principal = req.resourcePrincipal;
   if (!principal) return;
-  const rows = await getDb().select().from(searchSites).where(eq(searchSites.ownerAccountId, principal.accountId)).orderBy(desc(searchSites.id)).limit(100);
+  const rows = await getDb()
+    .select()
+    .from(searchSites)
+    .where(eq(searchSites.ownerAccountId, principal.accountId))
+    .orderBy(desc(searchSites.id))
+    .limit(100);
   res.json({ data: rows.map(publicSite) });
 });
 
@@ -272,21 +487,62 @@ router.post('/sites', requireResourceScope('clarity:sites:manage'), async (req, 
   const idempotencyKey = requireIdempotency(req, res);
   if (!input || !principal || !idempotencyKey) return;
   const origin = new URL(input.origin).origin;
-  if (!await verifyDomainOwnership(principal.accountId, input.verifiedDomainId, new URL(origin).hostname)) {
-    sendError(res, 403, 'domain_not_verified', 'The origin is not a verified Oxy domain owned by this account', req);
+  if (
+    !(await verifyDomainOwnership(
+      principal.accountId,
+      input.verifiedDomainId,
+      new URL(origin).hostname,
+    ))
+  ) {
+    sendError(
+      res,
+      403,
+      'domain_not_verified',
+      'The origin is not a verified Oxy domain owned by this account',
+      req,
+    );
     return;
   }
   const site = await getDb().transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:sites`}, 0))`);
-    const [existing] = await tx.select().from(searchSites).where(and(eq(searchSites.ownerAccountId, principal.accountId), eq(searchSites.origin, origin))).limit(1);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:sites`}, 0))`,
+    );
+    const [existing] = await tx
+      .select()
+      .from(searchSites)
+      .where(
+        and(eq(searchSites.ownerAccountId, principal.accountId), eq(searchSites.origin, origin)),
+      )
+      .limit(1);
     if (existing) return existing;
     const limit = await effectiveQuota(tx, principal, 'sites');
-    const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(searchSites).where(and(eq(searchSites.ownerAccountId, principal.accountId), sql`${searchSites.status} <> 'removed'`));
+    const [current] = await tx
+      .select({ quantity: sql<number>`count(*)::int` })
+      .from(searchSites)
+      .where(
+        and(
+          eq(searchSites.ownerAccountId, principal.accountId),
+          sql`${searchSites.status} <> 'removed'`,
+        ),
+      );
     if (current.quantity >= limit) return undefined;
-    const [created] = await tx.insert(searchSites).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, origin, verifiedDomainId: input.verifiedDomainId, sitemapUrls: input.sitemapUrls, feedUrls: input.feedUrls }).returning();
+    const [created] = await tx
+      .insert(searchSites)
+      .values({
+        id: crypto.randomUUID(),
+        ownerAccountId: principal.accountId,
+        origin,
+        verifiedDomainId: input.verifiedDomainId,
+        sitemapUrls: input.sitemapUrls,
+        feedUrls: input.feedUrls,
+      })
+      .returning();
     return created;
   });
-  if (!site) { sendError(res, 429, 'site_quota_exceeded', 'The verified site quota has been exhausted', req); return; }
+  if (!site) {
+    sendError(res, 429, 'site_quota_exceeded', 'The verified site quota has been exhausted', req);
+    return;
+  }
   res.status(201).json(publicSite(site));
 });
 
@@ -294,19 +550,73 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
   const principal = req.resourcePrincipal;
   const idempotencyKey = requireIdempotency(req, res);
   if (!principal || !idempotencyKey) return;
-  const [site] = await getDb().select().from(searchSites).where(and(eq(searchSites.id, String(req.params.id)), eq(searchSites.ownerAccountId, principal.accountId))).limit(1);
-  if (!site) { sendError(res, 404, 'site_not_found', 'Site not found', req); return; }
+  const [site] = await getDb()
+    .select()
+    .from(searchSites)
+    .where(
+      and(
+        eq(searchSites.id, String(req.params.id)),
+        eq(searchSites.ownerAccountId, principal.accountId),
+      ),
+    )
+    .limit(1);
+  if (!site) {
+    sendError(res, 404, 'site_not_found', 'Site not found', req);
+    return;
+  }
   const operation = await getDb().transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
-    const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`,
+    );
+    const [existing] = await tx
+      .select()
+      .from(crawlJobs)
+      .where(
+        and(
+          eq(crawlJobs.ownerAccountId, principal.accountId),
+          eq(crawlJobs.applicationId, principal.applicationId),
+          eq(crawlJobs.idempotencyKey, idempotencyKey),
+        ),
+      )
+      .limit(1);
     if (existing) return existing;
     const limit = await effectiveQuota(tx, principal, 'active_crawls');
-    const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
+    const [current] = await tx
+      .select({ quantity: sql<number>`count(*)::int` })
+      .from(crawlJobs)
+      .where(
+        and(
+          eq(crawlJobs.ownerAccountId, principal.accountId),
+          inArray(crawlJobs.status, ['queued', 'running']),
+        ),
+      );
     if (current.quantity >= limit) return undefined;
-    const [created] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, siteId: site.id, kind: 'site', idempotencyKey, requestedUrls: [site.origin], callerTier: principal.tier }).returning();
+    const [created] = await tx
+      .insert(crawlJobs)
+      .values({
+        id: crypto.randomUUID(),
+        ownerAccountId: principal.accountId,
+        applicationId: principal.applicationId,
+        credentialId: principal.credentialId,
+        siteId: site.id,
+        kind: 'site',
+        idempotencyKey,
+        requestedUrls: [site.origin],
+        callerTier: principal.tier,
+      })
+      .returning();
     return created;
   });
-  if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
+  if (!operation) {
+    sendError(
+      res,
+      429,
+      'active_crawl_quota_exceeded',
+      'The active crawl quota has been exhausted',
+      req,
+    );
+    return;
+  }
   res.status(202).json(publicOperation(operation));
 });
 
@@ -315,16 +625,47 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
 router.get('/operations/:id', requireResourceScope('clarity:index'), async (req, res) => {
   const principal = req.resourcePrincipal;
   if (!principal) return;
-  const [operation] = await getDb().select().from(crawlJobs).where(and(eq(crawlJobs.id, String(req.params.id)), eq(crawlJobs.ownerAccountId, principal.accountId))).limit(1);
-  if (!operation) { sendError(res, 404, 'operation_not_found', 'Index operation not found', req); return; }
+  const [operation] = await getDb()
+    .select()
+    .from(crawlJobs)
+    .where(
+      and(
+        eq(crawlJobs.id, String(req.params.id)),
+        eq(crawlJobs.ownerAccountId, principal.accountId),
+      ),
+    )
+    .limit(1);
+  if (!operation) {
+    sendError(res, 404, 'operation_not_found', 'Index operation not found', req);
+    return;
+  }
   res.json(publicOperation(operation));
 });
 
 router.post('/operations/:id/cancel', requireResourceScope('clarity:index'), async (req, res) => {
   const principal = req.resourcePrincipal;
   if (!principal) return;
-  const [operation] = await getDb().update(crawlJobs).set({ status: 'cancelled', finishedAt: new Date(), updatedAt: new Date() }).where(and(eq(crawlJobs.id, String(req.params.id)), eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running']))).returning();
-  if (!operation) { sendError(res, 409, 'operation_not_cancellable', 'Index operation is missing or already terminal', req); return; }
+  const [operation] = await getDb()
+    .update(crawlJobs)
+    .set({ status: 'cancelled', finishedAt: new Date(), updatedAt: new Date() })
+    .where(
+      and(
+        eq(crawlJobs.id, String(req.params.id)),
+        eq(crawlJobs.ownerAccountId, principal.accountId),
+        inArray(crawlJobs.status, ['queued', 'running']),
+      ),
+    )
+    .returning();
+  if (!operation) {
+    sendError(
+      res,
+      409,
+      'operation_not_cancellable',
+      'Index operation is missing or already terminal',
+      req,
+    );
+    return;
+  }
   res.json(publicOperation(operation));
 });
 
@@ -347,7 +688,14 @@ router.post('/jobs/search', requireResourceScope('clarity:search'), async (req, 
   if (!input || !principal) return;
   const usage = await consumeUsage({ principal, operation: 'search' });
   if (!usage.accepted) {
-    sendError(res, 429, 'monthly_quota_exceeded', 'The monthly search quota has been exhausted', req, { metric: 'search_month', limit: usage.limit, used: usage.used });
+    sendError(
+      res,
+      429,
+      'monthly_quota_exceeded',
+      'The monthly search quota has been exhausted',
+      req,
+      { metric: 'search_month', limit: usage.limit, used: usage.used },
+    );
     return;
   }
   try {
@@ -357,15 +705,25 @@ router.post('/jobs/search', requireResourceScope('clarity:search'), async (req, 
   }
 });
 
-router.get('/jobs/capability', requireResourceScope('clarity:search'), (_req, res) => res.json(CLARITY_JOBS_CAPABILITY));
+router.get('/jobs/capability', requireResourceScope('clarity:search'), (_req, res) =>
+  res.json(CLARITY_JOBS_CAPABILITY),
+);
 
-router.get('/jobs/stats', requireResourceScope('clarity:search'), async (_req, res) => res.json(await jobCorpusStats()));
+router.get('/jobs/stats', requireResourceScope('clarity:search'), async (_req, res) =>
+  res.json(await jobCorpusStats()),
+);
 
 router.get('/jobs/by-url', requireResourceScope('clarity:search'), async (req, res) => {
-  if (typeof req.query.url !== 'string') { sendError(res, 400, 'invalid_request', 'url is required', req); return; }
+  if (typeof req.query.url !== 'string') {
+    sendError(res, 400, 'invalid_request', 'url is required', req);
+    return;
+  }
   try {
     const job = await getJobPostingByUrl(req.query.url);
-    if (!job) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+    if (!job) {
+      sendError(res, 404, 'job_not_found', 'Job posting not found', req);
+      return;
+    }
     res.json(job);
   } catch (error) {
     sendJobsError(error, req, res);
@@ -377,13 +735,19 @@ router.post('/jobs/:id/report', requireResourceScope('clarity:search'), async (r
   const input = parse(jobReportSchema, req, res);
   if (!input) return;
   const accepted = await reportJobPosting(String(req.params.id), input);
-  if (!accepted) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+  if (!accepted) {
+    sendError(res, 404, 'job_not_found', 'Job posting not found', req);
+    return;
+  }
   res.status(202).json({ status: 'received' });
 });
 
 router.get('/jobs/:id', requireResourceScope('clarity:search'), async (req, res) => {
   const job = await getJobPostingById(String(req.params.id));
-  if (!job) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+  if (!job) {
+    sendError(res, 404, 'job_not_found', 'Job posting not found', req);
+    return;
+  }
   res.json(job);
 });
 
@@ -409,13 +773,25 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
   if (input.closed || input.jobPosting) {
     const site = await findVerifiedSite(principal.accountId, canonicalUrl);
     if (!site) {
-      sendError(res, 403, 'site_not_verified', 'The listing host is not a verified Clarity site owned by this account', req);
+      sendError(
+        res,
+        403,
+        'site_not_verified',
+        'The listing host is not a verified Clarity site owned by this account',
+        req,
+      );
       return;
     }
     if (input.closed) {
-      const [document] = await getDb().select({ id: searchDocuments.id }).from(searchDocuments)
-        .where(eq(searchDocuments.canonicalUrl, canonicalUrl)).limit(1);
-      if (!document) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+      const [document] = await getDb()
+        .select({ id: searchDocuments.id })
+        .from(searchDocuments)
+        .where(eq(searchDocuments.canonicalUrl, canonicalUrl))
+        .limit(1);
+      if (!document) {
+        sendError(res, 404, 'job_not_found', 'Job posting not found', req);
+        return;
+      }
       await closeJobPostingsForDocument(getDb(), document.id, 'source_closed');
       res.json({ url: canonicalUrl, status: 'closed' });
       return;
@@ -425,11 +801,24 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
     // crawled and feed listings get the same values dropped instead.
     const validation = await validateJobPostingPayload(structuredData, createPlaceResolver());
     if (validation.issues.length > 0) {
-      sendError(res, 400, 'invalid_job_posting', 'jobPosting does not meet the Clarity Jobs ingest contract', req, { issues: validation.issues });
+      sendError(
+        res,
+        400,
+        'invalid_job_posting',
+        'jobPosting does not meet the Clarity Jobs ingest contract',
+        req,
+        { issues: validation.issues },
+      );
       return;
     }
     if (validation.placesUnavailable) {
-      sendError(res, 503, 'places_unavailable', 'The place gazetteer has not been imported; locations cannot be verified', req);
+      sendError(
+        res,
+        503,
+        'places_unavailable',
+        'The place gazetteer has not been imported; locations cannot be verified',
+        req,
+      );
       return;
     }
     let ingested: { jobPostingIds: string[] };
@@ -444,15 +833,32 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'no_job_posting') {
-        sendError(res, 400, 'invalid_job_posting', 'jobPosting must contain a schema.org JobPosting with a title and hiringOrganization', req, {
-          issues: [{ path: 'jobPosting', code: 'job_posting_required', message: 'jobPosting must contain a schema.org JobPosting' }],
-        });
+        sendError(
+          res,
+          400,
+          'invalid_job_posting',
+          'jobPosting must contain a schema.org JobPosting with a title and hiringOrganization',
+          req,
+          {
+            issues: [
+              {
+                path: 'jobPosting',
+                code: 'job_posting_required',
+                message: 'jobPosting must contain a schema.org JobPosting',
+              },
+            ],
+          },
+        );
         return;
       }
       throw error;
     }
     // Confirm the public page against the payload; the source stays canonical.
-    const operation = await createIndexOperation(req, [canonicalUrl], req.header('idempotency-key') || `job-ingest:${crypto.randomUUID()}`);
+    const operation = await createIndexOperation(
+      req,
+      [canonicalUrl],
+      req.header('idempotency-key') || `job-ingest:${crypto.randomUUID()}`,
+    );
     const job = await getJobPostingById(ingested.jobPostingIds[0]);
     res.status(202).json({
       url: canonicalUrl,
@@ -463,8 +869,21 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
     return;
   }
 
-  const operation = await createIndexOperation(req, [canonicalUrl], req.header('idempotency-key') || `job-ingest:${crypto.randomUUID()}`);
-  if (!operation) { sendError(res, 429, 'active_crawl_quota_exceeded', 'The active crawl quota has been exhausted', req); return; }
+  const operation = await createIndexOperation(
+    req,
+    [canonicalUrl],
+    req.header('idempotency-key') || `job-ingest:${crypto.randomUUID()}`,
+  );
+  if (!operation) {
+    sendError(
+      res,
+      429,
+      'active_crawl_quota_exceeded',
+      'The active crawl quota has been exhausted',
+      req,
+    );
+    return;
+  }
   res.status(202).json({ url: canonicalUrl, operationId: operation.id, status: 'queued' });
 });
 
@@ -473,7 +892,12 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
 router.get('/places/search', requireResourceScope('clarity:search'), async (req, res) => {
   const parsed = placeSearchSchema.safeParse(req.query);
   if (!parsed.success) {
-    sendError(res, 400, 'invalid_request', 'Request validation failed', req, { issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) });
+    sendError(res, 400, 'invalid_request', 'Request validation failed', req, {
+      issues: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
+    });
     return;
   }
   res.json({ data: await searchPlaces(parsed.data) });
@@ -481,13 +905,18 @@ router.get('/places/search', requireResourceScope('clarity:search'), async (req,
 
 router.get('/places/:id', requireResourceScope('clarity:search'), async (req, res) => {
   const place = await getPlace(String(req.params.id));
-  if (!place) { sendError(res, 404, 'place_not_found', 'Place not found', req); return; }
+  if (!place) {
+    sendError(res, 404, 'place_not_found', 'Place not found', req);
+    return;
+  }
   res.json(place);
 });
 
 async function findVerifiedSite(accountId: string, url: string) {
   const host = new URL(url).hostname.toLowerCase();
-  const sites = await getDb().select().from(searchSites)
+  const sites = await getDb()
+    .select()
+    .from(searchSites)
     .where(and(eq(searchSites.ownerAccountId, accountId), eq(searchSites.status, 'active')));
   return sites.find((site) => {
     const origin = new URL(site.origin).hostname.toLowerCase();
@@ -514,7 +943,11 @@ const registerJobFeedSchema = z.object({
 });
 
 router.get('/jobs/feeds', requireResourceScope('clarity:index'), async (_req, res) => {
-  const rows = await getDb().select().from(jobFeeds).orderBy(jobFeeds.kind, jobFeeds.identifier).limit(500);
+  const rows = await getDb()
+    .select()
+    .from(jobFeeds)
+    .orderBy(jobFeeds.kind, jobFeeds.identifier)
+    .limit(500);
   res.json({ data: rows.map(publicJobFeed), identifierMeaning: JOB_FEED_IDENTIFIER_MEANING });
 });
 
@@ -526,13 +959,29 @@ router.post('/jobs/feeds', requireResourceScope('clarity:index'), async (req, re
     // silently fetching the wrong board on the next poll.
     assertJobFeedIdentifier(input.kind, input.identifier);
   } catch (error) {
-    sendError(res, 400, 'invalid_request', error instanceof Error ? error.message : 'Invalid feed identifier', req);
+    sendError(
+      res,
+      400,
+      'invalid_request',
+      error instanceof Error ? error.message : 'Invalid feed identifier',
+      req,
+    );
     return;
   }
   // A source whose published terms ask for fewer requests gets no more than that.
-  const pollIntervalSeconds = Math.max(input.pollIntervalSeconds, jobFeedMinPollIntervalSeconds(input.kind));
-  const [row] = await getDb().insert(jobFeeds)
-    .values({ id: crypto.randomUUID(), kind: input.kind, identifier: input.identifier, label: input.label, pollIntervalSeconds })
+  const pollIntervalSeconds = Math.max(
+    input.pollIntervalSeconds,
+    jobFeedMinPollIntervalSeconds(input.kind),
+  );
+  const [row] = await getDb()
+    .insert(jobFeeds)
+    .values({
+      id: crypto.randomUUID(),
+      kind: input.kind,
+      identifier: input.identifier,
+      label: input.label,
+      pollIntervalSeconds,
+    })
     .onConflictDoUpdate({
       target: [jobFeeds.kind, jobFeeds.identifier],
       set: { label: input.label, pollIntervalSeconds, enabled: true, updatedAt: new Date() },
@@ -544,16 +993,27 @@ router.post('/jobs/feeds', requireResourceScope('clarity:index'), async (req, re
 router.delete('/jobs/feeds/:id', requireResourceScope('clarity:index'), async (req, res) => {
   // Disabled, not deleted: the listings it already produced keep their
   // provenance, and re-registering the same source resumes rather than restarts.
-  const [row] = await getDb().update(jobFeeds).set({ enabled: false, updatedAt: new Date() })
-    .where(eq(jobFeeds.id, String(req.params.id))).returning();
-  if (!row) { sendError(res, 404, 'job_feed_not_found', 'Job feed not found', req); return; }
+  const [row] = await getDb()
+    .update(jobFeeds)
+    .set({ enabled: false, updatedAt: new Date() })
+    .where(eq(jobFeeds.id, String(req.params.id)))
+    .returning();
+  if (!row) {
+    sendError(res, 404, 'job_feed_not_found', 'Job feed not found', req);
+    return;
+  }
   res.json(publicJobFeed(row));
 });
 
 router.get('/usage', requireResourceScope('clarity:usage:read'), async (req, res) => {
   const principal = req.resourcePrincipal;
   if (!principal) return;
-  const data = await getDb().select().from(searchUsageRollups).where(eq(searchUsageRollups.ownerAccountId, principal.accountId)).orderBy(desc(searchUsageRollups.periodStart)).limit(100);
+  const data = await getDb()
+    .select()
+    .from(searchUsageRollups)
+    .where(eq(searchUsageRollups.ownerAccountId, principal.accountId))
+    .orderBy(desc(searchUsageRollups.periodStart))
+    .limit(100);
   res.json({ data });
 });
 
@@ -562,12 +1022,23 @@ router.get('/quotas', requireResourceScope('clarity:usage:read'), async (req, re
   if (!principal) return;
   // `null` is "no limit": JSON has no Infinity, and one of Oxy's own
   // applications has no monthly quota at all.
-  const entries = await Promise.all((Object.keys(SANDBOX_QUOTAS) as QuotaMetric[]).map(async (metric) => {
-    const limit = await effectiveQuota(getDb(), principal, metric);
-    return [metric, Number.isFinite(limit) ? limit : null] as const;
-  }));
+  const entries = await Promise.all(
+    (Object.keys(SANDBOX_QUOTAS) as QuotaMetric[]).map(async (metric) => {
+      const limit = await effectiveQuota(getDb(), principal, metric);
+      return [metric, Number.isFinite(limit) ? limit : null] as const;
+    }),
+  );
   const quota = Object.fromEntries(entries) as Record<QuotaMetric, number | null>;
-  res.json({ searchesPerMonth: quota.search_month, fetchesPerMonth: quota.fetch_month, sites: quota.sites, activeCrawls: quota.active_crawls, pagesPerCrawl: quota.pages_per_crawl, requestsPerMinuteCredential: quota.requests_minute_credential, requestsPerMinuteApplication: quota.requests_minute_application, concurrentFetches: quota.concurrent_fetches });
+  res.json({
+    searchesPerMonth: quota.search_month,
+    fetchesPerMonth: quota.fetch_month,
+    sites: quota.sites,
+    activeCrawls: quota.active_crawls,
+    pagesPerCrawl: quota.pages_per_crawl,
+    requestsPerMinuteCredential: quota.requests_minute_credential,
+    requestsPerMinuteApplication: quota.requests_minute_application,
+    concurrentFetches: quota.concurrent_fetches,
+  });
 });
 
 /** Reuse pending work by URL, including overlapping and reordered read batches. */
@@ -577,18 +1048,27 @@ export async function resolveIndexOperations(req: Request, urls: string[]) {
   return getDb().transaction(async (tx) => {
     // The same quota lock as explicit indexing serializes read-before-enqueue
     // across all API replicas. A fresh random request key alone cannot dedupe.
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
-    const existing = await tx.selectDistinctOn([crawlPages.url], { url: crawlPages.url, operation: crawlJobs }).from(crawlPages)
-      .innerJoin(crawlJobs, eq(crawlJobs.id, crawlPages.jobId)).where(and(
-        inArray(crawlPages.url, urls),
-        inArray(crawlPages.status, ['queued', 'retry', 'fetching']),
-        eq(crawlJobs.ownerAccountId, principal.accountId),
-        eq(crawlJobs.applicationId, principal.applicationId),
-        eq(crawlJobs.kind, 'urls'),
-        inArray(crawlJobs.status, ['queued', 'running']),
-      )).orderBy(crawlPages.url, crawlJobs.createdAt, crawlJobs.id);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`,
+    );
+    const existing = await tx
+      .selectDistinctOn([crawlPages.url], { url: crawlPages.url, operation: crawlJobs })
+      .from(crawlPages)
+      .innerJoin(crawlJobs, eq(crawlJobs.id, crawlPages.jobId))
+      .where(
+        and(
+          inArray(crawlPages.url, urls),
+          inArray(crawlPages.status, ['queued', 'retry', 'fetching']),
+          eq(crawlJobs.ownerAccountId, principal.accountId),
+          eq(crawlJobs.applicationId, principal.applicationId),
+          eq(crawlJobs.kind, 'urls'),
+          inArray(crawlJobs.status, ['queued', 'running']),
+        ),
+      )
+      .orderBy(crawlPages.url, crawlJobs.createdAt, crawlJobs.id);
     const operations = new Map<string, typeof crawlJobs.$inferSelect>();
-    for (const { url, operation } of existing) if (!operations.has(url)) operations.set(url, operation);
+    for (const { url, operation } of existing)
+      if (!operations.has(url)) operations.set(url, operation);
     const missing = [...new Set(urls)].filter((url) => !operations.has(url));
     if (missing.length) {
       // A resolve may reuse part of another request's work. Bind the supplied
@@ -596,21 +1076,36 @@ export async function resolveIndexOperations(req: Request, urls: string[]) {
       // missing subset cannot borrow an operation that never owned those URLs.
       const suppliedKey = req.header('idempotency-key');
       const key = suppliedKey
-        ? `resolve:${createHash('sha256').update(JSON.stringify([suppliedKey, [...missing].sort()])).digest('hex')}`
+        ? `resolve:${createHash('sha256')
+            .update(JSON.stringify([suppliedKey, [...missing].sort()]))
+            .digest('hex')}`
         : `resolve:${crypto.randomUUID()}`;
       const operation = await insertIndexOperation(tx, req, missing, key);
-      if (operation) for (const url of missing) {
-        if (operation.requestedUrls.includes(url)) operations.set(url, operation);
-      }
+      if (operation)
+        for (const url of missing) {
+          if (operation.requestedUrls.includes(url)) operations.set(url, operation);
+        }
     }
-    const live = [...operations].filter(([, operation]) => !TERMINAL_OPERATIONS.has(operation.status));
+    const live = [...operations].filter(
+      ([, operation]) => !TERMINAL_OPERATIONS.has(operation.status),
+    );
     if (live.length) {
       // Current readers should not wait behind historical bulk ingestion. Keep
       // availableAt and attempts untouched: promotion never bypasses backoff.
-      await tx.update(crawlPages).set({ priority: 1 }).where(and(
-        inArray(crawlPages.status, ['queued', 'retry']), sql`${crawlPages.priority} < 1`,
-        or(...live.map(([url, operation]) => and(eq(crawlPages.jobId, operation.id), eq(crawlPages.url, url)))),
-      ));
+      await tx
+        .update(crawlPages)
+        .set({ priority: 1 })
+        .where(
+          and(
+            inArray(crawlPages.status, ['queued', 'retry']),
+            sql`${crawlPages.priority} < 1`,
+            or(
+              ...live.map(([url, operation]) =>
+                and(eq(crawlPages.jobId, operation.id), eq(crawlPages.url, url)),
+              ),
+            ),
+          ),
+        );
     }
     return operations;
   });
@@ -620,59 +1115,157 @@ export async function createIndexOperation(req: Request, urls: string[], idempot
   const principal = req.resourcePrincipal;
   if (!principal) throw new Error('Resource principal missing after authentication');
   return getDb().transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`${principal.accountId}:active_crawls`}, 0))`,
+    );
     return insertIndexOperation(tx, req, [...new Set(urls)], idempotencyKey);
   });
 }
 
 /** Caller holds the account's active-crawl quota lock. */
-async function insertIndexOperation(tx: ClarityTransaction, req: Request, urls: string[], idempotencyKey: string) {
+async function insertIndexOperation(
+  tx: ClarityTransaction,
+  req: Request,
+  urls: string[],
+  idempotencyKey: string,
+) {
   const principal = req.resourcePrincipal;
   if (!principal) throw new Error('Resource principal missing after authentication');
-  const [existing] = await tx.select().from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), eq(crawlJobs.applicationId, principal.applicationId), eq(crawlJobs.idempotencyKey, idempotencyKey))).limit(1);
+  const [existing] = await tx
+    .select()
+    .from(crawlJobs)
+    .where(
+      and(
+        eq(crawlJobs.ownerAccountId, principal.accountId),
+        eq(crawlJobs.applicationId, principal.applicationId),
+        eq(crawlJobs.idempotencyKey, idempotencyKey),
+      ),
+    )
+    .limit(1);
   if (existing) return existing;
   const activeLimit = await effectiveQuota(tx, principal, 'active_crawls');
   const pagesLimit = await effectiveQuota(tx, principal, 'pages_per_crawl');
-  const [current] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlJobs).where(and(eq(crawlJobs.ownerAccountId, principal.accountId), inArray(crawlJobs.status, ['queued', 'running'])));
+  const [current] = await tx
+    .select({ quantity: sql<number>`count(*)::int` })
+    .from(crawlJobs)
+    .where(
+      and(
+        eq(crawlJobs.ownerAccountId, principal.accountId),
+        inArray(crawlJobs.status, ['queued', 'running']),
+      ),
+    );
   if (current.quantity >= activeLimit || urls.length > pagesLimit) return undefined;
-  const [operation] = await tx.insert(crawlJobs).values({ id: crypto.randomUUID(), ownerAccountId: principal.accountId, applicationId: principal.applicationId, credentialId: principal.credentialId, kind: 'urls', idempotencyKey, requestedUrls: urls, pagesDiscovered: urls.length, callerTier: principal.tier }).returning();
-  await tx.insert(crawlPages).values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'api' }))).onConflictDoNothing();
+  const [operation] = await tx
+    .insert(crawlJobs)
+    .values({
+      id: crypto.randomUUID(),
+      ownerAccountId: principal.accountId,
+      applicationId: principal.applicationId,
+      credentialId: principal.credentialId,
+      kind: 'urls',
+      idempotencyKey,
+      requestedUrls: urls,
+      pagesDiscovered: urls.length,
+      callerTier: principal.tier,
+    })
+    .returning();
+  await tx
+    .insert(crawlPages)
+    .values(
+      urls.map((url) => ({
+        id: crypto.randomUUID(),
+        jobId: operation.id,
+        url,
+        discoverySource: 'api',
+      })),
+    )
+    .onConflictDoNothing();
   return operation;
 }
 
 function parse<T>(schema: z.ZodType<T>, req: Request, res: Response): T | undefined {
   const result = schema.safeParse(req.body);
   if (result.success) return result.data;
-  sendError(res, 400, 'invalid_request', 'Request validation failed', req, { issues: result.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) });
+  sendError(res, 400, 'invalid_request', 'Request validation failed', req, {
+    issues: result.error.issues.map((issue) => ({
+      path: issue.path.join('.'),
+      message: issue.message,
+    })),
+  });
   return undefined;
 }
 
 function requireIdempotency(req: Request, res: Response): string | undefined {
   const value = req.header('idempotency-key');
   if (value && value.length <= 200) return value;
-  sendError(res, 400, 'idempotency_key_required', 'A valid Idempotency-Key header is required', req);
+  sendError(
+    res,
+    400,
+    'idempotency_key_required',
+    'A valid Idempotency-Key header is required',
+    req,
+  );
   return undefined;
 }
 
-function publicOperation(row: typeof crawlJobs.$inferSelect) { return { id: row.id, kind: row.kind, status: row.status, pagesDiscovered: row.pagesDiscovered, pagesCompleted: row.pagesCompleted, ...(row.errorCode ? { error: { code: row.errorCode, detail: row.errorDetail ?? undefined } } : {}), createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() }; }
+function publicOperation(row: typeof crawlJobs.$inferSelect) {
+  return {
+    id: row.id,
+    kind: row.kind,
+    status: row.status,
+    pagesDiscovered: row.pagesDiscovered,
+    pagesCompleted: row.pagesCompleted,
+    ...(row.errorCode
+      ? { error: { code: row.errorCode, detail: row.errorDetail ?? undefined } }
+      : {}),
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
 function publicJobFeed(row: typeof jobFeeds.$inferSelect) {
   return {
-    id: row.id, kind: row.kind, identifier: row.identifier, label: row.label ?? undefined,
-    enabled: row.enabled, pollIntervalSeconds: row.pollIntervalSeconds,
-    lastPolledAt: row.lastPolledAt?.toISOString(), lastStatus: row.lastStatus ?? undefined,
-    lastError: row.lastError ?? undefined, listingsSeen: row.listingsSeen,
+    id: row.id,
+    kind: row.kind,
+    identifier: row.identifier,
+    label: row.label ?? undefined,
+    enabled: row.enabled,
+    pollIntervalSeconds: row.pollIntervalSeconds,
+    lastPolledAt: row.lastPolledAt?.toISOString(),
+    lastStatus: row.lastStatus ?? undefined,
+    lastError: row.lastError ?? undefined,
+    listingsSeen: row.listingsSeen,
     discoveredFromFeedId: row.discoveredFromFeedId ?? undefined,
   };
 }
-function publicSite(row: typeof searchSites.$inferSelect) { return { id: row.id, origin: row.origin, verifiedDomainId: row.verifiedDomainId, status: row.status, crawlEnabled: row.crawlEnabled, recrawlIntervalSeconds: row.recrawlIntervalSeconds, maxPagesPerCrawl: row.maxPagesPerCrawl, sitemapUrls: row.sitemapUrls, feedUrls: row.feedUrls, nextCrawlAt: row.nextCrawlAt?.toISOString() }; }
-async function verifyDomainOwnership(accountId: string, verifiedDomainId: string, originHost: string): Promise<boolean> {
+function publicSite(row: typeof searchSites.$inferSelect) {
+  return {
+    id: row.id,
+    origin: row.origin,
+    verifiedDomainId: row.verifiedDomainId,
+    status: row.status,
+    crawlEnabled: row.crawlEnabled,
+    recrawlIntervalSeconds: row.recrawlIntervalSeconds,
+    maxPagesPerCrawl: row.maxPagesPerCrawl,
+    sitemapUrls: row.sitemapUrls,
+    feedUrls: row.feedUrls,
+    nextCrawlAt: row.nextCrawlAt?.toISOString(),
+  };
+}
+async function verifyDomainOwnership(
+  accountId: string,
+  verifiedDomainId: string,
+  originHost: string,
+): Promise<boolean> {
   const serviceToken = await getClarityServiceToken();
-  const response = await fetch(`${(process.env.OXY_API_URL || 'https://api.oxy.so').replace(/\/$/, '')}/auth/resources/domains/verify`, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${serviceToken}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ accountId, verifiedDomainId, originHost }),
-    signal: AbortSignal.timeout(5_000),
-  });
+  const response = await fetch(
+    `${(process.env.OXY_API_URL || 'https://api.oxy.so').replace(/\/$/, '')}/auth/resources/domains/verify`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${serviceToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ accountId, verifiedDomainId, originHost }),
+      signal: AbortSignal.timeout(5_000),
+    },
+  );
   if (!response.ok) return false;
   const result = z.object({ verified: z.boolean() }).safeParse(await response.json());
   return result.success && result.data.verified;

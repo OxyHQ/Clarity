@@ -55,7 +55,12 @@ const QUOTE_TTL_SECONDS = 60;
 
 /** Daily points kept per crypto range; `max` keeps the coin's whole history. */
 const CRYPTO_RANGE_DAYS: Readonly<Record<string, number | 'max'>> = Object.freeze({
-  '5D': 5, '1M': 30, '6M': 180, '1Y': 365, '5Y': 1825, MAX: 'max',
+  '5D': 5,
+  '1M': 30,
+  '6M': 180,
+  '1Y': 365,
+  '5Y': 1825,
+  MAX: 'max',
 });
 
 /**
@@ -73,7 +78,11 @@ const FAIRCOIN_ALIASES: ReadonlySet<string> = new Set(['fair', 'faircoin', 'wfai
 const FAIRCOIN_CURRENCY = 'usd';
 
 export class MarketDataError extends Error {
-  constructor(readonly status: number, readonly code: string, message: string) {
+  constructor(
+    readonly status: number,
+    readonly code: string,
+    message: string,
+  ) {
     super(message);
     this.name = 'MarketDataError';
   }
@@ -124,7 +133,10 @@ export interface MarketQuoteOptions {
  */
 const inFlight = new Map<string, Promise<MarketQuote>>();
 
-export async function getMarketQuote(asset: string, options: MarketQuoteOptions = {}): Promise<MarketQuote> {
+export async function getMarketQuote(
+  asset: string,
+  options: MarketQuoteOptions = {},
+): Promise<MarketQuote> {
   const wanted = asset.trim().toLowerCase();
   if (!wanted) throw new MarketDataError(400, 'invalid_request', 'An asset is required');
   const currency = (options.currency ?? 'usd').trim().toLowerCase();
@@ -147,7 +159,12 @@ export async function getMarketQuote(asset: string, options: MarketQuoteOptions 
   return request;
 }
 
-function composeQuote(asset: string, wanted: string, currency: string, options: MarketQuoteOptions): Promise<MarketQuote> {
+function composeQuote(
+  asset: string,
+  wanted: string,
+  currency: string,
+  options: MarketQuoteOptions,
+): Promise<MarketQuote> {
   const doFetch = options.fetch ?? fetch;
   const now = options.now ?? new Date();
   return FAIRCOIN_ALIASES.has(wanted)
@@ -155,18 +172,28 @@ function composeQuote(asset: string, wanted: string, currency: string, options: 
     : cryptoQuote(asset, currency, doFetch, now);
 }
 
-async function readCache(cache: MarketQuoteCache | null, key: string): Promise<MarketQuote | undefined> {
+async function readCache(
+  cache: MarketQuoteCache | null,
+  key: string,
+): Promise<MarketQuote | undefined> {
   if (!cache) return undefined;
   try {
     const raw = await cache.read(key);
     return raw ? (JSON.parse(raw) as MarketQuote) : undefined;
   } catch (error) {
-    log.general.warn({ err: error, key }, 'Market quote cache read failed; falling through to the upstream');
+    log.general.warn(
+      { err: error, key },
+      'Market quote cache read failed; falling through to the upstream',
+    );
     return undefined;
   }
 }
 
-async function writeCache(cache: MarketQuoteCache | null, key: string, quote: MarketQuote): Promise<void> {
+async function writeCache(
+  cache: MarketQuoteCache | null,
+  key: string,
+  quote: MarketQuote,
+): Promise<void> {
   if (!cache) return;
   try {
     await cache.write(key, JSON.stringify(quote), QUOTE_TTL_SECONDS);
@@ -180,18 +207,33 @@ async function fetchJson<T>(url: string, schema: z.ZodType<T>, doFetch: typeof f
   try {
     const response = await doFetch(url, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
     if (!response.ok) {
-      throw new MarketDataError(503, 'upstream_unavailable', `The market data upstream answered ${response.status}`);
+      throw new MarketDataError(
+        503,
+        'upstream_unavailable',
+        `The market data upstream answered ${response.status}`,
+      );
     }
     payload = await response.json();
   } catch (error) {
     if (error instanceof MarketDataError) throw error;
     log.general.warn({ err: error, url }, 'Market data upstream request failed');
-    throw new MarketDataError(503, 'upstream_unavailable', 'The market data upstream is unreachable');
+    throw new MarketDataError(
+      503,
+      'upstream_unavailable',
+      'The market data upstream is unreachable',
+    );
   }
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
-    log.general.warn({ url, issues: parsed.error.issues }, 'Market data upstream returned an unreadable payload');
-    throw new MarketDataError(503, 'upstream_unavailable', 'The market data upstream returned an unreadable payload');
+    log.general.warn(
+      { url, issues: parsed.error.issues },
+      'Market data upstream returned an unreadable payload',
+    );
+    throw new MarketDataError(
+      503,
+      'upstream_unavailable',
+      'The market data upstream returned an unreadable payload',
+    );
   }
   return parsed.data;
 }
@@ -226,14 +268,26 @@ const simplePriceSchema = z.record(z.string(), z.record(z.string(), z.unknown())
  * Apple; an exact match either finds the asset the caller named or says it is
  * not quoted here.
  */
-async function resolveCoin(asset: string, doFetch: typeof fetch): Promise<{ id: string; name: string; symbol: string }> {
-  const body = await fetchJson(`${COINGECKO_API}/search?query=${encodeURIComponent(asset)}`, coinSearchSchema, doFetch);
+async function resolveCoin(
+  asset: string,
+  doFetch: typeof fetch,
+): Promise<{ id: string; name: string; symbol: string }> {
+  const body = await fetchJson(
+    `${COINGECKO_API}/search?query=${encodeURIComponent(asset)}`,
+    coinSearchSchema,
+    doFetch,
+  );
   const wanted = asset.toLowerCase();
-  const match = body.coins.find((coin) => coin.id.toLowerCase() === wanted)
-    ?? body.coins.find((coin) => coin.symbol.toLowerCase() === wanted)
-    ?? body.coins.find((coin) => coin.name.toLowerCase() === wanted);
+  const match =
+    body.coins.find((coin) => coin.id.toLowerCase() === wanted) ??
+    body.coins.find((coin) => coin.symbol.toLowerCase() === wanted) ??
+    body.coins.find((coin) => coin.name.toLowerCase() === wanted);
   if (!match) {
-    throw new MarketDataError(404, 'asset_not_found', `No cryptocurrency is quoted as "${asset}". Equities, indices, ETFs and sector aggregates are not served by this API.`);
+    throw new MarketDataError(
+      404,
+      'asset_not_found',
+      `No cryptocurrency is quoted as "${asset}". Equities, indices, ETFs and sector aggregates are not served by this API.`,
+    );
   }
   return match;
 }
@@ -242,14 +296,31 @@ function seriesPoints(prices: number[][]): MarketSeriesPoint[] {
   return prices.map((point) => [point[0], point[1]] as MarketSeriesPoint);
 }
 
-async function cryptoQuote(asset: string, currency: string, doFetch: typeof fetch, now: Date): Promise<MarketQuote> {
+async function cryptoQuote(
+  asset: string,
+  currency: string,
+  doFetch: typeof fetch,
+  now: Date,
+): Promise<MarketQuote> {
   const coin = await resolveCoin(asset, doFetch);
   const id = encodeURIComponent(coin.id);
   const vs = encodeURIComponent(currency);
   const [intraday, history, simple] = await Promise.all([
-    fetchJson(`${COINGECKO_API}/coins/${id}/market_chart?vs_currency=${vs}&days=1`, chartSchema, doFetch),
-    fetchJson(`${COINGECKO_API}/coins/${id}/market_chart?vs_currency=${vs}&days=max&interval=daily`, chartSchema, doFetch),
-    fetchJson(`${COINGECKO_API}/simple/price?ids=${id}&vs_currencies=${vs}&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`, simplePriceSchema, doFetch),
+    fetchJson(
+      `${COINGECKO_API}/coins/${id}/market_chart?vs_currency=${vs}&days=1`,
+      chartSchema,
+      doFetch,
+    ),
+    fetchJson(
+      `${COINGECKO_API}/coins/${id}/market_chart?vs_currency=${vs}&days=max&interval=daily`,
+      chartSchema,
+      doFetch,
+    ),
+    fetchJson(
+      `${COINGECKO_API}/simple/price?ids=${id}&vs_currencies=${vs}&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`,
+      simplePriceSchema,
+      doFetch,
+    ),
   ]);
 
   const daily = seriesPoints(history.prices);
@@ -265,7 +336,11 @@ async function cryptoQuote(asset: string, currency: string, doFetch: typeof fetc
   const values = simple[coin.id] ?? {};
   const price = numeric(values[currency]);
   if (price === null) {
-    throw new MarketDataError(503, 'upstream_unavailable', `The market data upstream returned no ${currency.toUpperCase()} price for ${coin.name}`);
+    throw new MarketDataError(
+      503,
+      'upstream_unavailable',
+      `The market data upstream returned no ${currency.toUpperCase()} price for ${coin.name}`,
+    );
   }
   const changePct = numeric(values[`${currency}_24h_change`]);
 
@@ -277,7 +352,8 @@ async function cryptoQuote(asset: string, currency: string, doFetch: typeof fetc
     price,
     changePct,
     // Derivable, but every client would derive it and one would round it differently.
-    changeAbs: changePct !== null && changePct > -100 ? price - price / (1 + changePct / 100) : null,
+    changeAbs:
+      changePct !== null && changePct > -100 ? price - price / (1 + changePct / 100) : null,
     marketCap: numeric(values[`${currency}_market_cap`]),
     volume24h: numeric(values[`${currency}_24h_vol`]),
     liquidityUsd: null,
@@ -307,18 +383,28 @@ const fairCoinHistorySchema = z.object({
 
 async function fairCoinQuote(currency: string, doFetch: typeof fetch): Promise<MarketQuote> {
   if (currency !== FAIRCOIN_CURRENCY) {
-    throw new MarketDataError(400, 'currency_unsupported', `FairCoin is quoted in ${FAIRCOIN_CURRENCY.toUpperCase()} only; the explorer publishes no other currency`);
+    throw new MarketDataError(
+      400,
+      'currency_unsupported',
+      `FairCoin is quoted in ${FAIRCOIN_CURRENCY.toUpperCase()} only; the explorer publishes no other currency`,
+    );
   }
   const [quote, ...windows] = await Promise.all([
     fetchJson(`${FAIRCOIN_EXPLORER_API}/price`, fairCoinPriceSchema, doFetch),
-    ...FAIRCOIN_PERIODS.map((period) => fetchJson(`${FAIRCOIN_EXPLORER_API}/price/history?period=${period}`, fairCoinHistorySchema, doFetch)
-      .then((body) => body.history)
-      // One unavailable window leaves that range out rather than failing a good
-      // price. `series` names what it actually carries, so nothing is implied.
-      .catch((error: unknown) => {
-        log.general.warn({ err: error, period }, 'FairCoin price history window unavailable');
-        return null;
-      })),
+    ...FAIRCOIN_PERIODS.map((period) =>
+      fetchJson(
+        `${FAIRCOIN_EXPLORER_API}/price/history?period=${period}`,
+        fairCoinHistorySchema,
+        doFetch,
+      )
+        .then((body) => body.history)
+        // One unavailable window leaves that range out rather than failing a good
+        // price. `series` names what it actually carries, so nothing is implied.
+        .catch((error: unknown) => {
+          log.general.warn({ err: error, period }, 'FairCoin price history window unavailable');
+          return null;
+        }),
+    ),
   ]);
 
   const series: Record<string, MarketSeriesPoint[]> = {};
@@ -341,7 +427,10 @@ async function fairCoinQuote(currency: string, doFetch: typeof fetch): Promise<M
     // that is a state the card renders, not an error to raise.
     price,
     changePct,
-    changeAbs: price !== null && changePct !== null && changePct > -100 ? price - price / (1 + changePct / 100) : null,
+    changeAbs:
+      price !== null && changePct !== null && changePct > -100
+        ? price - price / (1 + changePct / 100)
+        : null,
     marketCap: quote.marketCapUsd ?? null,
     volume24h: quote.volume24h ?? null,
     liquidityUsd: quote.liquidityUsd ?? null,
@@ -364,7 +453,8 @@ export const CLARITY_MARKET_CAPABILITY = {
   assets: {
     crypto: {
       source: 'coingecko',
-      resolution: 'Exact CoinGecko id, symbol or name, case-insensitive. Search rank is never used, so an unmatched name is an error rather than the nearest coin.',
+      resolution:
+        'Exact CoinGecko id, symbol or name, case-insensitive. Search rank is never used, so an unmatched name is an error rather than the nearest coin.',
       currencies: 'Any ISO currency CoinGecko quotes; defaults to usd.',
       ranges: ['1D', ...Object.keys(CRYPTO_RANGE_DAYS), 'YTD'],
     },
@@ -373,12 +463,16 @@ export const CLARITY_MARKET_CAPABILITY = {
       aliases: [...FAIRCOIN_ALIASES],
       currencies: [FAIRCOIN_CURRENCY],
       ranges: [...FAIRCOIN_PERIODS],
-      grounding: 'The indexed price of the WFAIR/USDC pool on Base, as published by the FairCoin explorer — not the pool spot, which a single block can move. Always show `source` and `updatedAt` beside the number.',
+      grounding:
+        'The indexed price of the WFAIR/USDC pool on Base, as published by the FairCoin explorer — not the pool spot, which a single block can move. Always show `source` and `updatedAt` beside the number.',
     },
   },
   unsupported: {
     equities:
       'Stocks, indices, ETFs, futures and sector aggregates are not served. They need a licensed equity feed, which is a different provider under a different contract; asking for one returns asset_not_found rather than a guess.',
   },
-  freshness: { cacheSeconds: QUOTE_TTL_SECONDS, updatedAtMeaning: 'When the source produced the number, not when Clarity served it.' },
+  freshness: {
+    cacheSeconds: QUOTE_TTL_SECONDS,
+    updatedAtMeaning: 'When the source produced the number, not when Clarity served it.',
+  },
 } as const;

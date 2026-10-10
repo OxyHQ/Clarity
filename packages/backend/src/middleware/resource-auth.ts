@@ -50,10 +50,20 @@ function cacheKey(token: string): string {
   return createHmac('sha256', hmacKey).update(token).digest('hex');
 }
 
-export async function authenticateResource(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function authenticateResource(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const token = bearerToken(req);
   if (!token) {
-    sendError(res, 401, 'authentication_required', 'A bearer token or oxy_sk credential is required', req);
+    sendError(
+      res,
+      401,
+      'authentication_required',
+      'A bearer token or oxy_sk credential is required',
+      req,
+    );
     return;
   }
 
@@ -77,19 +87,39 @@ export async function authenticateResource(req: Request, res: Response, next: Ne
     });
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        sendError(res, 401, 'invalid_credential', 'The supplied credential is invalid or inactive', req);
+        sendError(
+          res,
+          401,
+          'invalid_credential',
+          'The supplied credential is invalid or inactive',
+          req,
+        );
         return;
       }
       sendError(res, 503, 'identity_unavailable', 'Oxy identity is temporarily unavailable', req);
       return;
     }
     const principal = introspectionSchema.parse(await response.json());
-    if (!principal.active || (principal.expiresAt && Date.parse(principal.expiresAt) <= Date.now())) {
-      sendError(res, 401, 'invalid_credential', 'The supplied credential is invalid or inactive', req);
+    if (
+      !principal.active ||
+      (principal.expiresAt && Date.parse(principal.expiresAt) <= Date.now())
+    ) {
+      sendError(
+        res,
+        401,
+        'invalid_credential',
+        'The supplied credential is invalid or inactive',
+        req,
+      );
       return;
     }
-    const credentialExpiry = principal.expiresAt ? Date.parse(principal.expiresAt) : Number.POSITIVE_INFINITY;
-    cache.set(key, { principal, expiresAt: Math.min(Date.now() + POSITIVE_CACHE_TTL_MS, credentialExpiry) });
+    const credentialExpiry = principal.expiresAt
+      ? Date.parse(principal.expiresAt)
+      : Number.POSITIVE_INFINITY;
+    cache.set(key, {
+      principal,
+      expiresAt: Math.min(Date.now() + POSITIVE_CACHE_TTL_MS, credentialExpiry),
+    });
     req.resourcePrincipal = principal;
     next();
   } catch {
@@ -102,7 +132,11 @@ export async function authenticateResource(req: Request, res: Response, next: Ne
  * `/v1` surface sits behind. It runs after {@link authenticateResource}, which
  * is what puts the principal the buckets are keyed by on the request.
  */
-export async function requireResourceRequestRate(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function requireResourceRequestRate(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const principal = req.resourcePrincipal;
   if (!principal) return;
   const result = await consumeRequestRate(principal);
@@ -132,7 +166,14 @@ export function requireResourceScope(scope: string) {
   };
 }
 
-export function sendError(res: Response, status: number, code: string, message: string, req: Request, details?: Record<string, unknown>): void {
+export function sendError(
+  res: Response,
+  status: number,
+  code: string,
+  message: string,
+  req: Request,
+  details?: Record<string, unknown>,
+): void {
   const requestId = req.header('x-request-id') || crypto.randomUUID();
   res.status(status).json({ error: { code, message, requestId, ...(details ? { details } : {}) } });
 }

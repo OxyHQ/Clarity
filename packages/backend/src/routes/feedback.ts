@@ -39,16 +39,19 @@ router.post('/', async (req, res) => {
       return;
     }
 
-    const [feedback] = await getDb().insert(feedbackTable).values({
-      id: randomUUID(),
-      oxyUserId: req.user.id,
-      type,
-      rating: rating ?? null,
-      message,
-      email: email ?? null,
-      metadata: metadata ?? null,
-      status: 'pending',
-    }).returning();
+    const [feedback] = await getDb()
+      .insert(feedbackTable)
+      .values({
+        id: randomUUID(),
+        oxyUserId: req.user.id,
+        type,
+        rating: rating ?? null,
+        message,
+        email: email ?? null,
+        metadata: metadata ?? null,
+        status: 'pending',
+      })
+      .returning();
     if (!feedback) throw new Error('feedback insert returned no row');
 
     res.status(201).json({
@@ -57,8 +60,8 @@ router.post('/', async (req, res) => {
         id: feedback.id,
         type: feedback.type,
         message: feedback.message,
-        createdAt: feedback.createdAt
-      }
+        createdAt: feedback.createdAt,
+      },
     });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error submitting feedback');
@@ -76,7 +79,9 @@ router.get('/', async (req, res) => {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    const feedback = await getDb().select().from(feedbackTable)
+    const feedback = await getDb()
+      .select()
+      .from(feedbackTable)
       .where(eq(feedbackTable.oxyUserId, req.user.id))
       .orderBy(desc(feedbackTable.createdAt), desc(feedbackTable.id))
       .limit(50);
@@ -98,10 +103,11 @@ router.get('/:id', async (req, res) => {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
-    const [feedback] = await getDb().select().from(feedbackTable).where(and(
-      eq(feedbackTable.id, req.params.id),
-      eq(feedbackTable.oxyUserId, req.user.id),
-    )).limit(1);
+    const [feedback] = await getDb()
+      .select()
+      .from(feedbackTable)
+      .where(and(eq(feedbackTable.id, req.params.id), eq(feedbackTable.oxyUserId, req.user.id)))
+      .limit(1);
 
     if (!feedback) {
       res.status(404).json({ error: 'Feedback not found' });

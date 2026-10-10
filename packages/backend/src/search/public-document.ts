@@ -15,10 +15,18 @@ export type DocumentCardRow = Omit<DocumentRow, 'mainContent'> & { mainContent?:
 
 /** The hosts among these documents whose favicon Clarity serves. */
 export function iconHostsOf(rows: readonly DocumentCardRow[]): Promise<Set<string>> {
-  return hostsWithIcons(getDb(), rows.flatMap((row) => hostOf(row.canonicalUrl) ?? []));
+  return hostsWithIcons(
+    getDb(),
+    rows.flatMap((row) => hostOf(row.canonicalUrl) ?? []),
+  );
 }
 export function searchResult(row: DocumentRow, score: number, icons: ReadonlySet<string>) {
-  return { ...publicDocument(row, icons), snippet: row.description ?? excerpt(row.mainContent), highlights: [], score };
+  return {
+    ...publicDocument(row, icons),
+    snippet: row.description ?? excerpt(row.mainContent),
+    highlights: [],
+    score,
+  };
 }
 /**
  * `faviconUrl` is Clarity's copy of the site's icon (`GET /favicons/:host`),
@@ -33,5 +41,23 @@ function iconUrlOf(row: DocumentCardRow, icons: ReadonlySet<string>): string | u
   return host && icons.has(host) ? siteIconUrl(host) : undefined;
 }
 export function publicDocument(row: DocumentCardRow, icons: ReadonlySet<string>) {
-  return { id: row.id, canonicalUrl: row.canonicalUrl, requestedUrl: row.requestedUrl, title: row.title ?? undefined, description: row.description ?? undefined, content: row.mainContent ?? undefined, type: row.documentType, status: row.status, language: row.language ?? undefined, publisher: row.publisherName ?? undefined, authors: [], publishedAt: row.publishedAt?.toISOString(), modifiedAt: row.modifiedAt?.toISOString(), imageUrl: publicImageUrl('documents', row.id, row.imageUrl), faviconUrl: iconUrlOf(row, icons), indexedAt: row.indexedAt?.toISOString(), evidence: row.fieldEvidence };
+  return {
+    id: row.id,
+    canonicalUrl: row.canonicalUrl,
+    requestedUrl: row.requestedUrl,
+    title: row.title ?? undefined,
+    description: row.description ?? undefined,
+    content: row.mainContent ?? undefined,
+    type: row.documentType,
+    status: row.status,
+    language: row.language ?? undefined,
+    publisher: row.publisherName ?? undefined,
+    authors: [],
+    publishedAt: row.publishedAt?.toISOString(),
+    modifiedAt: row.modifiedAt?.toISOString(),
+    imageUrl: publicImageUrl('documents', row.id, row.imageUrl),
+    faviconUrl: iconUrlOf(row, icons),
+    indexedAt: row.indexedAt?.toISOString(),
+    evidence: row.fieldEvidence,
+  };
 }

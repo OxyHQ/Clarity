@@ -11,23 +11,30 @@ import i18n from './i18n';
 
 export function formatSalary(salary: JobSalary | undefined): string | undefined {
   if (!salary) return undefined;
-  const amounts = [salary.min, salary.max].filter((value): value is number => typeof value === 'number');
+  const amounts = [salary.min, salary.max].filter(
+    (value): value is number => typeof value === 'number',
+  );
   if (amounts.length === 0) return undefined;
   const formatter = new Intl.NumberFormat(i18n.locale, {
     style: 'currency',
     currency: salary.currency,
     maximumFractionDigits: amounts.some((value) => value % 1 !== 0) ? 2 : 0,
   });
-  const range = amounts.length === 2 && amounts[0] !== amounts[1]
-    ? `${formatter.format(amounts[0])} – ${formatter.format(amounts[1])}`
-    : formatter.format(amounts[0]);
+  const range =
+    amounts.length === 2 && amounts[0] !== amounts[1]
+      ? `${formatter.format(amounts[0])} – ${formatter.format(amounts[1])}`
+      : formatter.format(amounts[0]);
   return `${range} / ${i18n.t(`jobs.interval.${salary.interval}`)}`;
 }
 
-export function formatLocations(locations: JobLocation[], applicantLocationRequirements: string[]): string | undefined {
+export function formatLocations(
+  locations: JobLocation[],
+  applicantLocationRequirements: string[],
+): string | undefined {
   const stated = locations.map((location) => location.raw).filter(Boolean);
   if (stated.length > 0) return stated.slice(0, 3).join(' · ');
-  if (applicantLocationRequirements.length > 0) return applicantLocationRequirements.slice(0, 3).join(' · ');
+  if (applicantLocationRequirements.length > 0)
+    return applicantLocationRequirements.slice(0, 3).join(' · ');
   return undefined;
 }
 

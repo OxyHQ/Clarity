@@ -5,11 +5,11 @@ import es from './locales/es.json';
 
 // Using BCP 47 locale codes (en-US, es-ES) with fallback to language codes (en, es)
 const translations = {
-  'en': en,
+  en: en,
   'en-US': en,
   'en-GB': en,
   'en-CA': en,
-  'es': es,
+  es: es,
   'es-ES': es,
   'es-MX': es,
   'es-AR': es,

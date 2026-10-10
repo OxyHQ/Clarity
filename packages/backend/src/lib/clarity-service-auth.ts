@@ -32,7 +32,10 @@ type ClarityServiceConfiguration =
   | { mode: 'attestation'; baseUrl: string };
 
 function requireExact(value: string | undefined, expected: string, name: string): string {
-  if (value !== expected) throw new ClarityServiceConfigurationError(`${name} does not match the canonical Clarity identity.`);
+  if (value !== expected)
+    throw new ClarityServiceConfigurationError(
+      `${name} does not match the canonical Clarity identity.`,
+    );
   return value;
 }
 
@@ -47,11 +50,19 @@ function canonicalBaseUrl(env: NodeJS.ProcessEnv): string {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     throw new ClarityServiceConfigurationError('OXY_API_URL must use HTTP or HTTPS.');
   }
-  if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') {
+  if (
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.pathname !== '/'
+  ) {
     throw new ClarityServiceConfigurationError('OXY_API_URL must be a plain origin.');
   }
   if (env.NODE_ENV === 'production' && parsed.origin !== CANONICAL_OXY_API_URL) {
-    throw new ClarityServiceConfigurationError('Production OXY_API_URL must use the canonical Oxy origin.');
+    throw new ClarityServiceConfigurationError(
+      'Production OXY_API_URL must use the canonical Oxy origin.',
+    );
   }
   return parsed.origin;
 }
@@ -127,7 +138,8 @@ function serviceConfiguration(env: NodeJS.ProcessEnv): ClarityServiceConfigurati
 
 function decodeClaims(token: string): ServiceTokenClaims {
   const payload = token.split('.')[1];
-  if (!payload) throw new ClarityServiceConfigurationError('Oxy returned an invalid service token.');
+  if (!payload)
+    throw new ClarityServiceConfigurationError('Oxy returned an invalid service token.');
   try {
     return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as ServiceTokenClaims;
   } catch {
@@ -157,20 +169,22 @@ export function assertExactClarityServiceClaims(token: string): void {
   const tokenScopes = Array.isArray(claims.scopes) ? claims.scopes : [];
   const nowSeconds = Math.floor(Date.now() / 1000);
   if (
-    claims.type !== 'service'
-    || claims.appId !== expected.applicationId
-    || typeof claims.credentialId !== 'string'
-    || !ACCEPTED_CREDENTIAL_IDS.includes(claims.credentialId)
-    || claims.ownerAccountId !== CLARITY_AGENT_MANIFEST.projectAccountId
-    || tokenScopes.length !== expected.scopes.length
-    || new Set(tokenScopes).size !== expected.scopes.length
-    || expected.scopes.some((scope) => !tokenScopes.includes(scope))
-    || typeof claims.exp !== 'number'
-    || !Number.isFinite(claims.exp)
-    || !Number.isInteger(claims.exp)
-    || claims.exp <= nowSeconds + TOKEN_EXPIRY_CLOCK_SKEW_SECONDS
+    claims.type !== 'service' ||
+    claims.appId !== expected.applicationId ||
+    typeof claims.credentialId !== 'string' ||
+    !ACCEPTED_CREDENTIAL_IDS.includes(claims.credentialId) ||
+    claims.ownerAccountId !== CLARITY_AGENT_MANIFEST.projectAccountId ||
+    tokenScopes.length !== expected.scopes.length ||
+    new Set(tokenScopes).size !== expected.scopes.length ||
+    expected.scopes.some((scope) => !tokenScopes.includes(scope)) ||
+    typeof claims.exp !== 'number' ||
+    !Number.isFinite(claims.exp) ||
+    !Number.isInteger(claims.exp) ||
+    claims.exp <= nowSeconds + TOKEN_EXPIRY_CLOCK_SKEW_SECONDS
   ) {
-    throw new ClarityServiceConfigurationError('Oxy service token claims do not match the canonical Clarity service identity.');
+    throw new ClarityServiceConfigurationError(
+      'Oxy service token claims do not match the canonical Clarity service identity.',
+    );
   }
 }
 
@@ -183,7 +197,9 @@ export function hasExactClarityServiceConfiguration(env: NodeJS.ProcessEnv = pro
   }
 }
 
-export async function getClarityServiceToken(env: NodeJS.ProcessEnv = process.env): Promise<string> {
+export async function getClarityServiceToken(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
   const config = serviceConfiguration(env);
   /**
    * The fingerprint keys the cached client on the identity it was built for.
@@ -191,9 +207,11 @@ export async function getClarityServiceToken(env: NodeJS.ProcessEnv = process.en
    * than keep one still configured with a credential.
    */
   const fingerprint = createHash('sha256')
-    .update(config.mode === 'credential'
-      ? `credential\0${config.baseUrl}\0${config.publicKey}\0${config.secret}`
-      : `attestation\0${config.baseUrl}`)
+    .update(
+      config.mode === 'credential'
+        ? `credential\0${config.baseUrl}\0${config.publicKey}\0${config.secret}`
+        : `attestation\0${config.baseUrl}`,
+    )
     .digest('hex');
   if (!client || clientFingerprint !== fingerprint) {
     client = new OxyServer({ baseURL: config.baseUrl });

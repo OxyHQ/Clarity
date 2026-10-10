@@ -11,16 +11,25 @@ import { jsonLdPage, withoutTracking } from './pagejsonld.js';
 
 export const rssjsonld: JobFeedProvider = {
   kind: 'rss_jsonld',
-  identifier: { meaning: 'the https URL of an RSS or Atom feed whose items link to pages with JobPosting JSON-LD', shape: 'url' },
+  identifier: {
+    meaning:
+      'the https URL of an RSS or Atom feed whose items link to pages with JobPosting JSON-LD',
+    shape: 'url',
+  },
   request: (identifier) => get(identifier, XML_ACCEPT),
   parse(body) {
     const items = [...elements(body, 'item'), ...elements(body, 'entry')];
     return {
       listings: [],
       references: items.flatMap((item) => {
-        const link = text(tag(item, 'link')) ?? /<link[^>]*href="([^"]+)"/i.exec(item)?.[1] ?? text(tag(item, 'media:canonical'));
+        const link =
+          text(tag(item, 'link')) ??
+          /<link[^>]*href="([^"]+)"/i.exec(item)?.[1] ??
+          text(tag(item, 'media:canonical'));
         if (!link) return [];
-        const modified = date(text(tag(item, 'pubDate')) ?? text(tag(item, 'updated')) ?? text(tag(item, 'published')));
+        const modified = date(
+          text(tag(item, 'pubDate')) ?? text(tag(item, 'updated')) ?? text(tag(item, 'published')),
+        );
         return [{ url: withoutTracking(link), ...(modified ? { lastModified: modified } : {}) }];
       }),
     };

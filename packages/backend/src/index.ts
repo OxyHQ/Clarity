@@ -47,13 +47,16 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // Create HTTP server with optimized settings for streaming
-const server = http.createServer({
-  // Increase max header size for long authentication tokens
-  maxHeaderSize: 16384,
-  // Keep connections alive for SSE
-  keepAlive: true,
-  keepAliveTimeout: 65000, // Slightly higher than default
-}, app);
+const server = http.createServer(
+  {
+    // Increase max header size for long authentication tokens
+    maxHeaderSize: 16384,
+    // Keep connections alive for SSE
+    keepAlive: true,
+    keepAliveTimeout: 65000, // Slightly higher than default
+  },
+  app,
+);
 const activity = startPlatformActivity(() => server.listening);
 if (activity) app.use(activity.observeHttp);
 
@@ -74,15 +77,31 @@ server.on('connection', (socket) => {
   socket.setKeepAlive(true, 60000);
 });
 
-initSocket(server).on('connection', socket => activity?.observeSocket(socket));
+initSocket(server).on('connection', (socket) => activity?.observeSocket(socket));
 
 // Public API routes (/v1) use the documented cross-origin API contract.
-app.use('/v1', cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-Edge-Region', 'X-Oxy-Activity-Id'],
-  optionsSuccessStatus: 200
-}));
+app.use(
+  '/v1',
+  cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'X-Service-Name',
+      'X-Timestamp',
+      'X-Signature',
+      'X-Session-Id',
+      'X-Device-Info',
+      'X-Oxy-Edge-Region',
+      'X-Oxy-Activity-Id',
+    ],
+    optionsSuccessStatus: 200,
+  }),
+);
 
 // Disable nginx/proxy buffering for /v1 SSE streaming responses
 app.use('/v1', (_req, res, next) => {
@@ -91,9 +110,7 @@ app.use('/v1', (_req, res, next) => {
 });
 
 // Internal routes - restricted to known origins
-const PRODUCTION_ORIGINS = [
-  'https://clarity.surf',
-];
+const PRODUCTION_ORIGINS = ['https://clarity.surf'];
 
 const DEV_ORIGINS = [
   'http://localhost:3000',
@@ -125,7 +142,22 @@ app.use((req, res, next) => {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'X-Service-Name', 'X-Timestamp', 'X-Signature', 'X-Session-Id', 'X-Device-Info', 'X-Oxy-User-Id', 'X-Workspace-Id', 'X-Oxy-Edge-Region', 'X-Oxy-Activity-Id'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Accept',
+      'Origin',
+      'X-Service-Name',
+      'X-Timestamp',
+      'X-Signature',
+      'X-Session-Id',
+      'X-Device-Info',
+      'X-Oxy-User-Id',
+      'X-Workspace-Id',
+      'X-Oxy-Edge-Region',
+      'X-Oxy-Activity-Id',
+    ],
     optionsSuccessStatus: 200,
   })(req, res, next);
 });
@@ -209,17 +241,19 @@ app.get('/', (_req, res) => {
       '/jobs',
       '/news',
       '/internal',
-    ]
+    ],
   });
 });
 
 // Error handler
-app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  log.general.error({ err }, 'Unhandled Express error');
-  if (!res.headersSent) {
-    res.status(500).json({ error: 'Something went wrong!' });
-  }
-});
+app.use(
+  (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    log.general.error({ err }, 'Unhandled Express error');
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Something went wrong!' });
+    }
+  },
+);
 
 // Process-level error handlers — prevent crashes from taking down all users
 // Classifies errors to determine logging level (inspired by openclaw)
@@ -241,7 +275,10 @@ process.on('unhandledRejection', (reason) => {
   }
 
   // Everything else: log as error but keep running
-  log.general.error({ reason: reason instanceof Error ? reason : String(reason) }, '[Process] Unhandled promise rejection');
+  log.general.error(
+    { reason: reason instanceof Error ? reason : String(reason) },
+    '[Process] Unhandled promise rejection',
+  );
 });
 
 process.on('uncaughtException', (error) => {
@@ -255,73 +292,79 @@ if (!database) {
   process.exit(1);
 } else {
   Promise.resolve()
-  .then(() => {
-    server.listen(PORT, '0.0.0.0', () => {
-      log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
-      // Verify Redis connectivity (non-blocking)
-      import('./lib/redis.js').then(({ getRedisClient }) => {
-        const redis = getRedisClient();
-        if (redis) {
-          redis.ping()
-            .then(() => log.general.info('Redis readiness check passed'))
-            .catch((err) => log.general.warn({ err }, 'Redis readiness check failed — rate limiting will fail-open'));
-        } else {
-          log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
-        }
+    .then(() => {
+      server.listen(PORT, '0.0.0.0', () => {
+        log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
+        // Verify Redis connectivity (non-blocking)
+        import('./lib/redis.js').then(({ getRedisClient }) => {
+          const redis = getRedisClient();
+          if (redis) {
+            redis
+              .ping()
+              .then(() => log.general.info('Redis readiness check passed'))
+              .catch((err) =>
+                log.general.warn(
+                  { err },
+                  'Redis readiness check failed — rate limiting will fail-open',
+                ),
+              );
+          } else {
+            log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
+          }
+        });
       });
+
+      // Graceful shutdown handler
+      let shuttingDown = false;
+      const shutdown = async (signal: string) => {
+        if (shuttingDown) return;
+        shuttingDown = true;
+        log.general.info(`Received ${signal}. Starting graceful shutdown...`);
+
+        // Stop accepting new connections
+        server.close(() => {
+          log.general.info('HTTP server closed (no new connections)');
+        });
+
+        // Give in-flight requests 30 seconds to complete (agent sessions can be long)
+        const forceTimeout = setTimeout(() => {
+          log.general.error('Force exit after 30s grace period');
+          process.exit(1);
+        }, 30_000);
+        forceTimeout.unref();
+
+        try {
+          // Close Socket.IO connections
+          const { getIO } = await import('./socket.js');
+          const io = getIO();
+          if (io) {
+            await new Promise<void>((resolve) => io.close(() => resolve()));
+            log.general.info('Socket.IO closed');
+          }
+
+          // Close Redis connections
+          const { closeRedis } = await import('./lib/redis.js');
+          await closeRedis();
+          log.general.info('Redis connections closed');
+
+          await activity?.stop();
+          await closePostgres();
+          log.general.info('PostgreSQL connection closed');
+
+          clearTimeout(forceTimeout);
+          log.general.info('Graceful shutdown complete');
+          process.exit(0);
+        } catch (error) {
+          log.general.error({ err: error }, 'Error during shutdown');
+          process.exit(1);
+        }
+      };
+
+      process.on('SIGTERM', () => shutdown('SIGTERM'));
+      process.on('SIGINT', () => shutdown('SIGINT'));
+    })
+    .catch((error) => {
+      log.general.error({ err: error }, 'Failed to start Clarity with PostgreSQL');
+      process.exit(1);
     });
-
-    // Graceful shutdown handler
-    let shuttingDown = false;
-    const shutdown = async (signal: string) => {
-      if (shuttingDown) return;
-      shuttingDown = true;
-      log.general.info(`Received ${signal}. Starting graceful shutdown...`);
-
-      // Stop accepting new connections
-      server.close(() => {
-        log.general.info('HTTP server closed (no new connections)');
-      });
-
-      // Give in-flight requests 30 seconds to complete (agent sessions can be long)
-      const forceTimeout = setTimeout(() => {
-        log.general.error('Force exit after 30s grace period');
-        process.exit(1);
-      }, 30_000);
-      forceTimeout.unref();
-
-      try {
-        // Close Socket.IO connections
-        const { getIO } = await import('./socket.js');
-        const io = getIO();
-        if (io) {
-          await new Promise<void>((resolve) => io.close(() => resolve()));
-          log.general.info('Socket.IO closed');
-        }
-
-        // Close Redis connections
-        const { closeRedis } = await import('./lib/redis.js');
-        await closeRedis();
-        log.general.info('Redis connections closed');
-
-        await activity?.stop();
-        await closePostgres();
-        log.general.info('PostgreSQL connection closed');
-
-        clearTimeout(forceTimeout);
-        log.general.info('Graceful shutdown complete');
-        process.exit(0);
-      } catch (error) {
-        log.general.error({ err: error }, 'Error during shutdown');
-        process.exit(1);
-      }
-    };
-
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
-  })
-  .catch((error) => {
-    log.general.error({ err: error }, 'Failed to start Clarity with PostgreSQL');
-    process.exit(1);
-  });
 }

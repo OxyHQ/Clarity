@@ -44,8 +44,8 @@ export function resolveFaviconForImageUrl(
   }
 
   if (
-    (url.protocol !== 'http:' && url.protocol !== 'https:')
-    || url.pathname.toLowerCase() !== '/favicon.ico'
+    (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+    url.pathname.toLowerCase() !== '/favicon.ico'
   ) {
     return null;
   }

@@ -60,13 +60,12 @@ function numberValue(value: unknown, field: string, fallback?: number): number {
   let input = value;
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     const wrapped = value as Record<string, unknown>;
-    input = wrapped.$numberInt
-      ?? wrapped.$numberLong
-      ?? wrapped.$numberDouble
-      ?? wrapped.$numberDecimal;
+    input =
+      wrapped.$numberInt ?? wrapped.$numberLong ?? wrapped.$numberDouble ?? wrapped.$numberDecimal;
   }
   const parsed = typeof input === 'string' && input.trim() !== '' ? Number(input) : input;
-  if (typeof parsed !== 'number' || !Number.isFinite(parsed)) throw new Error(`${field} must be finite`);
+  if (typeof parsed !== 'number' || !Number.isFinite(parsed))
+    throw new Error(`${field} must be finite`);
   return parsed;
 }
 
@@ -91,7 +90,8 @@ function dateValue(value: unknown, field: string, fallback?: Date): Date {
       input = (input as Record<string, unknown>).$numberLong;
     }
   }
-  if (typeof input !== 'string' && typeof input !== 'number') throw new Error(`${field} must be a date`);
+  if (typeof input !== 'string' && typeof input !== 'number')
+    throw new Error(`${field} must be a date`);
   const parsed = new Date(input);
   if (Number.isNaN(parsed.getTime())) throw new Error(`${field} is not a valid date`);
   return parsed;
@@ -127,7 +127,10 @@ function parseRecordLine(path: string, lineNumber: number, line: Buffer): Source
   }
 }
 
-async function* records(path: string, hash: ReturnType<typeof createHash>): AsyncGenerator<SourceRecord> {
+async function* records(
+  path: string,
+  hash: ReturnType<typeof createHash>,
+): AsyncGenerator<SourceRecord> {
   const input = createReadStream(path);
   let buffered = Buffer.alloc(0);
   let lineNumber = 0;
@@ -163,225 +166,333 @@ async function insertTarget(
   const createdAt = dateValue(row.createdAt, 'createdAt');
   // Historical Message documents never had `updatedAt`; every other local
   // collection did. Do not manufacture a timestamp while preserving IDs.
-  const updatedAt = target === 'clarity_messages'
-    ? createdAt
-    : dateValue(row.updatedAt, 'updatedAt');
+  const updatedAt =
+    target === 'clarity_messages' ? createdAt : dateValue(row.updatedAt, 'updatedAt');
   switch (target) {
     case 'clarity_conversations':
-      return (await tx.insert(conversations).values({
-        id,
-        oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-        conversationId: text(row.conversationId, 'conversationId'),
-        title: text(row.title ?? 'New chat', 'title'),
-        isManualTitle: booleanValue(row.isManualTitle, false),
-        lastMessage: optionalText(row.lastMessage, 'lastMessage'),
-        source: text(row.source ?? 'app', 'source'),
-        folderId: optionalText(row.folderId, 'folderId'),
-        icon: optionalText(row.icon, 'icon'),
-        iconColor: optionalText(row.iconColor, 'iconColor'),
-        isFavorite: booleanValue(row.isFavorite, false),
-        isPublic: booleanValue(row.isPublic, false),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: conversations.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(conversations)
+            .values({
+              id,
+              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
+              conversationId: text(row.conversationId, 'conversationId'),
+              title: text(row.title ?? 'New chat', 'title'),
+              isManualTitle: booleanValue(row.isManualTitle, false),
+              lastMessage: optionalText(row.lastMessage, 'lastMessage'),
+              source: text(row.source ?? 'app', 'source'),
+              folderId: optionalText(row.folderId, 'folderId'),
+              icon: optionalText(row.icon, 'icon'),
+              iconColor: optionalText(row.iconColor, 'iconColor'),
+              isFavorite: booleanValue(row.isFavorite, false),
+              isPublic: booleanValue(row.isPublic, false),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: conversations.id })
+        ).length === 1
+      );
     case 'clarity_messages':
-      return (await tx.insert(messages).values({
-        id,
-        messageId: optionalText(row.id, 'id'),
-        oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-        conversationId: text(row.conversationId, 'conversationId'),
-        role: text(row.role, 'role'),
-        content: row.content === undefined
-          ? (() => { throw new Error('content is required'); })()
-          : row.content,
-        vote: optionalText(row.vote, 'vote'),
-        toolInvocations: Array.isArray(row.toolInvocations) ? row.toolInvocations : [],
-        audioUrl: optionalText(row.audioUrl, 'audioUrl'),
-        createdAt,
-      }).onConflictDoNothing().returning({ id: messages.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(messages)
+            .values({
+              id,
+              messageId: optionalText(row.id, 'id'),
+              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
+              conversationId: text(row.conversationId, 'conversationId'),
+              role: text(row.role, 'role'),
+              content:
+                row.content === undefined
+                  ? (() => {
+                      throw new Error('content is required');
+                    })()
+                  : row.content,
+              vote: optionalText(row.vote, 'vote'),
+              toolInvocations: Array.isArray(row.toolInvocations) ? row.toolInvocations : [],
+              audioUrl: optionalText(row.audioUrl, 'audioUrl'),
+              createdAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: messages.id })
+        ).length === 1
+      );
     case 'clarity_suggestions':
-      return (await tx.insert(suggestions).values({
-        id,
-        suggestionId: text(row.suggestionId, 'suggestionId'),
-        title: text(row.title, 'title'),
-        text: text(row.text, 'text'),
-        description: optionalText(row.description, 'description'),
-        isTemplate: booleanValue(row.isTemplate, false),
-        templateVariables: strings(row.templateVariables, 'templateVariables'),
-        type: text(row.type, 'type'),
-        category: optionalText(row.category, 'category'),
-        triggerWords: strings(row.triggerWords, 'triggerWords'),
-        scope: text(row.scope ?? 'global', 'scope'),
-        oxyUserId: optionalText(row.oxyUserId, 'oxyUserId'),
-        language: text(row.language ?? 'en-US', 'language'),
-        usageCount: integer(row.usageCount, 'usageCount', 0),
-        priority: integer(row.priority, 'priority', 0),
-        isBuiltIn: booleanValue(row.isBuiltIn, false),
-        isAiGenerated: booleanValue(row.isAIGenerated, false),
-        tags: strings(row.tags, 'tags'),
-        occupations: strings(row.occupations, 'occupations'),
-        interests: strings(row.interests, 'interests'),
-        expiresAt: optionalDate(row.expiresAt, 'expiresAt'),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: suggestions.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(suggestions)
+            .values({
+              id,
+              suggestionId: text(row.suggestionId, 'suggestionId'),
+              title: text(row.title, 'title'),
+              text: text(row.text, 'text'),
+              description: optionalText(row.description, 'description'),
+              isTemplate: booleanValue(row.isTemplate, false),
+              templateVariables: strings(row.templateVariables, 'templateVariables'),
+              type: text(row.type, 'type'),
+              category: optionalText(row.category, 'category'),
+              triggerWords: strings(row.triggerWords, 'triggerWords'),
+              scope: text(row.scope ?? 'global', 'scope'),
+              oxyUserId: optionalText(row.oxyUserId, 'oxyUserId'),
+              language: text(row.language ?? 'en-US', 'language'),
+              usageCount: integer(row.usageCount, 'usageCount', 0),
+              priority: integer(row.priority, 'priority', 0),
+              isBuiltIn: booleanValue(row.isBuiltIn, false),
+              isAiGenerated: booleanValue(row.isAIGenerated, false),
+              tags: strings(row.tags, 'tags'),
+              occupations: strings(row.occupations, 'occupations'),
+              interests: strings(row.interests, 'interests'),
+              expiresAt: optionalDate(row.expiresAt, 'expiresAt'),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: suggestions.id })
+        ).length === 1
+      );
     case 'clarity_plans':
-      return (await tx.insert(plans).values({
-        id,
-        planId: text(row.planId, 'planId'),
-        name: text(row.name, 'name'),
-        product: text(row.product, 'product'),
-        creditsPerMonth: integer(row.creditsPerMonth, 'creditsPerMonth', 0),
-        dailyFreeCredits: integer(row.dailyFreeCredits, 'dailyFreeCredits', 300),
-        monthlyPrice: integer(row.monthlyPrice, 'monthlyPrice', 0),
-        annualPrice: integer(row.annualPrice, 'annualPrice', 0),
-        currency: text(row.currency ?? 'usd', 'currency'),
-        subtitle: text(row.subtitle ?? '', 'subtitle'),
-        creditsLabel: text(row.creditsLabel ?? '', 'creditsLabel'),
-        isFeatured: booleanValue(row.isFeatured, false),
-        sortOrder: integer(row.sortOrder, 'sortOrder', 0),
-        modelIds: strings(row.modelIds, 'modelIds'),
-        isActive: booleanValue(row.isActive, true),
-        isFree: booleanValue(row.isFree, false),
-        stripeProductId: optionalText(row.stripeProductId, 'stripeProductId'),
-        stripeMonthlyPriceId: optionalText(row.stripeMonthlyPriceId, 'stripeMonthlyPriceId'),
-        stripeAnnualPriceId: optionalText(row.stripeAnnualPriceId, 'stripeAnnualPriceId'),
-        description: optionalText(row.description, 'description'),
-        notes: optionalText(row.notes, 'notes'),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: plans.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(plans)
+            .values({
+              id,
+              planId: text(row.planId, 'planId'),
+              name: text(row.name, 'name'),
+              product: text(row.product, 'product'),
+              creditsPerMonth: integer(row.creditsPerMonth, 'creditsPerMonth', 0),
+              dailyFreeCredits: integer(row.dailyFreeCredits, 'dailyFreeCredits', 300),
+              monthlyPrice: integer(row.monthlyPrice, 'monthlyPrice', 0),
+              annualPrice: integer(row.annualPrice, 'annualPrice', 0),
+              currency: text(row.currency ?? 'usd', 'currency'),
+              subtitle: text(row.subtitle ?? '', 'subtitle'),
+              creditsLabel: text(row.creditsLabel ?? '', 'creditsLabel'),
+              isFeatured: booleanValue(row.isFeatured, false),
+              sortOrder: integer(row.sortOrder, 'sortOrder', 0),
+              modelIds: strings(row.modelIds, 'modelIds'),
+              isActive: booleanValue(row.isActive, true),
+              isFree: booleanValue(row.isFree, false),
+              stripeProductId: optionalText(row.stripeProductId, 'stripeProductId'),
+              stripeMonthlyPriceId: optionalText(row.stripeMonthlyPriceId, 'stripeMonthlyPriceId'),
+              stripeAnnualPriceId: optionalText(row.stripeAnnualPriceId, 'stripeAnnualPriceId'),
+              description: optionalText(row.description, 'description'),
+              notes: optionalText(row.notes, 'notes'),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: plans.id })
+        ).length === 1
+      );
     case 'clarity_features':
-      return (await tx.insert(features).values({
-        id,
-        featureId: text(row.featureId, 'featureId'),
-        label: text(row.label, 'label'),
-        description: optionalText(row.description, 'description'),
-        icon: optionalText(row.icon, 'icon'),
-        category: text(row.category, 'category'),
-        featureType: text(row.featureType ?? 'boolean', 'featureType'),
-        sortOrder: integer(row.sortOrder, 'sortOrder', 0),
-        isVisibleOnPricing: booleanValue(row.isVisibleOnPricing, true),
-        isActive: booleanValue(row.isActive, true),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: features.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(features)
+            .values({
+              id,
+              featureId: text(row.featureId, 'featureId'),
+              label: text(row.label, 'label'),
+              description: optionalText(row.description, 'description'),
+              icon: optionalText(row.icon, 'icon'),
+              category: text(row.category, 'category'),
+              featureType: text(row.featureType ?? 'boolean', 'featureType'),
+              sortOrder: integer(row.sortOrder, 'sortOrder', 0),
+              isVisibleOnPricing: booleanValue(row.isVisibleOnPricing, true),
+              isActive: booleanValue(row.isActive, true),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: features.id })
+        ).length === 1
+      );
     case 'clarity_plan_features':
-      return (await tx.insert(planFeatures).values({
-        id,
-        planId: text(row.planId, 'planId'),
-        featureId: text(row.featureId, 'featureId'),
-        enabled: booleanValue(row.enabled, true),
-        limitValue: row.limitValue === undefined ? null : integer(row.limitValue, 'limitValue'),
-        displayLabel: optionalText(row.displayLabel, 'displayLabel'),
-        displayDescription: optionalText(row.displayDescription, 'displayDescription'),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: planFeatures.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(planFeatures)
+            .values({
+              id,
+              planId: text(row.planId, 'planId'),
+              featureId: text(row.featureId, 'featureId'),
+              enabled: booleanValue(row.enabled, true),
+              limitValue:
+                row.limitValue === undefined ? null : integer(row.limitValue, 'limitValue'),
+              displayLabel: optionalText(row.displayLabel, 'displayLabel'),
+              displayDescription: optionalText(row.displayDescription, 'displayDescription'),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: planFeatures.id })
+        ).length === 1
+      );
     case 'clarity_credit_packages':
-      return (await tx.insert(creditPackages).values({
-        id,
-        packageId: text(row.packageId, 'packageId'),
-        name: text(row.name, 'name'),
-        credits: integer(row.credits, 'credits'),
-        price: integer(row.price, 'price'),
-        currency: text(row.currency ?? 'usd', 'currency'),
-        stripePriceId: optionalText(row.stripePriceId, 'stripePriceId'),
-        sortOrder: integer(row.sortOrder, 'sortOrder', 0),
-        isActive: booleanValue(row.isActive, true),
-        description: optionalText(row.description, 'description'),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: creditPackages.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(creditPackages)
+            .values({
+              id,
+              packageId: text(row.packageId, 'packageId'),
+              name: text(row.name, 'name'),
+              credits: integer(row.credits, 'credits'),
+              price: integer(row.price, 'price'),
+              currency: text(row.currency ?? 'usd', 'currency'),
+              stripePriceId: optionalText(row.stripePriceId, 'stripePriceId'),
+              sortOrder: integer(row.sortOrder, 'sortOrder', 0),
+              isActive: booleanValue(row.isActive, true),
+              description: optionalText(row.description, 'description'),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: creditPackages.id })
+        ).length === 1
+      );
     case 'clarity_feedback':
-      return (await tx.insert(feedback).values({
-        id,
-        oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-        type: text(row.type, 'type'),
-        rating: row.rating === undefined ? null : integer(row.rating, 'rating'),
-        message: text(row.message, 'message'),
-        email: optionalText(row.email, 'email'),
-        metadata: optionalJson(row.metadata),
-        status: text(row.status ?? 'pending', 'status'),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: feedback.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(feedback)
+            .values({
+              id,
+              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
+              type: text(row.type, 'type'),
+              rating: row.rating === undefined ? null : integer(row.rating, 'rating'),
+              message: text(row.message, 'message'),
+              email: optionalText(row.email, 'email'),
+              metadata: optionalJson(row.metadata),
+              status: text(row.status ?? 'pending', 'status'),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: feedback.id })
+        ).length === 1
+      );
     case 'clarity_notifications':
-      return (await tx.insert(notifications).values({
-        id,
-        oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-        type: text(row.type, 'type'),
-        title: text(row.title, 'title'),
-        body: text(row.body, 'body'),
-        data: optionalJson(row.data),
-        channels: strings(row.channels, 'channels'),
-        deliveryStatus: optionalJson(row.deliveryStatus) ?? {},
-        status: text(row.status ?? 'pending', 'status'),
-        priority: text(row.priority ?? 'normal', 'priority'),
-        triggerId: optionalText(row.triggerId, 'triggerId'),
-        conversationId: optionalText(row.conversationId, 'conversationId'),
-        expiresAt: optionalDate(row.expiresAt, 'expiresAt'),
-        readAt: optionalDate(row.readAt, 'readAt'),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: notifications.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(notifications)
+            .values({
+              id,
+              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
+              type: text(row.type, 'type'),
+              title: text(row.title, 'title'),
+              body: text(row.body, 'body'),
+              data: optionalJson(row.data),
+              channels: strings(row.channels, 'channels'),
+              deliveryStatus: optionalJson(row.deliveryStatus) ?? {},
+              status: text(row.status ?? 'pending', 'status'),
+              priority: text(row.priority ?? 'normal', 'priority'),
+              triggerId: optionalText(row.triggerId, 'triggerId'),
+              conversationId: optionalText(row.conversationId, 'conversationId'),
+              expiresAt: optionalDate(row.expiresAt, 'expiresAt'),
+              readAt: optionalDate(row.readAt, 'readAt'),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: notifications.id })
+        ).length === 1
+      );
     case 'clarity_push_tokens':
-      return (await tx.insert(pushTokens).values({
-        id,
-        oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-        token: text(row.token, 'token'),
-        deviceId: optionalText(row.deviceId, 'deviceId'),
-        platform: optionalText(row.platform, 'platform'),
-        active: booleanValue(row.active, true),
-        lastUsedAt: optionalDate(row.lastUsedAt, 'lastUsedAt'),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: pushTokens.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(pushTokens)
+            .values({
+              id,
+              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
+              token: text(row.token, 'token'),
+              deviceId: optionalText(row.deviceId, 'deviceId'),
+              platform: optionalText(row.platform, 'platform'),
+              active: booleanValue(row.active, true),
+              lastUsedAt: optionalDate(row.lastUsedAt, 'lastUsedAt'),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: pushTokens.id })
+        ).length === 1
+      );
     case 'clarity_web_push_subscriptions': {
       const keys = object(row.keys, 'keys');
-      return (await tx.insert(webPushSubscriptions).values({
-        id,
-        oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-        endpoint: text(row.endpoint, 'endpoint'),
-        p256dh: text(keys.p256dh, 'keys.p256dh'),
-        auth: text(keys.auth, 'keys.auth'),
-        active: booleanValue(row.active, true),
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: webPushSubscriptions.id })).length === 1;
+      return (
+        (
+          await tx
+            .insert(webPushSubscriptions)
+            .values({
+              id,
+              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
+              endpoint: text(row.endpoint, 'endpoint'),
+              p256dh: text(keys.p256dh, 'keys.p256dh'),
+              auth: text(keys.auth, 'keys.auth'),
+              active: booleanValue(row.active, true),
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: webPushSubscriptions.id })
+        ).length === 1
+      );
     }
     case 'clarity_subscriptions': {
       const plan = object(row.plan, 'plan');
       const oxyUserId = text(row.oxyUserId, 'oxyUserId');
       const stripeCustomerId = text(row.stripeCustomerId, 'stripeCustomerId');
-      const inserted = (await tx.insert(subscriptions).values({
-        id,
-        oxyUserId,
-        stripeCustomerId,
-        stripeSubscriptionId: text(row.stripeSubscriptionId, 'stripeSubscriptionId'),
-        stripePriceId: text(row.stripePriceId, 'stripePriceId'),
-        status: text(row.status, 'status'),
-        currentPeriodStart: dateValue(row.currentPeriodStart, 'currentPeriodStart'),
-        currentPeriodEnd: dateValue(row.currentPeriodEnd, 'currentPeriodEnd'),
-        cancelAtPeriodEnd: booleanValue(row.cancelAtPeriodEnd, false),
-        planId: optionalText(row.planId ?? plan.planId, 'planId'),
-        billingPeriod: text(row.billingPeriod ?? 'monthly', 'billingPeriod'),
-        planSnapshot: plan,
-        createdAt,
-        updatedAt,
-      }).onConflictDoNothing().returning({ id: subscriptions.id })).length === 1;
+      const inserted =
+        (
+          await tx
+            .insert(subscriptions)
+            .values({
+              id,
+              oxyUserId,
+              stripeCustomerId,
+              stripeSubscriptionId: text(row.stripeSubscriptionId, 'stripeSubscriptionId'),
+              stripePriceId: text(row.stripePriceId, 'stripePriceId'),
+              status: text(row.status, 'status'),
+              currentPeriodStart: dateValue(row.currentPeriodStart, 'currentPeriodStart'),
+              currentPeriodEnd: dateValue(row.currentPeriodEnd, 'currentPeriodEnd'),
+              cancelAtPeriodEnd: booleanValue(row.cancelAtPeriodEnd, false),
+              planId: optionalText(row.planId ?? plan.planId, 'planId'),
+              billingPeriod: text(row.billingPeriod ?? 'monthly', 'billingPeriod'),
+              planSnapshot: plan,
+              createdAt,
+              updatedAt,
+            })
+            .onConflictDoNothing()
+            .returning({ id: subscriptions.id })
+        ).length === 1;
       if (inserted) {
-        await tx.insert(billingCustomers).values({
-          oxyUserId,
-          stripeCustomerId,
-          createdAt,
-          updatedAt,
-        }).onConflictDoNothing();
-        const [customer] = await tx.select().from(billingCustomers).where(and(
-          eq(billingCustomers.oxyUserId, oxyUserId),
-          eq(billingCustomers.stripeCustomerId, stripeCustomerId),
-        )).limit(1);
-        if (!customer) throw new Error('billing customer identity conflicts with imported subscription');
+        await tx
+          .insert(billingCustomers)
+          .values({
+            oxyUserId,
+            stripeCustomerId,
+            createdAt,
+            updatedAt,
+          })
+          .onConflictDoNothing();
+        const [customer] = await tx
+          .select()
+          .from(billingCustomers)
+          .where(
+            and(
+              eq(billingCustomers.oxyUserId, oxyUserId),
+              eq(billingCustomers.stripeCustomerId, stripeCustomerId),
+            ),
+          )
+          .limit(1);
+        if (!customer)
+          throw new Error('billing customer identity conflicts with imported subscription');
       }
       return inserted;
     }
@@ -396,10 +507,13 @@ async function importRecord(
 ): Promise<'inserted' | 'existing'> {
   const id = sourceId(row._id);
   const sourceHash = sha256(canonicalJson(row));
-  const [receipt] = await tx.select().from(backfillReceipts).where(and(
-    eq(backfillReceipts.sourceCollection, sourceName),
-    eq(backfillReceipts.sourceId, id),
-  )).limit(1);
+  const [receipt] = await tx
+    .select()
+    .from(backfillReceipts)
+    .where(
+      and(eq(backfillReceipts.sourceCollection, sourceName), eq(backfillReceipts.sourceId, id)),
+    )
+    .limit(1);
   if (receipt) {
     if (receipt.sourceHash !== sourceHash) {
       throw new Error(`${sourceName}/${id} changed after it was imported`);
@@ -407,7 +521,7 @@ async function importRecord(
     return 'existing' as const;
   }
 
-  if (!await insertTarget(tx, target, row)) {
+  if (!(await insertTarget(tx, target, row))) {
     throw new Error(`${sourceName}/${id} conflicts with an unreceipted target row`);
   }
   await tx.insert(backfillReceipts).values({
@@ -433,8 +547,12 @@ const targetTables = {
   clarity_subscriptions: subscriptions,
 } as const;
 
-async function countTarget(target: LocalTarget, executor: ClarityExecutor = getDb()): Promise<number> {
-  const [result] = await executor.select({ count: sql<number>`count(*)::int` })
+async function countTarget(
+  target: LocalTarget,
+  executor: ClarityExecutor = getDb(),
+): Promise<number> {
+  const [result] = await executor
+    .select({ count: sql<number>`count(*)::int` })
     .from(targetTables[target]);
   return result?.count ?? 0;
 }
@@ -462,12 +580,17 @@ async function importCollection(manifestPath: string, item: CutoverCollection): 
       throw new Error(`${item.sourceName} data hash changed`);
     }
     if (ids.length !== item.sourceCount) throw new Error(`${item.sourceName} row count changed`);
-    if (hashIdSet(ids) !== item.sourceIdSha256) throw new Error(`${item.sourceName} ID set changed`);
+    if (hashIdSet(ids) !== item.sourceIdSha256)
+      throw new Error(`${item.sourceName} ID set changed`);
 
-    const receipts = await tx.select({ sourceId: backfillReceipts.sourceId })
+    const receipts = await tx
+      .select({ sourceId: backfillReceipts.sourceId })
       .from(backfillReceipts)
       .where(eq(backfillReceipts.sourceCollection, item.sourceName));
-    if (receipts.length !== item.sourceCount || hashIdSet(receipts.map((row) => row.sourceId)) !== item.sourceIdSha256) {
+    if (
+      receipts.length !== item.sourceCount ||
+      hashIdSet(receipts.map((row) => row.sourceId)) !== item.sourceIdSha256
+    ) {
       throw new Error(`${item.sourceName} receipt reconciliation failed`);
     }
     const targetIds = await targetIdSet(disposition.targetTable, tx);
@@ -480,7 +603,12 @@ async function importCollection(manifestPath: string, item: CutoverCollection): 
 function localOrder(item: CutoverCollection): number {
   if (item.disposition.kind !== 'clarity-postgres') return Number.MAX_SAFE_INTEGER;
   const target = item.disposition.targetTable;
-  if (target === 'clarity_conversations' || target === 'clarity_plans' || target === 'clarity_features') return 0;
+  if (
+    target === 'clarity_conversations' ||
+    target === 'clarity_plans' ||
+    target === 'clarity_features'
+  )
+    return 0;
   if (target === 'clarity_messages' || target === 'clarity_plan_features') return 1;
   return 0;
 }
@@ -489,8 +617,11 @@ export async function runBackfill(manifestPath: string, databaseUrl: string): Pr
   const manifest = readCutoverManifest(manifestPath);
   connectPostgres(databaseUrl);
   try {
-    const [existing] = await getDb().select().from(runtimeState)
-      .where(eq(runtimeState.id, 'postgres-cutover')).limit(1);
+    const [existing] = await getDb()
+      .select()
+      .from(runtimeState)
+      .where(eq(runtimeState.id, 'postgres-cutover'))
+      .limit(1);
     if (existing?.status === 'cutover') throw new Error('cutover is already attested');
     if (existing && existing.sourceSnapshotHash !== manifest.snapshot.inventorySha256) {
       throw new Error('a different source snapshot is already reconciled');
@@ -500,36 +631,39 @@ export async function runBackfill(manifestPath: string, databaseUrl: string): Pr
       await importCollection(manifestPath, item);
     }
 
-    const sourceCounts = Object.fromEntries(manifest.collections.map((item) => [
-      item.sourceName,
-      item.sourceCount,
-    ]));
+    const sourceCounts = Object.fromEntries(
+      manifest.collections.map((item) => [item.sourceName, item.sourceCount]),
+    );
     const targetCounts: Record<string, number> = {};
     for (const item of manifest.collections) {
-      targetCounts[item.sourceName] = item.disposition.kind === 'clarity-postgres'
-        ? await countTarget(item.disposition.targetTable)
-        : item.disposition.receipt.targetCount;
+      targetCounts[item.sourceName] =
+        item.disposition.kind === 'clarity-postgres'
+          ? await countTarget(item.disposition.targetTable)
+          : item.disposition.receipt.targetCount;
     }
-    await getDb().insert(runtimeState).values({
-      id: 'postgres-cutover',
-      status: 'reconciled',
-      sourceSnapshotHash: manifest.snapshot.inventorySha256,
-      aliaAgentIdSha256: manifest.runtimeEvidence.aliaAgentIdSha256,
-      reconciledAt: new Date(),
-      sourceCounts,
-      targetCounts,
-    }).onConflictDoUpdate({
-      target: runtimeState.id,
-      set: {
+    await getDb()
+      .insert(runtimeState)
+      .values({
+        id: 'postgres-cutover',
         status: 'reconciled',
         sourceSnapshotHash: manifest.snapshot.inventorySha256,
         aliaAgentIdSha256: manifest.runtimeEvidence.aliaAgentIdSha256,
         reconciledAt: new Date(),
         sourceCounts,
         targetCounts,
-        updatedAt: new Date(),
-      },
-    });
+      })
+      .onConflictDoUpdate({
+        target: runtimeState.id,
+        set: {
+          status: 'reconciled',
+          sourceSnapshotHash: manifest.snapshot.inventorySha256,
+          aliaAgentIdSha256: manifest.runtimeEvidence.aliaAgentIdSha256,
+          reconciledAt: new Date(),
+          sourceCounts,
+          targetCounts,
+          updatedAt: new Date(),
+        },
+      });
   } finally {
     await closePostgres();
   }

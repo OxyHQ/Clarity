@@ -9,10 +9,7 @@ import { getRuntimeReadiness } from './db/runtime-readiness.js';
 /** Socket.IO Socket augmented with auth user */
 type AuthenticatedSocket = Socket & { user?: { id: string } };
 
-const ALLOWED_ORIGINS = [
-  process.env.WEB_URL || 'http://localhost:3000',
-  'https://clarity.surf',
-];
+const ALLOWED_ORIGINS = [process.env.WEB_URL || 'http://localhost:3000', 'https://clarity.surf'];
 
 let io: Server | null = null;
 

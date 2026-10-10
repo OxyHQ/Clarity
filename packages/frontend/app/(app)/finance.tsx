@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -6,11 +6,11 @@ import {
   TextInput,
   useWindowDimensions,
   type ViewStyle,
-} from "react-native";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Text } from "@/components/ui/text";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+} from 'react-native';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Text } from '@/components/ui/text';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Share2,
@@ -19,27 +19,27 @@ import {
   Search,
   TrendingUp,
   TrendingDown,
-} from "lucide-react-native";
-import { useMarketQuotes } from "@/lib/hooks/use-market";
-import { marketCardView, type MarketCardView } from "@/lib/market-format";
-import { useColorScheme } from "@/lib/useColorScheme";
-import { useTranslation } from "@/hooks/useTranslation";
-import { cn } from "@/lib/utils";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { Tabs, TabsTrigger } from "@oxy.so/bloom/tabs";
-import { Button, GlyphButton } from "@oxy.so/bloom/button";
+} from 'lucide-react-native';
+import { useMarketQuotes } from '@/lib/hooks/use-market';
+import { marketCardView, type MarketCardView } from '@/lib/market-format';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { useTranslation } from '@/hooks/useTranslation';
+import { cn } from '@/lib/utils';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { Tabs, TabsTrigger } from '@oxy.so/bloom/tabs';
+import { Button, GlyphButton } from '@oxy.so/bloom/button';
 import {
   SegmentedControl,
   SegmentedControlItem,
   SegmentedControlItemText,
-} from "@oxy.so/bloom/segmented-control";
+} from '@oxy.so/bloom/segmented-control';
 
 /* ================================================================
    Types
    ================================================================ */
 
-type FinanceTab = "usMarkets" | "crypto" | "earnings" | "predictions";
-type SidebarTab = "gainers" | "losers" | "active";
+type FinanceTab = 'usMarkets' | 'crypto' | 'earnings' | 'predictions';
+type SidebarTab = 'gainers' | 'losers' | 'active';
 
 interface TickerCard {
   name: string;
@@ -96,7 +96,7 @@ interface SectorItem {
  * licensed equity feed, and half-faking one is what the rest of this page
  * already does.
  */
-const CRYPTO_ASSETS = ["bitcoin", "ethereum", "solana", "faircoin"] as const;
+const CRYPTO_ASSETS = ['bitcoin', 'ethereum', 'solana', 'faircoin'] as const;
 
 /**
  * What to call an asset before its quote arrives — and if it never does. A
@@ -104,10 +104,10 @@ const CRYPTO_ASSETS = ["bitcoin", "ethereum", "solana", "faircoin"] as const;
  * price.
  */
 const CRYPTO_LABELS: Record<(typeof CRYPTO_ASSETS)[number], string> = {
-  bitcoin: "Bitcoin",
-  ethereum: "Ethereum",
-  solana: "Solana",
-  faircoin: "FairCoin",
+  bitcoin: 'Bitcoin',
+  ethereum: 'Ethereum',
+  solana: 'Solana',
+  faircoin: 'FairCoin',
 };
 
 /* ================================================================
@@ -115,116 +115,116 @@ const CRYPTO_LABELS: Record<(typeof CRYPTO_ASSETS)[number], string> = {
    ================================================================ */
 
 const FINANCE_TABS: { id: FinanceTab; label: string }[] = [
-  { id: "usMarkets", label: "US Markets" },
-  { id: "crypto", label: "Crypto" },
-  { id: "earnings", label: "Earnings" },
-  { id: "predictions", label: "Predictions" },
+  { id: 'usMarkets', label: 'US Markets' },
+  { id: 'crypto', label: 'Crypto' },
+  { id: 'earnings', label: 'Earnings' },
+  { id: 'predictions', label: 'Predictions' },
 ];
 
 const TOP_ASSETS: TickerCard[] = [
-  { name: "S&P 500 Futures", value: "5,987.50", change: "+0.42%", positive: true },
-  { name: "NASDAQ Composite", value: "18,847.28", change: "+0.67%", positive: true },
-  { name: "Dow Jones", value: "42,051.06", change: "+0.31%", positive: true },
-  { name: "VIX", value: "15.23", change: "-2.81%", positive: false },
+  { name: 'S&P 500 Futures', value: '5,987.50', change: '+0.42%', positive: true },
+  { name: 'NASDAQ Composite', value: '18,847.28', change: '+0.67%', positive: true },
+  { name: 'Dow Jones', value: '42,051.06', change: '+0.31%', positive: true },
+  { name: 'VIX', value: '15.23', change: '-2.81%', positive: false },
 ];
 
 const MARKET_HEADLINES: MarketHeadline[] = [
   {
-    id: "1",
-    title: "Federal Reserve holds interest rates steady, signals patience on cuts",
+    id: '1',
+    title: 'Federal Reserve holds interest rates steady, signals patience on cuts',
     description:
-      "The Federal Reserve maintained its benchmark interest rate at the current level, noting that while inflation has eased, officials want to see more sustained progress before reducing rates. Markets reacted positively to the dovish tone of the statement.",
+      'The Federal Reserve maintained its benchmark interest rate at the current level, noting that while inflation has eased, officials want to see more sustained progress before reducing rates. Markets reacted positively to the dovish tone of the statement.',
   },
   {
-    id: "2",
-    title: "Tech sector rallies as AI spending shows no signs of slowing",
+    id: '2',
+    title: 'Tech sector rallies as AI spending shows no signs of slowing',
     description:
-      "Major technology stocks surged after several companies reported higher-than-expected capital expenditure on AI infrastructure. Analysts project the trend will continue through 2026 as enterprise adoption accelerates.",
+      'Major technology stocks surged after several companies reported higher-than-expected capital expenditure on AI infrastructure. Analysts project the trend will continue through 2026 as enterprise adoption accelerates.',
   },
   {
-    id: "3",
-    title: "Oil prices drop on unexpected inventory build in US stockpiles",
+    id: '3',
+    title: 'Oil prices drop on unexpected inventory build in US stockpiles',
     description:
-      "Crude oil futures fell after government data showed a larger-than-expected increase in US crude inventories, raising concerns about weakening demand amid global economic uncertainty.",
+      'Crude oil futures fell after government data showed a larger-than-expected increase in US crude inventories, raising concerns about weakening demand amid global economic uncertainty.',
   },
   {
-    id: "4",
-    title: "Treasury yields decline as bond market prices in slower growth",
+    id: '4',
+    title: 'Treasury yields decline as bond market prices in slower growth',
     description:
-      "The 10-year Treasury yield slipped to its lowest level in three weeks as investors moved into safe-haven assets. Economic indicators point to moderating growth in the services sector.",
+      'The 10-year Treasury yield slipped to its lowest level in three weeks as investors moved into safe-haven assets. Economic indicators point to moderating growth in the services sector.',
   },
 ];
 
 const RECENT_NEWS: NewsCard[] = [
   {
-    id: "1",
-    title: "Apple announces $100B share buyback, largest in corporate history",
+    id: '1',
+    title: 'Apple announces $100B share buyback, largest in corporate history',
     sourceCount: 14,
-    publishedAt: "1h ago",
-    imageUrl: "https://picsum.photos/seed/apple-buyback/400/266",
+    publishedAt: '1h ago',
+    imageUrl: 'https://picsum.photos/seed/apple-buyback/400/266',
   },
   {
-    id: "2",
-    title: "Bitcoin ETFs see record weekly inflows as institutional interest surges",
+    id: '2',
+    title: 'Bitcoin ETFs see record weekly inflows as institutional interest surges',
     sourceCount: 9,
-    publishedAt: "2h ago",
-    imageUrl: "https://picsum.photos/seed/bitcoin-etf/400/266",
+    publishedAt: '2h ago',
+    imageUrl: 'https://picsum.photos/seed/bitcoin-etf/400/266',
   },
   {
-    id: "3",
+    id: '3',
     title: "China's manufacturing PMI expands for third consecutive month",
     sourceCount: 11,
-    publishedAt: "3h ago",
-    imageUrl: "https://picsum.photos/seed/china-pmi/400/266",
+    publishedAt: '3h ago',
+    imageUrl: 'https://picsum.photos/seed/china-pmi/400/266',
   },
   {
-    id: "4",
-    title: "European banks report strong Q1 earnings, beat analyst expectations",
+    id: '4',
+    title: 'European banks report strong Q1 earnings, beat analyst expectations',
     sourceCount: 7,
-    publishedAt: "4h ago",
-    imageUrl: "https://picsum.photos/seed/eu-banks/400/266",
+    publishedAt: '4h ago',
+    imageUrl: 'https://picsum.photos/seed/eu-banks/400/266',
   },
   {
-    id: "5",
-    title: "Nvidia unveils next-gen AI chip with 2x performance per watt",
+    id: '5',
+    title: 'Nvidia unveils next-gen AI chip with 2x performance per watt',
     sourceCount: 16,
-    publishedAt: "5h ago",
-    imageUrl: "https://picsum.photos/seed/nvidia-chip/400/266",
+    publishedAt: '5h ago',
+    imageUrl: 'https://picsum.photos/seed/nvidia-chip/400/266',
   },
 ];
 
 const WATCHLIST: WatchlistItem[] = [
-  { ticker: "AAPL", name: "Apple Inc.", price: "198.45", change: "+1.23%", positive: true },
-  { ticker: "MSFT", name: "Microsoft Corp.", price: "452.18", change: "+0.87%", positive: true },
-  { ticker: "GOOGL", name: "Alphabet Inc.", price: "176.92", change: "-0.34%", positive: false },
-  { ticker: "AMZN", name: "Amazon.com Inc.", price: "192.67", change: "+1.56%", positive: true },
-  { ticker: "TSLA", name: "Tesla Inc.", price: "248.31", change: "-2.14%", positive: false },
+  { ticker: 'AAPL', name: 'Apple Inc.', price: '198.45', change: '+1.23%', positive: true },
+  { ticker: 'MSFT', name: 'Microsoft Corp.', price: '452.18', change: '+0.87%', positive: true },
+  { ticker: 'GOOGL', name: 'Alphabet Inc.', price: '176.92', change: '-0.34%', positive: false },
+  { ticker: 'AMZN', name: 'Amazon.com Inc.', price: '192.67', change: '+1.56%', positive: true },
+  { ticker: 'TSLA', name: 'Tesla Inc.', price: '248.31', change: '-2.14%', positive: false },
 ];
 
 const GAINERS: MoverItem[] = [
-  { ticker: "SMCI", name: "Super Micro", price: "892.40", change: "+12.3%", positive: true },
-  { ticker: "PLTR", name: "Palantir", price: "24.87", change: "+8.7%", positive: true },
-  { ticker: "RIVN", name: "Rivian", price: "18.42", change: "+6.2%", positive: true },
+  { ticker: 'SMCI', name: 'Super Micro', price: '892.40', change: '+12.3%', positive: true },
+  { ticker: 'PLTR', name: 'Palantir', price: '24.87', change: '+8.7%', positive: true },
+  { ticker: 'RIVN', name: 'Rivian', price: '18.42', change: '+6.2%', positive: true },
 ];
 
 const LOSERS: MoverItem[] = [
-  { ticker: "NFLX", name: "Netflix", price: "612.30", change: "-4.1%", positive: false },
-  { ticker: "BA", name: "Boeing", price: "178.50", change: "-3.8%", positive: false },
-  { ticker: "DIS", name: "Disney", price: "108.20", change: "-2.9%", positive: false },
+  { ticker: 'NFLX', name: 'Netflix', price: '612.30', change: '-4.1%', positive: false },
+  { ticker: 'BA', name: 'Boeing', price: '178.50', change: '-3.8%', positive: false },
+  { ticker: 'DIS', name: 'Disney', price: '108.20', change: '-2.9%', positive: false },
 ];
 
 const ACTIVE: MoverItem[] = [
-  { ticker: "NVDA", name: "Nvidia", price: "924.50", change: "+3.2%", positive: true },
-  { ticker: "TSLA", name: "Tesla", price: "248.31", change: "-2.1%", positive: false },
-  { ticker: "AMD", name: "AMD", price: "168.74", change: "+1.8%", positive: true },
+  { ticker: 'NVDA', name: 'Nvidia', price: '924.50', change: '+3.2%', positive: true },
+  { ticker: 'TSLA', name: 'Tesla', price: '248.31', change: '-2.1%', positive: false },
+  { ticker: 'AMD', name: 'AMD', price: '168.74', change: '+1.8%', positive: true },
 ];
 
 const SECTORS: SectorItem[] = [
-  { name: "Technology", change: "+1.24%", positive: true },
-  { name: "Healthcare", change: "+0.56%", positive: true },
-  { name: "Finance", change: "-0.31%", positive: false },
-  { name: "Energy", change: "-0.87%", positive: false },
-  { name: "Consumer", change: "+0.42%", positive: true },
+  { name: 'Technology', change: '+1.24%', positive: true },
+  { name: 'Healthcare', change: '+0.56%', positive: true },
+  { name: 'Finance', change: '-0.31%', positive: false },
+  { name: 'Energy', change: '-0.87%', positive: false },
+  { name: 'Consumer', change: '+0.42%', positive: true },
 ];
 
 const MOVERS_MAP: Record<SidebarTab, MoverItem[]> = {
@@ -247,16 +247,11 @@ function CryptoQuoteCard({
   isLargeScreen: boolean;
 }) {
   const { t } = useTranslation();
-  const style: ViewStyle = isLargeScreen
-    ? { width: "23.5%", minWidth: 160 }
-    : { width: "47.5%" };
+  const style: ViewStyle = isLargeScreen ? { width: '23.5%', minWidth: 160 } : { width: '47.5%' };
 
-  if (view.state === "loading") {
+  if (view.state === 'loading') {
     return (
-      <View
-        className="bg-card rounded-xl border border-border p-4 gap-2"
-        style={style}
-      >
+      <View className="bg-card rounded-xl border border-border p-4 gap-2" style={style}>
         <Text className="text-xs font-medium text-muted-foreground">{label}</Text>
         <Skeleton className="h-6 w-24 rounded-md" />
         <Skeleton className="h-3 w-16 rounded-md" />
@@ -264,60 +259,48 @@ function CryptoQuoteCard({
     );
   }
 
-  if (view.state === "error") {
+  if (view.state === 'error') {
     return (
-      <View
-        className="bg-card rounded-xl border border-border p-4 gap-1"
-        style={style}
-      >
+      <View className="bg-card rounded-xl border border-border p-4 gap-1" style={style}>
         <Text className="text-xs font-medium text-muted-foreground">{label}</Text>
         <Text className="text-base font-semibold text-muted-foreground">
-          {t("finance.crypto.unavailable")}
+          {t('finance.crypto.unavailable')}
         </Text>
-        <Text className="text-xs text-muted-foreground">
-          {t("finance.crypto.unavailableBody")}
-        </Text>
+        <Text className="text-xs text-muted-foreground">{t('finance.crypto.unavailableBody')}</Text>
       </View>
     );
   }
 
   return (
-    <View
-      className="bg-card rounded-xl border border-border p-4 gap-1"
-      style={style}
-    >
+    <View className="bg-card rounded-xl border border-border p-4 gap-1" style={style}>
       <Text className="text-xs font-medium text-muted-foreground">
         {view.name} · {view.symbol}
       </Text>
-      {view.state === "unpriced" ? (
+      {view.state === 'unpriced' ? (
         <>
           <Text className="text-base font-semibold text-muted-foreground">
-            {t("finance.crypto.unpriced")}
+            {t('finance.crypto.unpriced')}
           </Text>
-          <Text className="text-xs text-muted-foreground">
-            {t("finance.crypto.unpricedBody")}
-          </Text>
+          <Text className="text-xs text-muted-foreground">{t('finance.crypto.unpricedBody')}</Text>
         </>
       ) : (
         <>
-          <Text className="text-lg font-semibold text-foreground">
-            {view.price}
-          </Text>
+          <Text className="text-lg font-semibold text-foreground">{view.price}</Text>
           {view.changePct ? (
             <View className="flex-row items-center gap-1">
-              {view.direction === "up" ? (
+              {view.direction === 'up' ? (
                 <TrendingUp size={12} color="#22c55e" />
-              ) : view.direction === "down" ? (
+              ) : view.direction === 'down' ? (
                 <TrendingDown size={12} color="#ef4444" />
               ) : null}
               <Text
                 className={cn(
-                  "text-sm font-medium",
-                  view.direction === "up"
-                    ? "text-green-500"
-                    : view.direction === "down"
-                      ? "text-red-500"
-                      : "text-muted-foreground",
+                  'text-sm font-medium',
+                  view.direction === 'up'
+                    ? 'text-green-500'
+                    : view.direction === 'down'
+                      ? 'text-red-500'
+                      : 'text-muted-foreground',
                 )}
               >
                 {view.changePct}
@@ -328,7 +311,7 @@ function CryptoQuoteCard({
       )}
       {/* A pool-indexed price has to say where it came from and how old it is. */}
       <Text className="text-[10px] text-muted-foreground mt-1" numberOfLines={2}>
-        {t("finance.crypto.quotedBy", {
+        {t('finance.crypto.quotedBy', {
           source: view.source,
           updated: view.updatedAt,
         })}
@@ -349,9 +332,7 @@ function CryptoQuotes({ isLargeScreen }: { isLargeScreen: boolean }) {
 
   return (
     <View className="gap-3">
-      <Text className="text-base font-semibold text-foreground">
-        {t("finance.crypto.heading")}
-      </Text>
+      <Text className="text-base font-semibold text-foreground">{t('finance.crypto.heading')}</Text>
       <View className="flex-row flex-wrap gap-3">
         {CRYPTO_ASSETS.map((asset) => (
           <CryptoQuoteCard
@@ -359,9 +340,7 @@ function CryptoQuotes({ isLargeScreen }: { isLargeScreen: boolean }) {
             label={CRYPTO_LABELS[asset]}
             isLargeScreen={isLargeScreen}
             view={marketCardView({
-              result: quotes.data?.results.find(
-                (result) => result.requested === asset,
-              ),
+              result: quotes.data?.results.find((result) => result.requested === asset),
               isPending: quotes.isPending,
               isError: quotes.isError,
               locale,
@@ -373,16 +352,14 @@ function CryptoQuotes({ isLargeScreen }: { isLargeScreen: boolean }) {
       {quotes.isError ? (
         <View className="flex-row items-center gap-3">
           <Text className="flex-1 text-xs text-muted-foreground">
-            {t("finance.crypto.errorBody")}
+            {t('finance.crypto.errorBody')}
           </Text>
           <Button appearance="outline" tone="neutral" size="sm" onPress={() => quotes.refetch()}>
-            {t("finance.crypto.retry")}
+            {t('finance.crypto.retry')}
           </Button>
         </View>
       ) : null}
-      <Text className="text-xs text-muted-foreground">
-        {t("finance.crypto.notice")}
-      </Text>
+      <Text className="text-xs text-muted-foreground">{t('finance.crypto.notice')}</Text>
     </View>
   );
 }
@@ -391,11 +368,7 @@ function CryptoQuotes({ isLargeScreen }: { isLargeScreen: boolean }) {
    Accordion Item
    ================================================================ */
 
-function AccordionItem({
-  headline,
-}: {
-  headline: MarketHeadline;
-}) {
+function AccordionItem({ headline }: { headline: MarketHeadline }) {
   const { colors } = useColorScheme();
   const [expanded, setExpanded] = useState(false);
 
@@ -406,10 +379,7 @@ function AccordionItem({
   const Icon = expanded ? ChevronUp : ChevronDown;
 
   return (
-    <Pressable
-      onPress={toggle}
-      className="bg-card rounded-xl border border-border p-4"
-    >
+    <Pressable onPress={toggle} className="bg-card rounded-xl border border-border p-4">
       <View className="flex-row items-start justify-between gap-3">
         <Text className="flex-1 text-sm font-medium text-foreground leading-snug">
           {headline.title}
@@ -434,30 +404,19 @@ function WatchlistCard() {
 
   return (
     <View className="rounded-xl border border-border bg-card p-4 gap-3">
-      <Text className="text-sm font-semibold text-foreground">
-        {t("finance.watchlist")}
-      </Text>
+      <Text className="text-sm font-semibold text-foreground">{t('finance.watchlist')}</Text>
       {WATCHLIST.map((item) => (
-        <View
-          key={item.ticker}
-          className="flex-row items-center justify-between py-1.5"
-        >
+        <View key={item.ticker} className="flex-row items-center justify-between py-1.5">
           <View className="gap-0.5">
-            <Text className="text-sm font-medium text-foreground">
-              {item.ticker}
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              {item.name}
-            </Text>
+            <Text className="text-sm font-medium text-foreground">{item.ticker}</Text>
+            <Text className="text-xs text-muted-foreground">{item.name}</Text>
           </View>
           <View className="items-end gap-0.5">
-            <Text className="text-sm font-medium text-foreground">
-              ${item.price}
-            </Text>
+            <Text className="text-sm font-medium text-foreground">${item.price}</Text>
             <Text
               className={cn(
-                "text-xs font-medium",
-                item.positive ? "text-green-500" : "text-red-500",
+                'text-xs font-medium',
+                item.positive ? 'text-green-500' : 'text-red-500',
               )}
             >
               {item.change}
@@ -475,12 +434,12 @@ function WatchlistCard() {
 
 function MoversCard() {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<SidebarTab>("gainers");
+  const [activeTab, setActiveTab] = useState<SidebarTab>('gainers');
 
   const tabs: { key: SidebarTab; labelKey: string }[] = [
-    { key: "gainers", labelKey: "finance.gainers" },
-    { key: "losers", labelKey: "finance.losers" },
-    { key: "active", labelKey: "finance.active" },
+    { key: 'gainers', labelKey: 'finance.gainers' },
+    { key: 'losers', labelKey: 'finance.losers' },
+    { key: 'active', labelKey: 'finance.active' },
   ];
 
   const items = MOVERS_MAP[activeTab];
@@ -488,12 +447,7 @@ function MoversCard() {
   return (
     <View className="rounded-xl border border-border bg-card p-4 gap-3">
       {/* Tabs */}
-      <SegmentedControl
-        type="tabs"
-        size="sm"
-        value={activeTab}
-        onValueChange={setActiveTab}
-      >
+      <SegmentedControl type="tabs" size="sm" value={activeTab} onValueChange={setActiveTab}>
         {tabs.map((tab) => (
           <SegmentedControlItem key={tab.key} value={tab.key}>
             <SegmentedControlItemText>{t(tab.labelKey)}</SegmentedControlItemText>
@@ -502,26 +456,17 @@ function MoversCard() {
       </SegmentedControl>
       {/* Items */}
       {items.map((item) => (
-        <View
-          key={item.ticker}
-          className="flex-row items-center justify-between py-1.5"
-        >
+        <View key={item.ticker} className="flex-row items-center justify-between py-1.5">
           <View className="gap-0.5">
-            <Text className="text-sm font-medium text-foreground">
-              {item.ticker}
-            </Text>
-            <Text className="text-xs text-muted-foreground">
-              {item.name}
-            </Text>
+            <Text className="text-sm font-medium text-foreground">{item.ticker}</Text>
+            <Text className="text-xs text-muted-foreground">{item.name}</Text>
           </View>
           <View className="items-end gap-0.5">
-            <Text className="text-sm font-medium text-foreground">
-              ${item.price}
-            </Text>
+            <Text className="text-sm font-medium text-foreground">${item.price}</Text>
             <Text
               className={cn(
-                "text-xs font-medium",
-                item.positive ? "text-green-500" : "text-red-500",
+                'text-xs font-medium',
+                item.positive ? 'text-green-500' : 'text-red-500',
               )}
             >
               {item.change}
@@ -542,21 +487,14 @@ function SectorsCard() {
 
   return (
     <View className="rounded-xl border border-border bg-card p-4 gap-3">
-      <Text className="text-sm font-semibold text-foreground">
-        {t("finance.sectors")}
-      </Text>
+      <Text className="text-sm font-semibold text-foreground">{t('finance.sectors')}</Text>
       {SECTORS.map((sector) => (
-        <View
-          key={sector.name}
-          className="flex-row items-center justify-between py-1.5"
-        >
-          <Text className="text-sm font-medium text-foreground">
-            {sector.name}
-          </Text>
+        <View key={sector.name} className="flex-row items-center justify-between py-1.5">
+          <Text className="text-sm font-medium text-foreground">{sector.name}</Text>
           <Text
             className={cn(
-              "text-xs font-medium",
-              sector.positive ? "text-green-500" : "text-red-500",
+              'text-xs font-medium',
+              sector.positive ? 'text-green-500' : 'text-red-500',
             )}
           >
             {sector.change}
@@ -580,7 +518,7 @@ export default function FinanceScreen() {
   const isLargeScreen = dimensions.width >= 768;
   const isDesktop = dimensions.width >= 1024;
 
-  const [activeTab, setActiveTab] = useState<FinanceTab>("usMarkets");
+  const [activeTab, setActiveTab] = useState<FinanceTab>('usMarkets');
 
   const handleBack = useCallback(() => router.back(), [router]);
 
@@ -590,19 +528,19 @@ export default function FinanceScreen() {
       <View className="border-b border-border bg-background z-10">
         <View
           className="flex-row items-center justify-between px-4 h-14"
-          style={{ maxWidth: 1080, alignSelf: "center", width: "100%" }}
+          style={{ maxWidth: 1080, alignSelf: 'center', width: '100%' }}
         >
           {/* Left: Back + Title */}
           <View className="flex-row items-center gap-3">
             {!isLargeScreen && (
               <GlyphButton
                 icon={bloomIcon(ArrowLeft)}
-                accessibilityLabel={t("common.back")}
+                accessibilityLabel={t('common.back')}
                 onPress={handleBack}
               />
             )}
             <Text className="font-sans text-sm font-medium text-foreground">
-              {t("finance.title")}
+              {t('finance.title')}
             </Text>
           </View>
 
@@ -612,7 +550,7 @@ export default function FinanceScreen() {
               value={activeTab}
               onValueChange={(v) => setActiveTab(v as FinanceTab)}
               variant="pill"
-              label={t("finance.title")}
+              label={t('finance.title')}
             >
               {FINANCE_TABS.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id} label={tab.label} />
@@ -622,13 +560,14 @@ export default function FinanceScreen() {
 
           {/* Right: Share button */}
           <Button
-            appearance="outline" tone="neutral"
+            appearance="outline"
+            tone="neutral"
             size="sm"
             leadingIcon={bloomIcon(Share2)}
             iconOnly={!isLargeScreen}
-            accessibilityLabel={t("discover.share")}
+            accessibilityLabel={t('discover.share')}
           >
-            {t("discover.share")}
+            {t('discover.share')}
           </Button>
         </View>
       </View>
@@ -640,14 +579,11 @@ export default function FinanceScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View
-          className={cn(
-            "w-full py-6 px-4",
-            isDesktop ? "flex-row gap-6" : "flex-col gap-6",
-          )}
+          className={cn('w-full py-6 px-4', isDesktop ? 'flex-row gap-6' : 'flex-col gap-6')}
           style={{
             maxWidth: 1080,
-            alignSelf: "center",
-            width: "100%",
+            alignSelf: 'center',
+            width: '100%',
           }}
         >
           {/* ── Main Content ── */}
@@ -658,30 +594,21 @@ export default function FinanceScreen() {
             {/* Top Assets */}
             <View className="gap-3">
               <Text className="text-base font-semibold text-foreground">
-                {t("finance.topAssets")}
+                {t('finance.topAssets')}
               </Text>
               <View
-                className={cn(
-                  "gap-3",
-                  isLargeScreen ? "flex-row flex-wrap" : "flex-row flex-wrap",
-                )}
+                className={cn('gap-3', isLargeScreen ? 'flex-row flex-wrap' : 'flex-row flex-wrap')}
               >
                 {TOP_ASSETS.map((asset) => (
                   <View
                     key={asset.name}
                     className="bg-card rounded-xl border border-border p-4"
-                    style={
-                      isLargeScreen
-                        ? { width: "23.5%", minWidth: 160 }
-                        : { width: "47.5%" }
-                    }
+                    style={isLargeScreen ? { width: '23.5%', minWidth: 160 } : { width: '47.5%' }}
                   >
                     <Text className="text-xs font-medium text-muted-foreground mb-1">
                       {asset.name}
                     </Text>
-                    <Text className="text-lg font-semibold text-foreground">
-                      {asset.value}
-                    </Text>
+                    <Text className="text-lg font-semibold text-foreground">{asset.value}</Text>
                     <View className="flex-row items-center gap-1 mt-1">
                       {asset.positive ? (
                         <TrendingUp size={12} color="#22c55e" />
@@ -690,8 +617,8 @@ export default function FinanceScreen() {
                       )}
                       <Text
                         className={cn(
-                          "text-sm font-medium",
-                          asset.positive ? "text-green-500" : "text-red-500",
+                          'text-sm font-medium',
+                          asset.positive ? 'text-green-500' : 'text-red-500',
                         )}
                       >
                         {asset.change}
@@ -705,7 +632,7 @@ export default function FinanceScreen() {
             {/* Market Summary */}
             <View className="gap-3">
               <Text className="text-base font-semibold text-foreground">
-                {t("finance.marketSummary")}
+                {t('finance.marketSummary')}
               </Text>
               <View className="gap-2">
                 {MARKET_HEADLINES.map((headline) => (
@@ -717,7 +644,7 @@ export default function FinanceScreen() {
             {/* Recent Developments */}
             <View className="gap-3">
               <Text className="text-base font-semibold text-foreground">
-                {t("finance.recentDevelopments")}
+                {t('finance.recentDevelopments')}
               </Text>
               <ScrollView
                 horizontal
@@ -733,7 +660,7 @@ export default function FinanceScreen() {
                     {/* Image placeholder */}
                     <View className="h-[140px] bg-muted items-center justify-center">
                       <Text className="text-xs text-muted-foreground">
-                        {news.imageUrl ? "Image" : "No image"}
+                        {news.imageUrl ? 'Image' : 'No image'}
                       </Text>
                     </View>
                     <View className="p-3 gap-2">
@@ -747,9 +674,7 @@ export default function FinanceScreen() {
                         <Text className="text-xs text-muted-foreground">
                           {news.sourceCount} sources
                         </Text>
-                        <Text className="text-xs text-muted-foreground">
-                          {news.publishedAt}
-                        </Text>
+                        <Text className="text-xs text-muted-foreground">{news.publishedAt}</Text>
                       </View>
                     </View>
                   </Pressable>
@@ -761,7 +686,7 @@ export default function FinanceScreen() {
             <View className="bg-card rounded-xl border border-border flex-row items-center gap-2 h-12 px-4">
               <Search size={16} color={colors.mutedForeground} />
               <TextInput
-                placeholder={t("finance.searchPlaceholder")}
+                placeholder={t('finance.searchPlaceholder')}
                 placeholderTextColor={colors.mutedForeground}
                 className="flex-1 min-w-0 bg-transparent text-foreground text-sm font-sans web:focus-visible:outline-none"
               />
