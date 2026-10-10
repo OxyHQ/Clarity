@@ -65,6 +65,7 @@ import { karrierenrw } from './providers/karrierenrw.js';
 import { jobsadminch } from './providers/jobsadminch.js';
 import { indeedxml } from './providers/indeedxml.js';
 import { jobboardly } from './providers/jobboardly.js';
+import { jobbnorge } from './providers/jobbnorge.js';
 import { madgex } from './providers/madgex.js';
 import { getonboard } from './providers/getonboard.js';
 import { rssjsonld } from './providers/rssjsonld.js';
@@ -79,7 +80,7 @@ export const JOB_FEED_PROVIDERS: Readonly<Record<JobFeedKind, JobFeedProvider>> 
   jobsoid, kalibrr, hiringthing, trakstar, crelate,
   // Aggregators and job boards: one feed covers many employers.
   remoteok, remotive, arbeitnow, aidevboard, jobicy, workingnomads, devitjobs, artificialintelligencejobs, freehire,
-  fourdayweek, jobtech, weworkremotely, madgex, getonboard, jobboardly,
+  fourdayweek, jobtech, weworkremotely, madgex, getonboard, jobboardly, jobbnorge,
   // Public employment services and public-sector portals.
   eures, feinaactiva, karrierenrw, jobsadminch,
   // Any RSS or Atom job feed, and any sitemap of pages carrying JobPosting.

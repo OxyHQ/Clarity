@@ -120,7 +120,8 @@ export type JobFeedKind =
   | 'crelate'
   | 'wp_job_manager'
   | 'directory'
-  | 'jobboardly';
+  | 'jobboardly'
+  | 'jobbnorge';
 
 export interface JobFeed {
   id: string;

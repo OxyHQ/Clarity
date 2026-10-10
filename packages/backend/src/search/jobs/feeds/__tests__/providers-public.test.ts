@@ -366,3 +366,32 @@ describe('regional ATS providers', () => {
     expect(result.references).toEqual([{ url: 'https://laura.fi/avoimet-tyopaikat/x/2/', lastModified: new Date('2026-10-09T21:14:45.000Z') }]);
   });
 });
+
+describe('national board sources and robustness', () => {
+  it('reads the Jobbnorge API with Norwegian scope and duration', () => {
+    const [job] = parse('jobbnorge', 'jobbnorge', { jobs: [{
+      id: 307978, title: 'Ekspedisjonssjef', employer: 'Kunnskapsdepartementet', summary: 'Lederstilling.',
+      link: 'https://www.jobbnorge.no/ledige-stillinger/stilling/307978', jobScope: 'Heltid', jobDuration: 'Vikariat',
+      locations: [{ area: 'Oslo', county: 'Oslo', zipCode: '0153', isDomestic: true }], publicationDate: '21.09.2026', deadline: '11.10.2026',
+    }] }).listings;
+    expect(job).toMatchObject({ employerName: 'Kunnskapsdepartementet', employmentTypes: ['full_time', 'temporary'] });
+    expect(job.locations[0]).toMatchObject({ locality: 'Oslo', countryCode: 'NO', postalCode: '0153' });
+    expect(job.publishedAt?.toISOString()).toBe('2026-09-21T00:00:00.000Z');
+    expect(job.validThrough?.toISOString()).toBe('2026-10-11T00:00:00.000Z');
+  });
+
+  it('keeps sitemap postings on the same registrable domain as the sitemap, even across a CDN host', () => {
+    const page = parse('sitemap', 'https://statics.free-work.com/sitemap.xml#/fr/', `<urlset>
+      <url><loc>https://www.free-work.com/fr/job/a</loc></url>
+      <url><loc>https://www.free-work.com/en/job/b</loc></url>
+      <url><loc>https://evil.example/fr/job/c</loc></url></urlset>`);
+    expect(page.references?.map((r) => r.url)).toEqual(['https://www.free-work.com/fr/job/a']);
+  });
+
+  it('reads a JobPosting block an author entity-escaped whole', () => {
+    const encoded = '&quot;@context&quot;:&quot;https://schema.org&quot;,&quot;@type&quot;:&quot;JobPosting&quot;,&quot;title&quot;:&quot;Dev&quot;,&quot;hiringOrganization&quot;:&#123;&quot;name&quot;:&quot;Acme&quot;&#125;';
+    const html = `<script type="application/ld+json">{${encoded}}</script>`;
+    const page = readPage('sitemap', 'https://x.example/sitemap.xml', html, 'https://x.example/job/1');
+    expect(page).toMatchObject({ title: 'Dev', employerName: 'Acme', canonicalUrl: 'https://x.example/job/1' });
+  });
+});

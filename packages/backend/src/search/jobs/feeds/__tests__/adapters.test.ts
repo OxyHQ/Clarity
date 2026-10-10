@@ -28,6 +28,7 @@ const SAMPLE_IDENTIFIERS: Partial<Record<(typeof JOB_FEED_KINDS)[number], string
   indeed_xml: 'https://aidevboard.com/feed/indeed.xml',
   eploy: 'jobs.le.ac.uk',
   jobboardly: 'etcareers.com',
+  jobbnorge: 'jobbnorge',
   emply: 'albertslund/da',
   wp_job_manager: 'https://workew.com',
   directory: 'https://careers.jobscore.com/sitemaps/careers.xml.gz',

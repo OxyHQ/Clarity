@@ -12,6 +12,8 @@
  * A sitemap index is not walked: its child sitemaps are registered instead.
  */
 import type { JobFeedPageReference, JobFeedProvider } from '../provider.js';
+import { registrableApex } from '@oxy.so/core/server';
+
 import { XML_ACCEPT, get, sitemapEntries } from '../listing.js';
 import { jsonLdPage } from './pagejsonld.js';
 
@@ -34,10 +36,12 @@ export const sitemap: JobFeedProvider = {
       throw new Error('this is a sitemap index; register each of its child sitemaps instead');
     }
     const { url, prefix } = sitemapUrl(context.identifier);
-    const origin = new URL(url).origin;
+    // Postings live on the sitemap's own site, but a sitemap is often served
+    // from a CDN host (statics.free-work.com → www.free-work.com), so the test
+    // is the same registrable domain, not the exact host.
+    const apex = registrableApex(new URL(url).hostname);
     const entries = sitemapEntries(body)
-      // Postings live on the sitemap's own site; anything else is not this source.
-      .filter((entry) => { try { const target = new URL(entry.url); return target.origin === origin && (!prefix || target.pathname.startsWith(prefix)); } catch { return false; } })
+      .filter((entry) => { try { const target = new URL(entry.url); return (apex ? registrableApex(target.hostname) === apex : target.hostname === new URL(url).hostname) && (!prefix || target.pathname.startsWith(prefix)); } catch { return false; } })
       .sort((left, right) => (right.lastModified?.getTime() ?? 0) - (left.lastModified?.getTime() ?? 0));
     const offset = Number(context.cursor ?? 0) || 0;
     const references: JobFeedPageReference[] = entries.slice(offset, offset + PAGE_SIZE);

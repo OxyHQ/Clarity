@@ -473,6 +473,7 @@ never per viewer.
    | `madgex` | board host | `<host>/jobsrss/` → each posting page's `JobPosting` | page |
    | `getonboard` | category slug | `getonbrd.com/api/v0/categories/<slug>/jobs` | page |
    | `jobboardly` | board host | `<host>/jobs.xml` (Job Boardly boards) | one |
+   | `jobbnorge` | — | `publicapi.jobbnorge.no/v3/jobs` (Norway public-sector/academic) | one |
    | `indeed_xml` | feed URL | any public Indeed-format XML dump — Workable's every-job feed (~166,000), Cavuno boards, AI Dev Jobs | streamed, 20,000 a poll |
    | `wp_job_manager` | site URL | `<site>/wp-json/wp/v2/job-listings` (WordPress WP Job Manager boards: Laura.fi, Workew) | page |
    | `directory` | sitemap URL | a sitemap of an ATS's customer career pages (JobScore) — registers those boards, ingests nothing | one |
@@ -528,7 +529,10 @@ never per viewer.
 
    **Pages a source only links to are read through their own `JobPosting`**
    (`sitemap`, `rss_jsonld`, `madgex`): the page is the listing and its URL is
-   canonical. A page is read again only when the source's last-modified date
+   canonical. A `sitemap` keeps the postings on the sitemap's own registrable
+   domain, so a sitemap served from a CDN host (`statics.free-work.com` →
+   `www.free-work.com`) still resolves. JSON-LD a site entity-escaped whole
+   (`&quot;@type&quot;…`) is decoded before parsing. A page is read again only when the source's last-modified date
    moved past the stored copy or the cache aged out; a page that carries
    `<meta name="robots" content="noindex">` is not indexed. Bodies are decoded
    in the charset their Content-Type declares, and JSON-LD with raw line breaks

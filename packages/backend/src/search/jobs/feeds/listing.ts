@@ -545,7 +545,9 @@ function escapeControlCharactersInStrings(json: string): string {
 export function jsonLdBlocks(html: string): unknown[] {
   return [...html.matchAll(/<script\b[^>]*type\s*=\s*["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)].flatMap((match) => {
     const raw = match[1].trim();
-    for (const candidate of [raw, escapeControlCharactersInStrings(raw)]) {
+    // Some sites entity-escape the whole block (`&quot;@type&quot;`); decode then try again.
+    const decoded = /&(?:quot|amp|#\d+);/.test(raw) && !raw.includes('"') ? decodeHtmlEntities(raw) : raw;
+    for (const candidate of [decoded, escapeControlCharactersInStrings(decoded)]) {
       try {
         return [JSON.parse(candidate)];
       } catch {

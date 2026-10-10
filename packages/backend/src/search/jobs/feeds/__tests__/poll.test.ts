@@ -6,6 +6,7 @@ const requested: string[] = [];
 let respond: (url: string) => { status: number; body: string | string[] } = () => ({ status: 404, body: '' });
 
 vi.mock('@oxy.so/core/server', () => ({
+  registrableApex: (host: string) => host.split('.').slice(-2).join('.'),
   safeFetch: vi.fn(async (url: string) => {
     requested.push(url);
     const { status, body } = respond(url);
