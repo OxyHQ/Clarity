@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "generate-sitemap": "bun scripts/generate-sitemap.ts",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit -p .",
     "prebuild": "bun run generate-sitemap",
     "build": "bun x setup-skia-web public && bun x expo export --platform web",
     "build:production": "NODE_ENV=production bun x setup-skia-web public && bun x expo export --platform web --clear",

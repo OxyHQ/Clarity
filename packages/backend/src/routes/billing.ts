@@ -9,6 +9,7 @@ import {
   type PlanFeatureData,
 } from '../lib/product-catalogue.js';
 import { ensureStripePriceId } from '../lib/stripe-prices.js';
+import { stripeApiVersion } from '../lib/stripe-api-version.js';
 import { getUserEntitlements, invalidateEntitlementsCache } from '../lib/plan-access.js';
 import { proxyAliaJson } from '../lib/alia-agent-client.js';
 import {
@@ -36,7 +37,7 @@ function getStripe(): Stripe {
       throw new Error('STRIPE_SECRET_KEY is not defined');
     }
     stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: '2026-06-24.dahlia',
+      apiVersion: stripeApiVersion,
     });
   }
   return stripeInstance;
