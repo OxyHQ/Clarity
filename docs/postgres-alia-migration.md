@@ -150,8 +150,8 @@ This resolves the older provisioning/DNS uncertainty above, but does not satisfy
 the source reconciliation or runtime/billing receipt gates. No production
 capacity or attestation was changed.
 
-The vault and examined S3 final Mongo inventories did not provide a Clarity
-source manifest. A connection probe to the historical source endpoint timed
+The vault and the examined S3 final inventories of the historical source did
+not provide a Clarity source manifest. A connection probe to the historical source endpoint timed
 out. These observations do not establish that the source was empty. Recovery
 requires locating its authoritative inventory/export and reconciling it before
 attestation, then restoring the indexed corpus and proving real search results.
