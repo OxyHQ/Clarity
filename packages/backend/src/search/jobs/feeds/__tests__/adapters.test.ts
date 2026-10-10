@@ -58,7 +58,7 @@ describe('keyless job feed endpoints', () => {
   });
 
   it('seeds only feeds the providers accept', () => {
-    const seed = ['0020_seed_job_feeds.sql', '0021_seed_apac_job_feeds.sql', '0022_seed_eu_job_feeds.sql']
+    const seed = ['0020_seed_job_feeds.sql', '0021_seed_apac_job_feeds.sql', '0022_seed_eu_job_feeds.sql', '0023_seed_br_tn_job_feeds.sql']
       .map((file) => readFileSync(new URL(`../../../../../drizzle/${file}`, import.meta.url), 'utf8'))
       .join('\n');
     const rows = [...seed.matchAll(/\(gen_random_uuid\(\)::text, '([^']+)', '([^']+)', '[^']+'\)/g)];
