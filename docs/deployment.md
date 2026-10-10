@@ -34,6 +34,13 @@ silently treated as successful application deployments.
 
 ## Required secrets and bindings
 
+Every runtime secret lives only in SSM Parameter Store under `/oxy/clarity/`
+(SecureString) or the oxy-infra-owned `/oxy/_shared/`, and the task definitions
+read it at task start. Its owner sets or rotates it with
+`aws ssm put-parameter --overwrite` (oxy-infra runbook 46); GitHub holds only CI
+tokens, and no workflow writes SSM. A new secret is written to SSM FIRST, then
+named in the task definition: a task naming a missing parameter fails at start.
+
 - `DATABASE_URL`: dedicated Clarity PostgreSQL database
 - `CLARITY_ALIA_AGENT_ID`: real provisioned Clarity bot/agent record
 - `ALIA_API_URL`: Alia product API origin

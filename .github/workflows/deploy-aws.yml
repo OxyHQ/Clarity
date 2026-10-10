@@ -46,33 +46,14 @@ jobs:
           role-to-assume: arn:aws:iam::237343248947:role/oxy-clarity-github-deploy
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Sync application-owned secrets to SSM
-        env:
-          SYNC_DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          SYNC_CLARITY_INTROSPECTION_CACHE_HMAC_KEY: ${{ secrets.CLARITY_INTROSPECTION_CACHE_HMAC_KEY }}
-          SYNC_STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
-          SYNC_STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
-          SYNC_VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          SYNC_VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
-        run: |
-          set -euo pipefail
-          app_secrets="DATABASE_URL CLARITY_INTROSPECTION_CACHE_HMAC_KEY STRIPE_SECRET_KEY STRIPE_WEBHOOK_SECRET VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY"
-          for key in $app_secrets; do
-            value="$(printenv "SYNC_$key" || true)"
-            if [[ -z "$value" || "$value" == "-" ]]; then
-              echo "::warning::Skipping empty or placeholder secret $key; SSM unchanged."
-              continue
-            fi
-            parameter="/oxy/clarity/$key"
-            aws ssm put-parameter \
-              --name "$parameter" \
-              --value "$value" \
-              --type SecureString \
-              --overwrite \
-              >/dev/null
-            echo "Synced $parameter"
-          done
-
+      # Runtime secrets are NOT in GitHub. SSM Parameter Store (/oxy/clarity/*,
+      # SecureString) is their single source of truth: the task definitions read
+      # them at task start, and nothing in this workflow writes one. Setting or
+      # rotating a value is `aws ssm put-parameter --overwrite` by its owner
+      # (oxy-infra docs/runbooks/46-app-secrets-in-ssm.md), never a repo secret.
+      # Until 2026-10-10 a step here copied GitHub repo secrets into SSM on every
+      # deploy. architecture-gates.test.ts fails if a workflow writes SSM or
+      # reads an app secret from GitHub again.
       - name: Login to ECR
         uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2
 
