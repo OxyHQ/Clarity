@@ -108,7 +108,7 @@ export async function saveConversation(params: SaveConversationParams): Promise<
       content: stripTitleTags(assistantResponse),
       ...(toolInvocations && toolInvocations.length > 0 && { toolInvocations }),
     },
-  ].filter((msg) => msg != null && msg.role && msg.content !== undefined);
+  ].filter((msg) => msg?.role && msg.content !== undefined);
 
   const title = extractConversationTitle(assistantResponse, messages);
 

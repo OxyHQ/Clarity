@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { cp } from 'fs/promises';
+import { cp } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 await esbuild.build({

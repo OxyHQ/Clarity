@@ -70,7 +70,7 @@ export function useConversations() {
             ...c,
             messages: [] as Message[],
           }));
-          const offset = pageParam ? parseInt(pageParam) : 0;
+          const offset = pageParam ? parseInt(pageParam, 10) : 0;
           const limit = 20;
           const page = conversations.slice(offset, offset + limit);
 

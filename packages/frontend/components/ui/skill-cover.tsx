@@ -79,7 +79,7 @@ function generatePalette(hash: number, color?: string): [HSL, HSL, HSL] {
   const rng = createRng(hash);
 
   // If a color hex is provided, derive palette from it
-  if (color && color.startsWith('#') && color.length >= 7) {
+  if (color?.startsWith('#') && color.length >= 7) {
     const [baseHue, baseSat] = hexToHsl(color);
     const sat = Math.max(60, baseSat);
     return [
@@ -186,9 +186,9 @@ function computeCellColor(
 
   const hex = (v: number) => {
     const h = v.toString(16);
-    return h.length < 2 ? '0' + h : h;
+    return h.length < 2 ? `0${h}` : h;
   };
-  return '#' + hex(r) + hex(g) + hex(b);
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
 }
 
 // ─── Animated cell ───────────────────────────────────────────────────────────
@@ -252,7 +252,7 @@ function StaticCell({
 function formatShortDate(dateStr?: string): string {
   if (!dateStr) return '';
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '';
+  if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 }
 
@@ -303,7 +303,7 @@ export function SkillCover({
     const g = Math.round(255 * f(8));
     const b = Math.round(255 * f(4));
     const hex = (v: number) => v.toString(16).padStart(2, '0');
-    return '#' + hex(r) + hex(g) + hex(b);
+    return `#${hex(r)}${hex(g)}${hex(b)}`;
   }, [palette, lightMode]);
 
   const staticColors = useMemo(

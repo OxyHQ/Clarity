@@ -390,7 +390,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
         >
           {/* Subtle hero gradient overlay */}
           <LinearGradient
-            colors={['transparent', colors.primary + '08', 'transparent']}
+            colors={['transparent', `${colors.primary}08`, 'transparent']}
             locations={[0, 0.5, 1]}
             style={{
               position: 'absolute',
@@ -488,7 +488,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
         {/* ==================== BOTTOM CTA (gradient band) ==================== */}
         <View className="w-full relative">
           <LinearGradient
-            colors={['transparent', colors.primary + '0A']}
+            colors={['transparent', `${colors.primary}0A`]}
             locations={[0, 1]}
             style={{
               position: 'absolute',

@@ -19,7 +19,7 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
 
   process(inputs) {
     const input = inputs[0];
-    if (!input || !input[0]) return true;
+    if (!input?.[0]) return true;
 
     const samples = input[0];
     for (let i = 0; i < samples.length; i++) {
@@ -77,7 +77,7 @@ class AudioPlaybackProcessor extends AudioWorkletProcessor {
 
   process(_inputs, outputs) {
     const output = outputs[0];
-    if (!output || !output[0]) return true;
+    if (!output?.[0]) return true;
 
     const channel = output[0];
     for (let i = 0; i < channel.length; i++) {

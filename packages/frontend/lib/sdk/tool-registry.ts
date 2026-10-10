@@ -39,7 +39,7 @@ export function getToolCategory(toolName: string): ToolDefinition['category'] | 
 export function getToolActiveLabel(toolName: string): string | undefined {
   const label = TOOL_REGISTRY[toolName]?.label;
   if (!label) return undefined;
-  return label + '...';
+  return `${label}...`;
 }
 
 /** Status strings for the ThinkingIndicator during research phases. */

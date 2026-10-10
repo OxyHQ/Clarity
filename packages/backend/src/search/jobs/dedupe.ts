@@ -90,7 +90,7 @@ export interface JobSignatureInput {
 function primaryLocationKey(locations: JobSignatureInput['locations']): string | undefined {
   const first = locations[0];
   if (!first) return undefined;
-  return (first.countryCode ?? '') + '/' + (first.locality ?? first.raw).toLowerCase();
+  return `${first.countryCode ?? ''}/${(first.locality ?? first.raw).toLowerCase()}`;
 }
 
 /**
