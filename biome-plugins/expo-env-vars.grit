@@ -1,0 +1,27 @@
+language js
+
+// Port of eslint-plugin-expo's no-dynamic-env-var and no-env-var-destructuring,
+// copied from OxyHQ/Moovo and extended. Metro only inlines static
+// `process.env.EXPO_PUBLIC_NAME` member reads; every other shape is undefined
+// in the shipped bundle.
+//
+// The destructuring branches match syntax nodes, not `const { $props } = ...`
+// snippets: a `{ $props }` snippet matches only a SINGLE property, so
+// `const { A, B } = process.env` slipped through. The node forms cover any
+// number of properties, rest elements, const/let/var, export, multi-declarator
+// statements, parameter defaults and assignment destructuring
+// (`({ A } = process.env)`).
+or {
+  `process.env[$key]` as $read where {
+    register_diagnostic(span=$read, message="Read EXPO_PUBLIC_* variables as static `process.env.EXPO_PUBLIC_NAME` member expressions: Metro only inlines static reads, so a computed `process.env[...]` is undefined in the shipped bundle (port of eslint-plugin-expo no-dynamic-env-var).")
+  },
+  JsVariableDeclarator(id=JsObjectBindingPattern(), initializer=JsInitializerClause(expression=`process.env`)) as $read where {
+    register_diagnostic(span=$read, message="Do not destructure process.env: Metro only inlines static `process.env.EXPO_PUBLIC_NAME` reads, so destructured variables are undefined in the shipped bundle (port of eslint-plugin-expo no-env-var-destructuring).")
+  },
+  JsFormalParameter(binding=JsObjectBindingPattern(), initializer=JsInitializerClause(expression=`process.env`)) as $read where {
+    register_diagnostic(span=$read, message="Do not destructure process.env: Metro only inlines static `process.env.EXPO_PUBLIC_NAME` reads, so destructured variables are undefined in the shipped bundle (port of eslint-plugin-expo no-env-var-destructuring).")
+  },
+  JsAssignmentExpression(left=JsObjectAssignmentPattern(), right=`process.env`) as $read where {
+    register_diagnostic(span=$read, message="Do not destructure process.env: Metro only inlines static `process.env.EXPO_PUBLIC_NAME` reads, so destructured variables are undefined in the shipped bundle (port of eslint-plugin-expo no-env-var-destructuring).")
+  }
+}
