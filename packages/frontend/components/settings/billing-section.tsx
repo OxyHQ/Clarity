@@ -27,6 +27,7 @@ import {
 import { useEffect, useState, useRef } from 'react';
 import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
+import { messageOf } from '@/lib/errors/message-of';
 
 interface BillingSectionProps {
   success?: boolean;
@@ -91,8 +92,8 @@ export function BillingSection({ success }: BillingSectionProps) {
     try {
       await cancelSubscriptionMutation.mutateAsync({ subscriptionId: subscription.id });
       toast.success(t('billing.cancelSubscriptionSuccess'));
-    } catch (error: any) {
-      toast.error(error.message || t('billing.failedCancelSubscription'));
+    } catch (error) {
+      toast.error(messageOf(error) || t('billing.failedCancelSubscription'));
     }
   };
 
@@ -102,8 +103,8 @@ export function BillingSection({ success }: BillingSectionProps) {
       if (url) {
         await Linking.openURL(url);
       }
-    } catch (error: any) {
-      toast.error(error.message || t('billing.failedPortal'));
+    } catch (error) {
+      toast.error(messageOf(error) || t('billing.failedPortal'));
     }
   };
 
@@ -120,8 +121,8 @@ export function BillingSection({ success }: BillingSectionProps) {
       if (url) {
         await Linking.openURL(url);
       }
-    } catch (error: any) {
-      toast.error(error.message || t('billing.failedCheckout'));
+    } catch (error) {
+      toast.error(messageOf(error) || t('billing.failedCheckout'));
     }
   };
 
@@ -147,8 +148,8 @@ export function BillingSection({ success }: BillingSectionProps) {
         await Linking.openURL(url);
         setCustomCredits('');
       }
-    } catch (error: any) {
-      toast.error(error.message || t('billing.failedCheckout'));
+    } catch (error) {
+      toast.error(messageOf(error) || t('billing.failedCheckout'));
     }
   };
 

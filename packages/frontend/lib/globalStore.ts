@@ -32,8 +32,10 @@ interface StoreState {
   setFocusKeyboard: (value: boolean) => void;
   focusKeyboard: boolean;
 
-  pendingInitialMessage: string | Array<{ type: string; [key: string]: any }> | null;
-  setPendingInitialMessage: (message: string | Array<{ type: string; [key: string]: any }>) => void;
+  pendingInitialMessage: string | Array<{ type: string; [key: string]: unknown }> | null;
+  setPendingInitialMessage: (
+    message: string | Array<{ type: string; [key: string]: unknown }>,
+  ) => void;
   clearPendingInitialMessage: () => void;
 
   activeSkillId: string | null;
@@ -77,7 +79,7 @@ export const useStore = create<StoreState>((set) => ({
   setFocusKeyboard: (value: boolean) => set({ focusKeyboard: value }),
 
   pendingInitialMessage: null,
-  setPendingInitialMessage: (message: string | Array<{ type: string; [key: string]: any }>) =>
+  setPendingInitialMessage: (message: string | Array<{ type: string; [key: string]: unknown }>) =>
     set({ pendingInitialMessage: message }),
   clearPendingInitialMessage: () => set({ pendingInitialMessage: null }),
 

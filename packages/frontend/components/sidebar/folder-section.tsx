@@ -17,6 +17,7 @@ import {
   Star,
   Trash2,
   Folder as FolderIcon,
+  type LucideIcon,
 } from 'lucide-react-native';
 import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -40,7 +41,7 @@ type Project = {
 };
 import { ConversationItem } from './conversation-item';
 
-const ICON_MAP: Record<string, any> = {
+const ICON_MAP: Record<string, LucideIcon> = {
   Folder: FolderIcon,
   FolderIcon,
 };
@@ -54,15 +55,15 @@ interface FolderSectionProps {
   projects: Project[];
   folders: Folder[];
   onToggle: (id: string) => void;
-  onEdit: (folder: Folder, e: any) => void;
-  onDelete: (id: string, e: any) => void;
-  onToggleFavorite: (folder: Folder, e: any) => void;
+  onEdit: (folder: Folder, e: unknown) => void;
+  onDelete: (id: string, e: unknown) => void;
+  onToggleFavorite: (folder: Folder, e: unknown) => void;
   onSelectConversation: (id: string) => void;
-  onToggleFavoriteConversation: (id: string, e: any) => void;
-  onTogglePinConversation: (id: string, e: any) => void;
-  onMoveToProject: (convId: string, projectId: string | null, e: any) => void;
-  onMoveToFolder: (convId: string, folderId: string | null, e: any) => void;
-  onDeleteConversation: (id: string, e: any) => void;
+  onToggleFavoriteConversation: (id: string, e: unknown) => void;
+  onTogglePinConversation: (id: string, e: unknown) => void;
+  onMoveToProject: (convId: string, projectId: string | null, e: unknown) => void;
+  onMoveToFolder: (convId: string, folderId: string | null, e: unknown) => void;
+  onDeleteConversation: (id: string, e: unknown) => void;
   onPrefetchConversation?: (id: string) => void;
   getConversationProject: (id: string) => Project | undefined;
   getConversationFolder: (id: string) => Folder | undefined;
@@ -102,7 +103,7 @@ export const FolderSection = React.memo<FolderSectionProps>(
             onPress={() => onToggle(folder.id)}
             className="flex-1 flex-row items-center gap-2 py-1.5 px-2 active:bg-muted/50 rounded-lg"
           >
-            <Icon size={14} className="text-muted-foreground" style={{ color: folder.color }} />
+            <Icon size={14} className="text-muted-foreground" color={folder.color} />
             <Text className="flex-1 text-xs text-foreground font-medium" numberOfLines={1}>
               {folder.name}
             </Text>

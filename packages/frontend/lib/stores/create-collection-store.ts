@@ -48,7 +48,7 @@ export class CollectionPersister<T extends CollectionItem> {
   async load(): Promise<T[]> {
     const data = await AsyncStorage.getItem(this.storageKey);
     if (!data) return [];
-    return JSON.parse(data).map((item: any) => ({
+    return JSON.parse(data).map((item: { createdAt: string; updatedAt: string }) => ({
       ...item,
       createdAt: new Date(item.createdAt),
       updatedAt: new Date(item.updatedAt),

@@ -12,8 +12,8 @@ export type Platform = 'app' | 'telegram';
 
 export interface ProcessedMessage {
   text: string;
-  components?: any[]; // Visual components for the app (COMPACTLIST, BANNER, etc.)
-  metadata?: Record<string, any>;
+  components?: unknown[]; // Visual components for the app (COMPACTLIST, BANNER, etc.)
+  metadata?: Record<string, unknown>;
 }
 
 /**

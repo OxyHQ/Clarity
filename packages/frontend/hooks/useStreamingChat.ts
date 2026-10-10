@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { fetch as expoFetch } from 'expo/fetch';
 import * as Haptics from 'expo-haptics';
 import { useOxy } from '@oxy.so/services';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import type { Message } from '@clarity/shared-types';
 import type { CreditsInfo } from '@/lib/hooks/use-credits';
 import { collectDeviceInfo } from '@/lib/device-info';
@@ -16,6 +16,36 @@ import { useUIStore } from '@/lib/stores/ui-store';
 import { toast } from '@oxy.so/bloom/toast';
 
 import type { ToolInvocation } from '@clarity/shared-types';
+
+/** The `error` object of a usage-limit response. Read off the wire, so any field may be missing. */
+interface UsageLimitErrorBody {
+  code?: string;
+  message?: string;
+  retryable?: boolean;
+  retryAfter?: number;
+  suggestedAction?: 'upgrade' | 'wait';
+  details?: { limitType?: string; current?: number; limit?: number; tier?: string };
+}
+
+/** The body of a non-2xx chat response. */
+interface ChatErrorResponse {
+  error?: string | UsageLimitErrorBody;
+  details?: unknown;
+}
+
+/** What expoFetch can throw instead of an Error (for example the response itself). */
+interface ThrownResponse extends UsageLimitErrorBody {
+  name?: string;
+  status?: number;
+  statusCode?: number;
+  error?: UsageLimitErrorBody;
+  body?: { error?: UsageLimitErrorBody };
+}
+
+/** The part of a cached conversation-list page the title update touches. */
+interface ConversationListPage {
+  conversations: Array<{ id: string; title?: string }>;
+}
 
 export function useStreamingChat(apiUrl: string, conversationId?: string, selectedModel?: string) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -158,7 +188,7 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
         });
 
         if (!response.ok) {
-          let errorData: any = null;
+          let errorData: ChatErrorResponse | null = null;
           try {
             // expoFetch is streaming-oriented; .json() may not work for error responses.
             // Read the body manually via the ReadableStream reader.
@@ -372,17 +402,18 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
                       if (parsed.title && parsed.conversationId) {
                         queryClient.setQueryData(
                           queryKeys.conversations.detail(parsed.conversationId),
-                          (old: any) => (old ? { ...old, title: parsed.title } : old),
+                          (old: { title?: string } | undefined) =>
+                            old ? { ...old, title: parsed.title } : old,
                         );
                         queryClient.setQueriesData(
                           { queryKey: queryKeys.conversations.all },
-                          (old: any) => {
+                          (old: Partial<InfiniteData<ConversationListPage>> | undefined) => {
                             if (!old?.pages) return old;
                             return {
                               ...old,
-                              pages: old.pages.map((page: any) => ({
+                              pages: old.pages.map((page) => ({
                                 ...page,
-                                conversations: page.conversations.map((c: any) =>
+                                conversations: page.conversations.map((c) =>
                                   c.id === parsed.conversationId
                                     ? { ...c, title: parsed.title }
                                     : c,
@@ -595,7 +626,7 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
                     const toolName = tc.function?.name;
                     if (!toolCallId || !toolName) continue;
 
-                    let args: any;
+                    let args: unknown;
                     if (tc.function?.arguments) {
                       try {
                         args = JSON.parse(tc.function.arguments);
@@ -738,23 +769,25 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
             }
           }
         }
-      } catch (e: any) {
+      } catch (caught) {
+        // A thrown value is untyped: expoFetch can throw the response itself.
+        const e = caught as ThrownResponse | null | undefined;
         // Ignore abort errors (user cancelled)
-        if (e instanceof Error && e.name === 'AbortError') {
+        if (caught instanceof Error && caught.name === 'AbortError') {
           return;
         }
 
         // UsageLimitError thrown from the 429/402 handler above
         // Check both instanceof AND name — Hermes can break instanceof for Error subclasses
-        if (e instanceof UsageLimitError || e?.name === 'UsageLimitError') {
-          setError(e);
+        if (caught instanceof UsageLimitError || e?.name === 'UsageLimitError') {
+          setError(caught as UsageLimitError);
           setMessages((prev) => prev.filter((m) => m.id !== assistantMessageId));
           return;
         }
 
         // expoFetch may throw a non-Error object (e.g. the response body)
         // Try to detect rate limit / credit errors from the thrown object
-        if (e && typeof e === 'object' && !(e instanceof Error)) {
+        if (e && typeof e === 'object' && !(caught instanceof Error)) {
           const status = e.status || e.statusCode;
           const errBody = e.error || e.body?.error || e;
           if (
@@ -782,9 +815,11 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
 
         console.error('[useStreamingChat] Error:', e);
         const finalError =
-          e instanceof Error
-            ? e
-            : new Error(typeof e === 'string' ? e : e?.message || 'An unexpected error occurred');
+          caught instanceof Error
+            ? caught
+            : new Error(
+                typeof caught === 'string' ? caught : e?.message || 'An unexpected error occurred',
+              );
         setError(finalError);
 
         // Remove the empty assistant message on error

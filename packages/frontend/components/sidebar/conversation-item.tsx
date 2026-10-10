@@ -34,11 +34,11 @@ interface ConversationItemProps {
   projects: Project[];
   folders: Folder[];
   onSelect: (id: string) => void;
-  onToggleFavorite: (id: string, e: any) => void;
-  onTogglePin: (id: string, e: any) => void;
-  onMoveToProject: (convId: string, projectId: string | null, e: any) => void;
-  onMoveToFolder: (convId: string, folderId: string | null, e: any) => void;
-  onDelete: (id: string, e: any) => void;
+  onToggleFavorite: (id: string, e: unknown) => void;
+  onTogglePin: (id: string, e: unknown) => void;
+  onMoveToProject: (convId: string, projectId: string | null, e: unknown) => void;
+  onMoveToFolder: (convId: string, folderId: string | null, e: unknown) => void;
+  onDelete: (id: string, e: unknown) => void;
   onPrefetch?: (id: string) => void;
   compact?: boolean;
   indented?: boolean;

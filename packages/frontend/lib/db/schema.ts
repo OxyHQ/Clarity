@@ -1,10 +1,16 @@
 // Minimal schema types for React Native app
 // These match the server-side database schema
 
+/** One part of a stored message's array content. */
+export type MessageContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'tool-call'; toolCallId: string; toolName: string; args?: unknown }
+  | { type: 'tool-result'; toolCallId: string; result: unknown };
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string | any[];
+  content: string | MessageContentPart[];
   createdAt: Date;
   chatId?: string;
 }

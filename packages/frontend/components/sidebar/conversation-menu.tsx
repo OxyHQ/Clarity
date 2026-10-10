@@ -47,11 +47,11 @@ interface ConversationMenuProps {
   isPinned: boolean;
   projects: Project[];
   folders: Folder[];
-  onToggleFavorite: (id: string, e: any) => void;
-  onTogglePin: (id: string, e: any) => void;
-  onMoveToProject: (convId: string, projectId: string | null, e: any) => void;
-  onMoveToFolder: (convId: string, folderId: string | null, e: any) => void;
-  onDelete: (id: string, e: any) => void;
+  onToggleFavorite: (id: string, e: unknown) => void;
+  onTogglePin: (id: string, e: unknown) => void;
+  onMoveToProject: (convId: string, projectId: string | null, e: unknown) => void;
+  onMoveToFolder: (convId: string, folderId: string | null, e: unknown) => void;
+  onDelete: (id: string, e: unknown) => void;
 }
 
 export const ConversationMenu = React.memo<ConversationMenuProps>(

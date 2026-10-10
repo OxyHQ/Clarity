@@ -1,15 +1,19 @@
-import { useMemo } from 'react';
+import { type ComponentProps, useMemo } from 'react';
 import { View } from 'react-native';
 import { ClarityMarkdown } from '@/lib/sdk';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { CompactList, Banner, Comparison, Timeline, RichImage, Credibility } from './rich-blocks';
 
+/**
+ * A run of plain markdown, or one special block. A block's `data` is parsed
+ * from model output (partly JSON.parse) and is not validated, so it is
+ * `unknown` until renderBlock hands it to the component for its type.
+ */
+type ContentBlock = { type: 'text' | 'block'; content: string; blockType?: string; data?: unknown };
+
 // Parse special blocks from content
-function parseSpecialBlocks(
-  content: string,
-): Array<{ type: 'text' | 'block'; content: string; blockType?: string; data?: any }> {
-  const blocks: Array<{ type: 'text' | 'block'; content: string; blockType?: string; data?: any }> =
-    [];
+function parseSpecialBlocks(content: string): ContentBlock[] {
+  const blocks: ContentBlock[] = [];
 
   const patterns = [
     {
@@ -42,7 +46,11 @@ function parseSpecialBlocks(
   ];
 
   let lastIndex = 0;
-  const matches: Array<{ index: number; length: number; block: any }> = [];
+  const matches: Array<{
+    index: number;
+    length: number;
+    block: { type: string; match: RegExpExecArray; fullMatch: string };
+  }> = [];
 
   // Find all matches
   patterns.forEach(({ name, regex }) => {
@@ -98,7 +106,7 @@ function parseSpecialBlocks(
   return blocks;
 }
 
-function parseBlockData(type: string, match: RegExpExecArray): any {
+function parseBlockData(type: string, match: RegExpExecArray): unknown {
   try {
     switch (type) {
       case 'COMPACTLIST': {
@@ -178,20 +186,22 @@ function parseBlockData(type: string, match: RegExpExecArray): any {
   }
 }
 
-function renderBlock(blockType: string, data: any, key: number) {
+// `data` comes from parseBlockData for the same blockType; the casts name the
+// shape each parser branch produces, they do not check it.
+function renderBlock(blockType: string, data: unknown, key: number) {
   switch (blockType) {
     case 'COMPACTLIST':
-      return <CompactList key={key} {...data} />;
+      return <CompactList key={key} {...(data as ComponentProps<typeof CompactList>)} />;
     case 'BANNER':
-      return <Banner key={key} {...data} />;
+      return <Banner key={key} {...(data as ComponentProps<typeof Banner>)} />;
     case 'COMPARISON':
-      return <Comparison key={key} {...data} />;
+      return <Comparison key={key} {...(data as ComponentProps<typeof Comparison>)} />;
     case 'TIMELINE':
-      return <Timeline key={key} {...data} />;
+      return <Timeline key={key} {...(data as ComponentProps<typeof Timeline>)} />;
     case 'IMAGE':
-      return <RichImage key={key} {...data} />;
+      return <RichImage key={key} {...(data as ComponentProps<typeof RichImage>)} />;
     case 'CREDIBILITY':
-      return <Credibility key={key} {...data} />;
+      return <Credibility key={key} {...(data as ComponentProps<typeof Credibility>)} />;
     default:
       return null;
   }

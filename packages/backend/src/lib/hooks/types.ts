@@ -1,16 +1,16 @@
 export interface ChatHookContext {
   userId?: string;
   conversationId?: string;
-  messages: any[];
+  messages: unknown[];
   model?: string;
   skillId?: string;
   platform: 'app' | 'telegram';
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface ChatHookResult {
-  messages?: any[]; // Modified messages (optional)
-  metadata?: Record<string, any>; // Additional metadata to pass along
+  messages?: unknown[]; // Modified messages (optional)
+  metadata?: Record<string, unknown>; // Additional metadata to pass along
 }
 
 export interface AfterChatContext extends ChatHookContext {

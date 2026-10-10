@@ -10,9 +10,10 @@ import {
   FileText,
   Settings,
   User,
+  type LucideIcon,
 } from 'lucide-react-native';
 
-const TOOL_ICON_REGISTRY: Record<string, any> = {
+const TOOL_ICON_REGISTRY: Record<string, LucideIcon> = {
   webSearch: Search,
   scrapeURL: Link,
   getTimeline: Calendar,

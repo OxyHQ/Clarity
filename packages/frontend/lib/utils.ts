@@ -9,12 +9,12 @@ export interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   toolInvocations?: ToolInvocation[];
-  annotations?: any[];
+  annotations?: Array<{ messageIdFromServer?: string }>;
 }
 
 export interface CoreMessage {
   role: string;
-  content: string | any[];
+  content: string | unknown[];
 }
 
 export interface CoreToolMessage extends CoreMessage {
@@ -22,7 +22,7 @@ export interface CoreToolMessage extends CoreMessage {
   content: Array<{
     type: 'tool-result';
     toolCallId: string;
-    result: any;
+    result: unknown;
   }>;
 }
 
@@ -35,7 +35,7 @@ export interface CoreAssistantMessage extends CoreMessage {
         text?: string;
         toolCallId?: string;
         toolName?: string;
-        args?: any;
+        args?: unknown;
       }>;
 }
 

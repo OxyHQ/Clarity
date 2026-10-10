@@ -9,7 +9,7 @@ export function useTranslation() {
   const locale = useI18nStore((s) => s.locale);
   const setLocale = useI18nStore((s) => s.setLocale);
 
-  const t = (key: string, params?: Record<string, any>) => {
+  const t = (key: string, params?: Record<string, unknown>) => {
     return i18n.t(key, params);
   };
 
