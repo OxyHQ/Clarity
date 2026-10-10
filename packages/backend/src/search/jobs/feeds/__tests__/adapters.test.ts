@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { parseJobFeed } from '../adapters.js';
-import { JOB_FEED_KINDS, jobFeedRequest, jobFeedUrl } from '../endpoints.js';
+import { JOB_FEED_KINDS, assertJobFeedIdentifier, jobFeedRequest, jobFeedUrl } from '../endpoints.js';
 
 const extractedAt = '2026-09-09T00:00:00.000Z';
 const context = (kind: (typeof JOB_FEED_KINDS)[number], identifier: string) => ({
@@ -35,6 +37,16 @@ describe('keyless job feed endpoints', () => {
     expect(new URL(jobFeedRequest('jobicy', 'jobicy', 'abc').url).searchParams.get('cursor')).toBe('abc');
     expect(JSON.parse(jobFeedRequest('workday', 'acme.wd5/External_Careers?jobFamilyGroup=abc123', '40').body ?? '{}'))
       .toEqual({ limit: 20, offset: 40, searchText: '', appliedFacets: { jobFamilyGroup: ['abc123'] } });
+  });
+
+  it('seeds only feeds the providers accept', () => {
+    const seed = readFileSync(new URL('../../../../../drizzle/0020_seed_job_feeds.sql', import.meta.url), 'utf8');
+    const rows = [...seed.matchAll(/\(gen_random_uuid\(\)::text, '([^']+)', '([^']+)', '[^']+'\)/g)];
+    expect(rows.length).toBeGreaterThan(10);
+    for (const [, kind, identifier] of rows) {
+      expect(JOB_FEED_KINDS, kind).toContain(kind);
+      expect(() => assertJobFeedIdentifier(kind as (typeof JOB_FEED_KINDS)[number], identifier), `${kind}:${identifier}`).not.toThrow();
+    }
   });
 
   it('never asks freehire for sources whose terms keep them out of third-party search', () => {

@@ -141,6 +141,13 @@
       "when": 1791592630858,
       "tag": "0019_job_feed_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791592756911,
+      "tag": "0020_seed_job_feeds",
+      "breakpoints": true
     }
   ]
 }
