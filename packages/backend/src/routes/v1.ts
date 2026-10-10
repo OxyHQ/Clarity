@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import chatCompletionsRouter from './v1/chat-completions.js';
 import modelsRouter from './v1/models.js';
 import { authenticateToken } from '../middleware/auth.js';

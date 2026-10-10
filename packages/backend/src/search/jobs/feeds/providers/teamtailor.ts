@@ -22,9 +22,9 @@ export const teamtailor: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'teamtailor'));
     return page(
-      nodes(payload['items']).map((item) => {
-        const posting = node(item['_jobposting']);
-        const url = text(item['url']);
+      nodes(payload.items).map((item) => {
+        const posting = node(item._jobposting);
+        const url = text(item.url);
         if (!url || Object.keys(posting).length === 0) return undefined;
         const [extracted] = extractJobPostings(
           [
@@ -32,8 +32,8 @@ export const teamtailor: JobFeedProvider = {
               ...posting,
               '@type': 'JobPosting',
               url,
-              description: posting['description'] ?? item['content_html'],
-              datePosted: posting['datePosted'] ?? item['date_published'],
+              description: posting.description ?? item.content_html,
+              datePosted: posting.datePosted ?? item.date_published,
             },
           ],
           url,

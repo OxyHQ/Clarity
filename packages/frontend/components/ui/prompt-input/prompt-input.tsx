@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Pressable, type TextInput as RNTextInput } from 'react-native';
 import { KeyboardAvoidingView } from '@/lib/keyboard';
 import { Maximize2, Minimize2 } from 'lucide-react-native';
@@ -7,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { bloomIcon } from '@/lib/bloom-icon';
 import { PromptInputContext, type Attachment } from './context';
 import { PromptInputTextarea } from './textarea';
-import { PromptInputActions } from './actions';
 import { PromptInputMicButton } from './mic-button';
 import { PromptInputAutocomplete } from './autocomplete';
 import { PromptInputAttachments } from './attachments';

@@ -125,7 +125,7 @@ export function BillingSection({ success }: BillingSectionProps) {
     }
   };
 
-  const parsedCustomCredits = parseInt(customCredits) || 0;
+  const parsedCustomCredits = parseInt(customCredits, 10) || 0;
   const customPriceCents = creditPrice
     ? Math.round(parsedCustomCredits * creditPrice.pricePerCreditCents)
     : 0;

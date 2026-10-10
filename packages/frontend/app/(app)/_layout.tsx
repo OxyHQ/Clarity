@@ -19,7 +19,7 @@ function SearchShell() {
   return (
     <AppShell
       sidebar={sidebar}
-      header={<></>}
+      header={null}
       drawerOpen={sidebarOpen}
       onDrawerOpenChange={setSidebarOpen}
     >
@@ -35,7 +35,7 @@ function SettingsShell() {
   return (
     <AppShell
       sidebar={sidebar}
-      header={<></>}
+      header={null}
       drawerOpen={sidebarOpen}
       onDrawerOpenChange={setSidebarOpen}
     >

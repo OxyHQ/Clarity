@@ -47,10 +47,10 @@ function finder(host: string, resource: string, finderArgs: string, extra: strin
 
 function oraclePlace(entry: Node) {
   return place({
-    locality: entry['TownOrCity'],
-    region: entry['Region2'] ?? entry['Region1'],
-    countryCode: entry['Country'],
-    postalCode: entry['PostalCode'],
+    locality: entry.TownOrCity,
+    region: entry.Region2 ?? entry.Region1,
+    countryCode: entry.Country,
+    postalCode: entry.PostalCode,
   });
 }
 
@@ -76,40 +76,40 @@ export const oracle: JobFeedProvider = {
   },
   parse(body, context) {
     const { host, site } = board(context.identifier);
-    const [search] = nodes(node(json(body, 'oracle'))['items']);
-    const requisitions = nodes(search?.['requisitionList']);
+    const [search] = nodes(node(json(body, 'oracle')).items);
+    const requisitions = nodes(search?.requisitionList);
     return page(
       requisitions.map((job) => {
-        const id = text(job['Id']);
-        const country = text(job['PrimaryLocationCountry']);
-        const [primary] = locationText(text(job['PrimaryLocation']));
+        const id = text(job.Id);
+        const country = text(job.PrimaryLocationCountry);
+        const [primary] = locationText(text(job.PrimaryLocation));
         return listing({
-          title: text(job['Title']),
+          title: text(job.Title),
           employerName: context.label ?? host.split('.')[0],
           canonicalUrl: id
             ? `https://${host}/hcmUI/CandidateExperience/en/sites/${site}/job/${encodeURIComponent(id)}`
             : undefined,
           context,
-          description: markdown(job['ShortDescriptionStr']),
+          description: markdown(job.ShortDescriptionStr),
           locations: places([
             primary && !primary.countryCode && country
               ? { ...primary, countryCode: country }
               : primary,
-            ...nodes(job['secondaryLocations']).map((entry) =>
-              place({ raw: entry['Name'], countryCode: entry['CountryCode'] }),
+            ...nodes(job.secondaryLocations).map((entry) =>
+              place({ raw: entry.Name, countryCode: entry.CountryCode }),
             ),
           ]),
-          workplaceType: workplace(job['WorkplaceTypeCode'] ?? job['WorkplaceType']),
-          employmentTypes: employmentTypesIn(job['JobSchedule'], job['ContractType']),
-          educationRequirements: text(job['StudyLevel']),
-          occupationalCategory: text(job['JobFamily']) ?? text(job['JobFunction']),
-          department: text(job['Department']),
+          workplaceType: workplace(job.WorkplaceTypeCode ?? job.WorkplaceType),
+          employmentTypes: employmentTypesIn(job.JobSchedule, job.ContractType),
+          educationRequirements: text(job.StudyLevel),
+          occupationalCategory: text(job.JobFamily) ?? text(job.JobFunction),
+          department: text(job.Department),
           identifier: id,
-          publishedAt: date(job['PostedDate']),
-          validThrough: date(job['PostingEndDate']),
+          publishedAt: date(job.PostedDate),
+          validThrough: date(job.PostingEndDate),
         });
       }),
-      nextOffset(context.cursor, requisitions.length, PAGE_SIZE, num(search?.['TotalJobsCount'])),
+      nextOffset(context.cursor, requisitions.length, PAGE_SIZE, num(search?.TotalJobsCount)),
     );
   },
   detail: {
@@ -129,23 +129,23 @@ export const oracle: JobFeedProvider = {
         : undefined;
     },
     parse(body, posting, context) {
-      const [job] = nodes(node(json(body, 'oracle'))['items']);
+      const [job] = nodes(node(json(body, 'oracle')).items);
       if (!job) return undefined;
-      const work = nodes(job['workLocation']).map(oraclePlace);
+      const work = nodes(job.workLocation).map(oraclePlace);
       return listing({
         ...posting,
         context,
-        description: markdown(job['ExternalDescriptionStr']) ?? posting.description,
-        qualifications: markdown(job['ExternalQualificationsStr']),
-        responsibilities: markdown(job['ExternalResponsibilitiesStr']),
+        description: markdown(job.ExternalDescriptionStr) ?? posting.description,
+        qualifications: markdown(job.ExternalQualificationsStr),
+        responsibilities: markdown(job.ExternalResponsibilitiesStr),
         locations: work.some(Boolean) ? places([...work, ...posting.locations]) : posting.locations,
         employmentTypes:
-          employmentTypesIn(job['JobSchedule'], job['ContractType']).length > 0
-            ? employmentTypesIn(job['JobSchedule'], job['ContractType'])
+          employmentTypesIn(job.JobSchedule, job.ContractType).length > 0
+            ? employmentTypesIn(job.JobSchedule, job.ContractType)
             : posting.employmentTypes,
-        department: text(job['Department']) ?? text(job['BusinessUnit']) ?? posting.department,
-        publishedAt: date(job['ExternalPostedStartDate']) ?? posting.publishedAt,
-        validThrough: date(job['ExternalPostedEndDate']) ?? posting.validThrough,
+        department: text(job.Department) ?? text(job.BusinessUnit) ?? posting.department,
+        publishedAt: date(job.ExternalPostedStartDate) ?? posting.publishedAt,
+        validThrough: date(job.ExternalPostedEndDate) ?? posting.validThrough,
       });
     },
   },

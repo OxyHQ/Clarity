@@ -32,32 +32,32 @@ export const jobicy: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'jobicy'));
     return page(
-      nodes(payload['jobs']).map((job) => {
-        const geo = text(job['jobGeo']);
+      nodes(payload.jobs).map((job) => {
+        const geo = text(job.jobGeo);
         return listing({
-          title: text(job['jobTitle']),
-          employerName: text(job['companyName']),
-          canonicalUrl: text(job['url']),
+          title: text(job.jobTitle),
+          employerName: text(job.companyName),
+          canonicalUrl: text(job.url),
           context,
-          description: markdown(job['jobDescription']),
-          employerLogoUrl: text(job['companyLogo']),
+          description: markdown(job.jobDescription),
+          employerLogoUrl: text(job.companyLogo),
           workplaceType: 'remote',
           applicantLocationRequirements:
             geo && geo.toLowerCase() !== 'anywhere' ? strings(geo) : [],
-          employmentTypes: employmentTypes(job['jobType']),
-          seniority: seniority(...(text(job['jobLevel'])?.split(',') ?? [])),
+          employmentTypes: employmentTypes(job.jobType),
+          seniority: seniority(...(text(job.jobLevel)?.split(',') ?? [])),
           salary: salary({
-            min: job['salaryMin'],
-            max: job['salaryMax'],
-            currency: job['salaryCurrency'],
-            interval: job['salaryPeriod'],
+            min: job.salaryMin,
+            max: job.salaryMax,
+            currency: job.salaryCurrency,
+            interval: job.salaryPeriod,
           }),
-          occupationalCategory: strings(job['jobIndustry'])[0],
-          identifier: text(job['id']),
-          publishedAt: date(job['pubDate']),
+          occupationalCategory: strings(job.jobIndustry)[0],
+          identifier: text(job.id),
+          publishedAt: date(job.pubDate),
         });
       }),
-      payload['hasMore'] === true ? text(payload['nextCursor']) : undefined,
+      payload.hasMore === true ? text(payload.nextCursor) : undefined,
     );
   },
 };

@@ -31,36 +31,36 @@ export const jobbnorge: JobFeedProvider = {
   request: () => get('https://publicapi.jobbnorge.no/v3/jobs'),
   parse(body, context) {
     return page(
-      nodes(node(json(body, 'jobbnorge'))['jobs']).map((job) => {
+      nodes(node(json(body, 'jobbnorge')).jobs).map((job) => {
         // A fixed-term duration ("Vikariat", "Engasjement") is temporary; "Fast" is permanent.
-        const duration = text(job['jobDuration']);
+        const duration = text(job.jobDuration);
         const temporary = duration && /vikariat|engasjement|midlertidig/i.test(duration);
         return listing({
-          title: text(job['title']),
-          employerName: text(job['employer']),
-          canonicalUrl: text(job['link']),
+          title: text(job.title),
+          employerName: text(job.employer),
+          canonicalUrl: text(job.link),
           context,
-          description: text(job['summary']),
-          employerLogoUrl: text(job['logo']),
+          description: text(job.summary),
+          employerLogoUrl: text(job.logo),
           locations: places(
-            nodes(job['locations']).map((entry) =>
+            nodes(job.locations).map((entry) =>
               place({
-                locality: entry['area'] ?? entry['municipality'],
-                region: entry['county'],
-                postalCode: entry['zipCode'],
-                countryCode: entry['isDomestic'] === true ? 'NO' : undefined,
+                locality: entry.area ?? entry.municipality,
+                region: entry.county,
+                postalCode: entry.zipCode,
+                countryCode: entry.isDomestic === true ? 'NO' : undefined,
               }),
             ),
           ),
           employmentTypes: [
             ...new Set([
-              ...scope(text(job['jobScope'])),
+              ...scope(text(job.jobScope)),
               ...(temporary ? ['temporary' as const] : []),
             ]),
           ],
-          identifier: text(job['id']),
-          publishedAt: dottedDate(job['publicationDate']),
-          validThrough: dottedDate(job['deadline']),
+          identifier: text(job.id),
+          publishedAt: dottedDate(job.publicationDate),
+          validThrough: dottedDate(job.deadline),
         });
       }),
     );

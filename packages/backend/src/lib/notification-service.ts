@@ -198,7 +198,13 @@ async function deliverPush(userId: string, notification: NotificationRow): Promi
 
   // Fire-and-forget receipt checking (delayed)
   if (receiptIds.length > 0) {
-    setTimeout(() => checkPushReceipts(receiptIds).catch(() => {}), 15_000);
+    setTimeout(
+      () =>
+        checkPushReceipts(receiptIds).catch(() => {
+          // checkPushReceipts logs its own failures; this only stops an unhandled rejection.
+        }),
+      15_000,
+    );
   }
 
   // Update lastUsedAt for active tokens

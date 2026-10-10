@@ -76,7 +76,7 @@ export async function checkLimit(userId: string, tier: string): Promise<LimitChe
 
       // Calculate reset time from oldest entry in window
       const oldest = await redis.zrange(key, 0, 0, 'WITHSCORES');
-      const oldestTs = oldest.length >= 2 ? parseInt(oldest[1]) : now;
+      const oldestTs = oldest.length >= 2 ? parseInt(oldest[1], 10) : now;
       const resetInSeconds = Math.max(Math.ceil((oldestTs + windowMs - now) / 1000), 1);
 
       return {

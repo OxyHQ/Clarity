@@ -43,47 +43,44 @@ export const smartrecruiters: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'smartrecruiters'));
-    const content = nodes(payload['content']);
+    const content = nodes(payload.content);
     return page(
       content.map((job) => {
-        const where = node(job['location']);
-        const company = node(job['company']);
-        const companyId = text(company['identifier']) ?? context.identifier;
-        const id = text(job['id']);
+        const where = node(job.location);
+        const company = node(job.company);
+        const companyId = text(company.identifier) ?? context.identifier;
+        const id = text(job.id);
         return listing({
-          title: text(job['name']),
-          employerName: text(company['name']) ?? context.identifier,
+          title: text(job.name),
+          employerName: text(company.name) ?? context.identifier,
           canonicalUrl: id
             ? `https://jobs.smartrecruiters.com/${encodeURIComponent(companyId)}/${encodeURIComponent(id)}`
             : undefined,
           context,
           locations: places([
             place({
-              locality: where['city'],
-              region: where['region'],
-              countryCode: where['country'],
-              postalCode: where['postalCode'],
-              raw: where['fullLocation'],
+              locality: where.city,
+              region: where.region,
+              countryCode: where.country,
+              postalCode: where.postalCode,
+              raw: where.fullLocation,
             }),
           ]),
           workplaceType:
-            where['remote'] === true ? 'remote' : where['hybrid'] === true ? 'hybrid' : undefined,
+            where.remote === true ? 'remote' : where.hybrid === true ? 'hybrid' : undefined,
           employmentTypes: employmentTypes(
-            node(job['typeOfEmployment'])['label'],
-            node(job['typeOfEmployment'])['id'],
+            node(job.typeOfEmployment).label,
+            node(job.typeOfEmployment).id,
           ),
-          seniority: seniority(
-            node(job['experienceLevel'])['id'],
-            node(job['experienceLevel'])['label'],
-          ),
-          industry: text(node(job['industry'])['label']),
-          occupationalCategory: text(node(job['function'])['label']),
-          department: text(node(job['department'])['label']),
+          seniority: seniority(node(job.experienceLevel).id, node(job.experienceLevel).label),
+          industry: text(node(job.industry).label),
+          occupationalCategory: text(node(job.function).label),
+          department: text(node(job.department).label),
           identifier: id,
-          publishedAt: date(job['releasedDate']),
+          publishedAt: date(job.releasedDate),
         });
       }),
-      nextOffset(context.cursor, content.length, PAGE_SIZE, num(payload['totalFound'])),
+      nextOffset(context.cursor, content.length, PAGE_SIZE, num(payload.totalFound)),
     );
   },
 };

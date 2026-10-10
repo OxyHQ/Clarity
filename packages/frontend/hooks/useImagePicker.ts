@@ -30,7 +30,7 @@ export function useImagePicker(): ImagePickerResult {
           mimeType: asset.mimeType || 'image/jpeg',
         }));
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to pick image. Please try again.');
     }
   };

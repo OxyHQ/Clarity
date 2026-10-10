@@ -49,35 +49,35 @@ function base({ country, lang }: Site) {
 
 function phenomPlace(job: Node) {
   return place({
-    locality: job['city'],
-    region: job['state'],
-    country: job['country'],
-    postalCode: job['postalCode'],
-    raw: job['location'],
+    locality: job.city,
+    region: job.state,
+    country: job.country,
+    postalCode: job.postalCode,
+    raw: job.location,
   });
 }
 
 function phenomListing(job: Node, board: Site, context: JobFeedContext) {
-  const id = text(job['jobId']) ?? text(job['reqId']);
+  const id = text(job.jobId) ?? text(job.reqId);
   return listing({
-    title: text(job['title']),
-    employerName: text(job['companyName']) ?? context.label ?? board.host,
+    title: text(job.title),
+    employerName: text(job.companyName) ?? context.label ?? board.host,
     canonicalUrl: id
       ? `https://${board.host}/${board.country}/${board.lang}/job/${encodeURIComponent(id)}`
       : undefined,
-    applyUrl: text(job['applyUrl']),
+    applyUrl: text(job.applyUrl),
     context,
     locations: places([
       phenomPlace(job),
-      ...(Array.isArray(job['multi_location']) ? job['multi_location'] : []).map((value) =>
+      ...(Array.isArray(job.multi_location) ? job.multi_location : []).map((value) =>
         place({ raw: value }),
       ),
     ]),
-    employmentTypes: employmentTypes(job['type']),
-    occupationalCategory: text(job['category']),
-    industry: text(job['industry']),
-    identifier: text(job['reqId']) ?? id,
-    publishedAt: date(job['postedDate'] ?? job['dateCreated']),
+    employmentTypes: employmentTypes(job.type),
+    occupationalCategory: text(job.category),
+    industry: text(job.industry),
+    identifier: text(job.reqId) ?? id,
+    publishedAt: date(job.postedDate ?? job.dateCreated),
   });
 }
 
@@ -107,11 +107,11 @@ export const phenom: JobFeedProvider = {
   },
   parse(body, context) {
     const board = site(context.identifier);
-    const search = node(node(json(body, 'phenom'))['refineSearch']);
-    const jobs = nodes(node(search['data'])['jobs']);
+    const search = node(node(json(body, 'phenom')).refineSearch);
+    const jobs = nodes(node(search.data).jobs);
     return page(
       jobs.map((job) => phenomListing(job, board, context)),
-      nextOffset(context.cursor, jobs.length, PAGE_SIZE, num(search['totalHits'])),
+      nextOffset(context.cursor, jobs.length, PAGE_SIZE, num(search.totalHits)),
     );
   },
   detail: {
@@ -128,8 +128,8 @@ export const phenom: JobFeedProvider = {
         : undefined;
     },
     parse(body, posting, context) {
-      const job = node(node(node(node(json(body, 'phenom'))['jobDetail'])['data'])['job']);
-      if (!text(job['title'])) return undefined;
+      const job = node(node(node(node(json(body, 'phenom')).jobDetail).data).job);
+      if (!text(job.title)) return undefined;
       const board = site(context.identifier);
       const listed = phenomListing(job, board, context);
       return listing({
@@ -137,9 +137,9 @@ export const phenom: JobFeedProvider = {
         ...(listed ?? {}),
         context,
         canonicalUrl: posting.canonicalUrl,
-        description: markdown(job['description']),
-        qualifications: markdown(job['jobRequirements']),
-        experienceRequirements: markdown(job['experience']),
+        description: markdown(job.description),
+        qualifications: markdown(job.jobRequirements),
+        experienceRequirements: markdown(job.experience),
       });
     },
   },

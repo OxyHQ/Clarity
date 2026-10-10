@@ -21,8 +21,6 @@ const ChatConversationPage = () => {
     stopGeneration,
     clearConversation,
     clearError,
-    approvePlan,
-    rejectPlan,
   } = useChatConversation({ conversationId: id, selectedModel });
 
   // Check both instanceof AND name — Hermes can break instanceof for Error subclasses

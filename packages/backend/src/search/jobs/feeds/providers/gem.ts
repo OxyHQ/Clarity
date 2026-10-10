@@ -33,22 +33,22 @@ export const gem: JobFeedProvider = {
     return page(
       nodes(json(body, 'gem')).map((job) =>
         listing({
-          title: text(job['title']),
+          title: text(job.title),
           employerName: context.label ?? context.identifier,
-          canonicalUrl: text(job['absolute_url']),
+          canonicalUrl: text(job.absolute_url),
           context,
-          description: markdown(job['content'] ?? job['content_plain']),
+          description: markdown(job.content ?? job.content_plain),
           locations: places([
-            ...locationText(text(node(job['location'])['name'])),
-            ...nodes(job['offices']).flatMap((office) =>
-              locationText(text(node(office['location'])['name'])),
+            ...locationText(text(node(job.location).name)),
+            ...nodes(job.offices).flatMap((office) =>
+              locationText(text(node(office.location).name)),
             ),
           ]),
-          workplaceType: workplace(job['location_type']),
-          employmentTypes: employmentTypes(job['employment_type']),
-          department: text(nodes(job['departments'])[0]?.['name']),
-          identifier: text(job['requisition_id']) ?? text(job['id']),
-          publishedAt: date(job['first_published_at'] ?? job['created_at']),
+          workplaceType: workplace(job.location_type),
+          employmentTypes: employmentTypes(job.employment_type),
+          department: text(nodes(job.departments)[0]?.name),
+          identifier: text(job.requisition_id) ?? text(job.id),
+          publishedAt: date(job.first_published_at ?? job.created_at),
         }),
       ),
     );

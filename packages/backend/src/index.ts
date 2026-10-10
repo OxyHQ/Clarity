@@ -1,10 +1,10 @@
 import express from 'express';
 import { startPlatformActivity } from './lib/platform-activity.js';
-import http from 'http';
+import http from 'node:http';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';

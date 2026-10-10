@@ -31,36 +31,36 @@ export const workable: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'workable'));
-    const employer = text(payload['name']) ?? context.identifier;
+    const employer = text(payload.name) ?? context.identifier;
     return page(
-      nodes(payload['jobs']).map((job) =>
+      nodes(payload.jobs).map((job) =>
         listing({
-          title: text(job['title']),
+          title: text(job.title),
           employerName: employer,
-          canonicalUrl: firstText(job['url'], job['shortlink'], job['application_url']),
-          applyUrl: text(job['application_url']),
+          canonicalUrl: firstText(job.url, job.shortlink, job.application_url),
+          applyUrl: text(job.application_url),
           context,
-          description: markdown(job['description']),
+          description: markdown(job.description),
           locations: places([
-            ...nodes(job['locations']).map((entry) =>
+            ...nodes(job.locations).map((entry) =>
               place({
-                locality: entry['city'],
-                region: entry['region'],
-                country: entry['country'],
-                countryCode: entry['countryCode'],
+                locality: entry.city,
+                region: entry.region,
+                country: entry.country,
+                countryCode: entry.countryCode,
               }),
             ),
-            place({ locality: job['city'], region: job['state'], country: job['country'] }),
+            place({ locality: job.city, region: job.state, country: job.country }),
           ]),
-          ...(job['telecommuting'] === true ? { workplaceType: 'remote' as const } : {}),
-          employmentTypes: employmentTypes(job['employment_type']),
-          seniority: seniority(job['experience']),
-          educationRequirements: text(job['education']),
-          industry: text(job['industry']),
-          occupationalCategory: text(job['function']),
-          department: text(job['department']),
-          identifier: typeof job['shortcode'] === 'string' ? job['shortcode'] : undefined,
-          publishedAt: date(job['published_on'] ?? job['created_at']),
+          ...(job.telecommuting === true ? { workplaceType: 'remote' as const } : {}),
+          employmentTypes: employmentTypes(job.employment_type),
+          seniority: seniority(job.experience),
+          educationRequirements: text(job.education),
+          industry: text(job.industry),
+          occupationalCategory: text(job.function),
+          department: text(job.department),
+          identifier: typeof job.shortcode === 'string' ? job.shortcode : undefined,
+          publishedAt: date(job.published_on ?? job.created_at),
         }),
       ),
     );
@@ -76,14 +76,14 @@ export const workable: JobFeedProvider = {
         : undefined,
     parse(body, posting, context) {
       const job = node(json(body, 'workable'));
-      if (text(job['state']) && text(job['state']) !== 'published') return undefined;
+      if (text(job.state) && text(job.state) !== 'published') return undefined;
       return listing({
         ...posting,
         context,
-        description: markdown(job['description']) ?? posting.description,
-        qualifications: markdown(job['requirements']),
-        benefits: markdown(job['benefits']),
-        workplaceType: workplace(job['workplace']) ?? posting.workplaceType,
+        description: markdown(job.description) ?? posting.description,
+        qualifications: markdown(job.requirements),
+        benefits: markdown(job.benefits),
+        workplaceType: workplace(job.workplace) ?? posting.workplaceType,
       });
     },
   },

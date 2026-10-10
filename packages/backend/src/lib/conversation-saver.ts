@@ -17,7 +17,7 @@ import {
 import { log } from './logger.js';
 
 // Known translations of "TITLE" that LLMs may produce
-const TAG = String.raw`CLARITY_TITLE|TITLE|TÍTULO|TITRE|TITOLO|TITEL|ЗАГОЛОВОК`;
+const TAG = 'CLARITY_TITLE|TITLE|TÍTULO|TITRE|TITOLO|TITEL|ЗАГОЛОВОК';
 const TITLE_EXTRACT_RE = new RegExp(
   String.raw`\[(${TAG})\](.*?)\[\/\1\]|<(${TAG})>(.*?)<\/\3>`,
   'i',
@@ -108,7 +108,7 @@ export async function saveConversation(params: SaveConversationParams): Promise<
       content: stripTitleTags(assistantResponse),
       ...(toolInvocations && toolInvocations.length > 0 && { toolInvocations }),
     },
-  ].filter((msg) => msg != null && msg.role && msg.content !== undefined);
+  ].filter((msg) => msg?.role && msg.content !== undefined);
 
   const title = extractConversationTitle(assistantResponse, messages);
 

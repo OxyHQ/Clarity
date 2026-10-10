@@ -34,41 +34,41 @@ export const pinpoint: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'pinpoint'));
     return page(
-      nodes(payload['data']).map((job) => {
-        const where = node(job['location']);
-        const role = node(job['job']);
+      nodes(payload.data).map((job) => {
+        const where = node(job.location);
+        const role = node(job.job);
         return listing({
-          title: text(job['title']),
+          title: text(job.title),
           employerName: context.label ?? context.identifier,
-          canonicalUrl: text(job['url']),
+          canonicalUrl: text(job.url),
           context,
-          description: markdown(job['description']),
-          responsibilities: markdown(job['key_responsibilities']),
-          qualifications: markdown(job['skills_knowledge_expertise']),
-          benefits: markdown(job['benefits']),
+          description: markdown(job.description),
+          responsibilities: markdown(job.key_responsibilities),
+          qualifications: markdown(job.skills_knowledge_expertise),
+          benefits: markdown(job.benefits),
           locations: places([
             place({
-              locality: where['city'],
-              region: where['province'],
-              postalCode: where['postal_code'],
-              raw: where['name'],
+              locality: where.city,
+              region: where.province,
+              postalCode: where.postal_code,
+              raw: where.name,
             }),
           ]),
-          workplaceType: workplace(job['workplace_type']),
-          employmentTypes: employmentTypesIn(job['employment_type'], job['employment_type_text']),
+          workplaceType: workplace(job.workplace_type),
+          employmentTypes: employmentTypesIn(job.employment_type, job.employment_type_text),
           // Pay counts only where the employer chose to show it.
           salary:
-            job['compensation_visible'] === true
+            job.compensation_visible === true
               ? salary({
-                  min: job['compensation_minimum'],
-                  max: job['compensation_maximum'],
-                  currency: job['compensation_currency'],
-                  interval: job['compensation_frequency'],
+                  min: job.compensation_minimum,
+                  max: job.compensation_maximum,
+                  currency: job.compensation_currency,
+                  interval: job.compensation_frequency,
                 })
               : undefined,
-          department: text(node(role['department'])['name']),
-          identifier: text(role['requisition_id']) ?? text(job['id']),
-          validThrough: date(job['deadline_at']),
+          department: text(node(role.department).name),
+          identifier: text(role.requisition_id) ?? text(job.id),
+          validThrough: date(job.deadline_at),
         });
       }),
     );

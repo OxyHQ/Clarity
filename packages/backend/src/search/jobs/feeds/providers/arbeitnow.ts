@@ -31,25 +31,25 @@ export const arbeitnow: JobFeedProvider = {
   terms: 'Free public API; link back to Arbeitnow.',
   parse(body, context) {
     const payload = node(json(body, 'arbeitnow'));
-    const jobs = nodes(payload['data']);
-    const links = node(payload['links']);
+    const jobs = nodes(payload.data);
+    const links = node(payload.links);
     return page(
       jobs.map((job) =>
         listing({
-          title: text(job['title']),
-          employerName: text(job['company_name']),
-          canonicalUrl: text(job['url']),
+          title: text(job.title),
+          employerName: text(job.company_name),
+          canonicalUrl: text(job.url),
           context,
-          description: markdown(job['description']),
-          locations: places(locationText(text(job['location']))),
-          ...(job['remote'] === true ? { workplaceType: 'remote' as const } : {}),
-          employmentTypes: employmentTypes(job['job_types']),
-          skills: strings(job['tags'], 20),
-          identifier: text(job['slug']),
-          publishedAt: epochSeconds(job['created_at']) ?? date(job['created_at']),
+          description: markdown(job.description),
+          locations: places(locationText(text(job.location))),
+          ...(job.remote === true ? { workplaceType: 'remote' as const } : {}),
+          employmentTypes: employmentTypes(job.job_types),
+          skills: strings(job.tags, 20),
+          identifier: text(job.slug),
+          publishedAt: epochSeconds(job.created_at) ?? date(job.created_at),
         }),
       ),
-      nextPageNumber(context.cursor, jobs.length > 0 && typeof links['next'] === 'string'),
+      nextPageNumber(context.cursor, jobs.length > 0 && typeof links.next === 'string'),
     );
   },
 };

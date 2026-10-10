@@ -1,4 +1,3 @@
-import React from 'react';
 import { File, Image as ImageIcon, Plus } from 'lucide-react-native';
 import { GlyphButton } from '@oxy.so/bloom/button';
 import {

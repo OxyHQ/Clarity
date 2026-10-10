@@ -80,22 +80,22 @@ export const workday: JobFeedProvider = {
   parse(body, context) {
     const board = site(context.identifier);
     const payload = node(json(body, 'workday'));
-    const rows = nodes(payload['jobPostings']);
+    const rows = nodes(payload.jobPostings);
     const listings = rows.map((row) => {
-      const path = text(row['externalPath']);
+      const path = text(row.externalPath);
       return listing({
-        title: text(row['title']),
+        title: text(row.title),
         employerName: context.label ?? board.tenant,
         canonicalUrl: path?.startsWith('/')
           ? `https://${board.host}/${board.site}${path}`
           : undefined,
         context,
         // The first bullet is the requisition id on the tenants seen so far.
-        identifier: Array.isArray(row['bulletFields']) ? text(row['bulletFields'][0]) : undefined,
+        identifier: Array.isArray(row.bulletFields) ? text(row.bulletFields[0]) : undefined,
       });
     });
     // `total` is reported on the first page only.
-    const total = Math.min(num(payload['total']) || SEARCH_WINDOW, SEARCH_WINDOW);
+    const total = Math.min(num(payload.total) || SEARCH_WINDOW, SEARCH_WINDOW);
     return page(listings, nextOffset(context.cursor, rows.length, PAGE_SIZE, total));
   },
   detail: {
@@ -107,29 +107,27 @@ export const workday: JobFeedProvider = {
     },
     parse(body, posting, context) {
       const payload = node(json(body, 'workday'));
-      const info = node(payload['jobPostingInfo']);
-      if (info['posted'] === false) return undefined;
-      const requisition = node(info['jobRequisitionLocation']);
-      const countryCode = text(node(requisition['country'])['alpha2Code']);
-      const additional = Array.isArray(info['additionalLocations'])
-        ? info['additionalLocations']
-        : [];
+      const info = node(payload.jobPostingInfo);
+      if (info.posted === false) return undefined;
+      const requisition = node(info.jobRequisitionLocation);
+      const countryCode = text(node(requisition.country).alpha2Code);
+      const additional = Array.isArray(info.additionalLocations) ? info.additionalLocations : [];
       return listing({
         ...posting,
         context,
-        title: text(info['title']) ?? posting.title,
-        canonicalUrl: text(info['externalUrl']) ?? posting.canonicalUrl,
-        description: markdown(info['jobDescription']),
+        title: text(info.title) ?? posting.title,
+        canonicalUrl: text(info.externalUrl) ?? posting.canonicalUrl,
+        description: markdown(info.jobDescription),
         // Workday location text is tenant-formatted ("US, CA, Santa Clara",
         // "California - San Francisco"); only the requisition's country is structured.
         locations: places([
-          place({ raw: info['location'] ?? requisition['descriptor'], countryCode }),
+          place({ raw: info.location ?? requisition.descriptor, countryCode }),
           ...additional.map((value) => place({ raw: value })),
         ]),
-        workplaceType: workplace(info['remoteType']),
-        employmentTypes: employmentTypes(info['timeType']),
-        identifier: text(info['jobReqId']) ?? posting.identifier,
-        publishedAt: date(info['startDate']),
+        workplaceType: workplace(info.remoteType),
+        employmentTypes: employmentTypes(info.timeType),
+        identifier: text(info.jobReqId) ?? posting.identifier,
+        publishedAt: date(info.startDate),
       });
     },
   },

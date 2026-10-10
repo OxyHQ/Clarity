@@ -71,7 +71,7 @@ function asList(value: unknown): unknown[] {
 
 function stringValue(value: unknown): string | undefined {
   if (typeof value === 'string') return value.trim() || undefined;
-  if (isNode(value) && typeof value['name'] === 'string') return value['name'].trim() || undefined;
+  if (isNode(value) && typeof value.name === 'string') return value.name.trim() || undefined;
   return undefined;
 }
 
@@ -80,7 +80,7 @@ function amountIssue(value: unknown): boolean {
 }
 
 function validateSalary(node: Node, path: string, issues: JobPostingIssue[]): void {
-  asList(node['baseSalary']).forEach((entry, index, all) => {
+  asList(node.baseSalary).forEach((entry, index, all) => {
     const at = all.length > 1 ? `${path}.baseSalary[${index}]` : `${path}.baseSalary`;
     if (!isNode(entry)) {
       issues.push({
@@ -90,7 +90,7 @@ function validateSalary(node: Node, path: string, issues: JobPostingIssue[]): vo
       });
       return;
     }
-    const currency = entry['currency'] ?? entry['salaryCurrency'] ?? node['salaryCurrency'];
+    const currency = entry.currency ?? entry.salaryCurrency ?? node.salaryCurrency;
     if (currency === undefined) {
       issues.push({
         path: `${at}.currency`,
@@ -105,9 +105,9 @@ function validateSalary(node: Node, path: string, issues: JobPostingIssue[]): vo
       });
     }
 
-    const value = entry['value'];
+    const value = entry.value;
     const quantitative = isNode(value) ? value : undefined;
-    const unit = quantitative?.['unitText'] ?? entry['unitText'];
+    const unit = quantitative?.unitText ?? entry.unitText;
     if (unit === undefined) {
       issues.push({
         path: `${at}.value.unitText`,
@@ -151,8 +151,8 @@ function validateSalary(node: Node, path: string, issues: JobPostingIssue[]): vo
         });
       }
     }
-    const min = quantitative?.['minValue'];
-    const max = quantitative?.['maxValue'];
+    const min = quantitative?.minValue;
+    const max = quantitative?.maxValue;
     if (!invalid && typeof min === 'number' && typeof max === 'number' && min > max) {
       issues.push({
         path: `${at}.value`,
@@ -173,7 +173,7 @@ interface PendingPlace {
 
 function readLocations(node: Node, path: string, issues: JobPostingIssue[]): PendingPlace[] {
   const pending: PendingPlace[] = [];
-  asList(node['jobLocation']).forEach((entry, index, all) => {
+  asList(node.jobLocation).forEach((entry, index, all) => {
     const at = all.length > 1 ? `${path}.jobLocation[${index}]` : `${path}.jobLocation`;
     if (!isNode(entry)) {
       issues.push({
@@ -183,7 +183,7 @@ function readLocations(node: Node, path: string, issues: JobPostingIssue[]): Pen
       });
       return;
     }
-    const address = entry['address'];
+    const address = entry.address;
     if (typeof address === 'string') {
       issues.push({
         path: `${at}.address`,
@@ -196,7 +196,7 @@ function readLocations(node: Node, path: string, issues: JobPostingIssue[]): Pen
     const postal = isNode(address) ? address : {};
     const location: PendingPlace = { path: at };
 
-    const sameAs = entry['sameAs'];
+    const sameAs = entry.sameAs;
     if (sameAs !== undefined) {
       const placeId = geonamesIdFromUri(sameAs);
       if (!placeId) {
@@ -210,7 +210,7 @@ function readLocations(node: Node, path: string, issues: JobPostingIssue[]): Pen
       location.placeId = placeId;
     }
 
-    const country = postal['addressCountry'];
+    const country = postal.addressCountry;
     if (country !== undefined) {
       const code = stringValue(country);
       if (!isCountryCode(code)) {
@@ -224,8 +224,8 @@ function readLocations(node: Node, path: string, issues: JobPostingIssue[]): Pen
       }
       location.countryCode = code;
     }
-    const locality = stringValue(postal['addressLocality']);
-    const region = stringValue(postal['addressRegion']);
+    const locality = stringValue(postal.addressLocality);
+    const region = stringValue(postal.addressRegion);
     if (locality) location.locality = locality;
     if (region) location.region = region;
 
@@ -264,9 +264,9 @@ export async function validateJobPostingPayload(
   const pending: PendingPlace[] = [];
   nodes.forEach((node, index) => {
     const path = nodes.length > 1 ? `jobPosting[${index}]` : 'jobPosting';
-    if (!stringValue(node['title']))
+    if (!stringValue(node.title))
       issues.push({ path: `${path}.title`, code: 'title_required', message: 'title is required' });
-    const organization = node['hiringOrganization'];
+    const organization = node.hiringOrganization;
     if (!stringValue(organization)) {
       issues.push({
         path: `${path}.hiringOrganization.name`,

@@ -391,7 +391,7 @@ function wrapInline(
 
 function delimit(inner: string, delimiter: string): string {
   const match = /^(\s*)([\s\S]*?)(\s*)$/.exec(inner);
-  if (!match || !match[2]) return inner;
+  if (!match?.[2]) return inner;
   return `${match[1]}${delimiter}${match[2]}${delimiter}${match[3]}`;
 }
 

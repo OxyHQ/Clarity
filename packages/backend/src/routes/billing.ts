@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, type Request, type Response } from 'express';
 import Stripe from 'stripe';
 import { authenticateToken, oxyClient } from '../middleware/auth.js';
 import {
@@ -66,7 +66,7 @@ function serializeSubscription(subscription: SubscriptionRow) {
 
 // Helper to get or create Stripe customer
 async function getOrCreateStripeCustomer(userId: string): Promise<string> {
-  let customerId = await findBillingCustomer(userId);
+  const customerId = await findBillingCustomer(userId);
 
   if (customerId) {
     try {

@@ -36,55 +36,51 @@ export const fourdayweek: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'fourdayweek'));
     return page(
-      nodes(payload['data']).map((job) => {
-        const company = node(job['company']);
+      nodes(payload.data).map((job) => {
+        const company = node(job.company);
         const cents = (value: unknown) => {
           const amount = num(value);
           return amount === undefined ? undefined : amount / 100;
         };
-        const schedule = humanize(job['schedule_type']);
+        const schedule = humanize(job.schedule_type);
         return listing({
-          title: text(job['title']),
-          employerName: text(company['name']),
-          canonicalUrl: text(job['url']),
+          title: text(job.title),
+          employerName: text(company.name),
+          canonicalUrl: text(job.url),
           context,
-          description: markdown(job['description']),
-          employerUrl: text(company['website']),
-          employerLogoUrl: text(company['logo_url']),
+          description: markdown(job.description),
+          employerUrl: text(company.website),
+          employerLogoUrl: text(company.logo_url),
           locations: places(
-            nodes(job['locations']).map((entry) =>
+            nodes(job.locations).map((entry) =>
               place({
-                locality: entry['city'],
-                region: entry['state'],
-                country: entry['country'],
+                locality: entry.city,
+                region: entry.state,
+                country: entry.country,
               }),
             ),
           ),
-          workplaceType: workplace(job['work_arrangement']),
-          employmentTypes: text(job['contract_type']) === 'contract' ? ['contract'] : [],
-          seniority: seniority(job['level']),
+          workplaceType: workplace(job.work_arrangement),
+          employmentTypes: text(job.contract_type) === 'contract' ? ['contract'] : [],
+          seniority: seniority(job.level),
           // Amounts are in cents.
           salary: salary({
-            min: cents(job['salary_min']),
-            max: cents(job['salary_max']),
-            currency: job['salary_currency'],
-            interval: job['salary_period'],
+            min: cents(job.salary_min),
+            max: cents(job.salary_max),
+            currency: job.salary_currency,
+            interval: job.salary_period,
           }),
           skills: [
-            ...new Set([
-              ...strings(job['skills']),
-              ...strings(job['stack']),
-              ...strings(job['tools']),
-            ]),
+            ...new Set([...strings(job.skills), ...strings(job.stack), ...strings(job.tools)]),
           ].slice(0, 30),
           // The schedule is the board's subject: "9 day fortnight", "Compressed week".
           benefits: schedule ? `- ${schedule}` : undefined,
-          occupationalCategory: text(job['role']) ?? humanize(job['category']),
-          identifier: text(job['id']),
-          publishedAt: date(job['posted_at']),
+          occupationalCategory: text(job.role) ?? humanize(job.category),
+          identifier: text(job.id),
+          publishedAt: date(job.posted_at),
         });
       }),
-      nextPageNumber(context.cursor, payload['has_more'] === true),
+      nextPageNumber(context.cursor, payload.has_more === true),
     );
   },
 };

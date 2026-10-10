@@ -34,29 +34,29 @@ export const remotive: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'remotive'));
     return page(
-      nodes(payload['jobs']).map((job) =>
+      nodes(payload.jobs).map((job) =>
         listing({
-          title: text(job['title']),
-          employerName: text(job['company_name']),
-          canonicalUrl: text(job['url']),
+          title: text(job.title),
+          employerName: text(job.company_name),
+          canonicalUrl: text(job.url),
           context,
-          description: markdown(job['description']),
-          employerLogoUrl: text(job['company_logo']) ?? text(job['company_logo_url']),
+          description: markdown(job.description),
+          employerLogoUrl: text(job.company_logo) ?? text(job.company_logo_url),
           // Remotive's `salary` is free text ("$50-$75/hour", "competitive") with
           // no separate currency, bounds or interval — nothing structured to keep.
           applicantLocationRequirements:
-            typeof job['candidate_required_location'] === 'string'
-              ? job['candidate_required_location']
+            typeof job.candidate_required_location === 'string'
+              ? job.candidate_required_location
                   .split(',')
                   .map((item) => item.trim())
                   .filter(Boolean)
               : [],
           workplaceType: 'remote',
-          employmentTypes: employmentTypes(job['job_type']),
-          skills: strings(job['tags'], 20),
-          occupationalCategory: text(job['category']),
-          identifier: job['id'] === undefined ? undefined : String(job['id']),
-          publishedAt: date(job['publication_date']),
+          employmentTypes: employmentTypes(job.job_type),
+          skills: strings(job.tags, 20),
+          occupationalCategory: text(job.category),
+          identifier: job.id === undefined ? undefined : String(job.id),
+          publishedAt: date(job.publication_date),
         }),
       ),
     );

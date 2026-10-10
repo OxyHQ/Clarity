@@ -29,7 +29,7 @@ export function useDocumentPicker(): UseDocumentPickerResult {
           mimeType: asset.mimeType || 'application/octet-stream',
         }));
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to pick document. Please try again.');
     }
   };

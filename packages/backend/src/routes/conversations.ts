@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import { authenticateToken } from '../middleware/auth.js';
 import type { Request, Response } from 'express';
 import { log } from '../lib/logger.js';
@@ -59,7 +59,7 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
     }
 
     // Pagination parameters
-    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50); // Max 50 per request
+    const limit = Math.min(parseInt(req.query.limit as string, 10) || 20, 50); // Max 50 per request
     const cursor = req.query.cursor as string | undefined; // ISO date string
 
     const conversations = await listConversations(

@@ -37,10 +37,10 @@ function payInterval(title: unknown): string | undefined {
 
 /** Boards that track workplace as custom metadata name it "Location Type" or "Workplace Type". */
 function metadataWorkplace(job: Node) {
-  const entry = nodes(job['metadata']).find((item) =>
-    /^(?:location|workplace|remote)\s*(?:type|status)?$/i.test(text(item['name']) ?? ''),
+  const entry = nodes(job.metadata).find((item) =>
+    /^(?:location|workplace|remote)\s*(?:type|status)?$/i.test(text(item.name) ?? ''),
   );
-  const value = text(entry?.['value']);
+  const value = text(entry?.value);
   // "Hybrid (Travel-Required)" states hybrid; the qualifier is not a workplace.
   return value ? workplace(value.split(/[\s(]/)[0]) : undefined;
 }
@@ -58,17 +58,17 @@ export const greenhouse: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'greenhouse'));
     return page(
-      nodes(payload['jobs']).map((job) => {
-        const content = unescapedHtml(job['content']);
+      nodes(payload.jobs).map((job) => {
+        const content = unescapedHtml(job.content);
         const embedded = fromEmbeddedJsonLd(content, context.requestUrl, context.extractedAt);
         if (embedded) return embedded;
-        const offices = nodes(job['offices']);
+        const offices = nodes(job.offices);
         // The first range is the one the board shows first.
-        const [range] = nodes(job['pay_input_ranges']);
+        const [range] = nodes(job.pay_input_ranges);
         return listing({
-          title: text(job['title']),
-          employerName: text(job['company_name']) ?? context.label ?? context.identifier,
-          canonicalUrl: text(job['absolute_url']),
+          title: text(job.title),
+          employerName: text(job.company_name) ?? context.label ?? context.identifier,
+          canonicalUrl: text(job.absolute_url),
           context,
           description: markdown(content),
           // Offices carry a full "City, Region, Country"; the job's own location
@@ -76,23 +76,23 @@ export const greenhouse: JobFeedProvider = {
           locations: places(
             offices.length > 0
               ? offices.flatMap((office) =>
-                  locationText(text(office['location']) ?? text(office['name'])),
+                  locationText(text(office.location) ?? text(office.name)),
                 )
-              : locationText(text(node(job['location'])['name'])),
+              : locationText(text(node(job.location).name)),
           ),
           workplaceType: metadataWorkplace(job),
           salary: range
             ? salary({
-                min: typeof range['min_cents'] === 'number' ? range['min_cents'] / 100 : undefined,
-                max: typeof range['max_cents'] === 'number' ? range['max_cents'] / 100 : undefined,
-                currency: range['currency_type'],
-                interval: payInterval(range['title']),
+                min: typeof range.min_cents === 'number' ? range.min_cents / 100 : undefined,
+                max: typeof range.max_cents === 'number' ? range.max_cents / 100 : undefined,
+                currency: range.currency_type,
+                interval: payInterval(range.title),
               })
             : undefined,
-          department: text(nodes(job['departments'])[0]?.['name']),
-          identifier: job['id'] === undefined ? undefined : String(job['id']),
-          publishedAt: date(job['first_published'] ?? job['updated_at']),
-          validThrough: date(job['application_deadline']),
+          department: text(nodes(job.departments)[0]?.name),
+          identifier: job.id === undefined ? undefined : String(job.id),
+          publishedAt: date(job.first_published ?? job.updated_at),
+          validThrough: date(job.application_deadline),
         });
       }),
     );

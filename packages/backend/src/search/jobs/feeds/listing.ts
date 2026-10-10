@@ -173,7 +173,7 @@ export function strings(value: unknown, limit = 50): string[] {
   const output: string[] = [];
   for (const item of raw) {
     const resolved = text(
-      typeof item === 'object' && item ? ((item as Node)['name'] ?? (item as Node)['label']) : item,
+      typeof item === 'object' && item ? ((item as Node).name ?? (item as Node).label) : item,
     );
     if (resolved && resolved.length <= 80 && !output.includes(resolved)) output.push(resolved);
     if (output.length >= limit) break;
@@ -334,7 +334,7 @@ export function employmentTypes(...values: unknown[]): JobEmploymentType[] {
       raw
         .map((item) =>
           typeof item === 'object' && item
-            ? ((item as Node)['name'] ?? (item as Node)['label'] ?? (item as Node)['id'])
+            ? ((item as Node).name ?? (item as Node).label ?? (item as Node).id)
             : item,
         )
         .filter((item): item is string => typeof item === 'string')
@@ -400,7 +400,7 @@ export function seniority(...values: unknown[]): JobSeniority | undefined {
   for (const value of values.flatMap((item) => (Array.isArray(item) ? item : [item]))) {
     const raw = text(
       typeof value === 'object' && value
-        ? ((value as Node)['name'] ?? (value as Node)['label'] ?? (value as Node)['id'])
+        ? ((value as Node).name ?? (value as Node).label ?? (value as Node).id)
         : value,
     );
     const level = raw ? normalizeSeniority(raw) : undefined;

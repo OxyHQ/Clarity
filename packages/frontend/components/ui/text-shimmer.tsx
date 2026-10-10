@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import type React from 'react';
+import { useEffect } from 'react';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { cn } from '@/lib/utils';
@@ -11,8 +12,6 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 
 export type TextShimmerProps = {
   children: React.ReactNode;

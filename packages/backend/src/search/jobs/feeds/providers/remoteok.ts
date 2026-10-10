@@ -25,30 +25,30 @@ export const remoteok: JobFeedProvider = {
   terms: 'Link back to the RemoteOK listing URL and mention RemoteOK as the source.',
   parse(body, context) {
     // The first element is the API's legal/attribution notice, not a listing.
-    const entries = nodes(json(body, 'remoteok')).filter((item) => item['id'] !== undefined);
+    const entries = nodes(json(body, 'remoteok')).filter((item) => item.id !== undefined);
     return page(
       entries.map((job) => {
-        const applicantLocation = text(job['location']);
+        const applicantLocation = text(job.location);
         return listing({
-          title: text(job['position']),
-          employerName: text(job['company']),
-          canonicalUrl: text(job['url']),
-          applyUrl: text(job['apply_url']),
+          title: text(job.position),
+          employerName: text(job.company),
+          canonicalUrl: text(job.url),
+          applyUrl: text(job.apply_url),
           context,
-          description: markdown(job['description']),
-          employerLogoUrl: text(job['company_logo']) ?? text(job['logo']),
+          description: markdown(job.description),
+          employerLogoUrl: text(job.company_logo) ?? text(job.logo),
           applicantLocationRequirements: applicantLocation ? [applicantLocation] : [],
           workplaceType: 'remote',
-          skills: strings(job['tags'], 20),
+          skills: strings(job.tags, 20),
           // The API reports 0 for "not stated"; only a real amount is a salary.
           salary: salary({
-            min: num(job['salary_min']),
-            max: num(job['salary_max']),
+            min: num(job.salary_min),
+            max: num(job.salary_max),
             currency: 'USD',
             interval: 'year',
           }),
-          identifier: job['id'] === undefined ? undefined : String(job['id']),
-          publishedAt: date(job['date']),
+          identifier: job.id === undefined ? undefined : String(job.id),
+          publishedAt: date(job.date),
         });
       }),
     );

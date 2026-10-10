@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { ArrowUp, Square } from 'lucide-react-native';
 import { Button } from '@oxy.so/bloom/button';
 import { bloomIcon } from '@/lib/bloom-icon';

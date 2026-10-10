@@ -38,35 +38,34 @@ export const hireology: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'hireology'));
-    const jobs = nodes(payload['data']);
+    const jobs = nodes(payload.data);
     const current = Number(context.cursor ?? 1) || 1;
-    const total = num(payload['count']) ?? 0;
+    const total = num(payload.count) ?? 0;
     return page(
       jobs.map((job) => {
-        const path = text(job['career_site_path']);
+        const path = text(job.career_site_path);
         return listing({
-          title: text(job['name']),
-          employerName:
-            text(node(job['organization'])['name']) ?? context.label ?? context.identifier,
+          title: text(job.name),
+          employerName: text(node(job.organization).name) ?? context.label ?? context.identifier,
           canonicalUrl: path
             ? `https://careers.hireology.com${path.startsWith('/') ? '' : '/'}${path}`
             : undefined,
           context,
-          description: markdown(job['job_description']),
+          description: markdown(job.job_description),
           locations: places(
-            nodes(job['locations']).map((entry) =>
+            nodes(job.locations).map((entry) =>
               place({
-                locality: entry['city'],
-                region: entry['state'],
-                postalCode: entry['zip_code'],
+                locality: entry.city,
+                region: entry.state,
+                postalCode: entry.zip_code,
               }),
             ),
           ),
-          ...(job['remote'] === true ? { workplaceType: 'remote' as const } : {}),
-          employmentTypes: employmentTypesIn(job['employment_status']),
-          occupationalCategory: text(node(job['job_family'])['name']),
-          identifier: text(job['id']),
-          publishedAt: date(job['created_at']),
+          ...(job.remote === true ? { workplaceType: 'remote' as const } : {}),
+          employmentTypes: employmentTypesIn(job.employment_status),
+          occupationalCategory: text(node(job.job_family).name),
+          identifier: text(job.id),
+          publishedAt: date(job.created_at),
         });
       }),
       nextPageNumber(context.cursor, current * PAGE_SIZE < total),

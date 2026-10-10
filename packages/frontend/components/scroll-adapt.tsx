@@ -1,11 +1,7 @@
 import { ScrollView } from 'react-native';
 import type React from 'react';
 import { forwardRef, useImperativeHandle, useRef } from 'react';
-import {
-  useWindowDimensions,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
-} from 'react-native';
+import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 
 export interface ScrollAdaptRef {
   scrollRight: (index: number) => void;
@@ -19,8 +15,7 @@ interface ScrollAdaptProps {
 }
 
 export const ScrollAdapt = forwardRef<ScrollAdaptRef, ScrollAdaptProps>(
-  ({ children, withSnap = false, itemWidth, isStudy = false }, ref) => {
-    const { width } = useWindowDimensions();
+  ({ children, itemWidth, isStudy = false }, ref) => {
     const scrollViewRef = useRef<ScrollView>(null);
 
     useImperativeHandle(ref, () => ({

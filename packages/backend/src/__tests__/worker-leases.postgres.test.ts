@@ -313,7 +313,11 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
     const claim = await page({ status: 'fetching' });
     const controller = new AbortController();
     const deadline = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
-    const body = new Readable({ read() {} });
+    const body = new Readable({
+      read() {
+        // The test pushes chunks itself; nothing to pull.
+      },
+    });
     safeFetch.mockImplementation(async (_url, options) => {
       options.signal.addEventListener(
         'abort',

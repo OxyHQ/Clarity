@@ -19,7 +19,7 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
 
   process(inputs) {
     const input = inputs[0];
-    if (!input || !input[0]) return true;
+    if (!input?.[0]) return true;
 
     const samples = input[0];
     for (let i = 0; i < samples.length; i++) {
@@ -43,7 +43,7 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
     this._levelFrames++;
     if (this._levelFrames >= 8 && this._levelCount > 0) {
       const rms = Math.sqrt(this._levelSum / this._levelCount);
-      const level = Math.min(1, rms / 0.707);
+      const level = Math.min(1, rms / Math.SQRT1_2);
       this.port.postMessage({ type: 'level', level });
       this._levelSum = 0;
       this._levelCount = 0;
@@ -77,7 +77,7 @@ class AudioPlaybackProcessor extends AudioWorkletProcessor {
 
   process(_inputs, outputs) {
     const output = outputs[0];
-    if (!output || !output[0]) return true;
+    if (!output?.[0]) return true;
 
     const channel = output[0];
     for (let i = 0; i < channel.length; i++) {
@@ -101,7 +101,7 @@ class AudioPlaybackProcessor extends AudioWorkletProcessor {
     this._levelFrames++;
     if (this._levelFrames >= 8 && this._levelCount > 0) {
       const rms = Math.sqrt(this._levelSum / this._levelCount);
-      const level = Math.min(1, rms / 0.707);
+      const level = Math.min(1, rms / Math.SQRT1_2);
       this.port.postMessage({ type: 'level', level });
       this._levelSum = 0;
       this._levelCount = 0;

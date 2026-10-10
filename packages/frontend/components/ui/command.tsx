@@ -55,6 +55,7 @@ function CommandDialog({ open, onOpenChange, children }: CommandDialogProps) {
   return createPortal(
     <div className="fixed inset-0 z-50 isolate">
       <div
+        aria-hidden="true"
         className={cn(
           'fixed inset-0 bg-black/10 backdrop-blur-[2px] transition-opacity duration-150',
           visible ? 'opacity-100' : 'opacity-0',

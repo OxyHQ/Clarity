@@ -53,33 +53,33 @@ export const wpjobmanager: JobFeedProvider = {
     const listings = [];
     const references = [];
     for (const post of posts) {
-      const meta = node(post['meta']);
-      const link = text(post['link']);
-      const employer = text(meta['_company_name']);
+      const meta = node(post.meta);
+      const link = text(post.link);
+      const employer = text(meta._company_name);
       if (!employer) {
-        const modified = gmt(post['modified_gmt']);
+        const modified = gmt(post.modified_gmt);
         if (link) references.push({ url: link, ...(modified ? { lastModified: modified } : {}) });
         continue;
       }
-      const remote = meta['_remote_position'];
+      const remote = meta._remote_position;
       listings.push(
         listing({
-          title: text(node(post['title'])['rendered']),
+          title: text(node(post.title).rendered),
           employerName: employer,
           canonicalUrl: link,
-          applyUrl: /^https?:\/\//.test(String(meta['_application'] ?? ''))
-            ? text(meta['_application'])
+          applyUrl: /^https?:\/\//.test(String(meta._application ?? ''))
+            ? text(meta._application)
             : undefined,
           context,
-          description: markdown(node(post['content'])['rendered']),
-          employerUrl: text(meta['_company_website']),
-          locations: places(locationText(text(meta['_job_location']))),
+          description: markdown(node(post.content).rendered),
+          employerUrl: text(meta._company_website),
+          locations: places(locationText(text(meta._job_location))),
           workplaceType:
-            remote === '1' || remote === true ? 'remote' : workplace(meta['_job_location']),
-          salary: salaryText(meta['_job_salary']),
-          identifier: text(post['id']),
-          publishedAt: gmt(post['date_gmt']),
-          validThrough: date(meta['_job_expires']),
+            remote === '1' || remote === true ? 'remote' : workplace(meta._job_location),
+          salary: salaryText(meta._job_salary),
+          identifier: text(post.id),
+          publishedAt: gmt(post.date_gmt),
+          validThrough: date(meta._job_expires),
         }),
       );
     }

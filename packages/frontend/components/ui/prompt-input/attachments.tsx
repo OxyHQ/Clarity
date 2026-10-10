@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, ScrollView, ActivityIndicator } from 'react-native';
 import { CloseButton } from '@oxy.so/bloom/button';
 import { Image } from 'expo-image';
@@ -75,12 +74,12 @@ function getDocumentIcon(mimeType: string, name: string) {
 function truncateFilename(name: string, maxLength = 20): string {
   if (name.length <= maxLength) return name;
   const lastDot = name.lastIndexOf('.');
-  if (lastDot < 0) return name.slice(0, maxLength - 3) + '...';
+  if (lastDot < 0) return `${name.slice(0, maxLength - 3)}...`;
   const ext = name.slice(lastDot);
   const base = name.slice(0, lastDot);
   const available = maxLength - ext.length - 3;
-  if (available <= 0) return name.slice(0, maxLength - 3) + '...';
-  return base.slice(0, available) + '...' + ext;
+  if (available <= 0) return `${name.slice(0, maxLength - 3)}...`;
+  return `${base.slice(0, available)}...${ext}`;
 }
 
 function AttachmentItem({

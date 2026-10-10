@@ -11,7 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@oxy.so/bloom/button';
-import { UsageLimitError } from '@/lib/errors/usage-limit-error';
+import type { UsageLimitError } from '@/lib/errors/usage-limit-error';
 import { useTranslation } from '@/hooks/useTranslation';
 
 interface UsageLimitDialogProps {

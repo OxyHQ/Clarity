@@ -179,7 +179,7 @@ function nestedValue(
       const nested = read(node[key]);
       if (nested) return nested;
     }
-    const months = node['monthsOfExperience'];
+    const months = node.monthsOfExperience;
     if (typeof months === 'number' || typeof months === 'string')
       return `${months} months of experience`;
   }
@@ -233,12 +233,12 @@ function address(value: unknown): JobLocation | undefined {
   }
   if (!value || typeof value !== 'object') return undefined;
   const node = value as Node;
-  const locality = text(node['addressLocality']);
-  const region = text(node['addressRegion']);
-  const country = text(node['addressCountry']);
-  const postalCode = text(node['postalCode']);
+  const locality = text(node.addressLocality);
+  const region = text(node.addressRegion);
+  const country = text(node.addressCountry);
+  const postalCode = text(node.postalCode);
   // A PostalAddress `name` is the address as its publisher wrote it.
-  const raw = text(node['name']) ?? [locality, region, country].filter(Boolean).join(', ');
+  const raw = text(node.name) ?? [locality, region, country].filter(Boolean).join(', ');
   if (!raw) return undefined;
   const countryCode = country ? normalizeCountry(country) : undefined;
   return {
@@ -267,8 +267,8 @@ function locations(value: unknown): JobLocation[] {
     const node = item as Node;
     // A publisher names the exact place with `sameAs: https://www.geonames.org/<id>`.
     // The id is a claim until projection checks it against the gazetteer.
-    const placeId = geonamesIdFromUri(node['sameAs']);
-    const resolved = address(node['address'] ?? node) ?? (placeId ? { raw: '' } : undefined);
+    const placeId = geonamesIdFromUri(node.sameAs);
+    const resolved = address(node.address ?? node) ?? (placeId ? { raw: '' } : undefined);
     if (!resolved) continue;
     const located = placeId ? { ...resolved, placeId } : resolved;
     const key = placeId ? `place:${placeId}` : located.raw;
@@ -281,27 +281,22 @@ function locations(value: unknown): JobLocation[] {
 }
 
 function salary(node: Node): JobSalary | undefined {
-  const base = node['baseSalary'];
+  const base = node.baseSalary;
   const container = Array.isArray(base) ? base[0] : base;
   if (!container || typeof container !== 'object') return undefined;
   const amount = container as Node;
   const currency = normalizeCurrency(
-    text(amount['currency']) ??
-      text(amount['salaryCurrency']) ??
-      text(node['salaryCurrency']) ??
-      '',
+    text(amount.currency) ?? text(amount.salaryCurrency) ?? text(node.salaryCurrency) ?? '',
   );
   if (!currency) return undefined;
-  const valueNode = amount['value'];
+  const valueNode = amount.value;
   const quantitative = valueNode && typeof valueNode === 'object' ? (valueNode as Node) : undefined;
   const interval = normalizeSalaryInterval(
-    text(quantitative?.['unitText']) ?? text(amount['unitText']) ?? '',
+    text(quantitative?.unitText) ?? text(amount.unitText) ?? '',
   );
   if (!interval) return undefined;
-  const min =
-    numeric(quantitative?.['minValue']) ?? numeric(quantitative?.['value']) ?? numeric(valueNode);
-  const max =
-    numeric(quantitative?.['maxValue']) ?? numeric(quantitative?.['value']) ?? numeric(valueNode);
+  const min = numeric(quantitative?.minValue) ?? numeric(quantitative?.value) ?? numeric(valueNode);
+  const max = numeric(quantitative?.maxValue) ?? numeric(quantitative?.value) ?? numeric(valueNode);
   if (min === undefined && max === undefined) return undefined;
   // A negative amount or an inverted range is not a salary; dropping it beats
   // guessing which bound the source meant.
@@ -333,12 +328,12 @@ const STATED_WORKPLACE: Readonly<Record<string, JobWorkplaceType>> = Object.free
 });
 
 function workplaceType(node: Node, physicalLocations: JobLocation[]): JobWorkplaceType | undefined {
-  const stated = text(node['workplaceType']);
+  const stated = text(node.workplaceType);
   const explicit = stated
     ? STATED_WORKPLACE[stated.toLowerCase().replace(/[^a-z]/g, '')]
     : undefined;
   if (explicit) return explicit;
-  const declared = list(node['jobLocationType']).map((item) => item.toUpperCase());
+  const declared = list(node.jobLocationType).map((item) => item.toUpperCase());
   const telecommute = declared.some((item) => item.includes('TELECOMMUTE'));
   if (telecommute) return physicalLocations.length > 0 ? 'hybrid' : 'remote';
   return physicalLocations.length > 0 ? 'onsite' : undefined;
@@ -352,7 +347,7 @@ function identifier(value: unknown): string | undefined {
   const node = Array.isArray(value) ? value[0] : value;
   const resolved =
     node && typeof node === 'object'
-      ? (text((node as Node)['value']) ?? text((node as Node)['identifier']) ?? text(node))
+      ? (text((node as Node).value) ?? text((node as Node).identifier) ?? text(node))
       : text(node);
   return resolved && resolved.length <= 200 ? resolved : undefined;
 }
@@ -363,16 +358,16 @@ function identifier(value: unknown): string | undefined {
  * level is kept.
  */
 function seniority(node: Node): JobSeniority | undefined {
-  const raw = text(node['seniority']);
+  const raw = text(node.seniority);
   return raw ? normalizeSeniority(raw) : undefined;
 }
 
 /** `schema.org/JobPosting.employmentUnit` — the Organization the role sits in. */
 function department(node: Node): string | undefined {
-  const unit = node['employmentUnit'];
+  const unit = node.employmentUnit;
   if (Array.isArray(unit))
     return unit.map((item) => department({ employmentUnit: item })).find(Boolean);
-  if (unit && typeof unit === 'object') return text((unit as Node)['name']);
+  if (unit && typeof unit === 'object') return text((unit as Node).name);
   return text(unit);
 }
 
@@ -387,27 +382,24 @@ export function extractJobPostings(
   const seenKeys = new Set<string>();
 
   nodes.forEach((node, index) => {
-    const title = text(node['title']) ?? text(node['name']);
-    const organization = node['hiringOrganization'];
+    const title = text(node.title) ?? text(node.name);
+    const organization = node.hiringOrganization;
     const organizationNode =
       organization && typeof organization === 'object' && !Array.isArray(organization)
         ? (organization as Node)
         : undefined;
-    const employerName = text(organizationNode?.['name']) ?? text(organization);
+    const employerName = text(organizationNode?.name) ?? text(organization);
     if (!title || !employerName) return;
 
-    const employerUrl = absoluteUrl(
-      organizationNode?.['url'] ?? organizationNode?.['sameAs'],
-      baseUrl,
-    );
-    const employerLogoUrl = absoluteUrl(organizationNode?.['logo'], baseUrl);
-    const listingUrl = absoluteUrl(node['url'], baseUrl);
+    const employerUrl = absoluteUrl(organizationNode?.url ?? organizationNode?.sameAs, baseUrl);
+    const employerLogoUrl = absoluteUrl(organizationNode?.logo, baseUrl);
+    const listingUrl = absoluteUrl(node.url, baseUrl);
     const applyUrl =
-      absoluteUrl(node['applicationContact'] ?? node['directApplyUrl'], baseUrl) ?? listingUrl;
+      absoluteUrl(node.applicationContact ?? node.directApplyUrl, baseUrl) ?? listingUrl;
     const canonicalUrl = listingUrl ?? baseUrl;
-    const physicalLocations = locations(node['jobLocation']);
-    const description = markdown(node['description']);
-    const resolvedIdentifier = identifier(node['identifier']);
+    const physicalLocations = locations(node.jobLocation);
+    const description = markdown(node.description);
+    const resolvedIdentifier = identifier(node.identifier);
     const evidence: Record<string, JobEvidence> = {};
     const record = (field: string, present: unknown): void => {
       if (
@@ -433,42 +425,40 @@ export function extractJobPostings(
         ? { employerKey: employerKey(employerName, employerUrl) }
         : {}),
       locations: physicalLocations,
-      applicantLocationRequirements: list(node['applicantLocationRequirements']),
+      applicantLocationRequirements: list(node.applicantLocationRequirements),
       ...(workplaceType(node, physicalLocations)
         ? { workplaceType: workplaceType(node, physicalLocations) }
         : {}),
       employmentTypes: [
         ...new Set(
-          list(node['employmentType'])
+          list(node.employmentType)
             .map(normalizeEmploymentType)
             .filter((item): item is JobEmploymentType => Boolean(item)),
         ),
       ],
       ...(seniority(node) ? { seniority: seniority(node) } : {}),
       ...(salary(node) ? { salary: salary(node) } : {}),
-      skills: list(node['skills']),
-      ...(markdown(node['qualifications'])
-        ? { qualifications: markdown(node['qualifications']) }
+      skills: list(node.skills),
+      ...(markdown(node.qualifications) ? { qualifications: markdown(node.qualifications) } : {}),
+      ...(markdown(node.responsibilities)
+        ? { responsibilities: markdown(node.responsibilities) }
         : {}),
-      ...(markdown(node['responsibilities'])
-        ? { responsibilities: markdown(node['responsibilities']) }
+      ...(markdown(node.educationRequirements)
+        ? { educationRequirements: markdown(node.educationRequirements) }
         : {}),
-      ...(markdown(node['educationRequirements'])
-        ? { educationRequirements: markdown(node['educationRequirements']) }
+      ...(markdown(node.experienceRequirements)
+        ? { experienceRequirements: markdown(node.experienceRequirements) }
         : {}),
-      ...(markdown(node['experienceRequirements'])
-        ? { experienceRequirements: markdown(node['experienceRequirements']) }
-        : {}),
-      ...(text(node['industry']) ? { industry: text(node['industry']) } : {}),
-      ...(text(node['occupationalCategory'])
-        ? { occupationalCategory: text(node['occupationalCategory']) }
+      ...(text(node.industry) ? { industry: text(node.industry) } : {}),
+      ...(text(node.occupationalCategory)
+        ? { occupationalCategory: text(node.occupationalCategory) }
         : {}),
       ...(department(node) ? { department: department(node) } : {}),
-      ...(markdown(node['jobBenefits']) ? { benefits: markdown(node['jobBenefits']) } : {}),
+      ...(markdown(node.jobBenefits) ? { benefits: markdown(node.jobBenefits) } : {}),
       ...(resolvedIdentifier ? { identifier: resolvedIdentifier } : {}),
-      ...(typeof node['directApply'] === 'boolean' ? { directApply: node['directApply'] } : {}),
-      ...(date(node['datePosted']) ? { publishedAt: date(node['datePosted']) } : {}),
-      ...(date(node['validThrough']) ? { validThrough: date(node['validThrough']) } : {}),
+      ...(typeof node.directApply === 'boolean' ? { directApply: node.directApply } : {}),
+      ...(date(node.datePosted) ? { publishedAt: date(node.datePosted) } : {}),
+      ...(date(node.validThrough) ? { validThrough: date(node.validThrough) } : {}),
       normalizedTitle: normalizeJobTitle(title),
       ...(descriptionFingerprint(description)
         ? { descriptionFingerprint: descriptionFingerprint(description) }

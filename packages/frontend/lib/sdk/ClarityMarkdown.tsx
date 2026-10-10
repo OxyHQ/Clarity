@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react';
+import type React from 'react';
+import { useMemo } from 'react';
 import { View, Text, Platform, Linking, useColorScheme } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import type { ASTNode, RenderRules } from 'react-native-markdown-display';

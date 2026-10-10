@@ -1,5 +1,5 @@
 // Known translations of "TITLE" that LLMs may produce
-const TAG = String.raw`CLARITY_TITLE|TITLE|TÍTULO|TITRE|TITOLO|TITEL|ЗАГОЛОВОК`;
+const TAG = 'CLARITY_TITLE|TITLE|TÍTULO|TITRE|TITOLO|TITEL|ЗАГОЛОВОК';
 
 /** Matches complete [TITLE]...[/TITLE] and <TITLE>...</TITLE> tags (including translated variants) */
 export const TITLE_STRIP_RE = new RegExp(
