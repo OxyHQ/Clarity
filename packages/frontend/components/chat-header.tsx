@@ -51,10 +51,8 @@ const TAB_CONFIG: Array<{ id: ConversationTab; labelKey: string; icon: LucideIco
 ];
 
 export function ChatHeader({
-  title,
   selectedModel,
   onModelChange,
-  onSearchPress,
   onClear,
   isConversation = false,
   activeTab = 'answer',

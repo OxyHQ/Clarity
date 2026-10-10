@@ -3,8 +3,6 @@
  * Genera JSON-LD para rich snippets en Google
  */
 
-import React from 'react';
-
 const SITE_URL = 'https://clarity.surf';
 const SITE_NAME = 'Clarity by Oxy';
 const LOGO_URL = `${SITE_URL}/icon-512.png`;

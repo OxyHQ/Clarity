@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Canvas, Group, Rect, RoundedRect, Shadow } from '@shopify/react-native-skia';
 import { useDerivedValue } from 'react-native-reanimated';

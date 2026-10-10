@@ -1,5 +1,4 @@
 import type React from 'react';
-import { useState } from 'react';
 import { View, type ViewProps } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';

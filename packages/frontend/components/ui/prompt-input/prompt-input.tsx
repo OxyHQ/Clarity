@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils';
 import { bloomIcon } from '@/lib/bloom-icon';
 import { PromptInputContext, type Attachment } from './context';
 import { PromptInputTextarea } from './textarea';
-import { PromptInputActions } from './actions';
 import { PromptInputMicButton } from './mic-button';
 import { PromptInputAutocomplete } from './autocomplete';
 import { PromptInputAttachments } from './attachments';

@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Text } from '@/components/ui/text';

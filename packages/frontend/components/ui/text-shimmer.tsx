@@ -13,8 +13,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
-
 export type TextShimmerProps = {
   children: React.ReactNode;
   duration?: number;

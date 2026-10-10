@@ -101,7 +101,7 @@ export function generateMetaTags(config: MetaTagsConfig): Record<string, string>
   };
 
   // Hreflang tags for multilingual SEO
-  alternateLocales.forEach((alt, index) => {
+  alternateLocales.forEach((alt) => {
     metaTags[`hreflang:${alt.locale}`] = alt.url;
   });
   // Self-referencing hreflang

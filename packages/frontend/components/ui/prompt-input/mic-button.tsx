@@ -1,4 +1,3 @@
-import React from 'react';
 import { Mic } from 'lucide-react-native';
 import { GlyphButton } from '@oxy.so/bloom/button';
 import { toast } from '@oxy.so/bloom/toast';

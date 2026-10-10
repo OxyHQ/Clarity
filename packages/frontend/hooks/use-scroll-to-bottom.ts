@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { NativeScrollEvent, NativeSyntheticEvent, LayoutChangeEvent } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import type { ScrollView } from 'react-native';
 
 const THRESHOLD = 50;

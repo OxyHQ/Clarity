@@ -1,4 +1,3 @@
-import React from 'react';
 import { Button } from '@oxy.so/bloom/button';
 import { ChevronDown } from 'lucide-react-native';
 import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';

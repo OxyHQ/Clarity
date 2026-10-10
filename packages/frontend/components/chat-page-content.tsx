@@ -37,8 +37,6 @@ import { useWindowDimensions } from 'react-native';
 import { ScrollView } from 'react-native';
 import { useImagePicker } from '@/hooks/useImagePicker';
 import { useDocumentPicker } from '@/hooks/useDocumentPicker';
-import { cn } from '@/lib/utils';
-import { Image } from 'react-native';
 import {
   useSearchSuggestions,
   useRecordSuggestionUsage,

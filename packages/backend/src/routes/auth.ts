@@ -44,7 +44,7 @@ router.get('/me', authenticateToken, async (req, res) => {
  * POST /auth/logout
  * Logout - handled by Oxy on client side, this endpoint exists for compatibility
  */
-router.post('/logout', authenticateToken, async (req, res) => {
+router.post('/logout', authenticateToken, async (_req, res) => {
   res.json({ message: 'Logged out successfully' });
 });
 

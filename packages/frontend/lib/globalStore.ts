@@ -52,7 +52,7 @@ interface StoreState {
   setStreamingChatId: (id: string | null) => void;
 }
 
-export const useStore = create<StoreState>((set, get) => ({
+export const useStore = create<StoreState>((set) => ({
   scrollY: 0,
   setScrollY: (value: number) => set({ scrollY: value }),
   attachments: [],

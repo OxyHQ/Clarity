@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { View, ScrollView, type ViewProps } from 'react-native';
 import { GlyphButton } from '@oxy.so/bloom/button';
 import { Text } from '@/components/ui/text';

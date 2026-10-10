@@ -1,4 +1,3 @@
-import React from 'react';
 import { View, ScrollView, ActivityIndicator } from 'react-native';
 import { CloseButton } from '@oxy.so/bloom/button';
 import { Image } from 'expo-image';
