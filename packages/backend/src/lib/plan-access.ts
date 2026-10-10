@@ -37,7 +37,7 @@ export async function getUserEntitlements(userId: string): Promise<Entitlements>
 
   const modelIds = new Set(FREE_MODEL_IDS);
   for (const plan of plans) {
-    plan.modelIds?.forEach((id) => modelIds.add(id));
+    for (const id of plan.modelIds ?? []) modelIds.add(id);
   }
 
   const features: Record<string, boolean | number> = {};

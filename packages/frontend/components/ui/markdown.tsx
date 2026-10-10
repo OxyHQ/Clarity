@@ -46,14 +46,15 @@ function parseSpecialBlocks(
 
   // Find all matches
   patterns.forEach(({ name, regex }) => {
-    let match;
     const regexCopy = new RegExp(regex.source, regex.flags);
-    while ((match = regexCopy.exec(content)) !== null) {
+    let match = regexCopy.exec(content);
+    while (match !== null) {
       matches.push({
         index: match.index,
         length: match[0].length,
         block: { type: name, match, fullMatch: match[0] },
       });
+      match = regexCopy.exec(content);
     }
   });
 

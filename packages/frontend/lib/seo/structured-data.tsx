@@ -276,8 +276,12 @@ export function JSONLDScript({ data }: { data: object }) {
   return (
     <script
       type="application/ld+json"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD must be inline; every `<` is escaped below, so no value can close the tag
       dangerouslySetInnerHTML={{
-        __html: JSON.stringify(data),
+        // JSON.stringify leaves `<` alone, so a string value containing
+        // `</script>` would end the tag early. `\u003c` is the same character
+        // to a JSON parser.
+        __html: JSON.stringify(data).replace(/</g, '\\u003c'),
       }}
     />
   );

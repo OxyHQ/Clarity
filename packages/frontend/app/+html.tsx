@@ -83,6 +83,7 @@ export default function Root({ children }: PropsWithChildren) {
         {/* JSON-LD Structured Data for SEO */}
         <script
           type="application/ld+json"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: static JSON-LD built from literals in this file, no runtime input
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',

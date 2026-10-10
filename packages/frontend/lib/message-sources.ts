@@ -96,8 +96,11 @@ export function citationUrls(
   const withSources = (message.toolInvocations ?? [])
     .map(linksOf)
     .filter((links) => links.length > 0);
-  if (withSources.length === 1)
-    withSources[0].forEach((source, index) => urls.set(index + 1, source.url));
+  if (withSources.length === 1) {
+    withSources[0].forEach((source, index) => {
+      urls.set(index + 1, source.url);
+    });
+  }
   return urls;
 }
 

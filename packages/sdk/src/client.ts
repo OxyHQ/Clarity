@@ -266,8 +266,13 @@ function query(values: object): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(values)) {
     if (value === undefined) continue;
-    if (Array.isArray(value)) value.forEach((item) => params.append(key, String(item)));
-    else params.set(key, String(value));
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        params.append(key, String(item));
+      });
+    } else {
+      params.set(key, String(value));
+    }
   }
   const encoded = params.toString();
   return encoded ? `?${encoded}` : '';
