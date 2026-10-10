@@ -39,40 +39,40 @@ export const keka: JobFeedProvider = {
   parse(body, context) {
     return page(
       nodes(json(body, 'keka')).map((job) => {
-        const id = text(job['id']);
-        const pay = node(job['salaryRange']);
-        const type = KEKA_TYPES[Number(job['jobType'])];
+        const id = text(job.id);
+        const pay = node(job.salaryRange);
+        const type = KEKA_TYPES[Number(job.jobType)];
         return listing({
-          title: text(job['title']),
+          title: text(job.title),
           employerName: context.label ?? context.identifier,
           canonicalUrl: id
             ? `https://${context.identifier}.keka.com/careers/jobdetails/${encodeURIComponent(id)}`
             : undefined,
           context,
-          description: markdown(job['description']),
+          description: markdown(job.description),
           locations: places(
-            nodes(job['jobLocations']).map((entry) =>
+            nodes(job.jobLocations).map((entry) =>
               place({
-                locality: entry['city'],
-                region: entry['state'],
-                countryCode: entry['countryCode'],
-                country: entry['countryName'],
-                raw: entry['name'],
+                locality: entry.city,
+                region: entry.state,
+                countryCode: entry.countryCode,
+                country: entry.countryName,
+                raw: entry.name,
               }),
             ),
           ),
           employmentTypes: type ? [type] : [],
-          experienceRequirements: text(job['experience']),
+          experienceRequirements: text(job.experience),
           salary: salary({
-            min: pay['min'],
-            max: pay['max'],
-            currency: pay['currency'],
-            interval: pay['salaryPeriod'],
+            min: pay.min,
+            max: pay.max,
+            currency: pay.currency,
+            interval: pay.salaryPeriod,
           }),
-          skills: strings(job['skillNames'], 20),
-          department: text(job['departmentName']),
+          skills: strings(job.skillNames, 20),
+          department: text(job.departmentName),
           identifier: id,
-          publishedAt: date(job['publishedOn']),
+          publishedAt: date(job.publishedOn),
         });
       }),
     );

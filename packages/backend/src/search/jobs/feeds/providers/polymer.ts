@@ -44,37 +44,37 @@ export const polymer: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'polymer'));
-    const meta = node(payload['meta']);
-    const items = nodes(payload['items']);
+    const meta = node(payload.meta);
+    const items = nodes(payload.items);
     return page(
       items.map((job) => {
-        const country = text(job['country']);
-        const remote = workplace(job['remoteness_pretty']);
+        const country = text(job.country);
+        const remote = workplace(job.remoteness_pretty);
         return listing({
-          title: text(job['title']),
-          employerName: text(job['organization_name']) ?? context.label ?? context.identifier,
-          canonicalUrl: text(job['job_post_url']),
+          title: text(job.title),
+          employerName: text(job.organization_name) ?? context.label ?? context.identifier,
+          canonicalUrl: text(job.job_post_url),
           context,
           locations: places([
             place({
-              locality: job['city'],
-              region: job['state_region'],
+              locality: job.city,
+              region: job.state_region,
               countryCode: country,
-              raw: job['display_location'],
+              raw: job.display_location,
             }),
           ]),
           workplaceType: remote,
-          applicantLocationRequirements: strings(job['remote_restriction_country_list']),
-          employmentTypes: employmentTypes(job['kind_pretty']),
-          salary: salaryText(job['salary_pretty'], {
+          applicantLocationRequirements: strings(job.remote_restriction_country_list),
+          employmentTypes: employmentTypes(job.kind_pretty),
+          salary: salaryText(job.salary_pretty, {
             dollar: country ? DOLLAR_BY_COUNTRY[country] : undefined,
           }),
-          occupationalCategory: text(job['job_category_name']),
-          identifier: text(job['id']),
-          publishedAt: date(job['published_at']),
+          occupationalCategory: text(job.job_category_name),
+          identifier: text(job.id),
+          publishedAt: date(job.published_at),
         });
       }),
-      meta['is_last'] === true ? undefined : nextPageNumber(context.cursor, items.length > 0),
+      meta.is_last === true ? undefined : nextPageNumber(context.cursor, items.length > 0),
     );
   },
   detail: {
@@ -86,16 +86,16 @@ export const polymer: JobFeedProvider = {
         : undefined,
     parse(body, posting, context) {
       const job = node(json(body, 'polymer'));
-      if (job['archived_at']) return undefined;
+      if (job.archived_at) return undefined;
       return listing({
         ...posting,
         context,
-        description: markdown(job['description']),
+        description: markdown(job.description),
         employmentTypes:
-          employmentTypes(job['kind']).length > 0
-            ? employmentTypes(job['kind'])
+          employmentTypes(job.kind).length > 0
+            ? employmentTypes(job.kind)
             : posting.employmentTypes,
-        department: text(job['department']) ?? posting.department,
+        department: text(job.department) ?? posting.department,
       });
     },
   },

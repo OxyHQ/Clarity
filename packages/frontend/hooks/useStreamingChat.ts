@@ -124,7 +124,7 @@ export function useStreamingChat(apiUrl: string, conversationId?: string, select
 
         const token = oxyServices.session.accessToken;
         if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
+          headers.Authorization = `Bearer ${token}`;
         }
 
         const conversationMessages = [...messagesRef.current, userMessage];

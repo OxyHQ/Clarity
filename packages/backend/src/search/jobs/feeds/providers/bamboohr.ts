@@ -26,13 +26,13 @@ import {
 const DNS_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 
 function bambooPlace(job: Node) {
-  const ats = node(job['atsLocation']);
-  const plain = node(job['location']);
+  const ats = node(job.atsLocation);
+  const plain = node(job.location);
   return place({
-    locality: ats['city'] ?? plain['city'],
-    region: ats['state'] ?? ats['province'] ?? plain['state'],
-    country: ats['country'] ?? plain['addressCountry'],
-    postalCode: plain['postalCode'],
+    locality: ats.city ?? plain.city,
+    region: ats.state ?? ats.province ?? plain.state,
+    country: ats.country ?? plain.addressCountry,
+    postalCode: plain.postalCode,
   });
 }
 
@@ -48,19 +48,19 @@ export const bamboohr: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'bamboohr'));
     return page(
-      nodes(payload['result']).map((job) => {
-        const id = text(job['id']);
+      nodes(payload.result).map((job) => {
+        const id = text(job.id);
         return listing({
-          title: text(job['jobOpeningName']),
+          title: text(job.jobOpeningName),
           employerName: context.label ?? context.identifier,
           canonicalUrl: id
             ? `https://${context.identifier}.bamboohr.com/careers/${encodeURIComponent(id)}`
             : undefined,
           context,
           locations: places([bambooPlace(job)]),
-          ...(job['isRemote'] === true ? { workplaceType: 'remote' as const } : {}),
-          employmentTypes: employmentTypesIn(job['employmentStatusLabel']),
-          department: text(job['departmentLabel']),
+          ...(job.isRemote === true ? { workplaceType: 'remote' as const } : {}),
+          employmentTypes: employmentTypesIn(job.employmentStatusLabel),
+          department: text(job.departmentLabel),
           identifier: id,
         });
       }),
@@ -74,22 +74,22 @@ export const bamboohr: JobFeedProvider = {
           )
         : undefined,
     parse(body, posting, context) {
-      const opening = node(node(node(json(body, 'bamboohr'))['result'])['jobOpening']);
-      if (text(opening['jobOpeningStatus']) && text(opening['jobOpeningStatus']) !== 'Open')
+      const opening = node(node(node(json(body, 'bamboohr')).result).jobOpening);
+      if (text(opening.jobOpeningStatus) && text(opening.jobOpeningStatus) !== 'Open')
         return undefined;
       const located = places([bambooPlace(opening)]);
       const country = located[0]?.countryCode;
       return listing({
         ...posting,
         context,
-        canonicalUrl: text(opening['jobOpeningShareUrl']) ?? posting.canonicalUrl,
-        description: markdown(opening['description']),
+        canonicalUrl: text(opening.jobOpeningShareUrl) ?? posting.canonicalUrl,
+        description: markdown(opening.description),
         locations: located.length > 0 ? located : posting.locations,
-        seniority: seniority(opening['minimumExperience']),
-        salary: salaryText(opening['compensation'], {
+        seniority: seniority(opening.minimumExperience),
+        salary: salaryText(opening.compensation, {
           dollar: country ? DOLLAR_BY_COUNTRY[country] : undefined,
         }),
-        publishedAt: date(opening['datePosted']),
+        publishedAt: date(opening.datePosted),
       });
     },
   },

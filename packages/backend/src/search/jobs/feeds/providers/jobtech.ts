@@ -42,12 +42,12 @@ const WORKPLACE_BY_LABEL: Readonly<Record<string, JobWorkplaceType>> = Object.fr
 const COUNTRY_BY_NAME: Readonly<Record<string, string>> = Object.freeze({ sverige: 'SE' });
 
 function label(value: unknown): string | undefined {
-  return text(node(value)['label'])?.toLowerCase();
+  return text(node(value).label)?.toLowerCase();
 }
 
 function labels(value: unknown): string[] {
   return nodes(value)
-    .map((entry) => text(entry['label']))
+    .map((entry) => text(entry.label))
     .filter((entry): entry is string => Boolean(entry));
 }
 
@@ -75,61 +75,59 @@ export const jobtech: JobFeedProvider = {
   terms: 'CC0 public data from Arbetsförmedlingen.',
   parse(body, context) {
     const payload = node(json(body, 'jobtech'));
-    const hits = nodes(payload['hits']);
+    const hits = nodes(payload.hits);
     return page(
       hits.map((ad) => {
-        if (ad['removed'] === true) return undefined;
-        const employer = node(ad['employer']);
-        const must = node(ad['must_have']);
-        const types = [label(ad['working_hours_type']), label(ad['employment_type'])]
+        if (ad.removed === true) return undefined;
+        const employer = node(ad.employer);
+        const must = node(ad.must_have);
+        const types = [label(ad.working_hours_type), label(ad.employment_type)]
           .map((value) => (value ? EMPLOYMENT_BY_LABEL[value] : undefined))
           .filter((value): value is JobEmploymentType => Boolean(value));
         const addresses =
-          nodes(ad['workplace_addresses']).length > 0
-            ? nodes(ad['workplace_addresses'])
-            : [node(ad['workplace_address'])];
-        const model = label(ad['workplace_model']);
+          nodes(ad.workplace_addresses).length > 0
+            ? nodes(ad.workplace_addresses)
+            : [node(ad.workplace_address)];
+        const model = label(ad.workplace_model);
         return listing({
-          title: text(ad['headline']),
-          employerName: text(employer['name']),
-          canonicalUrl: text(ad['webpage_url']),
-          applyUrl: text(node(ad['application_details'])['url']),
+          title: text(ad.headline),
+          employerName: text(employer.name),
+          canonicalUrl: text(ad.webpage_url),
+          applyUrl: text(node(ad.application_details).url),
           context,
-          description: markdown(
-            node(ad['description'])['text_formatted'] ?? node(ad['description'])['text'],
-          ),
-          employerUrl: text(employer['url']),
-          employerLogoUrl: text(ad['logo_url']),
+          description: markdown(node(ad.description).text_formatted ?? node(ad.description).text),
+          employerUrl: text(employer.url),
+          employerLogoUrl: text(ad.logo_url),
           locations: places(
             addresses.map((address) => {
-              const country = text(address['country']);
+              const country = text(address.country);
               return place({
-                locality: address['city'] ?? address['municipality'],
-                region: address['region'],
+                locality: address.city ?? address.municipality,
+                region: address.region,
                 country,
                 countryCode: country ? COUNTRY_BY_NAME[country.toLowerCase()] : undefined,
-                postalCode: address['postcode'],
+                postalCode: address.postcode,
               });
             }),
           ),
           workplaceType: model ? WORKPLACE_BY_LABEL[model] : undefined,
           employmentTypes: [...new Set(types)],
-          skills: labels(must['skills']).slice(0, 20),
+          skills: labels(must.skills).slice(0, 20),
           educationRequirements: requirementList(must, 'education'),
           experienceRequirements: requirementList(must, 'work_experiences'),
-          occupationalCategory: text(node(ad['occupation'])['label']),
-          industry: text(node(ad['occupation_field'])['label']),
-          department: text(employer['workplace']),
-          identifier: text(ad['id']),
-          publishedAt: date(ad['publication_date']),
-          validThrough: date(ad['application_deadline']),
+          occupationalCategory: text(node(ad.occupation).label),
+          industry: text(node(ad.occupation_field).label),
+          department: text(employer.workplace),
+          identifier: text(ad.id),
+          publishedAt: date(ad.publication_date),
+          validThrough: date(ad.application_deadline),
         });
       }),
       nextOffset(
         context.cursor,
         hits.length,
         PAGE_SIZE,
-        Math.min(num(node(payload['total'])['value']) ?? QUERY_WINDOW, QUERY_WINDOW),
+        Math.min(num(node(payload.total).value) ?? QUERY_WINDOW, QUERY_WINDOW),
       ),
     );
   },

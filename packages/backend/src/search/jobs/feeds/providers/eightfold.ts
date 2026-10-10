@@ -65,25 +65,25 @@ export const eightfold: JobFeedProvider = {
   },
   parse(body, context) {
     const { host } = site(context.identifier);
-    const data = node(node(json(body, 'eightfold'))['data']);
-    const positions = nodes(data['positions']);
+    const data = node(node(json(body, 'eightfold')).data);
+    const positions = nodes(data.positions);
     return page(
       positions.map((job) =>
         listing({
-          title: text(job['name']),
+          title: text(job.name),
           employerName: context.label ?? host.split('.')[0],
-          canonicalUrl: text(job['positionUrl'])
-            ? `https://${host}${text(job['positionUrl'])}`
+          canonicalUrl: text(job.positionUrl)
+            ? `https://${host}${text(job.positionUrl)}`
             : undefined,
           context,
-          locations: standardized(job['standardizedLocations']),
-          workplaceType: workplace(String(job['workLocationOption'] ?? '').split('_')[0]),
-          department: text(job['department']),
-          identifier: text(job['displayJobId']) ?? text(job['id']),
-          publishedAt: epochSeconds(job['postedTs']),
+          locations: standardized(job.standardizedLocations),
+          workplaceType: workplace(String(job.workLocationOption ?? '').split('_')[0]),
+          department: text(job.department),
+          identifier: text(job.displayJobId) ?? text(job.id),
+          publishedAt: epochSeconds(job.postedTs),
         }),
       ),
-      nextOffset(context.cursor, positions.length, PAGE_SIZE, num(data['count'])),
+      nextOffset(context.cursor, positions.length, PAGE_SIZE, num(data.count)),
     );
   },
   detail: {
@@ -101,14 +101,14 @@ export const eightfold: JobFeedProvider = {
         : undefined;
     },
     parse(body, posting, context) {
-      const job = node(node(json(body, 'eightfold'))['data']);
-      if (!text(job['name'])) return undefined;
+      const job = node(node(json(body, 'eightfold')).data);
+      if (!text(job.name)) return undefined;
       return listing({
         ...posting,
         context,
-        canonicalUrl: text(job['publicUrl']) ?? posting.canonicalUrl,
-        description: markdown(job['jobDescription']),
-        employmentTypes: employmentTypes(job['efcustomTextTimeType']),
+        canonicalUrl: text(job.publicUrl) ?? posting.canonicalUrl,
+        description: markdown(job.jobDescription),
+        employmentTypes: employmentTypes(job.efcustomTextTimeType),
       });
     },
   },

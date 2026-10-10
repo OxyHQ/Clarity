@@ -27,11 +27,11 @@ const PAGE_SIZE = 1000;
 
 function ripplingPlace(entry: Node) {
   return place({
-    locality: entry['city'],
-    region: entry['state'],
-    country: entry['country'],
-    countryCode: entry['countryCode'],
-    raw: entry['name'],
+    locality: entry.city,
+    region: entry.state,
+    country: entry.country,
+    countryCode: entry.countryCode,
+    raw: entry.name,
   });
 }
 
@@ -49,31 +49,31 @@ export const rippling: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'rippling'));
-    const rows = nodes(payload['items']);
+    const rows = nodes(payload.items);
     const byJob = new Map<string, Node[]>();
     for (const row of rows) {
-      const id = text(row['id']);
+      const id = text(row.id);
       if (id) byJob.set(id, [...(byJob.get(id) ?? []), row]);
     }
     const listings = [...byJob.entries()].map(([id, group]) => {
-      const locations = group.flatMap((row) => nodes(row['locations']));
+      const locations = group.flatMap((row) => nodes(row.locations));
       const workplaces = new Set(
-        locations.map((entry) => workplace(entry['workplaceType'])).filter(Boolean),
+        locations.map((entry) => workplace(entry.workplaceType)).filter(Boolean),
       );
       return listing({
-        title: text(group[0]['name']),
+        title: text(group[0].name),
         employerName: context.label ?? context.identifier,
-        canonicalUrl: text(group[0]['url']),
+        canonicalUrl: text(group[0].url),
         context,
         locations: places(locations.map(ripplingPlace)),
         // One workplace type across every location is a stated one; a mix is not.
         workplaceType: workplaces.size === 1 ? [...workplaces][0] : undefined,
-        department: text(node(group[0]['department'])['name']),
+        department: text(node(group[0].department).name),
         identifier: id,
       });
     });
     const current = Number(context.cursor ?? 0);
-    const totalPages = num(payload['totalPages']) ?? 0;
+    const totalPages = num(payload.totalPages) ?? 0;
     return page(listings, current + 1 < totalPages ? String(current + 1) : undefined);
   },
   detail: {
@@ -85,26 +85,26 @@ export const rippling: JobFeedProvider = {
         : undefined,
     parse(body, posting, context) {
       const job = node(json(body, 'rippling'));
-      if (job['unlistedFromSearch'] === true) return undefined;
-      const description = node(job['description']);
-      const [range] = nodes(job['payRangeDetails']);
-      const employment = node(job['employmentType']);
+      if (job.unlistedFromSearch === true) return undefined;
+      const description = node(job.description);
+      const [range] = nodes(job.payRangeDetails);
+      const employment = node(job.employmentType);
       return listing({
         ...posting,
         context,
-        employerName: context.label ?? text(job['companyName']) ?? posting.employerName,
-        description: markdown(description['company'], description['role']),
+        employerName: context.label ?? text(job.companyName) ?? posting.employerName,
+        description: markdown(description.company, description.role),
         // Rippling's id and label are swapped ("Salaried, full-time" / "SALARIED_FT").
-        employmentTypes: employmentTypesIn(employment['id'], employment['label']),
+        employmentTypes: employmentTypesIn(employment.id, employment.label),
         salary: range
           ? salary({
-              min: range['rangeStart'],
-              max: range['rangeEnd'],
-              currency: range['currency'],
-              interval: range['frequency'],
+              min: range.rangeStart,
+              max: range.rangeEnd,
+              currency: range.currency,
+              interval: range.frequency,
             })
           : undefined,
-        publishedAt: date(job['createdOn']),
+        publishedAt: date(job.createdOn),
       });
     },
   },

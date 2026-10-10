@@ -39,14 +39,14 @@ export const zvoove: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'zvoove'));
-    const items = nodes(payload['Items']);
+    const items = nodes(payload.Items);
     const current = Number(context.cursor ?? 1) || 1;
     return page(
       items.map((job) => {
-        const id = text(job['StelleUuid']);
-        const slug = text(job['LinkSlug']);
+        const id = text(job.StelleUuid);
+        const slug = text(job.LinkSlug);
         return listing({
-          title: text(job['Bezeichnung']),
+          title: text(job.Bezeichnung),
           employerName: context.label ?? context.identifier,
           canonicalUrl:
             id && slug
@@ -54,19 +54,19 @@ export const zvoove: JobFeedProvider = {
               : undefined,
           context,
           locations: places([
-            place({ locality: job['EinsatzortOrt'], postalCode: job['EinsatzortPlz'] }),
+            place({ locality: job.EinsatzortOrt, postalCode: job.EinsatzortPlz }),
           ]),
           salary: salary({
-            min: job['Gehalt'],
-            max: job['GehaltBis'] ?? job['Gehalt'],
-            currency: job['GehaltWaehrung'],
-            interval: job['GehaltZeitraumGoogle'],
+            min: job.Gehalt,
+            max: job.GehaltBis ?? job.Gehalt,
+            currency: job.GehaltWaehrung,
+            interval: job.GehaltZeitraumGoogle,
           }),
-          identifier: text(job['StellenID']) ?? id,
-          publishedAt: date(job['DatumAb']),
+          identifier: text(job.StellenID) ?? id,
+          publishedAt: date(job.DatumAb),
         });
       }),
-      nextPageNumber(context.cursor, current * PAGE_SIZE < (num(payload['TotalItems']) ?? 0)),
+      nextPageNumber(context.cursor, current * PAGE_SIZE < (num(payload.TotalItems) ?? 0)),
     );
   },
   detail: {
@@ -90,27 +90,21 @@ export const zvoove: JobFeedProvider = {
         // Tenants title these sections themselves ("So bewerben Sie sich:" can sit
         // in the employer-benefit slot), so each keeps its own heading in the description.
         description: markdown(
-          section(
-            text(job['ArbeitgebervorstellungHeader']) ?? 'Über uns',
-            job['Arbeitgebervorstellung'],
-          ),
-          section(text(job['AufgabenHeader']) ?? 'Aufgaben', job['Aufgaben']),
-          section(
-            text(job['ArbeitgeberleistungHeader']) ?? 'Wir bieten',
-            job['Arbeitgeberleistung'],
-          ),
+          section(text(job.ArbeitgebervorstellungHeader) ?? 'Über uns', job.Arbeitgebervorstellung),
+          section(text(job.AufgabenHeader) ?? 'Aufgaben', job.Aufgaben),
+          section(text(job.ArbeitgeberleistungHeader) ?? 'Wir bieten', job.Arbeitgeberleistung),
         ),
-        qualifications: markdown(job['FachlicheAnforderungen']),
+        qualifications: markdown(job.FachlicheAnforderungen),
         locations: places([
           place({
-            locality: job['EinsatzortOrt'],
-            region: job['EinsatzortRegion'],
-            postalCode: job['EinsatzortPlz'],
-            countryCode: job['EinsatzortLandIso002'],
-            country: job['EinsatzortLand'],
+            locality: job.EinsatzortOrt,
+            region: job.EinsatzortRegion,
+            postalCode: job.EinsatzortPlz,
+            countryCode: job.EinsatzortLandIso002,
+            country: job.EinsatzortLand,
           }),
         ]),
-        validThrough: date(job['DatumBis']) ?? posting.validThrough,
+        validThrough: date(job.DatumBis) ?? posting.validThrough,
       });
     },
   },

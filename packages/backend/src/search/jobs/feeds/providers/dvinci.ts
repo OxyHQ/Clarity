@@ -37,58 +37,55 @@ export const dvinci: JobFeedProvider = {
     const seen = new Set<string>();
     return page(
       nodes(json(body, 'dvinci')).map((job) => {
-        const opening = node(job['jobOpening']);
-        const openingId = text(opening['id']) ?? text(job['id']);
+        const opening = node(job.jobOpening);
+        const openingId = text(opening.id) ?? text(job.id);
         if (!openingId || seen.has(openingId)) return undefined;
         seen.add(openingId);
-        const pay = node(job['salary']);
-        const range = node(pay['value']);
+        const pay = node(job.salary);
+        const range = node(pay.value);
         return listing({
-          title: text(job['position']),
-          employerName:
-            text(node(opening['company'])['name']) ?? context.label ?? context.identifier,
-          canonicalUrl: text(job['jobPublicationURL']),
-          applyUrl: text(job['applicationFormURL']),
+          title: text(job.position),
+          employerName: text(node(opening.company).name) ?? context.label ?? context.identifier,
+          canonicalUrl: text(job.jobPublicationURL),
+          applyUrl: text(job.applicationFormURL),
           context,
-          description: markdown(job['introduction'], section('Your tasks', job['tasks'])),
-          qualifications: markdown(job['profile']),
-          benefits: markdown(job['weOffer']),
+          description: markdown(job.introduction, section('Your tasks', job.tasks)),
+          qualifications: markdown(job.profile),
+          benefits: markdown(job.weOffer),
           // Locations, working times and categories belong to the job opening, not to one publication of it.
           locations: places(
-            nodes(opening['locations']).map((entry) => {
-              const address = node(entry['address']);
-              const country = node(entry['country']);
+            nodes(opening.locations).map((entry) => {
+              const address = node(entry.address);
+              const country = node(entry.country);
               return place({
-                locality: address['city'] ?? entry['name'],
-                postalCode: address['zipCode'],
-                countryCode: node(address['country'])['isoA2'] ?? country['isoA2'],
-                country: country['name'],
+                locality: address.city ?? entry.name,
+                postalCode: address.zipCode,
+                countryCode: node(address.country).isoA2 ?? country.isoA2,
+                country: country.name,
               });
             }),
           ),
           employmentTypes: [
             ...new Set([
               ...employmentTypesIn(
-                ...nodes(opening['workingTimes']).map(
-                  (entry) => entry['internalName'] ?? entry['name'],
-                ),
+                ...nodes(opening.workingTimes).map((entry) => entry.internalName ?? entry.name),
               ),
-              ...(text(node(opening['contractPeriod'])['internalName']) === 'LIMITED'
+              ...(text(node(opening.contractPeriod).internalName) === 'LIMITED'
                 ? ['temporary' as const]
                 : []),
             ]),
           ],
           salary: salary({
-            min: range['min'] ?? range['value'],
-            max: range['max'] ?? range['value'],
-            currency: pay['currency'],
-            interval: range['unitText'] ?? pay['unitText'],
+            min: range.min ?? range.value,
+            max: range.max ?? range.value,
+            currency: pay.currency,
+            interval: range.unitText ?? pay.unitText,
           }),
-          department: text(node(opening['orgUnit'])['name']),
-          occupationalCategory: strings(opening['categories'])[0],
+          department: text(node(opening.orgUnit).name),
+          occupationalCategory: strings(opening.categories)[0],
           identifier: openingId,
-          publishedAt: date(job['startDate']),
-          validThrough: date(job['endDate']),
+          publishedAt: date(job.startDate),
+          validThrough: date(job.endDate),
         });
       }),
     );

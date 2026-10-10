@@ -89,40 +89,40 @@ export const freehire: JobFeedProvider = {
   terms: 'No scraping beyond the documented API; respect its rate limits.',
   parse(body, context) {
     const payload = node(json(body, 'freehire'));
-    const jobs = nodes(payload['data']);
-    const meta = node(payload['meta']);
+    const jobs = nodes(payload.data);
+    const meta = node(payload.meta);
     return page(
       jobs.map((job) => {
-        if (job['closed_at']) return undefined;
-        const slug = text(job['public_slug']);
-        const countries = strings(job['countries'])
+        if (job.closed_at) return undefined;
+        const slug = text(job.public_slug);
+        const countries = strings(job.countries)
           .map((code) => normalizeCountry(code))
           .filter(Boolean);
-        const [located] = locationText(text(job['location']));
+        const [located] = locationText(text(job.location));
         return listing({
-          title: text(job['title']),
-          employerName: text(job['company']),
+          title: text(job.title),
+          employerName: text(job.company),
           canonicalUrl: slug ? `https://freehire.me/jobs/${encodeURIComponent(slug)}` : undefined,
-          applyUrl: text(job['url']),
+          applyUrl: text(job.url),
           context,
-          description: markdown(job['description']),
+          description: markdown(job.description),
           // A single stated country completes a text location that named none.
           locations: places([
             located && !located.countryCode && countries.length === 1
               ? { ...located, countryCode: countries[0] }
               : located,
           ]),
-          workplaceType: workplace(job['work_mode']),
-          skills: strings(job['skills'], 20),
-          identifier: text(job['external_id']),
-          publishedAt: date(job['posted_at'] ?? job['created_at']),
+          workplaceType: workplace(job.work_mode),
+          skills: strings(job.skills, 20),
+          identifier: text(job.external_id),
+          publishedAt: date(job.posted_at ?? job.created_at),
         });
       }),
       nextOffset(
         context.cursor,
         jobs.length,
         PAGE_SIZE,
-        Math.min(num(meta['total']) ?? QUERY_WINDOW, QUERY_WINDOW),
+        Math.min(num(meta.total) ?? QUERY_WINDOW, QUERY_WINDOW),
       ),
     );
   },

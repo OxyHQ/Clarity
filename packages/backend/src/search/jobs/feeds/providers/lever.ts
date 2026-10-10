@@ -30,51 +30,49 @@ import {
  */
 function leverDescription(job: Node): string | undefined {
   const html = [
-    typeof job['description'] === 'string' ? job['description'] : '',
-    ...nodes(job['lists']).map((list) => {
+    typeof job.description === 'string' ? job.description : '',
+    ...nodes(job.lists).map((list) => {
       const heading =
-        typeof list['text'] === 'string' && list['text'].trim()
-          ? `<h3>${escapeHtml(list['text'])}</h3>`
+        typeof list.text === 'string' && list.text.trim()
+          ? `<h3>${escapeHtml(list.text)}</h3>`
           : '';
-      const items = typeof list['content'] === 'string' ? `<ul>${list['content']}</ul>` : '';
+      const items = typeof list.content === 'string' ? `<ul>${list.content}</ul>` : '';
       return heading + items;
     }),
-    typeof job['additional'] === 'string' ? job['additional'] : '',
+    typeof job.additional === 'string' ? job.additional : '',
   ].join('');
-  return html.trim() ? markdown(html) : markdown(job['descriptionPlain']);
+  return html.trim() ? markdown(html) : markdown(job.descriptionPlain);
 }
 
 function parseLever(body: string, context: Parameters<JobFeedProvider['parse']>[1]) {
   const payload = json(body, context.kind);
   return page(
     nodes(payload).map((job) => {
-      const categories = node(job['categories']);
-      const range = node(job['salaryRange']);
-      const allLocations = Array.isArray(categories['allLocations'])
-        ? categories['allLocations']
-        : [];
+      const categories = node(job.categories);
+      const range = node(job.salaryRange);
+      const allLocations = Array.isArray(categories.allLocations) ? categories.allLocations : [];
       return listing({
-        title: text(job['text']),
+        title: text(job.text),
         employerName: context.label ?? context.identifier,
-        canonicalUrl: typeof job['hostedUrl'] === 'string' ? job['hostedUrl'] : undefined,
-        applyUrl: typeof job['applyUrl'] === 'string' ? job['applyUrl'] : undefined,
+        canonicalUrl: typeof job.hostedUrl === 'string' ? job.hostedUrl : undefined,
+        applyUrl: typeof job.applyUrl === 'string' ? job.applyUrl : undefined,
         context,
         description: leverDescription(job),
         locations: places([
-          ...locationText(text(categories['location'])),
+          ...locationText(text(categories.location)),
           ...allLocations.flatMap((value) => locationText(text(value))),
         ]),
-        workplaceType: workplace(job['workplaceType'] ?? categories['workplaceType']),
-        employmentTypes: employmentTypes(categories['commitment']),
+        workplaceType: workplace(job.workplaceType ?? categories.workplaceType),
+        employmentTypes: employmentTypes(categories.commitment),
         salary: salary({
-          min: range['min'],
-          max: range['max'],
-          currency: range['currency'],
-          interval: intervalOf(range['interval']),
+          min: range.min,
+          max: range.max,
+          currency: range.currency,
+          interval: intervalOf(range.interval),
         }),
-        department: text(categories['department']) ?? text(categories['team']),
-        identifier: typeof job['id'] === 'string' ? job['id'] : undefined,
-        publishedAt: date(job['createdAt']),
+        department: text(categories.department) ?? text(categories.team),
+        identifier: typeof job.id === 'string' ? job.id : undefined,
+        publishedAt: date(job.createdAt),
       });
     }),
   );

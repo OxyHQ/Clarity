@@ -35,41 +35,39 @@ export const hirehive: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'hirehive'));
-    const meta = node(payload['meta']);
+    const meta = node(payload.meta);
     return page(
-      nodes(payload['items']).map((job) => {
-        const [tier] = nodes(job['compensation_tiers']).filter((entry) => entry['type'] !== 'none');
+      nodes(payload.items).map((job) => {
+        const [tier] = nodes(job.compensation_tiers).filter((entry) => entry.type !== 'none');
         return listing({
-          title: text(job['title']),
+          title: text(job.title),
           employerName: context.label ?? context.identifier,
-          canonicalUrl: text(job['hosted_url']),
+          canonicalUrl: text(job.hosted_url),
           context,
-          description: markdown(
-            node(job['description'])['html'] ?? node(job['description'])['text'],
-          ),
+          description: markdown(node(job.description).html ?? node(job.description).text),
           locations: places([
             place({
-              locality: job['location'],
-              region: job['state_code'],
-              countryCode: node(job['country'])['code'],
-              country: node(job['country'])['name'],
+              locality: job.location,
+              region: job.state_code,
+              countryCode: node(job.country).code,
+              country: node(job.country).name,
             }),
           ]),
-          employmentTypes: employmentTypes(node(job['type'])['type'], node(job['type'])['name']),
-          seniority: seniority(node(job['experience'])['name']),
+          employmentTypes: employmentTypes(node(job.type).type, node(job.type).name),
+          seniority: seniority(node(job.experience).name),
           salary: tier
             ? salary({
-                min: tier['min'],
-                max: tier['max'],
-                currency: tier['currency'],
-                interval: tier['interval'],
+                min: tier.min,
+                max: tier.max,
+                currency: tier.currency,
+                interval: tier.interval,
               })
             : undefined,
-          identifier: text(job['id']),
-          publishedAt: date(job['published_date']),
+          identifier: text(job.id),
+          publishedAt: date(job.published_date),
         });
       }),
-      nextPageNumber(context.cursor, meta['has_next_page'] === true),
+      nextPageNumber(context.cursor, meta.has_next_page === true),
     );
   },
 };

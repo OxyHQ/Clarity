@@ -74,8 +74,8 @@ function countryPlaces(map: unknown) {
 }
 
 function detailPlace(entry: Node) {
-  const countryCode = country(text(entry['countryCode']));
-  const city = text(entry['cityName']);
+  const countryCode = country(text(entry.countryCode));
+  const city = text(entry.cityName);
   if (!city)
     return countryCode
       ? place({ raw: COUNTRY_NAME_BY_CODE.get(countryCode) ?? countryCode, countryCode })
@@ -84,7 +84,7 @@ function detailPlace(entry: Node) {
     locality: city,
     countryCode,
     country: countryCode ? COUNTRY_NAME_BY_CODE.get(countryCode) : undefined,
-    postalCode: entry['postalCode'],
+    postalCode: entry.postalCode,
   });
 }
 
@@ -126,28 +126,26 @@ export const eures: JobFeedProvider = {
   detailsPerPoll: 5,
   parse(body, context) {
     const payload = node(json(body, 'eures'));
-    const vacancies = nodes(payload['jvs']);
+    const vacancies = nodes(payload.jvs);
     const current = Number(context.cursor ?? 1) || 1;
-    const total = Math.min(num(payload['numberRecords']) ?? 0, QUERY_WINDOW);
+    const total = Math.min(num(payload.numberRecords) ?? 0, QUERY_WINDOW);
     return page(
       vacancies.map((vacancy) => {
-        const id = text(vacancy['id']);
-        const employer = node(vacancy['employer']);
+        const id = text(vacancy.id);
+        const employer = node(vacancy.employer);
         return listing({
-          title: text(vacancy['title']),
-          employerName: text(employer['name']),
+          title: text(vacancy.title),
+          employerName: text(employer.name),
           canonicalUrl: id
             ? `https://europa.eu/eures/portal/jv-se/jv-details/${encodeURIComponent(id)}?lang=en`
             : undefined,
           context,
-          description: markdown(vacancy['description']),
-          employerUrl: text(employer['website']),
-          locations: countryPlaces(vacancy['locationMap']),
-          employmentTypes: types(vacancy['positionScheduleCodes'], vacancy['positionOfferingCode']),
+          description: markdown(vacancy.description),
+          employerUrl: text(employer.website),
+          locations: countryPlaces(vacancy.locationMap),
+          employmentTypes: types(vacancy.positionScheduleCodes, vacancy.positionOfferingCode),
           identifier: id,
-          publishedAt: num(vacancy['creationDate'])
-            ? new Date(num(vacancy['creationDate'])!)
-            : undefined,
+          publishedAt: num(vacancy.creationDate) ? new Date(num(vacancy.creationDate)!) : undefined,
         });
       }),
       nextPageNumber(context.cursor, vacancies.length === PAGE_SIZE && current * PAGE_SIZE < total),
@@ -164,26 +162,26 @@ export const eures: JobFeedProvider = {
         : undefined,
     parse(body, posting, context) {
       const vacancy = node(json(body, 'eures'));
-      const profiles = node(vacancy['jvProfiles']);
+      const profiles = node(vacancy.jvProfiles);
       const profile = node(
-        profiles[text(vacancy['preferredLanguage']) ?? ''] ?? Object.values(profiles)[0],
+        profiles[text(vacancy.preferredLanguage) ?? ''] ?? Object.values(profiles)[0],
       );
-      const [pay] = nodes(node(profile['offeredRemunerationPackage'])['salaries']);
-      const located = places(nodes(profile['locations']).map(detailPlace));
-      const years = num(profile['requiredYearsOfExperience']);
-      const deadline = num(profile['lastApplicationDate']);
+      const [pay] = nodes(node(profile.offeredRemunerationPackage).salaries);
+      const located = places(nodes(profile.locations).map(detailPlace));
+      const years = num(profile.requiredYearsOfExperience);
+      const deadline = num(profile.lastApplicationDate);
       return listing({
         ...posting,
         context,
-        description: markdown(profile['description']) ?? posting.description,
+        description: markdown(profile.description) ?? posting.description,
         locations: located.length > 0 ? located : posting.locations,
-        ...(profile['remoteWorkAllowed'] === true ? { workplaceType: 'remote' as const } : {}),
+        ...(profile.remoteWorkAllowed === true ? { workplaceType: 'remote' as const } : {}),
         salary: pay
           ? salary({
-              min: pay['minimumSalary'],
-              max: pay['maximumSalary'] ?? pay['minimumSalary'],
-              currency: pay['currencyCode'],
-              interval: pay['payingIntervalCode'],
+              min: pay.minimumSalary,
+              max: pay.maximumSalary ?? pay.minimumSalary,
+              currency: pay.currencyCode,
+              interval: pay.payingIntervalCode,
             })
           : undefined,
         experienceRequirements: years && years > 0 ? `${years}+ years` : undefined,

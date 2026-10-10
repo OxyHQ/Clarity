@@ -36,35 +36,35 @@ export const manatal: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'manatal'));
-    const results = nodes(payload['results']);
+    const results = nodes(payload.results);
     return page(
       results.map((job) => {
-        const hash = text(job['hash']);
+        const hash = text(job.hash);
         return listing({
-          title: text(job['position_name']),
+          title: text(job.position_name),
           employerName: context.label ?? context.identifier,
           canonicalUrl: hash
             ? `https://www.careers-page.com/${encodeURIComponent(context.identifier)}/job/${encodeURIComponent(hash)}`
             : undefined,
           context,
-          description: markdown(job['description']),
+          description: markdown(job.description),
           locations: places([
             place({
-              locality: job['city'],
-              region: job['state'],
-              country: job['country'],
-              postalCode: job['zipcode'],
-              raw: job['location_display'],
+              locality: job.city,
+              region: job.state,
+              country: job.country,
+              postalCode: job.zipcode,
+              raw: job.location_display,
             }),
           ]),
-          ...(job['is_remote'] === true ? { workplaceType: 'remote' as const } : {}),
-          employmentTypes: employmentTypes(job['contract_details']),
+          ...(job.is_remote === true ? { workplaceType: 'remote' as const } : {}),
+          employmentTypes: employmentTypes(job.contract_details),
           // Manatal's `organization_name` is the team the role sits in, not the employer.
-          department: text(job['organization_name']),
-          identifier: text(job['id']),
+          department: text(job.organization_name),
+          identifier: text(job.id),
         });
       }),
-      nextPageNumber(context.cursor, typeof payload['next'] === 'string'),
+      nextPageNumber(context.cursor, typeof payload.next === 'string'),
     );
   },
 };

@@ -45,29 +45,29 @@ export const emply: JobFeedProvider = {
   parse(body, context) {
     const [tenant, language] = context.identifier.split('/');
     const payload = node(json(body, 'emply'));
-    const vacancies = nodes(payload['vacancies']);
+    const vacancies = nodes(payload.vacancies);
     return page(
       vacancies.map((vacancy) => {
-        const [translation] = nodes(vacancy['translations']);
-        const slug = text(vacancy['titleAsUrl']);
-        const shortId = text(vacancy['shortId']);
+        const [translation] = nodes(vacancy.translations);
+        const slug = text(vacancy.titleAsUrl);
+        const shortId = text(vacancy.shortId);
         return listing({
-          title: text(translation?.['title']) ?? text(vacancy['title']),
+          title: text(translation?.title) ?? text(vacancy.title),
           employerName: context.label ?? tenant,
           canonicalUrl:
             slug && shortId
               ? `https://${tenant}.career.emply.com/${language}/ad/${encodeURIComponent(slug)}/${encodeURIComponent(shortId)}`
               : undefined,
           context,
-          description: markdown(translation?.['content']),
-          locations: places([place({ raw: vacancy['location'], country: vacancy['location'] })]),
-          department: text(vacancy['department']),
-          identifier: text(vacancy['number']) ?? text(vacancy['id']),
-          publishedAt: date(vacancy['published']),
-          validThrough: date(vacancy['deadline']),
+          description: markdown(translation?.content),
+          locations: places([place({ raw: vacancy.location, country: vacancy.location })]),
+          department: text(vacancy.department),
+          identifier: text(vacancy.number) ?? text(vacancy.id),
+          publishedAt: date(vacancy.published),
+          validThrough: date(vacancy.deadline),
         });
       }),
-      nextOffset(context.cursor, vacancies.length, PAGE_SIZE, num(payload['count'])),
+      nextOffset(context.cursor, vacancies.length, PAGE_SIZE, num(payload.count)),
     );
   },
 };

@@ -19,9 +19,9 @@ export const softgarden: JobFeedProvider = {
   parse(body, context) {
     const feed = node(json(body, 'softgarden'));
     return page(
-      nodes(feed['dataFeedElement']).map((element) => {
-        const posting = node(element['item']);
-        const url = text(posting['url']);
+      nodes(feed.dataFeedElement).map((element) => {
+        const posting = node(element.item);
+        const url = text(posting.url);
         if (!url) return undefined;
         const [extracted] = extractJobPostings(
           [{ ...posting, '@type': 'JobPosting' }],

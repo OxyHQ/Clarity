@@ -11,22 +11,22 @@ export const workingnomads: JobFeedProvider = {
   parse(body, context) {
     return page(
       nodes(json(body, 'workingnomads')).map((job) => {
-        const url = text(job['url']);
-        const where = text(job['location']);
+        const url = text(job.url);
+        const where = text(job.location);
         return listing({
-          title: text(job['title']),
-          employerName: text(job['company_name']),
+          title: text(job.title),
+          employerName: text(job.company_name),
           canonicalUrl: url,
           context,
-          description: markdown(job['description']),
+          description: markdown(job.description),
           workplaceType: 'remote',
           // "Time zone: CET (+/- 3 hours)", "USA": where applicants must be, as stated.
           applicantLocationRequirements:
             where && !/^(?:global|anywhere|worldwide)$/i.test(where) ? [where] : [],
-          skills: strings(job['tags'], 20),
-          occupationalCategory: text(job['category_name']),
+          skills: strings(job.tags, 20),
+          occupationalCategory: text(job.category_name),
           identifier: url ? /\/job\/go\/(\d+)/.exec(url)?.[1] : undefined,
-          publishedAt: date(job['pub_date']),
+          publishedAt: date(job.pub_date),
         });
       }),
     );

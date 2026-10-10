@@ -48,23 +48,23 @@ export const jobsadminch: JobFeedProvider = {
     ),
   parse(body, context) {
     const payload = node(json(body, 'jobsadminch'));
-    const jobs = nodes(payload['jobs']);
+    const jobs = nodes(payload.jobs);
     return page(
       jobs.map((job) => {
-        const fields = node(job['szas']);
-        const attributes = node(job['attributes']);
+        const fields = node(job.szas);
+        const attributes = node(job.attributes);
         const unit = Object.entries(attributes).find(([key]) =>
           key.startsWith('verwaltungseinheit_'),
         )?.[1];
         return listing({
-          title: text(fields['sza_title']) ?? text(job['title']),
-          employerName: strings(unit)[0] ?? strings(attributes['verwaltungseinheit'])[0],
-          canonicalUrl: text(node(job['links'])['directlink']),
-          applyUrl: text(fields['sza_apply_link']),
+          title: text(fields.sza_title) ?? text(job.title),
+          employerName: strings(unit)[0] ?? strings(attributes.verwaltungseinheit)[0],
+          canonicalUrl: text(node(job.links).directlink),
+          applyUrl: text(fields.sza_apply_link),
           context,
-          description: markdown(fields['sza_tasks']),
-          qualifications: markdown(fields['sza_requirements']),
-          benefits: markdown(fields['sza_benefits']),
+          description: markdown(fields.sza_tasks),
+          qualifications: markdown(fields.sza_requirements),
+          benefits: markdown(fields.sza_benefits),
           locations: places([
             place({
               raw: fields['sza_location.city'],
@@ -73,14 +73,14 @@ export const jobsadminch: JobFeedProvider = {
             }),
           ]),
           employmentTypes: workload(fields['sza_pensum.min'], fields['sza_pensum.max']),
-          industry: text(fields['sza_industry']),
-          occupationalCategory: strings(attributes['taetigkeitsbereich'])[0],
-          identifier: text(job['id']),
-          publishedAt: date(job['start_date']),
-          validThrough: date(job['end_date']),
+          industry: text(fields.sza_industry),
+          occupationalCategory: strings(attributes.taetigkeitsbereich)[0],
+          identifier: text(job.id),
+          publishedAt: date(job.start_date),
+          validThrough: date(job.end_date),
         });
       }),
-      nextOffset(context.cursor, jobs.length, PAGE_SIZE, num(payload['total'])),
+      nextOffset(context.cursor, jobs.length, PAGE_SIZE, num(payload.total)),
     );
   },
 };

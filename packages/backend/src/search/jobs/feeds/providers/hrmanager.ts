@@ -39,32 +39,31 @@ export const hrmanager: JobFeedProvider = {
   parse(body, context) {
     const payload = node(json(body, 'hrmanager'));
     return page(
-      nodes(payload['Items']).map((job) => {
-        const tree = node(job['DepartmentTree']);
-        const [advertisement] = nodes(job['Advertisements']);
+      nodes(payload.Items).map((job) => {
+        const tree = node(job.DepartmentTree);
+        const [advertisement] = nodes(job.Advertisements);
         return listing({
-          title: text(job['Name']),
-          employerName: text(job['CustomerName']) ?? text(payload['CustomerName']),
-          canonicalUrl: text(job['AdvertisementUrlSecure']) ?? text(job['AdvertisementUrl']),
+          title: text(job.Name),
+          employerName: text(job.CustomerName) ?? text(payload.CustomerName),
+          canonicalUrl: text(job.AdvertisementUrlSecure) ?? text(job.AdvertisementUrl),
           context,
-          description: markdown(advertisement?.['Content']),
+          description: markdown(advertisement?.Content),
           locations: places([
             place({
-              raw: tree['Address']
-                ? [tree['Address'], tree['PostalCode'], tree['City']].filter(Boolean).join(', ')
+              raw: tree.Address
+                ? [tree.Address, tree.PostalCode, tree.City].filter(Boolean).join(', ')
                 : undefined,
-              locality: tree['City'],
-              postalCode: tree['PostalCode'],
-              country: tree['Country'],
+              locality: tree.City,
+              postalCode: tree.PostalCode,
+              country: tree.Country,
             }),
           ]),
-          employmentTypes: employmentTypesIn(node(job['CustomList1'])['Name']),
-          occupationalCategory: text(node(job['PositionCategory'])['Name']),
-          department:
-            text(node(job['Department'])['Name']) ?? text(node(job['PositionLocation'])['Name']),
-          identifier: text(job['Id']),
-          publishedAt: msDate(job['Published']) ?? msDate(job['Created']),
-          validThrough: msDate(job['ApplicationDue']),
+          employmentTypes: employmentTypesIn(node(job.CustomList1).Name),
+          occupationalCategory: text(node(job.PositionCategory).Name),
+          department: text(node(job.Department).Name) ?? text(node(job.PositionLocation).Name),
+          identifier: text(job.Id),
+          publishedAt: msDate(job.Published) ?? msDate(job.Created),
+          validThrough: msDate(job.ApplicationDue),
         });
       }),
     );
