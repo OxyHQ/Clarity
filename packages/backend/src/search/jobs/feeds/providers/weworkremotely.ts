@@ -45,8 +45,8 @@ export const weworkremotely: JobFeedProvider = {
         const region = text(tag(item, 'region'));
         return listing({
           // Without the `Company: ` prefix there is no stated employer, and no listing.
-          title: separator > 0 ? heading!.slice(separator + 2) : undefined,
-          employerName: separator > 0 ? heading!.slice(0, separator) : undefined,
+          title: separator > 0 ? heading?.slice(separator + 2) : undefined,
+          employerName: separator > 0 ? heading?.slice(0, separator) : undefined,
           canonicalUrl: text(tag(item, 'link')) ?? text(tag(item, 'guid')),
           context,
           description: markdown(tag(item, 'description')),

@@ -27,12 +27,13 @@ const FALLBACK_DARK: typeof FALLBACK_LIGHT = {
 
 const BODY_TEXT = { fontSize: 16, lineHeight: 28 } as const;
 const HEADING_TEXT = { fontSize: 16, lineHeight: 22 } as const;
-const SANS_FONT = Platform.select({
-  ios: 'Inter',
-  android: 'Inter',
-  default: 'Inter, sans-serif',
-})!;
-const MONO_FONT = Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' })!;
+// Platform.select is typed T | undefined even with a `default`, which it
+// always falls back to; `??` repeats that default for the type checker.
+const SANS_FONT =
+  Platform.select({ ios: 'Inter', android: 'Inter', default: 'Inter, sans-serif' }) ??
+  'Inter, sans-serif';
+const MONO_FONT =
+  Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' }) ?? 'monospace';
 
 function createRules(colors: ClarityColors): RenderRules {
   const { text: textColor, muted, border, primary, mutedForeground } = colors;

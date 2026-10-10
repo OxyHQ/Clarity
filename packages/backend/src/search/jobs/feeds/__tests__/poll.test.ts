@@ -1,6 +1,7 @@
 import { Readable } from 'node:stream';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { defined } from '../../../../__tests__/helpers/defined.js';
 
 const requested: string[] = [];
 let respond: (url: string) => { status: number; body: string | string[] } = () => ({
@@ -337,7 +338,7 @@ describe('feed polling', () => {
       `<job><title><![CDATA[Role ${index}]]></title><url>https://apply.workable.com/j/${index}</url><company>Acme ${index}</company></job>`;
     const xml = `<?xml version="1.0"?><source><publisher>Workable</publisher>${Array.from({ length: 50 }, (_, index) => job(index)).join('')}</source>`;
     // Split mid-element so items span chunks.
-    const chunks = xml.match(/[\s\S]{1,37}/g)!;
+    const chunks = defined(xml.match(/[\s\S]{1,37}/g), 'the XML chunks');
     respond = () => ({ status: 200, body: chunks });
     const provider = (await import('../registry.js')).JOB_FEED_PROVIDERS.indeed_xml;
     const original = provider.stream;

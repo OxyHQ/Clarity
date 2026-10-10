@@ -669,8 +669,8 @@ export function decodeHtmlEntities(value: string): string {
       const cached = entityCache.get(body);
       if (cached !== undefined) return cached;
       entityDocument ??= parseHTML('<!doctype html><html><body></body></html>')
-        .document as unknown as typeof entityDocument;
-      const element = entityDocument!.createElement('span');
+        .document as unknown as NonNullable<typeof entityDocument>;
+      const element = entityDocument.createElement('span');
       element.innerHTML = entity;
       const decoded = element.textContent ?? entity;
       // A name the HTML spec does not define decodes to itself, not a prefix match.

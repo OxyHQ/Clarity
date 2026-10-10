@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { defined } from '../../__tests__/helpers/defined.js';
 
 import {
   EMPTY_ID_SET_SHA256,
@@ -79,7 +80,7 @@ describe('cutover manifest', () => {
 
   it('rejects counts-only external receipts with a different ID set', () => {
     const manifest = validManifest();
-    const external = manifest.collections.at(-1)!;
+    const external = defined(manifest.collections.at(-1), 'the last collection');
     external.sourceCount = 1;
     external.sourceIdSha256 = sha256('source-id');
     if (external.disposition.kind === 'external') {
@@ -92,7 +93,10 @@ describe('cutover manifest', () => {
 
   it('rejects duplicate source names', () => {
     const manifest = validManifest();
-    manifest.collections[1]!.sourceName = manifest.collections[0]!.sourceName;
+    defined(manifest.collections[1], 'collection 1').sourceName = defined(
+      manifest.collections[0],
+      'collection 0',
+    ).sourceName;
     manifest.snapshot.inventorySha256 = sha256(canonicalJson(inventoryPayload(manifest)));
     expect(() => validateCutoverManifest(manifest)).toThrow(
       'source collection names must be unique',
@@ -101,7 +105,7 @@ describe('cutover manifest', () => {
 
   it('rejects external receipts completed before the fixed source snapshot', () => {
     const manifest = validManifest();
-    const external = manifest.collections.at(-1)!;
+    const external = defined(manifest.collections.at(-1), 'the last collection');
     if (external.disposition.kind === 'external') {
       external.disposition.receipt.completedAt = '2026-09-01T23:59:59.999Z';
     }

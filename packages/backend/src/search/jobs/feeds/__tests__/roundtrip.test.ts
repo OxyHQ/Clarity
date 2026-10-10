@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defined } from '../../../../__tests__/helpers/defined.js';
 
 import { extractJobPostings } from '../../extract.js';
 import { normalizeSeniority } from '../../taxonomy.js';
@@ -165,8 +166,14 @@ describe('feed listing round trip', () => {
     });
     expect(built).toBeDefined();
     const [extracted] = extractJobPostings(
-      [{ '@context': 'https://schema.org', '@type': 'JobPosting', ...toJsonLd(built!) }],
-      built!.canonicalUrl,
+      [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'JobPosting',
+          ...toJsonLd(defined(built, 'the built listing')),
+        },
+      ],
+      defined(built, 'the built listing').canonicalUrl,
       extractedAt,
       'feed',
     );
@@ -214,8 +221,8 @@ describe('feed listing round trip', () => {
       locations: [{ raw: 'Greater Lisbon Area' }],
     });
     const [extracted] = extractJobPostings(
-      [{ '@type': 'JobPosting', ...toJsonLd(built!) }],
-      built!.canonicalUrl,
+      [{ '@type': 'JobPosting', ...toJsonLd(defined(built, 'the built listing')) }],
+      defined(built, 'the built listing').canonicalUrl,
       extractedAt,
       'feed',
     );
@@ -229,6 +236,10 @@ describe('feed listing round trip', () => {
       canonicalUrl: 'https://jobs.example/acme/3',
       context,
     });
-    expect(Object.keys(built!.evidence).sort()).toEqual(['canonicalUrl', 'employer', 'title']);
+    expect(Object.keys(defined(built, 'the built listing').evidence).sort()).toEqual([
+      'canonicalUrl',
+      'employer',
+      'title',
+    ]);
   });
 });

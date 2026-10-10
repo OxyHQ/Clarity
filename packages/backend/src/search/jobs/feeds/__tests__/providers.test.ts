@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defined } from '../../../../__tests__/helpers/defined.js';
 
 import type { JobFeedKind } from '@clarity/shared-types';
 
@@ -33,10 +34,11 @@ function detail(
 ) {
   const provider = JOB_FEED_PROVIDERS[kind];
   const [summary] = parse(kind, identifier, listingBody, label ? { label } : {}).listings;
-  const request = provider.detail!.request(summary, identifier)!;
+  const detailFetch = defined(provider.detail, `${kind} detail fetch`);
+  const request = defined(detailFetch.request(summary, identifier), `${kind} detail request`);
   return {
     request,
-    listing: provider.detail!.parse(JSON.stringify(detailBody), summary, {
+    listing: detailFetch.parse(JSON.stringify(detailBody), summary, {
       kind,
       identifier,
       requestUrl: request.url,

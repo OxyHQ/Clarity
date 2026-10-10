@@ -133,6 +133,7 @@ export const eures: JobFeedProvider = {
       vacancies.map((vacancy) => {
         const id = text(vacancy.id);
         const employer = node(vacancy.employer);
+        const createdAt = num(vacancy.creationDate);
         return listing({
           title: text(vacancy.title),
           employerName: text(employer.name),
@@ -145,7 +146,7 @@ export const eures: JobFeedProvider = {
           locations: countryPlaces(vacancy.locationMap),
           employmentTypes: types(vacancy.positionScheduleCodes, vacancy.positionOfferingCode),
           identifier: id,
-          publishedAt: num(vacancy.creationDate) ? new Date(num(vacancy.creationDate)!) : undefined,
+          publishedAt: createdAt ? new Date(createdAt) : undefined,
         });
       }),
       nextPageNumber(context.cursor, vacancies.length === PAGE_SIZE && current * PAGE_SIZE < total),

@@ -312,9 +312,13 @@ export async function validateJobPostingPayload(
       }
       continue;
     }
+    // readLocations drops a location with neither sameAs nor addressCountry,
+    // and needsPlaces keeps only those with sameAs or addressLocality, so both
+    // are present here. The guard narrows the types; it never skips anything.
+    if (!location.countryCode || !location.locality) continue;
     const match = matchPlace(candidates, {
-      countryCode: location.countryCode!,
-      locality: location.locality!,
+      countryCode: location.countryCode,
+      locality: location.locality,
       ...(location.region ? { region: location.region } : {}),
     });
     if (match.status === 'not_found') {

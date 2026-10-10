@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { defined } from '../../../../__tests__/helpers/defined.js';
 
 import type { JobFeedKind } from '@clarity/shared-types';
 
@@ -35,7 +36,8 @@ function detail(
 ) {
   const provider = JOB_FEED_PROVIDERS[kind];
   const [summary] = parse(kind, identifier, listBody, label ? { label } : {}).listings;
-  const request = provider.detail!.request(summary, identifier)!;
+  const detailFetch = defined(provider.detail, `${kind} detail fetch`);
+  const request = defined(detailFetch.request(summary, identifier), `${kind} detail request`);
   const context = {
     kind,
     identifier,
@@ -46,12 +48,12 @@ function detail(
   return {
     summary,
     request,
-    listing: provider.detail!.parse(JSON.stringify(detailBody), summary, context),
+    listing: detailFetch.parse(JSON.stringify(detailBody), summary, context),
   };
 }
 
 function readPage(kind: JobFeedKind, identifier: string, html: string, url: string) {
-  return JOB_FEED_PROVIDERS[kind].listingPage!.parse(
+  return defined(JOB_FEED_PROVIDERS[kind].listingPage, `${kind} listing page`).parse(
     html,
     { url },
     { kind, identifier, requestUrl: url, extractedAt },
