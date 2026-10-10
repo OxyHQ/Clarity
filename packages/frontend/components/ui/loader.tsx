@@ -271,6 +271,7 @@ function WaveLoader({ className, size = 'md' }: { className?: string; size?: 'sm
     <View className={cn('flex-row items-center gap-0.5', className)} accessibilityLabel="Loading">
       {h.map((baseH, i) => (
         <AnimatedBar
+          // biome-ignore lint/suspicious/noArrayIndexKey: a constant array of bar heights; the position is the identity
           key={i}
           delay={i * 100}
           width={w}

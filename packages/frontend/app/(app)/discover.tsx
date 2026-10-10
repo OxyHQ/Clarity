@@ -121,9 +121,19 @@ function SourceIcons({ faviconUrls, count }: { faviconUrls: string[]; count: num
           };
           const favicon = faviconUrls[i];
           return favicon ? (
-            <Image key={i} source={{ uri: favicon }} style={style} contentFit="cover" />
+            <Image
+              // biome-ignore lint/suspicious/noArrayIndexKey: up to three fixed, overlapping slots; the position is the identity
+              key={i}
+              source={{ uri: favicon }}
+              style={style}
+              contentFit="cover"
+            />
           ) : (
-            <View key={i} style={style} />
+            <View
+              // biome-ignore lint/suspicious/noArrayIndexKey: up to three fixed, overlapping slots; the position is the identity
+              key={i}
+              style={style}
+            />
           );
         })}
       </View>

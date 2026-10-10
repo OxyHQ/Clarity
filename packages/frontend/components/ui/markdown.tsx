@@ -216,7 +216,14 @@ export function CustomMarkdown({ content }: { content: string }) {
     <View>
       {blocks.map((block, idx) => {
         if (block.type === 'text') {
-          return <ClarityMarkdown key={idx} content={block.content} colors={clarityColors} />;
+          return (
+            <ClarityMarkdown
+              // biome-ignore lint/suspicious/noArrayIndexKey: blocks are parsed in document order from streaming text, which only grows at the end
+              key={idx}
+              content={block.content}
+              colors={clarityColors}
+            />
+          );
         } else if (block.type === 'block' && block.blockType) {
           return renderBlock(block.blockType, block.data, idx);
         }

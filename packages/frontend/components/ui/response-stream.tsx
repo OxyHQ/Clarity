@@ -294,6 +294,7 @@ function ResponseStream({
       <View className={cn('flex-row flex-wrap', className)}>
         {segments.map((segment, idx) => (
           <Animated.View
+            // biome-ignore lint/suspicious/noArrayIndexKey: streamed segments only append, and the same text can repeat
             key={`${segment.text}-${idx}`}
             entering={FadeIn.duration(fadeDur).delay(idx * getSegmentDelay())}
           >

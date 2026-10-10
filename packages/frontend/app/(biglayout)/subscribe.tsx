@@ -136,6 +136,7 @@ export default function SubscribeScreen() {
                   {plan.features?.map((group) =>
                     group.items.map((item, i) => (
                       <View
+                        // biome-ignore lint/suspicious/noArrayIndexKey: a plan's feature list is static per render and never reordered; labels may repeat
                         key={`${group.category}-${i}`}
                         className="flex-row items-start gap-2 mb-2"
                       >

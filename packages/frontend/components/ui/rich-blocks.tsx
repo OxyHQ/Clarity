@@ -22,6 +22,7 @@ export function CompactList({ title, items }: { title: string; items: CompactLis
       <View className="gap-1.5">
         {items.map((item, idx) => (
           <Pressable
+            // biome-ignore lint/suspicious/noArrayIndexKey: a rendered tool result never changes, and items have no unique field
             key={idx}
             className="flex-row items-start gap-2.5 rounded-md border border-border dark:border-zinc-700 bg-background p-2.5 active:bg-muted/50"
             onPress={() => item.href && Linking.openURL(item.href)}
@@ -192,7 +193,11 @@ export function Timeline({ title, items }: { title: string; items: TimelineItem[
       <Text className="font-semibold mb-2">{title}</Text>
       <View className="gap-2.5">
         {items.map((item, idx) => (
-          <View key={idx} className="flex-row gap-2.5">
+          <View
+            // biome-ignore lint/suspicious/noArrayIndexKey: a rendered tool result never changes, and items have no unique field
+            key={idx}
+            className="flex-row gap-2.5"
+          >
             <View className="items-center">
               <View className="h-2.5 w-2.5 rounded-full bg-primary" />
               {idx < items.length - 1 && (

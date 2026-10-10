@@ -525,6 +525,7 @@ const MessageRow = React.memo(function MessageRow({
         <View className="flex-row flex-wrap gap-2 mb-2">
           {messageImages.map((imgUrl, imgIdx) => (
             <View
+              // biome-ignore lint/suspicious/noArrayIndexKey: a sent message's images never change, and the same URL can appear twice
               key={`img-${imgIdx}`}
               className="rounded-xl overflow-hidden"
               style={imageThumbStyle}

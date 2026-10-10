@@ -102,7 +102,11 @@ export function ResearchProgressCard({ progress }: ResearchProgressCardProps) {
           {showQuestions && (
             <View className="gap-1 pl-4">
               {progress.subQuestions.map((q, i) => (
-                <Text key={i} className="text-xs text-muted-foreground">
+                <Text
+                  // biome-ignore lint/suspicious/noArrayIndexKey: numbered sub-questions only append, and the text can repeat
+                  key={i}
+                  className="text-xs text-muted-foreground"
+                >
                   {i + 1}. {q}
                 </Text>
               ))}

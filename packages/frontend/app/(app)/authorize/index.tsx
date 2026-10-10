@@ -284,8 +284,8 @@ export default function AuthorizeScreen() {
                     {t('authorize.willAllow', { app: appConfig.displayName })}
                   </Text>
                   <View className="gap-2 pl-1">
-                    {appConfig.permissionKeys.map((key, index) => (
-                      <Text key={index} className="text-sm">
+                    {appConfig.permissionKeys.map((key) => (
+                      <Text key={key} className="text-sm">
                         • {t(`authorize.${key}`, { app: appConfig.displayName })}
                       </Text>
                     ))}
