@@ -15,7 +15,7 @@ import { jobClusters, jobPostings, jobPostingSignatures, searchDocuments } from 
 import { chunkText, documentChunksCurrent, embedChunks, replaceDocumentChunks } from '../chunking.js';
 import { canonicalSourceRank, jobClusterSignatures } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
-import { JOB_RECRAWL_INTERVAL_SECONDS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
+import { JOB_RECRAWL_INTERVAL_SECONDS, JOB_RETENTION_DAYS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
 import { markdownToPlainText } from './markdown.js';
 import { resolveJobLocations } from './locations.js';
 import { createPlaceResolver } from '../places/repository.js';
@@ -90,6 +90,7 @@ export async function projectJobPostings(tx: ClarityExecutor, input: JobProjecti
       validThrough: posting.validThrough ?? null,
       lastSeenAt: input.observedAt,
       documentStatus: input.documentStatus,
+      sourceType: input.sourceType,
     });
     const values = {
       documentId: input.documentId,
@@ -266,6 +267,40 @@ async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<v
   await tx.update(jobClusters)
     .set({ canonicalJobPostingId: ordered[0].id, memberCount: members.length, updatedAt: new Date() })
     .where(eq(jobClusters.id, clusterId));
+}
+
+/** Job documents deleted per retention pass, so one pass never holds long locks. */
+const RETENTION_BATCH = 500;
+
+/**
+ * Retention: a job document none of whose listings is active, and none seen
+ * for `JOB_RETENTION_DAYS`, is deleted — its listings, chunks, embeddings,
+ * signatures, reports and feed links go with it by cascade. The clusters its
+ * listings belonged to re-elect a canonical copy, or disappear when empty.
+ * Returns how many documents were deleted.
+ */
+export async function pruneInactiveJobDocuments(limit = RETENTION_BATCH): Promise<number> {
+  return getDb().transaction(async (tx) => {
+    const doomed = await tx.execute<{ id: string }>(sql`
+      select ${searchDocuments.id} as id from ${searchDocuments}
+      where ${searchDocuments.documentType} = 'job'
+        and coalesce(${searchDocuments.fetchedAt}, ${searchDocuments.updatedAt}) < now() - interval '${sql.raw(String(JOB_RETENTION_DAYS))} days'
+        and not exists (
+          select 1 from ${jobPostings}
+          where ${jobPostings.documentId} = ${searchDocuments.id}
+            and (${jobPostings.status} = 'active' or ${jobPostings.lastSeenAt} >= now() - interval '${sql.raw(String(JOB_RETENTION_DAYS))} days')
+        )
+      order by ${searchDocuments.updatedAt}
+      limit ${limit}
+      for update skip locked`);
+    const ids = doomed.map((row) => row.id);
+    if (ids.length === 0) return 0;
+    const clusters = await tx.selectDistinct({ clusterId: jobPostings.clusterId }).from(jobPostings)
+      .where(and(inArray(jobPostings.documentId, ids), sql`${jobPostings.clusterId} is not null`));
+    await tx.delete(searchDocuments).where(inArray(searchDocuments.id, ids));
+    for (const { clusterId } of clusters) if (clusterId) await electCanonical(tx, clusterId);
+    return ids.length;
+  });
 }
 
 /** Extractor identity recorded on chunks produced from an ingested payload. */

@@ -31,6 +31,7 @@ function ashbySalary(job: Node) {
 export const ashby: JobFeedProvider = {
   kind: 'ashby',
   identifier: { meaning: 'the job board name in jobs.ashbyhq.com/<name>', shape: 'slug' },
+  completeListing: true,
   request: (identifier) => get(
     `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(identifier)}?includeCompensation=true`,
   ),

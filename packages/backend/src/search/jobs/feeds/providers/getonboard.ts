@@ -15,6 +15,7 @@ const PAGE_SIZE = 100;
 export const getonboard: JobFeedProvider = {
   kind: 'getonboard',
   identifier: { meaning: 'a category slug from getonbrd.com/api/v0/categories, e.g. programming', shape: 'slug', pattern: /^[a-z0-9][a-z0-9-]{0,60}$/ },
+  completeListing: true,
   request: (identifier, cursor) => get(`https://www.getonbrd.com/api/v0/categories/${encodeURIComponent(identifier)}/jobs?per_page=${PAGE_SIZE}&page=${Number(cursor ?? 1) || 1}&expand=${encodeURIComponent('["company"]')}`),
   terms: 'Public API: open to anyone, no authentication required.',
   parse(body, context) {

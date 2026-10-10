@@ -32,6 +32,7 @@ function metadataWorkplace(job: Node) {
 export const greenhouse: JobFeedProvider = {
   kind: 'greenhouse',
   identifier: { meaning: 'the board token in boards.greenhouse.io/<token>', shape: 'slug' },
+  completeListing: true,
   request: (identifier) => get(
     `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(identifier)}/jobs?content=true&pay_transparency=true`,
   ),

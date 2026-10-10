@@ -14,6 +14,7 @@ const PAGE_SIZE = 20;
 export const madgex: JobFeedProvider = {
   kind: 'madgex',
   identifier: { meaning: 'the host of a Madgex job board serving /jobsrss/, e.g. jobs.chronicle.com', shape: 'slug', pattern: /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/ },
+  completeListing: true,
   request: (identifier, cursor) => get(`https://${identifier}/jobsrss/?page=${Number(cursor ?? 1) || 1}`, XML_ACCEPT),
   parse(body, context) {
     const items = elements(body, 'item');

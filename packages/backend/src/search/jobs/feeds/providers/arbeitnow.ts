@@ -11,6 +11,7 @@ import {
 export const arbeitnow: JobFeedProvider = {
   kind: 'arbeitnow',
   identifier: { meaning: 'unused; leave it as the kind name', shape: 'none' },
+  completeListing: true,
   request: (_identifier, cursor) => get(withQuery('https://www.arbeitnow.com/api/job-board-api', { page: cursor })),
   terms: 'Free public API; link back to Arbeitnow.',
   parse(body, context) {

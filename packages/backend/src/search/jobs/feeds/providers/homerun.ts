@@ -10,6 +10,7 @@ import {
 export const homerun: JobFeedProvider = {
   kind: 'homerun',
   identifier: { meaning: 'the company subdomain in <company>.homerun.co', shape: 'slug', pattern: /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/ },
+  completeListing: true,
   request: (identifier) => get(`https://feed.homerun.co/${identifier}`, XML_ACCEPT),
   parse(body, context) {
     const employerFallback = text(tag(body, 'title'));

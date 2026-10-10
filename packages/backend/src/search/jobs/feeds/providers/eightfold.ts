@@ -30,6 +30,7 @@ function standardized(values: unknown) {
 export const eightfold: JobFeedProvider = {
   kind: 'eightfold',
   identifier: { meaning: '<tenant>.eightfold.ai/<company domain>, e.g. paypal.eightfold.ai/paypal.com', shape: 'slug', pattern: IDENTIFIER },
+  completeListing: true,
   request(identifier, cursor) {
     const { host, domain } = site(identifier);
     return get(withQuery(`https://${host}/api/pcsx/search`, { domain, query: '', location: '', start: Number(cursor ?? 0) || 0, sort_by: 'timestamp' }));

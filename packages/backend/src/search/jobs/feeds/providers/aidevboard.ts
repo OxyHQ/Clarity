@@ -15,6 +15,7 @@ import {
 export const aidevboard: JobFeedProvider = {
   kind: 'aidevboard',
   identifier: { meaning: 'unused; leave it as the kind name', shape: 'none' },
+  completeListing: true,
   request: (_identifier, cursor) => get(withQuery('https://aidevboard.com/api/v1/jobs', { limit: 50, page: cursor ?? 1 })),
   terms: 'Data may be used in applications but not resold as a standalone dataset; 200 anonymous requests per hour.',
   parse(body, context) {

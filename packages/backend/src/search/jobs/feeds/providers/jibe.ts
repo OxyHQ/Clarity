@@ -16,6 +16,7 @@ const PAGE_SIZE = 100;
 export const jibe: JobFeedProvider = {
   kind: 'jibe',
   identifier: { meaning: 'the career site host serving /api/jobs, e.g. careers.mcafee.com', shape: 'slug', pattern: /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/ },
+  completeListing: true,
   request: (identifier, cursor) => get(`https://${identifier}/api/jobs?page=${Number(cursor ?? 1) || 1}&limit=${PAGE_SIZE}`),
   parse(body, context) {
     const payload = node(json(body, 'jibe'));

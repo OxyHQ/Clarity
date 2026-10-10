@@ -25,6 +25,7 @@ function bambooPlace(job: Node) {
 export const bamboohr: JobFeedProvider = {
   kind: 'bamboohr',
   identifier: { meaning: 'the company subdomain in <company>.bamboohr.com', shape: 'slug', pattern: DNS_LABEL },
+  completeListing: true,
   request: (identifier) => get(`https://${identifier}.bamboohr.com/careers/list`),
   parse(body, context) {
     const payload = node(json(body, 'bamboohr'));

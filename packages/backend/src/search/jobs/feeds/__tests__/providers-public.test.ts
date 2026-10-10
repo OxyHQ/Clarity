@@ -256,3 +256,30 @@ describe('public employment providers', () => {
     expect(listings[1]).toMatchObject({ workplaceType: 'remote', applicantLocationRequirements: ['Chile'], locations: [] });
   });
 });
+
+describe('aggregator XML feeds', () => {
+  it('reads the Indeed XML format, a state in <country> as a region, and never contact fields', () => {
+    const xml = `<?xml version="1.0"?><source><publisher>AI Dev Jobs</publisher>
+      <job><title><![CDATA[Sr Data Scientist]]></title><date><![CDATA[Mon, 14 Sep 2026 05:15:34 GMT]]></date>
+      <referencenumber><![CDATA[2455732f]]></referencenumber>
+      <url><![CDATA[https://aidevboard.com/job/sr-data-scientist?utm_source=aggregator&utm_medium=feed]]></url>
+      <company><![CDATA[Dataiku]]></company><city><![CDATA[New York]]></city><country><![CDATA[NY]]></country>
+      <description><![CDATA[<p>Build models</p>]]></description><salary><![CDATA[$210k–$220k per year]]></salary>
+      <jobtype><![CDATA[fulltime]]></jobtype><experience><![CDATA[Senior]]></experience>
+      <email><![CDATA[recruiter@dataiku.example]]></email><expirationdate>2026-10-14</expirationdate></job>
+      <job><title>Platform Engineer</title><url>https://board.example/j/2</url><company>Acme</company>
+      <city>Berlin</city><state>Berlin</state><country>DE</country><remotetype>Hybrid remote</remotetype>
+      <salary>60.000 - 75.000 € per year</salary><jobtype>Full-Time, Permanent</jobtype></job></source>`;
+    const { listings } = parse('indeed_xml', 'https://aidevboard.com/feed/indeed.xml', xml);
+    expect(listings[0]).toMatchObject({
+      title: 'Sr Data Scientist', employerName: 'Dataiku', canonicalUrl: 'https://aidevboard.com/job/sr-data-scientist',
+      employmentTypes: ['full_time'], seniority: 'senior', identifier: '2455732f', description: 'Build models',
+    });
+    expect(listings[0].locations[0]).toMatchObject({ locality: 'New York', region: 'NY' });
+    expect(listings[0].locations[0].countryCode).toBeUndefined();
+    expect(listings[0].salary).toBeUndefined();
+    expect(JSON.stringify(listings[0])).not.toContain('recruiter@');
+    expect(listings[1]).toMatchObject({ workplaceType: 'hybrid', employmentTypes: ['full_time'], salary: { min: 60_000, max: 75_000, currency: 'EUR', interval: 'year' } });
+    expect(listings[1].locations[0].countryCode).toBe('DE');
+  });
+});

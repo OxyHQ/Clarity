@@ -14,6 +14,7 @@ const PAGE_SIZE = 500;
 export const hireology: JobFeedProvider = {
   kind: 'hireology',
   identifier: { meaning: 'the career site slug in careers.hireology.com/<slug>', shape: 'slug', pattern: /^[a-z0-9][a-z0-9-]{0,100}$/ },
+  completeListing: true,
   request: (identifier, cursor) => get(`https://api.hireology.com/v2/public/careers/${encodeURIComponent(identifier)}?page_size=${PAGE_SIZE}&page=${Number(cursor ?? 1) || 1}`),
   parse(body, context) {
     const payload = node(json(body, 'hireology'));

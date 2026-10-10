@@ -10,6 +10,7 @@ import {
 export const gem: JobFeedProvider = {
   kind: 'gem',
   identifier: { meaning: 'the board path in jobs.gem.com/<board>', shape: 'slug', pattern: /^[a-z0-9][a-z0-9-]{0,100}$/ },
+  completeListing: true,
   request: (identifier) => get(`https://api.gem.com/job_board/v0/${encodeURIComponent(identifier)}/job_posts/`),
   parse(body, context) {
     return page(nodes(json(body, 'gem')).map((job) => listing({

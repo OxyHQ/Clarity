@@ -9,6 +9,7 @@ import { get, json, node, nodes, page, text } from '../listing.js';
 export const softgarden: JobFeedProvider = {
   kind: 'softgarden',
   identifier: { meaning: 'the subdomain in <sub>.career.softgarden.de', shape: 'slug', pattern: /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/ },
+  completeListing: true,
   request: (identifier) => get(`https://${identifier}.career.softgarden.de/jobs.feed.json`),
   maxBodyBytes: 40 * 1024 * 1024,
   parse(body, context) {

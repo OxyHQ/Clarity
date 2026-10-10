@@ -10,7 +10,7 @@ import { extractDocument } from './search/extractor.js';
 import { chunkText, embedChunks, replaceDocumentChunks } from './search/chunking.js';
 import { extractJobPostings } from './search/jobs/extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/lifecycle.js';
-import { closeJobPostingsForDocument, projectJobPostings } from './search/jobs/projection.js';
+import { closeJobPostingsForDocument, projectJobPostings, pruneInactiveJobDocuments } from './search/jobs/projection.js';
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
@@ -340,7 +340,8 @@ async function runJobMaintenance(): Promise<void> {
   try {
     const sweep = await sweepJobLifecycle();
     const recrawls = await enqueueJobRecrawls();
-    console.info('Job corpus maintenance completed', { ...sweep, recrawls });
+    const pruned = await pruneInactiveJobDocuments();
+    console.info('Job corpus maintenance completed', { ...sweep, recrawls, pruned });
   } catch (error) {
     console.error('Job corpus maintenance failed', {
       error: error instanceof Error ? error.message : 'unknown maintenance failure',

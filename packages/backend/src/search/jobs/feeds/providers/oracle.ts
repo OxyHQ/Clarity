@@ -40,6 +40,7 @@ function oraclePlace(entry: Node) {
 export const oracle: JobFeedProvider = {
   kind: 'oracle',
   identifier: { meaning: '<host>.oraclecloud.com/<siteNumber>, e.g. jpmc.fa.oraclecloud.com/CX_1001', shape: 'slug', pattern: IDENTIFIER },
+  completeListing: true,
   request(identifier, cursor) {
     const { host, site } = board(identifier);
     const offset = Number(cursor ?? 0) || 0;

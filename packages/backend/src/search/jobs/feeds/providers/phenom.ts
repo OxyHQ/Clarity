@@ -57,6 +57,7 @@ function phenomListing(job: Node, board: Site, context: JobFeedContext) {
 export const phenom: JobFeedProvider = {
   kind: 'phenom',
   identifier: { meaning: '<host>/<country>/<lang> of a Phenom career site, e.g. jobs.thermofisher.com/global/en', shape: 'slug', pattern: IDENTIFIER },
+  completeListing: true,
   request(identifier, cursor) {
     const board = site(identifier);
     return post(`https://${board.host}/widgets`, {

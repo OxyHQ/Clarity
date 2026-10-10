@@ -24,6 +24,13 @@ vi.mock('../../projection.js', () => ({
 
 const stored = new Map<string, { structuredData: unknown[]; fetchedAt: Date | null }>();
 
+const presence = { recorded: [] as string[][], closedFor: [] as string[] };
+vi.mock('../presence.js', () => ({
+  recordFeedPresence: vi.fn(async (_feedId: string, urls: string[]) => { presence.recorded.push(urls); }),
+  closeAbsentListings: vi.fn(async (feedId: string) => { presence.closedFor.push(feedId); return 0; }),
+  closeGoneListing: vi.fn(async (url: string) => { presence.closedFor.push(`gone:${url}`); }),
+}));
+
 vi.mock('../robots.js', () => ({
   FEED_USER_AGENT: 'ClarityBot/test',
   assertRobotsAllow: vi.fn(async () => 0),
@@ -55,7 +62,7 @@ function feed(cursor: string | null) {
 }
 
 describe('feed polling', () => {
-  beforeEach(() => { requested.length = 0; ingested.length = 0; stored.clear(); });
+  beforeEach(() => { requested.length = 0; ingested.length = 0; stored.clear(); presence.recorded.length = 0; presence.closedFor.length = 0; });
 
   it('walks a paged source to its end and leaves nothing to resume', async () => {
     respond = (url) => {
@@ -150,6 +157,56 @@ describe('feed polling', () => {
     expect(requested).toEqual(['https://jobs.example/sitemap.xml', 'https://jobs.example/v/new', 'https://jobs.example/v/hidden']);
     expect(ingested.sort()).toEqual(['https://jobs.example/v/new', 'https://jobs.example/v/unchanged']);
     expect(outcome.stored).toBe(2);
+  });
+
+  it('works through a whole-board dump larger than one poll, in turns', async () => {
+    const jobs = Array.from({ length: 2_500 }, (_, index) => ({ id: index, title: `Role ${index}`, company_name: 'Acme', absolute_url: `https://boards.greenhouse.io/acme/jobs/${index}` }));
+    respond = () => ({ status: 200, body: JSON.stringify({ jobs }) });
+    const first = await pollJobFeed({ ...feed(null), kind: 'greenhouse' }, { pageDelayMs: 0 });
+    expect(first).toMatchObject({ stored: 1_000, cursor: '@1000' });
+    expect(ingested[0]).toBe('https://boards.greenhouse.io/acme/jobs/0');
+    ingested.length = 0;
+    const third = await pollJobFeed({ ...feed('@2000'), kind: 'greenhouse' }, { pageDelayMs: 0 });
+    expect(third.cursor).toBe('@500');
+    expect(ingested[0]).toBe('https://boards.greenhouse.io/acme/jobs/2000');
+    expect(ingested[ingested.length - 1]).toBe('https://boards.greenhouse.io/acme/jobs/499');
+  });
+
+  it('closes by absence only after reading a whole board that lists every posting', async () => {
+    respond = (url) => {
+      const offset = offsetOf(url);
+      return { status: 200, body: smartRecruitersPage(offset, Math.min(100, 250 - offset), 250) };
+    };
+    await pollJobFeed(feed(null), { pageDelayMs: 0 });
+    expect(presence.recorded[0]).toHaveLength(250);
+    expect(presence.closedFor).toEqual(['f']);
+
+    // Resuming a deep walk has not read the board from the top: nothing is closed.
+    presence.closedFor.length = 0;
+    await pollJobFeed(feed('200'), { pageDelayMs: 0 });
+    expect(presence.closedFor).toEqual([]);
+
+    // A walk cut short by the page budget has not reached the end either.
+    respond = (url) => ({ status: 200, body: smartRecruitersPage(offsetOf(url), 100, 5_000) });
+    await pollJobFeed(feed(null), { pageDelayMs: 0 });
+    expect(presence.closedFor).toEqual([]);
+  });
+
+  it('never closes by absence from a windowed source, or from a read that suddenly lists nothing', async () => {
+    respond = () => ({ status: 200, body: JSON.stringify({ data: [], meta: { total: 0 } }) });
+    await pollJobFeed({ ...feed(null), kind: 'freehire', identifier: 'freehire' }, { pageDelayMs: 0 });
+    respond = () => ({ status: 200, body: JSON.stringify({ jobs: [] }) });
+    await pollJobFeed({ ...feed(null), kind: 'greenhouse' }, { pageDelayMs: 0 });
+    expect(presence.closedFor).toEqual([]);
+  });
+
+  it('closes a listing whose detail answers that it is gone', async () => {
+    stored.set('https://acme.bamboohr.com/careers/9', { structuredData: [{ '@type': 'JobPosting', title: 'Old' }], fetchedAt: new Date('2026-01-01') });
+    respond = (url) => url.endsWith('/careers/list')
+      ? { status: 200, body: JSON.stringify({ result: [{ id: '9', jobOpeningName: 'Old' }] }) }
+      : { status: 404, body: '' };
+    await pollJobFeed({ ...feed(null), kind: 'bamboohr' }, { pageDelayMs: 0 });
+    expect(presence.closedFor).toContain('gone:https://acme.bamboohr.com/careers/9');
   });
 
   it('fails the poll when the newest page cannot be read', async () => {

@@ -10,6 +10,7 @@ import {
 export const recruitee: JobFeedProvider = {
   kind: 'recruitee',
   identifier: { meaning: 'the company slug in <slug>.recruitee.com', shape: 'slug' },
+  completeListing: true,
   request: (identifier) => get(`https://${encodeURIComponent(identifier)}.recruitee.com/api/offers/`),
   parse(body, context) {
     const payload = node(json(body, 'recruitee'));

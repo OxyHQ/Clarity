@@ -11,6 +11,7 @@ import {
 export const workable: JobFeedProvider = {
   kind: 'workable',
   identifier: { meaning: 'the account slug in apply.workable.com/<slug>', shape: 'slug' },
+  completeListing: true,
   request: (identifier) => get(
     `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(identifier)}?details=true`,
   ),

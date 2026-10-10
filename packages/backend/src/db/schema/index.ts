@@ -853,10 +853,25 @@ export const jobFeeds = pgTable('clarity_job_feeds', {
 }, (table) => [
   unique('clarity_job_feeds_kind_identifier_unique').on(table.kind, table.identifier),
   index('clarity_job_feeds_due_idx').on(table.enabled, table.nextPollAt),
-  check('clarity_job_feeds_kind_check', sql`${table.kind} in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap')`),
+  check('clarity_job_feeds_kind_check', sql`${table.kind} in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap', 'indeed_xml')`),
   check('clarity_job_feeds_status_check', sql`${table.lastStatus} is null or ${table.lastStatus} in ('ok', 'error')`),
   check('clarity_job_feeds_interval_check', sql`${table.pollIntervalSeconds} >= 900`),
   check('clarity_job_feeds_listings_check', sql`${table.listingsSeen} >= 0`),
+]);
+
+/**
+ * Which feed delivered which listing document, and when it last did. A source
+ * that lists its whole board on every poll proves a listing withdrawn by no
+ * longer listing it; this is the record that makes that inference possible
+ * (search/jobs/feeds/presence.ts). Removing either side removes the link.
+ */
+export const jobFeedListings = pgTable('clarity_job_feed_listings', {
+  feedId: text('feed_id').notNull().references(() => jobFeeds.id, { onDelete: 'cascade' }),
+  documentId: text('document_id').notNull().references(() => searchDocuments.id, { onDelete: 'cascade' }),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.feedId, table.documentId] }),
+  index('clarity_job_feed_listings_document_idx').on(table.documentId),
 ]);
 
 /**

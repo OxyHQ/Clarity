@@ -12,6 +12,7 @@ import {
 export const fourdayweek: JobFeedProvider = {
   kind: 'fourdayweek',
   identifier: { meaning: 'unused; leave it as the kind name', shape: 'none' },
+  completeListing: true,
   request: (_identifier, cursor) => get(withQuery('https://4dayweek.io/api/v2/jobs', { limit: 100, page: cursor ?? 1 })),
   terms: 'A link back to 4dayweek.io is all that is asked.',
   parse(body, context) {

@@ -27,6 +27,7 @@ function dottedDate(value: string | undefined): Date | undefined {
 export const devitjobs: JobFeedProvider = {
   kind: 'devitjobs',
   identifier: { meaning: `one of ${SITES.join(', ')}`, shape: 'slug', pattern: new RegExp(`^(?:${SITES.map((site) => site.replace(/\./g, '\\.')).join('|')})$`) },
+  completeListing: true,
   request: (identifier) => get(`https://${identifier}/job_feed.xml`, XML_ACCEPT),
   // devitjobs.com publishes its whole US board, over 20 MB, as one file.
   maxBodyBytes: 40 * 1024 * 1024,

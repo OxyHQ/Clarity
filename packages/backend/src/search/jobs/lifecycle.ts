@@ -25,6 +25,27 @@ import { jobPostings, searchDocuments } from '../../db/schema/index.js';
  */
 export const JOB_STALE_AFTER_DAYS = 45;
 
+/**
+ * The same window for a listing that arrived by feed. A feed is polled every
+ * few hours, so a listing it stopped delivering for two weeks is gone in all
+ * but name; sources that prove absence outright close it sooner
+ * (search/jobs/feeds/presence.ts).
+ */
+export const JOB_FEED_STALE_AFTER_DAYS = 14;
+
+/** A listing with no active posting and no sighting for this long is deleted with its document. */
+export const JOB_RETENTION_DAYS = 90;
+
+/** The staleness window, in days, for a listing's source type. */
+export function staleAfterDays(sourceType: string | null | undefined): number {
+  return sourceType === 'feed' ? JOB_FEED_STALE_AFTER_DAYS : JOB_STALE_AFTER_DAYS;
+}
+
+/** SQL for the same window, per row. */
+function staleInterval(): SQL {
+  return sql`(case when ${jobPostings.sourceType} = 'feed' then interval '${sql.raw(String(JOB_FEED_STALE_AFTER_DAYS))} days' else interval '${sql.raw(String(JOB_STALE_AFTER_DAYS))} days' end)`;
+}
+
 /** Target recrawl cadence for a listing that is still active. */
 export const JOB_RECRAWL_INTERVAL_SECONDS = 86_400;
 
@@ -37,13 +58,14 @@ export function jobLifecycleStatus(input: {
   lastSeenAt: Date;
   closedAt?: Date | null;
   documentStatus?: string | null;
+  sourceType?: string | null;
   now?: Date;
 }): JobLifecycleStatus {
   const now = input.now ?? new Date();
   if (input.documentStatus === 'removed' || input.documentStatus === 'blocked') return 'removed';
   if (input.closedAt) return 'closed';
   if (input.validThrough) return input.validThrough.getTime() <= now.getTime() ? 'expired' : 'active';
-  const staleAfterMs = JOB_STALE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+  const staleAfterMs = staleAfterDays(input.sourceType) * 24 * 60 * 60 * 1000;
   return now.getTime() - input.lastSeenAt.getTime() > staleAfterMs ? 'stale' : 'active';
 }
 
@@ -56,7 +78,7 @@ export function activeJobPredicate(): SQL {
     ${jobPostings.status} = 'active'
     and ${jobPostings.closedAt} is null
     and (${jobPostings.validThrough} is null or ${jobPostings.validThrough} > now())
-    and (${jobPostings.validThrough} is not null or ${jobPostings.lastSeenAt} > now() - interval '${sql.raw(String(JOB_STALE_AFTER_DAYS))} days')
+    and (${jobPostings.validThrough} is not null or ${jobPostings.lastSeenAt} > now() - ${staleInterval()})
   )`;
 }
 
@@ -70,7 +92,6 @@ export interface JobLifecycleSweep {
 /** Reconciles stored statuses with the policy above. Safe to run repeatedly. */
 export async function sweepJobLifecycle(): Promise<JobLifecycleSweep> {
   const database = getDb();
-  const staleInterval = sql.raw(`interval '${JOB_STALE_AFTER_DAYS} days'`);
 
   const removed = await database.execute<{ id: string }>(sql`
     update ${jobPostings} set status = 'removed', updated_at = now()
@@ -91,7 +112,7 @@ export async function sweepJobLifecycle(): Promise<JobLifecycleSweep> {
     update ${jobPostings} set status = 'stale', updated_at = now()
     where ${jobPostings.status} = 'active'
       and ${jobPostings.validThrough} is null
-      and ${jobPostings.lastSeenAt} < now() - ${staleInterval}
+      and ${jobPostings.lastSeenAt} < now() - ${staleInterval()}
     returning ${jobPostings.id} as id`);
 
   const reactivated = await database.execute<{ id: string }>(sql`
@@ -99,7 +120,7 @@ export async function sweepJobLifecycle(): Promise<JobLifecycleSweep> {
     where ${jobPostings.status} in ('expired', 'stale')
       and ${jobPostings.closedAt} is null
       and (${jobPostings.validThrough} is null or ${jobPostings.validThrough} > now())
-      and (${jobPostings.validThrough} is not null or ${jobPostings.lastSeenAt} >= now() - ${staleInterval})
+      and (${jobPostings.validThrough} is not null or ${jobPostings.lastSeenAt} >= now() - ${staleInterval()})
     returning ${jobPostings.id} as id`);
 
   return {

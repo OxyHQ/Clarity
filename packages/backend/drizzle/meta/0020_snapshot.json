@@ -1,6 +1,6 @@
 {
-  "id": "bb02e1c2-dcac-41eb-a1ac-0c2a73c2e279",
-  "prevId": "95175b77-86c3-458c-bf6f-273b818a35e3",
+  "id": "e269c7c0-4913-4284-a132-aa8a831aa559",
+  "prevId": "58dfaf61-f439-4c0d-acd5-09d5cf3259e8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1290,6 +1290,88 @@
       },
       "isRLSEnabled": false
     },
+    "public.clarity_job_feed_listings": {
+      "name": "clarity_job_feed_listings",
+      "schema": "",
+      "columns": {
+        "feed_id": {
+          "name": "feed_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_id": {
+          "name": "document_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "clarity_job_feed_listings_document_idx": {
+          "name": "clarity_job_feed_listings_document_idx",
+          "columns": [
+            {
+              "expression": "document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "clarity_job_feed_listings_feed_id_clarity_job_feeds_id_fk": {
+          "name": "clarity_job_feed_listings_feed_id_clarity_job_feeds_id_fk",
+          "tableFrom": "clarity_job_feed_listings",
+          "columnsFrom": [
+            "feed_id"
+          ],
+          "tableTo": "clarity_job_feeds",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "clarity_job_feed_listings_document_id_clarity_search_documents_id_fk": {
+          "name": "clarity_job_feed_listings_document_id_clarity_search_documents_id_fk",
+          "tableFrom": "clarity_job_feed_listings",
+          "columnsFrom": [
+            "document_id"
+          ],
+          "tableTo": "clarity_search_documents",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "clarity_job_feed_listings_feed_id_document_id_pk": {
+          "name": "clarity_job_feed_listings_feed_id_document_id_pk",
+          "columns": [
+            "feed_id",
+            "document_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.clarity_job_feeds": {
       "name": "clarity_job_feeds",
       "schema": "",
@@ -1430,7 +1512,7 @@
       "checkConstraints": {
         "clarity_job_feeds_kind_check": {
           "name": "clarity_job_feeds_kind_check",
-          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap')"
+          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap', 'indeed_xml')"
         },
         "clarity_job_feeds_status_check": {
           "name": "clarity_job_feeds_status_check",

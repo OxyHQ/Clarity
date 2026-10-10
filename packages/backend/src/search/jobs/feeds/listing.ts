@@ -159,7 +159,7 @@ export function strings(value: unknown, limit = 50): string[] {
  * Canada or Germany, so a bare two-letter segment that is also a state code is
  * read as a region and no country is assumed.
  */
-const US_STATE_CODES: ReadonlySet<string> = new Set([
+export const US_STATE_CODES: ReadonlySet<string> = new Set([
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'DC', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA',
   'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR',
   'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',

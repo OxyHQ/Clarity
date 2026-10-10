@@ -13,6 +13,7 @@ const DNS_LABEL = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 export const pinpoint: JobFeedProvider = {
   kind: 'pinpoint',
   identifier: { meaning: 'the company subdomain in <company>.pinpointhq.com', shape: 'slug', pattern: DNS_LABEL },
+  completeListing: true,
   request: (identifier) => get(`https://${identifier}.pinpointhq.com/postings.json`),
   parse(body, context) {
     const payload = node(json(body, 'pinpoint'));

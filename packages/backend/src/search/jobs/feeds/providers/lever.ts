@@ -65,6 +65,7 @@ export const lever: JobFeedProvider = {
   identifier: { meaning: 'the company slug in jobs.lever.co/<slug>', shape: 'slug' },
   request: (identifier) => get(`https://api.lever.co/v0/postings/${encodeURIComponent(identifier)}?mode=json`),
   parse: parseLever,
+  completeListing: true,
 };
 
 export const leverEu: JobFeedProvider = {
@@ -72,4 +73,5 @@ export const leverEu: JobFeedProvider = {
   identifier: { meaning: 'the company slug in jobs.eu.lever.co/<slug>', shape: 'slug' },
   request: (identifier) => get(`https://api.eu.lever.co/v0/postings/${encodeURIComponent(identifier)}?mode=json`),
   parse: parseLever,
+  completeListing: true,
 };

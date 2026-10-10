@@ -29,6 +29,7 @@ function personioEmploymentTypes(schedule: string | undefined, employmentType: s
 export const personio: JobFeedProvider = {
   kind: 'personio',
   identifier: { meaning: 'the company subdomain in <company>.jobs.personio.de', shape: 'slug', pattern: DNS_LABEL },
+  completeListing: true,
   request: (identifier) => get(`https://${identifier}.jobs.personio.de/xml`, XML_ACCEPT),
   parse(body, context) {
     return page(elements(body, 'position').map((position) => {

@@ -47,6 +47,7 @@ import { eures } from './providers/eures.js';
 import { feinaactiva } from './providers/feinaactiva.js';
 import { karrierenrw } from './providers/karrierenrw.js';
 import { jobsadminch } from './providers/jobsadminch.js';
+import { indeedxml } from './providers/indeedxml.js';
 import { madgex } from './providers/madgex.js';
 import { getonboard } from './providers/getonboard.js';
 import { rssjsonld } from './providers/rssjsonld.js';
@@ -64,7 +65,7 @@ export const JOB_FEED_PROVIDERS: Readonly<Record<JobFeedKind, JobFeedProvider>> 
   // Public employment services and public-sector portals.
   eures, feinaactiva, karrierenrw, jobsadminch,
   // Any RSS or Atom job feed, and any sitemap of pages carrying JobPosting.
-  rss, rss_jsonld: rssjsonld, sitemap,
+  rss, rss_jsonld: rssjsonld, sitemap, indeed_xml: indeedxml,
 });
 
 export function jobFeedProvider(kind: JobFeedKind): JobFeedProvider {

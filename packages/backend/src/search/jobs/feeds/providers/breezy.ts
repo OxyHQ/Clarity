@@ -26,6 +26,7 @@ function breezyPlace(entry: Node) {
 export const breezy: JobFeedProvider = {
   kind: 'breezy',
   identifier: { meaning: 'the company subdomain in <company>.breezy.hr', shape: 'slug', pattern: DNS_LABEL },
+  completeListing: true,
   request: (identifier) => get(`https://${identifier}.breezy.hr/json?verbose=true`),
   parse(body, context) {
     return page(nodes(json(body, 'breezy')).map((job) => {

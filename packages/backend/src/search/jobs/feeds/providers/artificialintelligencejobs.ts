@@ -15,6 +15,7 @@ const PAGE_SIZE = 200;
 export const artificialintelligencejobs: JobFeedProvider = {
   kind: 'artificialintelligencejobs',
   identifier: { meaning: 'unused; leave it as the kind name', shape: 'none' },
+  completeListing: true,
   request: (_identifier, cursor) => get(withQuery('https://artificialintelligencejobs.co/api/jobs', { limit: PAGE_SIZE, offset: cursor ?? 0 })),
   terms: 'Attribution appreciated (link to artificialintelligencejobs.co); no bulk scraping that degrades the service.',
   parse(body, context) {

@@ -17,6 +17,7 @@ const PAGE_SIZE = 100;
 export const smartrecruiters: JobFeedProvider = {
   kind: 'smartrecruiters',
   identifier: { meaning: 'the company identifier in careers.smartrecruiters.com/<company>', shape: 'slug' },
+  completeListing: true,
   request: (identifier, cursor) => get(withQuery(
     `https://api.smartrecruiters.com/v1/companies/${encodeURIComponent(identifier)}/postings`,
     { limit: PAGE_SIZE, offset: cursor ?? 0 },

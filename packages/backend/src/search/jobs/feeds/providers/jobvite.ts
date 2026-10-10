@@ -24,6 +24,7 @@ function usDate(value: string | undefined): Date | undefined {
 export const jobvite: JobFeedProvider = {
   kind: 'jobvite',
   identifier: { meaning: '<slug>/<companyId> from jobs.jobvite.com/<slug>, e.g. nutanix/qKr9VfwZ', shape: 'slug', pattern: IDENTIFIER },
+  completeListing: true,
   request: (identifier) => get(`https://app.jobvite.com/CompanyJobs/Xml.aspx?c=${encodeURIComponent(IDENTIFIER.exec(identifier)?.[2] ?? '')}`, XML_ACCEPT),
   maxBodyBytes: 40 * 1024 * 1024,
   parse(body, context) {

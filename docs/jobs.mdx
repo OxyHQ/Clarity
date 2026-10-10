@@ -236,9 +236,9 @@ Listings expire faster than ordinary documents, so absence is a signal.
 | --- | --- |
 | `active` | Seen recently and not past `validThrough` |
 | `expired` | The source's `validThrough` has passed |
-| `closed` | The source withdrew it: HTTP 404/410, the page no longer carries a `JobPosting`, or a publisher close signal |
+| `closed` | The source withdrew it: HTTP 404/410 (on a recrawl, or from a feed's detail or posting page), the page no longer carries a `JobPosting`, a complete feed stopped listing it, or a publisher close signal |
 | `removed` | The underlying document was removed or blocked |
-| `stale` | No declared expiry and not re-observed for **45 days** |
+| `stale` | No declared expiry and not re-observed for **45 days** — **14 days** for a listing that arrived by feed, since feeds re-deliver every few hours |
 
 Only `active` is returned by default; expired and closed listings are never
 implied. They stay retrievable with an explicit `statuses` filter, and the
@@ -248,6 +248,23 @@ The policy is enforced twice: the worker sweeps stored statuses every 15
 minutes (and re-queues due job documents for verification on the same cadence,
 under the owner that originally requested them), and the same predicate is
 re-evaluated at query time so nothing can surface as active between sweeps.
+
+**Withdrawal by absence.** Crawled pages are re-verified by recrawl; feed
+listings are re-verified by their feed. `clarity_job_feed_listings` records
+which feed listed which document and when. A provider whose read lists every
+live posting (`completeListing`: ATS boards, whole-board dumps, sitemaps — not
+"latest N" RSS or capped search windows such as freehire, EURES or Workday)
+closes, after a read that reached the end from the top, every document it
+listed before and no longer does — unless another feed listed the same page in
+the last three days. A complete read that suddenly lists nothing closes
+nothing (an outage or a disabled feed is likelier than every posting withdrawn
+at once). A listing that comes back is reopened by its next ingest.
+
+**Retention.** A job document with no active listing and no sighting for
+**90 days** is deleted on the maintenance pass, 500 at a time — its listings,
+chunks, embeddings, signatures, reports and feed links go with it, and its
+clusters re-elect a canonical copy or disappear. Inactive listings stay
+retrievable with an explicit `statuses` filter until then.
 
 ## Canonicalization and deduplication
 
@@ -349,7 +366,7 @@ Jobs is a fraud-heavy category, so several mechanisms already narrow the surface
 - removed and blocked documents drop out of the corpus, and their listings
   become `removed`
 - duplicate grouping suppresses syndicated and mass-copied bodies
-- stale and expired listings leave active results on a documented schedule
+- stale and expired listings leave active results on a documented schedule, and are deleted after 90 days without a sighting
 - every result names the source domain, so a reader can judge provenance
 - a verified domain proves who controls a host, never that a listing on it is
   legitimate — Clarity does not treat verification as a trust signal for content

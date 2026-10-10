@@ -25,6 +25,7 @@ const SAMPLE_IDENTIFIERS: Partial<Record<(typeof JOB_FEED_KINDS)[number], string
   jibe: 'careers.mcafee.com',
   madgex: 'jobs.chronicle.com',
   rss_jsonld: 'https://djinni.co/jobs/rss/',
+  indeed_xml: 'https://aidevboard.com/feed/indeed.xml',
   eures: 'de',
 };
 

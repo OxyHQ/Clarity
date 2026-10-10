@@ -28,6 +28,7 @@ function types(contract: string | undefined, hours: string | undefined): JobEmpl
 export const feinaactiva: JobFeedProvider = {
   kind: 'feinaactiva',
   identifier: { meaning: 'unused; leave it as the kind name', shape: 'none' },
+  completeListing: true,
   request: () => get('https://feinaactiva.gencat.cat/api/offers/offers-xml', XML_ACCEPT),
   terms: 'Llicència oberta d\'ús d\'informació – Catalunya: free reuse, citing the source.',
   parse(body, context) {

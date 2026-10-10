@@ -20,6 +20,7 @@ function ripplingPlace(entry: Node) {
 export const rippling: JobFeedProvider = {
   kind: 'rippling',
   identifier: { meaning: 'the board slug in ats.rippling.com/<slug>/jobs', shape: 'slug', pattern: /^[a-z0-9][a-z0-9-]{0,100}$/ },
+  completeListing: true,
   request: (identifier, cursor) => get(
     `https://ats.rippling.com/api/v2/board/${encodeURIComponent(identifier)}/jobs?page=${Number(cursor ?? 0)}&pageSize=${PAGE_SIZE}`,
   ),

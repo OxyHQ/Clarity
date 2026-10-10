@@ -106,6 +106,12 @@ export interface JobFeedProvider {
   /** List pages per poll, the newest included, when the source asks for slower pacing than the default. */
   pagesPerPoll?: number;
   /**
+   * A read that reaches the end lists every live posting the source has — a
+   * whole ATS board or a full dump, not "the latest N" or a capped search
+   * window — so a posting it stops listing has been withdrawn.
+   */
+  completeListing?: boolean;
+  /**
    * The shortest poll interval the source's published terms allow. Registration
    * raises a shorter requested interval to this.
    */

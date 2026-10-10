@@ -25,6 +25,7 @@ function sitemapUrl(identifier: string): { url: string; prefix?: string } {
 export const sitemap: JobFeedProvider = {
   kind: 'sitemap',
   identifier: { meaning: 'the https URL of a sitemap of posting pages, optionally #/path/prefix/', shape: 'url' },
+  completeListing: true,
   request: (identifier) => get(sitemapUrl(identifier).url, XML_ACCEPT),
   // A large portal's sitemap of postings runs to several megabytes.
   maxBodyBytes: 40 * 1024 * 1024,

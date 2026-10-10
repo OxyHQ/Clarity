@@ -32,6 +32,7 @@ import { jobFeedRequest } from './endpoints.js';
 import { noindex } from './listing.js';
 import type { JobFeedContext, JobFeedPage, JobFeedPageReference, JobFeedRequest } from './provider.js';
 import { jobFeedProvider } from './registry.js';
+import { closeAbsentListings, closeGoneListing, recordFeedPresence } from './presence.js';
 import { FEED_USER_AGENT, assertRobotsAllow, robotsAllowUrl } from './robots.js';
 
 /** Feeds claimed per round, and how many of them are polled at once. */
@@ -80,6 +81,13 @@ export interface JobFeedPollOutcome {
   cursor: string | null;
   /** ATS boards the listings link to that this feed is not itself. */
   discovered: DiscoveredFeed[];
+  /** Listings closed because this complete read no longer lists them. */
+  closed: number;
+}
+
+/** A 404/410 from a listing's own source: the listing is gone, not unreachable. */
+function gone(error: unknown): boolean {
+  return error instanceof Error && /^feed responded (?:404|410)$/.test(error.message);
 }
 
 async function readBody(request: JobFeedRequest, maxBodyBytes = MAX_BODY_BYTES): Promise<string> {
@@ -171,9 +179,14 @@ export async function pollJobFeed(
 ): Promise<JobFeedPollOutcome> {
   const observedAt = new Date();
   const kind = feed.kind as JobFeedKind;
-  const { detail, listingPage, detailsPerPoll, pagesPerPoll } = jobFeedProvider(kind);
+  const { detail, listingPage, detailsPerPoll, pagesPerPoll, completeListing } = jobFeedProvider(kind);
+  /** Every listing URL the source listed this poll, ingested or not. */
+  const listed = new Set<string>();
+  const note = (url: string): void => {
+    try { listed.add(canonicalizePublicUrl(url)); } catch { /* not a public URL; nothing to record */ }
+  };
   const seen = new Set<string>();
-  const outcome: JobFeedPollOutcome = { stored: 0, rejected: 0, cursor: null, discovered: [] };
+  const outcome: JobFeedPollOutcome = { stored: 0, rejected: 0, cursor: null, discovered: [], closed: 0 };
   const boards = new Set<string>([`${feed.kind}:${feed.identifier}`]);
   const discover = (listing: ExtractedJobPosting): void => {
     for (const board of [boardFromUrl(listing.applyUrl), boardFromUrl(listing.canonicalUrl)]) {
@@ -206,7 +219,11 @@ export async function pollJobFeed(
       const body = await politeRead(request, pageDelayMs);
       const completed = detail.parse(body, listing, contextFor(request.url));
       return completed ? { structuredData: [jobPostingLd(completed)] } : undefined;
-    } catch {
+    } catch (error) {
+      if (gone(error)) {
+        await closeGoneListing(canonicalUrl);
+        return undefined;
+      }
       // A detail that cannot be read now is retried next poll; a stale copy
       // is better than none in the meantime.
       if (stored) return { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) };
@@ -236,7 +253,11 @@ export async function pollJobFeed(
       if (noindex(html)) return undefined;
       const read = listingPage.parse(html, reference, contextFor(canonicalUrl));
       return read ? { structuredData: [jobPostingLd(read)] } : undefined;
-    } catch {
+    } catch (error) {
+      if (gone(error)) {
+        await closeGoneListing(canonicalUrl);
+        return undefined;
+      }
       return stored ? { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) } : undefined;
     }
   };
@@ -309,13 +330,33 @@ export async function pollJobFeed(
   };
 
   const head = await readPage(feed, observedAt, 0);
-  await project(head.listings);
+  const noteAll = (page: JobFeedPage): void => {
+    for (const listing of page.listings) note(listing.canonicalUrl);
+    for (const reference of page.references ?? []) note(reference.url);
+  };
+  noteAll(head);
+  // A whole-board dump larger than one poll's budget is worked through in
+  // turns: each poll starts where the previous one stopped (`@<offset>`) and
+  // wraps around, so every listing is reached and none waits forever.
+  const dumpStart = !head.nextCursor && head.listings.length > MAX_LISTINGS_PER_POLL
+    ? (Number(/^@(\d+)$/.exec(feed.cursor ?? '')?.[1] ?? 0) % head.listings.length)
+    : 0;
+  await project([...head.listings.slice(dumpStart), ...head.listings.slice(0, dumpStart)]);
   await projectReferences(head.references ?? []);
   if (outcome.rejected > 0 && outcome.stored === 0) throw new Error('no listing in the feed could be projected');
+  if (!head.nextCursor) {
+    if (head.listings.length > MAX_LISTINGS_PER_POLL) outcome.cursor = `@${(dumpStart + MAX_LISTINGS_PER_POLL) % head.listings.length}`;
+    // One response is the whole source: everything it lists was just seen.
+    return settle(true);
+  }
 
   // A single-page source has nothing to resume. Otherwise continue the
   // backfill where the last poll stopped, or start it after the head page.
-  let cursor = head.nextCursor ? (feed.cursor ?? head.nextCursor) : undefined;
+  // A walk that starts right after the newest page and runs to the end
+  // without a failure has read the whole source.
+  const fromTheTop = !feed.cursor || feed.cursor.startsWith('@');
+  let walkFailed = false;
+  let cursor = head.nextCursor ? (fromTheTop ? head.nextCursor : feed.cursor ?? head.nextCursor) : undefined;
   let pages = 1;
   while (cursor && pages < (pagesPerPoll ?? PAGES_PER_POLL) && seen.size < MAX_LISTINGS_PER_POLL) {
     let next: JobFeedPage;
@@ -325,16 +366,27 @@ export async function pollJobFeed(
       // A cursor the source rejects on resume has expired: the walk restarts
       // from the top next time. A failure deeper in this walk is kept, so a
       // transient error does not throw away the progress made.
+      walkFailed = true;
       if (cursor === feed.cursor) cursor = undefined;
       break;
     }
+    noteAll(next);
     pages += 1;
     await project(next.listings);
     await projectReferences(next.references ?? []);
     cursor = next.listings.length > 0 || (next.references?.length ?? 0) > 0 ? next.nextCursor : undefined;
   }
   outcome.cursor = cursor ?? null;
-  return outcome;
+  return settle(fromTheTop && !walkFailed && cursor === undefined);
+
+  /** Records what was listed and, after a read of the whole source, closes what no longer is. */
+  async function settle(readEverything: boolean): Promise<JobFeedPollOutcome> {
+    await recordFeedPresence(feed.id, [...listed], observedAt);
+    // A complete read that suddenly lists nothing is far likelier an outage or
+    // a disabled feed than every posting withdrawn at once; it closes nothing.
+    if (completeListing && readEverything && listed.size > 0) outcome.closed = await closeAbsentListings(feed.id, observedAt);
+    return outcome;
+  }
 }
 
 function jobPostingLd(listing: ExtractedJobPosting): Record<string, unknown> {

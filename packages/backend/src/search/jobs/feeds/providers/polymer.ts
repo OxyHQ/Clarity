@@ -14,6 +14,7 @@ const SLUG = /^[a-z0-9][a-z0-9-]{0,100}$/;
 export const polymer: JobFeedProvider = {
   kind: 'polymer',
   identifier: { meaning: 'the organization slug in jobs.polymer.co/<slug>', shape: 'slug', pattern: SLUG },
+  completeListing: true,
   request: (identifier, cursor) => get(withQuery(
     `https://api.polymer.co/v1/hire/organizations/${encodeURIComponent(identifier)}/jobs`, { page: cursor },
   )),

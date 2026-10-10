@@ -102,7 +102,8 @@ export type JobFeedKind =
   | 'jobsadminch'
   | 'rss'
   | 'rss_jsonld'
-  | 'sitemap';
+  | 'sitemap'
+  | 'indeed_xml';
 
 export interface JobFeed {
   id: string;

@@ -27,6 +27,7 @@ function successPlace(raw: string | undefined) {
 export const successfactors: JobFeedProvider = {
   kind: 'successfactors',
   identifier: { meaning: 'the career site host of a SuccessFactors Recruiting Marketing site, e.g. jobs.schaeffler.com', shape: 'slug', pattern: HOST },
+  completeListing: true,
   request: (identifier) => get(`https://${identifier}/sitemal.xml`, XML_ACCEPT),
   maxBodyBytes: 40 * 1024 * 1024,
   parse(body, context) {

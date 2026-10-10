@@ -26,6 +26,7 @@ function workload(min: unknown, max: unknown): JobEmploymentType[] {
 export const jobsadminch: JobFeedProvider = {
   kind: 'jobsadminch',
   identifier: { meaning: 'unused; leave it as the kind name', shape: 'none' },
+  completeListing: true,
   request: (_identifier, cursor) => get(`https://ohws.prospective.ch/public/v1/medium/${MEDIUM}/jobs?lang=de&offset=${Number(cursor ?? 0) || 0}&limit=${PAGE_SIZE}`),
   parse(body, context) {
     const payload = node(json(body, 'jobsadminch'));

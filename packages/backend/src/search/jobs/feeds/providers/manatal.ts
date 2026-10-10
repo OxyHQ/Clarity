@@ -10,6 +10,7 @@ import {
 export const manatal: JobFeedProvider = {
   kind: 'manatal',
   identifier: { meaning: 'the career page slug in careers-page.com/<slug>', shape: 'slug', pattern: /^[a-z0-9][a-z0-9-]{0,100}$/ },
+  completeListing: true,
   request: (identifier, cursor) => get(withQuery(
     `https://api.manatal.com/open/v3/career-page/${encodeURIComponent(identifier)}/jobs/`,
     { page_size: 100, page: cursor },
