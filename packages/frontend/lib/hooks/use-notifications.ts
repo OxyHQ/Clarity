@@ -55,8 +55,7 @@ export function useMarkAsRead() {
   const client = useApiClient();
 
   return useMutation({
-    mutationFn: (notificationId: string) =>
-      client.patch(`/notifications/${notificationId}/read`),
+    mutationFn: (notificationId: string) => client.patch(`/notifications/${notificationId}/read`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['notifications'] });
     },

@@ -38,7 +38,9 @@ describe('net-utils', () => {
   describe('parseForwardedForClientIp', () => {
     it('extracts first IP from X-Forwarded-For', () => {
       expect(parseForwardedForClientIp('203.0.113.50')).toBe('203.0.113.50');
-      expect(parseForwardedForClientIp('203.0.113.50, 70.41.3.18, 150.172.238.178')).toBe('203.0.113.50');
+      expect(parseForwardedForClientIp('203.0.113.50, 70.41.3.18, 150.172.238.178')).toBe(
+        '203.0.113.50',
+      );
     });
 
     it('normalizes IPv4-mapped IPv6', () => {

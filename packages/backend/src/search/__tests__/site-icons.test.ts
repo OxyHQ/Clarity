@@ -22,7 +22,9 @@ describe('sniffImageType', () => {
     expect(sniffImageType(Buffer.from('GIF89a...'))).toBe('image/gif');
     expect(sniffImageType(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg');
     expect(sniffImageType(Buffer.from('RIFF\0\0\0\0WEBPVP8 '))).toBe('image/webp');
-    expect(sniffImageType(Buffer.from('  <svg xmlns="http://www.w3.org/2000/svg"></svg>'))).toBe('image/svg+xml');
+    expect(sniffImageType(Buffer.from('  <svg xmlns="http://www.w3.org/2000/svg"></svg>'))).toBe(
+      'image/svg+xml',
+    );
     expect(sniffImageType(Buffer.from('<?xml version="1.0"?><svg></svg>'))).toBe('image/svg+xml');
   });
 
@@ -40,7 +42,9 @@ describe('hosts', () => {
   });
 
   it('serves icons from Clarity', () => {
-    expect(siteIconUrl('www.gsmarena.com')).toBe('https://api.clarity.surf/favicons/www.gsmarena.com');
+    expect(siteIconUrl('www.gsmarena.com')).toBe(
+      'https://api.clarity.surf/favicons/www.gsmarena.com',
+    );
   });
 
   it('accepts only public DNS names on the public route', () => {
@@ -59,15 +63,26 @@ describe('fetchSiteIcon', () => {
   it('takes the icon the crawled page declared first', async () => {
     safeFetch.mockResolvedValueOnce(answer(200, PNG, 'https://cdn.example.com/icon.png'));
     const icon = await fetchSiteIcon('example.com', 'https://cdn.example.com/icon.png');
-    expect(icon).toMatchObject({ contentType: 'image/png', sourceUrl: 'https://cdn.example.com/icon.png' });
+    expect(icon).toMatchObject({
+      contentType: 'image/png',
+      sourceUrl: 'https://cdn.example.com/icon.png',
+    });
     expect(safeFetch).toHaveBeenCalledTimes(1);
   });
 
   it('falls back to the home page declaration, then /favicon.ico', async () => {
     safeFetch
       .mockResolvedValueOnce(answer(404, '', 'https://example.com/missing.png'))
-      .mockResolvedValueOnce(answer(200, '<html><head><link rel="shortcut icon" href="/brand.ico"></head></html>', 'https://example.com/'))
-      .mockResolvedValueOnce(answer(200, '<!doctype html>not an icon', 'https://example.com/brand.ico'))
+      .mockResolvedValueOnce(
+        answer(
+          200,
+          '<html><head><link rel="shortcut icon" href="/brand.ico"></head></html>',
+          'https://example.com/',
+        ),
+      )
+      .mockResolvedValueOnce(
+        answer(200, '<!doctype html>not an icon', 'https://example.com/brand.ico'),
+      )
       .mockResolvedValueOnce(answer(200, ICO, 'https://example.com/favicon.ico'));
 
     const icon = await fetchSiteIcon('example.com', 'https://example.com/missing.png');
@@ -78,7 +93,10 @@ describe('fetchSiteIcon', () => {
       'https://example.com/brand.ico',
       'https://example.com/favicon.ico',
     ]);
-    expect(icon).toMatchObject({ contentType: 'image/x-icon', sourceUrl: 'https://example.com/favicon.ico' });
+    expect(icon).toMatchObject({
+      contentType: 'image/x-icon',
+      sourceUrl: 'https://example.com/favicon.ico',
+    });
   });
 
   it('gives up, rather than storing something too large or a fetch that failed', async () => {

@@ -10,7 +10,9 @@ describe('resolveFaviconUrl', () => {
   });
 
   it('accepts a bare hostname, and another Clarity origin', () => {
-    expect(resolveFaviconUrl('news.example.com')).toBe('https://api.clarity.surf/favicons/news.example.com');
+    expect(resolveFaviconUrl('news.example.com')).toBe(
+      'https://api.clarity.surf/favicons/news.example.com',
+    );
     expect(resolveFaviconUrl('news.example.com', { baseUrl: 'http://localhost:3001/' })).toBe(
       'http://localhost:3001/favicons/news.example.com',
     );
@@ -45,7 +47,9 @@ describe('resolveFaviconForImageUrl', () => {
   it('does not classify arbitrary icons, relative paths or malformed resources', () => {
     expect(resolveFaviconForImageUrl('https://example.com/assets/favicon.ico')).toBeNull();
     expect(resolveFaviconForImageUrl('/favicon.ico')).toBeNull();
-    expect(resolveFaviconForImageUrl('https://cdn.example/logo.svg;a=https://secret.example')).toBeNull();
+    expect(
+      resolveFaviconForImageUrl('https://cdn.example/logo.svg;a=https://secret.example'),
+    ).toBeNull();
   });
 
   it('rejects non-http resources', () => {

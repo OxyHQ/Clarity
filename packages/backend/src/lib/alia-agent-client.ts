@@ -1,10 +1,6 @@
 import type { Request, Response } from 'express';
 
-import {
-  getClarityModel,
-  getDefaultClarityModel,
-  type ClarityModel,
-} from './clarity-models.js';
+import { getClarityModel, getDefaultClarityModel, type ClarityModel } from './clarity-models.js';
 import { CLARITY_AGENT_MANIFEST } from './clarity-agent-manifest.js';
 import { getClarityServiceToken } from './clarity-service-auth.js';
 import { getUserEntitlements } from './plan-access.js';
@@ -20,14 +16,47 @@ const ALIA_CHAT_PATH = '/alia/chat';
 // short request timeout.
 const UPSTREAM_TIMEOUT_MS = 15 * 60_000;
 const FORBIDDEN_CLIENT_CONTROLS = new Set([
-  'agentId', 'agentMode', 'skillId', 'skillIds', 'mcpServerId', 'fallbackPolicy',
-  'reasoningEffort', 'thinkingMode', 'webSearch', 'tools', 'tool_choice', 'system', 'instructions',
-  'userId', 'oxyUserId', 'ownerAccountId', 'projectAccountId', 'applicationId', 'credentialId',
-  'serviceToken', 'accessToken', 'authorization',
-  'agent_id', 'agent_mode', 'skill_id', 'skill_ids', 'mcp_server_id', 'fallback_policy',
-  'reasoning_effort', 'thinking_mode', 'web_search', 'user_id', 'oxy_user_id',
-  'owner_account_id', 'project_account_id', 'application_id', 'credential_id',
-  'service_token', 'access_token', 'bearerToken', 'bearer_token',
+  'agentId',
+  'agentMode',
+  'skillId',
+  'skillIds',
+  'mcpServerId',
+  'fallbackPolicy',
+  'reasoningEffort',
+  'thinkingMode',
+  'webSearch',
+  'tools',
+  'tool_choice',
+  'system',
+  'instructions',
+  'userId',
+  'oxyUserId',
+  'ownerAccountId',
+  'projectAccountId',
+  'applicationId',
+  'credentialId',
+  'serviceToken',
+  'accessToken',
+  'authorization',
+  'agent_id',
+  'agent_mode',
+  'skill_id',
+  'skill_ids',
+  'mcp_server_id',
+  'fallback_policy',
+  'reasoning_effort',
+  'thinking_mode',
+  'web_search',
+  'user_id',
+  'oxy_user_id',
+  'owner_account_id',
+  'project_account_id',
+  'application_id',
+  'credential_id',
+  'service_token',
+  'access_token',
+  'bearerToken',
+  'bearer_token',
 ]);
 const MAX_MESSAGE_COUNT = 100;
 const MAX_MESSAGE_ID_LENGTH = 128;
@@ -54,11 +83,19 @@ export function getAliaBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
   if (!['http:', 'https:'].includes(parsed.protocol)) {
     throw new AliaAgentConfigurationError('ALIA_API_URL must use HTTP or HTTPS.');
   }
-  if (parsed.username || parsed.password || parsed.search || parsed.hash || parsed.pathname !== '/') {
+  if (
+    parsed.username ||
+    parsed.password ||
+    parsed.search ||
+    parsed.hash ||
+    parsed.pathname !== '/'
+  ) {
     throw new AliaAgentConfigurationError('ALIA_API_URL must be a plain origin.');
   }
   if (env.NODE_ENV === 'production' && parsed.origin !== DEFAULT_ALIA_API_URL) {
-    throw new AliaAgentConfigurationError('Production ALIA_API_URL must use the canonical Alia origin.');
+    throw new AliaAgentConfigurationError(
+      'Production ALIA_API_URL must use the canonical Alia origin.',
+    );
   }
   return parsed.toString().replace(/\/$/, '');
 }
@@ -66,9 +103,7 @@ export function getAliaBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
 export function getAliaAgentConfig(env: NodeJS.ProcessEnv = process.env): AliaAgentConfig {
   const agentId = env.CLARITY_ALIA_AGENT_ID;
   if (agentId !== CLARITY_AGENT_MANIFEST.agentId) {
-    throw new AliaAgentConfigurationError(
-      'The Clarity Alia agent has not been provisioned.',
-    );
+    throw new AliaAgentConfigurationError('The Clarity Alia agent has not been provisioned.');
   }
 
   return {
@@ -79,7 +114,8 @@ export function getAliaAgentConfig(env: NodeJS.ProcessEnv = process.env): AliaAg
 
 function validateMessages(body: Record<string, unknown>): Array<Record<string, unknown>> | null {
   const messages = body.messages ?? body.input;
-  if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGE_COUNT) return null;
+  if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGE_COUNT)
+    return null;
   const sanitized: Array<Record<string, unknown>> = [];
   let totalContentLength = 0;
   for (const value of messages) {
@@ -88,9 +124,13 @@ function validateMessages(body: Record<string, unknown>): Array<Record<string, u
     if (message.role !== 'user' && message.role !== 'assistant') {
       throw new TypeError('forbidden_message_role');
     }
-    if (message.id !== undefined && (
-      typeof message.id !== 'string' || message.id.length === 0 || message.id.length > MAX_MESSAGE_ID_LENGTH
-    )) return null;
+    if (
+      message.id !== undefined &&
+      (typeof message.id !== 'string' ||
+        message.id.length === 0 ||
+        message.id.length > MAX_MESSAGE_ID_LENGTH)
+    )
+      return null;
     const safeContent = sanitizeContent(message.content);
     if (!safeContent) return null;
     totalContentLength += safeContent.length;
@@ -106,9 +146,12 @@ function validateMessages(body: Record<string, unknown>): Array<Record<string, u
 
 function sanitizeContent(value: unknown): { content: unknown; length: number } | null {
   if (typeof value === 'string') {
-    return value.length <= MAX_TEXT_CONTENT_LENGTH ? { content: value, length: value.length } : null;
+    return value.length <= MAX_TEXT_CONTENT_LENGTH
+      ? { content: value, length: value.length }
+      : null;
   }
-  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_MULTIPART_COUNT) return null;
+  if (!Array.isArray(value) || value.length === 0 || value.length > MAX_MULTIPART_COUNT)
+    return null;
   let length = 0;
   const content: Array<Record<string, unknown>> = [];
   for (const part of value) {
@@ -120,7 +163,8 @@ function sanitizeContent(value: unknown): { content: unknown; length: number } |
       content.push({ type: 'text', text: item.text });
       continue;
     }
-    if (item.type !== 'image_url' || !item.image_url || typeof item.image_url !== 'object') return null;
+    if (item.type !== 'image_url' || !item.image_url || typeof item.image_url !== 'object')
+      return null;
     const url = (item.image_url as Record<string, unknown>).url;
     if (typeof url !== 'string' || url.length > MAX_DATA_IMAGE_URL_LENGTH) return null;
     if (!/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(url)) return null;
@@ -163,7 +207,7 @@ export async function completeAsClarityAgent(input: {
   if (!response.ok) {
     throw new Error(`Alia request failed with status ${response.status}`);
   }
-  const body = await response.json() as {
+  const body = (await response.json()) as {
     choices?: Array<{ message?: { content?: unknown } }>;
   };
   const content = body.choices?.[0]?.message?.content;
@@ -188,9 +232,7 @@ export function prepareAliaRequest(
   const messages = validateMessages(body);
   if (!messages) throw new TypeError('invalid_messages');
 
-  const requestedModelId = typeof body.model === 'string'
-    ? body.model
-    : getDefaultClarityModel();
+  const requestedModelId = typeof body.model === 'string' ? body.model : getDefaultClarityModel();
   const clarityModel = getClarityModel(requestedModelId);
   if (!clarityModel) throw new TypeError('model_not_found');
 
@@ -202,7 +244,11 @@ export function prepareAliaRequest(
   };
 
   if (body.conversationId !== undefined) {
-    if (typeof body.conversationId !== 'string' || body.conversationId.length === 0 || body.conversationId.length > 128) {
+    if (
+      typeof body.conversationId !== 'string' ||
+      body.conversationId.length === 0 ||
+      body.conversationId.length > 128
+    ) {
       throw new TypeError('invalid_conversation_id');
     }
     upstreamBody.conversationId = body.conversationId;
@@ -233,11 +279,7 @@ function rewriteModelEnvelope(value: unknown, clarityModelId: string): unknown {
 
 type SseObserver = (eventName: string, payload: unknown) => void;
 
-function rewriteSseFrame(
-  frame: string,
-  clarityModelId: string,
-  observer?: SseObserver,
-): string {
+function rewriteSseFrame(frame: string, clarityModelId: string, observer?: SseObserver): string {
   const lines = frame.split(/\r?\n/);
   let eventName = '';
   for (const line of lines) {
@@ -247,22 +289,24 @@ function rewriteSseFrame(
   // An internal routing switch must not change Clarity's selected product ID.
   if (eventName === 'alia.model_switch') return '';
 
-  return lines.map((line) => {
-    if (line.startsWith('event: alia.')) {
-      return `event: clarity.${line.slice('event: alia.'.length)}`;
-    }
-    if (!line.startsWith('data:')) return line;
+  return lines
+    .map((line) => {
+      if (line.startsWith('event: alia.')) {
+        return `event: clarity.${line.slice('event: alia.'.length)}`;
+      }
+      if (!line.startsWith('data:')) return line;
 
-    const rawData = line.slice(5).trimStart();
-    if (rawData === '[DONE]' || rawData === '') return line;
-    try {
-      const parsed = JSON.parse(rawData);
-      observer?.(eventName, parsed);
-      return `data: ${JSON.stringify(rewriteModelEnvelope(parsed, clarityModelId))}`;
-    } catch {
-      return line;
-    }
-  }).join('\n');
+      const rawData = line.slice(5).trimStart();
+      if (rawData === '[DONE]' || rawData === '') return line;
+      try {
+        const parsed = JSON.parse(rawData);
+        observer?.(eventName, parsed);
+        return `data: ${JSON.stringify(rewriteModelEnvelope(parsed, clarityModelId))}`;
+      } catch {
+        return line;
+      }
+    })
+    .join('\n');
 }
 
 export class ClaritySseTransformer {
@@ -367,11 +411,13 @@ export async function proxyAliaJson(
     res.status(401).json({ error: 'An authenticated Oxy user session is required.' });
     return;
   }
-  const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body)
-    ? req.body as Record<string, unknown>
-    : {};
-  const unsafeControl = [...Object.keys(req.query), ...Object.keys(body)]
-    .find((key) => FORBIDDEN_CLIENT_CONTROLS.has(key));
+  const body =
+    req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+      ? (req.body as Record<string, unknown>)
+      : {};
+  const unsafeControl = [...Object.keys(req.query), ...Object.keys(body)].find((key) =>
+    FORBIDDEN_CLIENT_CONTROLS.has(key),
+  );
   if (unsafeControl) {
     res.status(400).json({ error: 'Client-supplied agent controls are not accepted.' });
     return;
@@ -395,9 +441,7 @@ export async function proxyAliaJson(
         ? {}
         : { 'Content-Type': 'application/json' }),
     },
-    ...(req.method === 'GET' || req.method === 'HEAD'
-      ? {}
-      : { body: JSON.stringify(body) }),
+    ...(req.method === 'GET' || req.method === 'HEAD' ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(options.timeoutMs ?? 30_000),
   });
   const responseBody = await upstream.text();
@@ -445,12 +489,16 @@ export async function proxyClarityChat(req: Request, res: Response): Promise<voi
   try {
     config = getAliaAgentConfig();
     const requestedBody = req.body as Record<string, unknown>;
-    const requestedModel = typeof requestedBody.model === 'string'
-      ? requestedBody.model
-      : getDefaultClarityModel();
+    const requestedModel =
+      typeof requestedBody.model === 'string' ? requestedBody.model : getDefaultClarityModel();
     const entitlements = await getUserEntitlements(userId);
     if (!entitlements.allowedModelIds.includes(requestedModel)) {
-      sendProxyError(res, 403, 'MODEL_NOT_IN_PLAN', 'The requested Clarity model is not available in this plan.');
+      sendProxyError(
+        res,
+        403,
+        'MODEL_NOT_IN_PLAN',
+        'The requested Clarity model is not available in this plan.',
+      );
       return;
     }
     prepared = prepareAliaRequest(requestedBody, {
@@ -470,19 +518,39 @@ export async function proxyClarityChat(req: Request, res: Response): Promise<voi
       return;
     }
     if (error instanceof TypeError && error.message === 'forbidden_agent_control') {
-      sendProxyError(res, 400, 'forbidden_agent_control', 'Client-supplied agent controls are not accepted.');
+      sendProxyError(
+        res,
+        400,
+        'forbidden_agent_control',
+        'Client-supplied agent controls are not accepted.',
+      );
       return;
     }
     if (error instanceof TypeError && error.message === 'forbidden_message_role') {
-      sendProxyError(res, 400, 'forbidden_message_role', 'Only user and assistant messages are accepted.');
+      sendProxyError(
+        res,
+        400,
+        'forbidden_message_role',
+        'Only user and assistant messages are accepted.',
+      );
       return;
     }
     if (error instanceof TypeError && error.message === 'invalid_conversation_id') {
-      sendProxyError(res, 400, 'invalid_conversation_id', 'conversationId must be a non-empty string of at most 128 characters.');
+      sendProxyError(
+        res,
+        400,
+        'invalid_conversation_id',
+        'conversationId must be a non-empty string of at most 128 characters.',
+      );
       return;
     }
     if (error instanceof TypeError && error.message === 'feature_not_allowed') {
-      sendProxyError(res, 403, 'FEATURE_NOT_IN_PLAN', 'Deep research is not available in this plan.');
+      sendProxyError(
+        res,
+        403,
+        'FEATURE_NOT_IN_PLAN',
+        'Deep research is not available in this plan.',
+      );
       return;
     }
     if (error instanceof TypeError && error.message === 'invalid_deep_research') {
@@ -515,9 +583,12 @@ export async function proxyClarityChat(req: Request, res: Response): Promise<voi
 
     if (!upstream.ok) {
       const body = await upstream.text();
-      res.status(upstream.status).send(body || JSON.stringify({
-        error: { message: 'Alia rejected the Clarity turn.', code: 'alia_request_failed' },
-      }));
+      res.status(upstream.status).send(
+        body ||
+          JSON.stringify({
+            error: { message: 'Alia rejected the Clarity turn.', code: 'alia_request_failed' },
+          }),
+      );
       return;
     }
 
@@ -535,9 +606,9 @@ export async function proxyClarityChat(req: Request, res: Response): Promise<voi
           assistantResponse,
         }).catch((error) => log.v1.error({ err: error }, 'Could not persist Clarity turn'));
       }
-      res.status(upstream.status).json(
-        rewriteModelEnvelope(upstreamBody, prepared.clarityModel.id),
-      );
+      res
+        .status(upstream.status)
+        .json(rewriteModelEnvelope(upstreamBody, prepared.clarityModel.id));
       return;
     }
 
@@ -550,23 +621,27 @@ export async function proxyClarityChat(req: Request, res: Response): Promise<voi
     let assistantResponse = '';
     let title: string | undefined;
     const toolSources = createToolSourceCollector();
-    const transformer = new ClaritySseTransformer(prepared.clarityModel.id, (eventName, payload) => {
-      toolSources.observe(eventName, payload);
-      if (!payload || typeof payload !== 'object') return;
-      const object = payload as Record<string, unknown>;
-      if (eventName === 'alia.title' && typeof object.title === 'string') {
-        title = object.title;
-      }
-      const choices = object.choices;
-      if (!Array.isArray(choices)) return;
-      const delta = choices[0] && typeof choices[0] === 'object'
-        ? (choices[0] as Record<string, unknown>).delta
-        : null;
-      if (delta && typeof delta === 'object') {
-        const content = (delta as Record<string, unknown>).content;
-        if (typeof content === 'string') assistantResponse += content;
-      }
-    });
+    const transformer = new ClaritySseTransformer(
+      prepared.clarityModel.id,
+      (eventName, payload) => {
+        toolSources.observe(eventName, payload);
+        if (!payload || typeof payload !== 'object') return;
+        const object = payload as Record<string, unknown>;
+        if (eventName === 'alia.title' && typeof object.title === 'string') {
+          title = object.title;
+        }
+        const choices = object.choices;
+        if (!Array.isArray(choices)) return;
+        const delta =
+          choices[0] && typeof choices[0] === 'object'
+            ? (choices[0] as Record<string, unknown>).delta
+            : null;
+        if (delta && typeof delta === 'object') {
+          const content = (delta as Record<string, unknown>).content;
+          if (typeof content === 'string') assistantResponse += content;
+        }
+      },
+    );
     const reader = upstream.body.getReader();
     while (true) {
       const { done, value } = await reader.read();

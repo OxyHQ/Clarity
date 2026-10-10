@@ -1,8 +1,8 @@
-import React from "react";
-import { View } from "react-native";
-import { cn } from "@/lib/utils";
-import { ChatTextInput } from "../chat-text-input";
-import { usePromptInput } from "./context";
+import React from 'react';
+import { View } from 'react-native';
+import { cn } from '@/lib/utils';
+import { ChatTextInput } from '../chat-text-input';
+import { usePromptInput } from './context';
 
 export type PromptInputTextareaProps = {
   placeholder?: string;
@@ -43,9 +43,9 @@ export function PromptInputTextarea({
       onImagePaste={onImagePaste}
       fillContainer={isFullscreen}
       className={cn(
-        "w-full border-0 bg-transparent text-foreground shadow-none",
-        isFullscreen ? "px-4 pt-4" : "min-h-[44px] py-3",
-        className
+        'w-full border-0 bg-transparent text-foreground shadow-none',
+        isFullscreen ? 'px-4 pt-4' : 'min-h-[44px] py-3',
+        className,
       )}
       style={[style, isFullscreen && { paddingBottom: 100 }]}
       placeholder={placeholder}

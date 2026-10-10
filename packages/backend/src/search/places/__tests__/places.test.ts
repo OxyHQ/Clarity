@@ -1,15 +1,25 @@
 import { deflateRawSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 
-import {
-  parseAdmin1Codes, parseGazetteer, readZipEntry, subdivisionCode,
-} from '../geonames.js';
+import { parseAdmin1Codes, parseGazetteer, readZipEntry, subdivisionCode } from '../geonames.js';
 import { foldPlaceName, geonamesIdFromUri, matchPlace, type PlaceCandidate } from '../resolve.js';
 
-function city(id: string, name: string, countryCode: string, extra: Partial<PlaceCandidate> = {}): PlaceCandidate {
+function city(
+  id: string,
+  name: string,
+  countryCode: string,
+  extra: Partial<PlaceCandidate> = {},
+): PlaceCandidate {
   return {
-    id, kind: 'city', name, asciiName: name, countryCode, admin1Name: null,
-    matchNames: [foldPlaceName(name)], population: 1000, ...extra,
+    id,
+    kind: 'city',
+    name,
+    asciiName: name,
+    countryCode,
+    admin1Name: null,
+    matchNames: [foldPlaceName(name)],
+    population: 1000,
+    ...extra,
   };
 }
 
@@ -17,7 +27,12 @@ describe('GeoNames place references', () => {
   it('reads the id from www, sws and bare GeoNames URIs only', () => {
     expect(geonamesIdFromUri('https://www.geonames.org/3128760')).toBe('3128760');
     expect(geonamesIdFromUri('https://sws.geonames.org/3128760/')).toBe('3128760');
-    expect(geonamesIdFromUri(['https://en.wikipedia.org/wiki/Barcelona', 'http://geonames.org/3128760/barcelona.html'])).toBe('3128760');
+    expect(
+      geonamesIdFromUri([
+        'https://en.wikipedia.org/wiki/Barcelona',
+        'http://geonames.org/3128760/barcelona.html',
+      ]),
+    ).toBe('3128760');
     expect(geonamesIdFromUri('https://evil.example/geonames.org/1')).toBeUndefined();
     expect(geonamesIdFromUri('3128760')).toBeUndefined();
   });
@@ -34,53 +49,113 @@ describe('matchPlace', () => {
   ];
 
   it('resolves an exact name or an alternate name inside the stated country', () => {
-    expect(matchPlace(candidates, { countryCode: 'DE', locality: 'München' })).toMatchObject({ status: 'resolved', place: { id: '3' } });
-    expect(matchPlace(candidates, { countryCode: 'DE', locality: 'munich' })).toMatchObject({ status: 'resolved', place: { id: '3' } });
+    expect(matchPlace(candidates, { countryCode: 'DE', locality: 'München' })).toMatchObject({
+      status: 'resolved',
+      place: { id: '3' },
+    });
+    expect(matchPlace(candidates, { countryCode: 'DE', locality: 'munich' })).toMatchObject({
+      status: 'resolved',
+      place: { id: '3' },
+    });
   });
 
   it('never crosses the stated country', () => {
-    expect(matchPlace(candidates, { countryCode: 'ES', locality: 'Barcelona' })).toEqual({ status: 'not_found' });
+    expect(matchPlace(candidates, { countryCode: 'ES', locality: 'Barcelona' })).toEqual({
+      status: 'not_found',
+    });
   });
 
   it('uses a stated region only to break a tie, and otherwise reports ambiguity', () => {
-    expect(matchPlace(candidates, { countryCode: 'US', locality: 'Springfield', region: 'Illinois' }))
-      .toMatchObject({ status: 'resolved', place: { id: '1' } });
+    expect(
+      matchPlace(candidates, { countryCode: 'US', locality: 'Springfield', region: 'Illinois' }),
+    ).toMatchObject({ status: 'resolved', place: { id: '1' } });
     const ambiguous = matchPlace(candidates, { countryCode: 'US', locality: 'Springfield' });
     expect(ambiguous.status).toBe('ambiguous');
-    expect(ambiguous.status === 'ambiguous' && ambiguous.candidates.map((place) => place.id)).toEqual(['2', '1']);
+    expect(
+      ambiguous.status === 'ambiguous' && ambiguous.candidates.map((place) => place.id),
+    ).toEqual(['2', '1']);
   });
 
   it('does not resolve a locality to a region', () => {
-    expect(matchPlace(candidates, { countryCode: 'ES', locality: 'Catalonia' })).toEqual({ status: 'not_found' });
+    expect(matchPlace(candidates, { countryCode: 'ES', locality: 'Catalonia' })).toEqual({
+      status: 'not_found',
+    });
   });
 });
 
 describe('GeoNames dump parsing', () => {
-  const admin1 = parseAdmin1Codes([
-    'ES.56\tCatalonia\tCatalonia\t3336901',
-    'US.CA\tCalifornia\tCalifornia\t5332921',
-    'XK.01\tPristina\tPristina\t786712',
-    'broken line',
-  ].join('\n'));
+  const admin1 = parseAdmin1Codes(
+    [
+      'ES.56\tCatalonia\tCatalonia\t3336901',
+      'US.CA\tCalifornia\tCalifornia\t5332921',
+      'XK.01\tPristina\tPristina\t786712',
+      'broken line',
+    ].join('\n'),
+  );
 
-  const row = (columns: Record<number, string>) => Array.from({ length: 19 }, (_, index) => columns[index] ?? '').join('\t');
+  const row = (columns: Record<number, string>) =>
+    Array.from({ length: 19 }, (_, index) => columns[index] ?? '').join('\t');
   const cities = [
-    row({ 0: '3128760', 1: 'Barcelona', 2: 'Barcelona', 3: 'BCN,Barcelone,Barcellona,https://en.wikipedia.org/wiki/Barcelona', 4: '41.38879', 5: '2.15899', 6: 'P', 7: 'PPLA', 8: 'ES', 10: '56', 14: '1686208', 17: 'Europe/Madrid', 18: '2024-01-10' }),
-    row({ 0: '5391959', 1: 'San Francisco', 2: 'San Francisco', 6: 'P', 7: 'PPLA2', 8: 'US', 10: 'CA', 14: '827526', 17: 'America/Los_Angeles', 18: '2024-02-01' }),
-    row({ 0: '786714', 1: 'Pristina', 2: 'Pristina', 6: 'P', 7: 'PPLC', 8: 'XK', 10: '01', 14: '161751' }),
+    row({
+      0: '3128760',
+      1: 'Barcelona',
+      2: 'Barcelona',
+      3: 'BCN,Barcelone,Barcellona,https://en.wikipedia.org/wiki/Barcelona',
+      4: '41.38879',
+      5: '2.15899',
+      6: 'P',
+      7: 'PPLA',
+      8: 'ES',
+      10: '56',
+      14: '1686208',
+      17: 'Europe/Madrid',
+      18: '2024-01-10',
+    }),
+    row({
+      0: '5391959',
+      1: 'San Francisco',
+      2: 'San Francisco',
+      6: 'P',
+      7: 'PPLA2',
+      8: 'US',
+      10: 'CA',
+      14: '827526',
+      17: 'America/Los_Angeles',
+      18: '2024-02-01',
+    }),
+    row({
+      0: '786714',
+      1: 'Pristina',
+      2: 'Pristina',
+      6: 'P',
+      7: 'PPLC',
+      8: 'XK',
+      10: '01',
+      14: '161751',
+    }),
     row({ 0: '1', 1: 'Not a place', 2: 'Not a place', 6: 'H', 8: 'ES' }),
   ].join('\r\n');
 
   it('builds regions and cities, and skips countries outside COUNTRY_CODES', () => {
     const { records, skippedCountries } = parseGazetteer(cities, admin1);
     expect(records.map((record) => `${record.kind}:${record.id}`)).toEqual([
-      'region:3336901', 'region:5332921', 'city:3128760', 'city:5391959',
+      'region:3336901',
+      'region:5332921',
+      'city:3128760',
+      'city:5391959',
     ]);
     expect(skippedCountries.get('XK')).toBe(2);
     const barcelona = records.find((record) => record.id === '3128760');
     expect(barcelona).toMatchObject({
-      name: 'Barcelona', searchName: 'barcelona', countryCode: 'ES', admin1Code: '56', admin1Name: 'Catalonia',
-      subdivisionCode: null, population: 1686208, latitude: 41.38879, timezone: 'Europe/Madrid',
+      name: 'Barcelona',
+      searchName: 'barcelona',
+      countryCode: 'ES',
+      admin1Code: '56',
+      admin1Name: 'Catalonia',
+      subdivisionCode: null,
+      population: 1686208,
+      latitude: 41.38879,
+      timezone: 'Europe/Madrid',
     });
     expect(barcelona?.matchNames).toEqual(['barcelona', 'bcn', 'barcelone', 'barcellona']);
     expect(barcelona?.sourceModifiedAt?.toISOString()).toBe('2024-01-10T00:00:00.000Z');
@@ -121,9 +196,17 @@ describe('GeoNames dump parsing', () => {
       return Buffer.concat([local, fileName, data, central, fileName, end]);
     };
     const content = Buffer.from('3128760\tBarcelona\n'.repeat(50));
-    expect(readZipEntry(zip('cities15000.txt', content, 8), 'cities15000.txt').equals(content)).toBe(true);
-    expect(readZipEntry(zip('cities15000.txt', content, 0), 'cities15000.txt').equals(content)).toBe(true);
-    expect(() => readZipEntry(zip('other.txt', content, 0), 'cities15000.txt')).toThrow('not found');
-    expect(() => readZipEntry(Buffer.from('not a zip at all, definitely not'), 'x')).toThrow('Not a ZIP');
+    expect(
+      readZipEntry(zip('cities15000.txt', content, 8), 'cities15000.txt').equals(content),
+    ).toBe(true);
+    expect(
+      readZipEntry(zip('cities15000.txt', content, 0), 'cities15000.txt').equals(content),
+    ).toBe(true);
+    expect(() => readZipEntry(zip('other.txt', content, 0), 'cities15000.txt')).toThrow(
+      'not found',
+    );
+    expect(() => readZipEntry(Buffer.from('not a zip at all, definitely not'), 'x')).toThrow(
+      'Not a ZIP',
+    );
   });
 });

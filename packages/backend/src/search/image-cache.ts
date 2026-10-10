@@ -62,13 +62,21 @@ export function imageVersion(sourceUrl: string): string {
  * Where Clarity serves this image, or `undefined` when there is no image a
  * consumer could show (no URL, or not a public HTTP(S) one).
  */
-export function publicImageUrl(kind: ImageKind, id: string, sourceUrl: string | null | undefined): string | undefined {
+export function publicImageUrl(
+  kind: ImageKind,
+  id: string,
+  sourceUrl: string | null | undefined,
+): string | undefined {
   if (!sourceUrl || !hostOf(sourceUrl)) return undefined;
   return `${publicApiBase()}/images/${kind}/${encodeURIComponent(id)}/${imageVersion(sourceUrl)}`;
 }
 
 async function download(sourceUrl: string): Promise<CachedImage | undefined> {
-  const fetched = await fetchBounded(sourceUrl, 'image/avif,image/webp,image/*;q=0.8', MAX_IMAGE_BYTES).catch(() => undefined);
+  const fetched = await fetchBounded(
+    sourceUrl,
+    'image/avif,image/webp,image/*;q=0.8',
+    MAX_IMAGE_BYTES,
+  ).catch(() => undefined);
   if (!fetched || fetched.bytes.length === 0) return undefined;
   const contentType = sniffImageType(fetched.bytes);
   return contentType ? { contentType, bytes: fetched.bytes } : undefined;
@@ -77,13 +85,23 @@ async function download(sourceUrl: string): Promise<CachedImage | undefined> {
 /** Fetches in progress in this process, so concurrent misses share one download. */
 const inFlight = new Map<string, Promise<CachedImage | undefined>>();
 
-async function fetchAndStore(key: string, sourceUrl: string, at: number): Promise<CachedImage | undefined> {
+async function fetchAndStore(
+  key: string,
+  sourceUrl: string,
+  at: number,
+): Promise<CachedImage | undefined> {
   const image = await download(sourceUrl);
   const now = new Date(at);
   const values = image
-    ? { status: 'ready', contentType: image.contentType, bytes: image.bytes, byteSize: image.bytes.length }
+    ? {
+        status: 'ready',
+        contentType: image.contentType,
+        bytes: image.bytes,
+        byteSize: image.bytes.length,
+      }
     : { status: 'missing', contentType: null, bytes: null, byteSize: 0 };
-  await getDb().insert(imageCache)
+  await getDb()
+    .insert(imageCache)
     .values({ key, sourceUrl, ...values, fetchedAt: now, lastAccessedAt: now })
     .onConflictDoUpdate({
       target: imageCache.key,
@@ -106,8 +124,11 @@ async function fetchAndStore(key: string, sourceUrl: string, at: number): Promis
     });
   if (image) return image;
   // The refresh failed: serve the previous copy if there is one.
-  const [kept] = await getDb().select({ contentType: imageCache.contentType, bytes: imageCache.bytes })
-    .from(imageCache).where(and(eq(imageCache.key, key), eq(imageCache.status, 'ready'))).limit(1);
+  const [kept] = await getDb()
+    .select({ contentType: imageCache.contentType, bytes: imageCache.bytes })
+    .from(imageCache)
+    .where(and(eq(imageCache.key, key), eq(imageCache.status, 'ready')))
+    .limit(1);
   return kept?.contentType && kept.bytes
     ? { contentType: kept.contentType, bytes: kept.bytes }
     : undefined;
@@ -117,7 +138,10 @@ async function fetchAndStore(key: string, sourceUrl: string, at: number): Promis
  * The image at `sourceUrl`, from Clarity's cache, fetching it first when the
  * cache has no fresh copy. `undefined` when the image cannot be served.
  */
-export async function readCachedImage(sourceUrl: string, now = Date.now()): Promise<CachedImage | undefined> {
+export async function readCachedImage(
+  sourceUrl: string,
+  now = Date.now(),
+): Promise<CachedImage | undefined> {
   if (!hostOf(sourceUrl)) return undefined;
   const key = imageKey(sourceUrl);
   const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, key)).limit(1);
@@ -126,7 +150,10 @@ export async function readCachedImage(sourceUrl: string, now = Date.now()): Prom
     const age = now - row.fetchedAt.getTime();
     if (row.status === 'ready' && row.contentType && row.bytes && age < IMAGE_REFRESH_MS) {
       if (now - row.lastAccessedAt.getTime() > ACCESS_TOUCH_MS) {
-        await getDb().update(imageCache).set({ lastAccessedAt: new Date(now) }).where(eq(imageCache.key, key));
+        await getDb()
+          .update(imageCache)
+          .set({ lastAccessedAt: new Date(now) })
+          .where(eq(imageCache.key, key));
       }
       return { contentType: row.contentType, bytes: row.bytes };
     }

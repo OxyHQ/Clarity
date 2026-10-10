@@ -19,7 +19,9 @@
     "build:backend": "bun run --filter @clarity/shared-types build && bun run --filter @clarity/backend build",
     "start:frontend": "bun run --filter @clarity/frontend start",
     "start:backend": "bun run --filter @clarity/backend start",
-    "lint": "bun run --filter '*' lint",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
     "android": "bun run --filter @clarity/frontend android",
     "ios": "bun run --filter @clarity/frontend ios",
     "web": "bun run --filter @clarity/frontend web"
@@ -34,6 +36,7 @@
   ],
   "author": "",
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "typescript": "~6.0.3"
   },
   "overrides": {

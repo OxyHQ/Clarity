@@ -2,15 +2,23 @@ import { inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
-import { jobClusters, jobPostings, jobReports, searchDocuments, searchSites } from '../../../db/schema/index.js';
+import {
+  jobClusters,
+  jobPostings,
+  jobReports,
+  searchDocuments,
+  searchSites,
+} from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../chunking.js';
 import { extractJobPostings } from '../extract.js';
 import { sweepJobLifecycle } from '../lifecycle.js';
-import { closeJobPostingsForDocument, ingestJobPosting, projectJobPostings } from '../projection.js';
-import { reportJobPosting } from '../reports.js';
 import {
-  getJobPostingByUrl, jobCorpusStats, jobSearchSchema, searchJobs,
-} from '../service.js';
+  closeJobPostingsForDocument,
+  ingestJobPosting,
+  projectJobPostings,
+} from '../projection.js';
+import { reportJobPosting } from '../reports.js';
+import { getJobPostingByUrl, jobCorpusStats, jobSearchSchema, searchJobs } from '../service.js';
 import { createOxyEmbeddings } from '../../../lib/oxy-embeddings.js';
 
 /** A deterministic stand-in so the hybrid SQL runs without the Oxy route. */
@@ -43,17 +51,20 @@ function jobPosting(fields: Record<string, unknown>): Record<string, unknown> {
 
 async function seed({ url, posting, observedAt = now, sourceType = 'web' }: Seed): Promise<string> {
   const database = getDb();
-  const [document] = await database.insert(searchDocuments).values({
-    id: crypto.randomUUID(),
-    requestedUrl: url,
-    canonicalUrl: url,
-    status: 'indexed',
-    documentType: 'job',
-    title: String(posting.title ?? ''),
-    mainContent: String(posting.description ?? ''),
-    structuredData: [posting],
-    indexedAt: observedAt,
-  }).returning();
+  const [document] = await database
+    .insert(searchDocuments)
+    .values({
+      id: crypto.randomUUID(),
+      requestedUrl: url,
+      canonicalUrl: url,
+      status: 'indexed',
+      documentType: 'job',
+      title: String(posting.title ?? ''),
+      mainContent: String(posting.description ?? ''),
+      structuredData: [posting],
+      indexedAt: observedAt,
+    })
+    .returning();
   documentIds.push(document.id);
   await projectJobPostings(database, {
     documentId: document.id,
@@ -65,7 +76,10 @@ async function seed({ url, posting, observedAt = now, sourceType = 'web' }: Seed
   return document.id;
 }
 
-const acmeBody = 'We are hiring a senior React Native engineer to build our mobile client applications across iOS and Android. '.repeat(4);
+const acmeBody =
+  'We are hiring a senior React Native engineer to build our mobile client applications across iOS and Android. '.repeat(
+    4,
+  );
 
 suite('Clarity Jobs corpus', () => {
   let acmeCareersDocumentId = '';
@@ -73,24 +87,32 @@ suite('Clarity Jobs corpus', () => {
   beforeAll(async () => {
     connectPostgres(databaseUrl);
     const database = getDb();
-    await database.delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, [
-      'https://acme.example/careers/react-native',
-      'https://boards.greenhouse.io/acme/jobs/1042',
-      'https://acme.example/careers/expired-analyst',
-      'https://acme.example/careers/abandoned-writer',
-      'https://nordic.example/jobs/designer',
-      'https://acme.example/careers/vanishing-role',
-      firstPartyUrl,
-    ]));
-    const [site] = await database.insert(searchSites).values({
-      id: crypto.randomUUID(),
-      ownerAccountId: 'test-account',
-      origin: 'https://mention.earth',
-      verifiedDomainId: 'test-verified-domain',
-    }).onConflictDoUpdate({
-      target: [searchSites.ownerAccountId, searchSites.origin],
-      set: { updatedAt: new Date() },
-    }).returning();
+    await database
+      .delete(searchDocuments)
+      .where(
+        inArray(searchDocuments.canonicalUrl, [
+          'https://acme.example/careers/react-native',
+          'https://boards.greenhouse.io/acme/jobs/1042',
+          'https://acme.example/careers/expired-analyst',
+          'https://acme.example/careers/abandoned-writer',
+          'https://nordic.example/jobs/designer',
+          'https://acme.example/careers/vanishing-role',
+          firstPartyUrl,
+        ]),
+      );
+    const [site] = await database
+      .insert(searchSites)
+      .values({
+        id: crypto.randomUUID(),
+        ownerAccountId: 'test-account',
+        origin: 'https://mention.earth',
+        verifiedDomainId: 'test-verified-domain',
+      })
+      .onConflictDoUpdate({
+        target: [searchSites.ownerAccountId, searchSites.origin],
+        set: { updatedAt: new Date() },
+      })
+      .returning();
     firstPartySiteId = site.id;
 
     acmeCareersDocumentId = await seed({
@@ -105,8 +127,14 @@ suite('Clarity Jobs corpus', () => {
         applicantLocationRequirements: [{ '@type': 'Country', name: 'Spain' }],
         hiringOrganization: { '@type': 'Organization', name: 'Acme', url: 'https://acme.example' },
         baseSalary: {
-          '@type': 'MonetaryAmount', currency: 'EUR',
-          value: { '@type': 'QuantitativeValue', minValue: 70000, maxValue: 90000, unitText: 'YEAR' },
+          '@type': 'MonetaryAmount',
+          currency: 'EUR',
+          value: {
+            '@type': 'QuantitativeValue',
+            minValue: 70000,
+            maxValue: 90000,
+            unitText: 'YEAR',
+          },
         },
         skills: 'React Native, TypeScript',
         url: 'https://acme.example/careers/react-native',
@@ -162,7 +190,11 @@ suite('Clarity Jobs corpus', () => {
         datePosted: daysAgo(1).toISOString(),
         employmentType: 'CONTRACTOR',
         jobLocation: { address: { addressLocality: 'Oslo', addressCountry: 'Norway' } },
-        hiringOrganization: { '@type': 'Organization', name: 'Nordic', url: 'https://nordic.example' },
+        hiringOrganization: {
+          '@type': 'Organization',
+          name: 'Nordic',
+          url: 'https://nordic.example',
+        },
       }),
     });
   });
@@ -172,7 +204,13 @@ suite('Clarity Jobs corpus', () => {
     const clusters = await database.select({ id: jobClusters.id }).from(jobClusters);
     await database.delete(searchDocuments).where(inArray(searchDocuments.id, documentIds));
     await database.delete(searchSites).where(inArray(searchSites.id, [firstPartySiteId]));
-    if (clusters.length > 0) await database.delete(jobClusters).where(inArray(jobClusters.id, clusters.map((row) => row.id)));
+    if (clusters.length > 0)
+      await database.delete(jobClusters).where(
+        inArray(
+          jobClusters.id,
+          clusters.map((row) => row.id),
+        ),
+      );
     await closePostgres();
   });
 
@@ -192,7 +230,9 @@ suite('Clarity Jobs corpus', () => {
 
   it('returns every source when duplicates are requested', async () => {
     const results = await search({ query: 'React Native engineer', includeDuplicates: true });
-    const domains = results.data.filter((job) => job.employer.name === 'Acme').map((job) => job.source.domain);
+    const domains = results.data
+      .filter((job) => job.employer.name === 'Acme')
+      .map((job) => job.source.domain);
     expect(domains.sort()).toEqual(['acme.example', 'boards.greenhouse.io']);
   });
 
@@ -225,7 +265,9 @@ suite('Clarity Jobs corpus', () => {
     const wellPaid = await search({ salary: { min: 65_000, currency: 'EUR', interval: 'year' } });
     expect(wellPaid.data.map((job) => job.title)).toEqual(['Senior React Native Engineer']);
 
-    const outOfRange = await search({ salary: { min: 200_000, currency: 'EUR', interval: 'year' } });
+    const outOfRange = await search({
+      salary: { min: 200_000, currency: 'EUR', interval: 'year' },
+    });
     expect(outOfRange.data).toEqual([]);
 
     const oslo = await search({ locations: ['Oslo'] });
@@ -259,15 +301,21 @@ suite('Clarity Jobs corpus', () => {
     expect(acme).toHaveLength(1);
     expect(acme[0].source.domain).toBe('boards.greenhouse.io');
 
-    const closed = await search({ query: 'React Native engineer', statuses: ['closed'], includeDuplicates: true });
+    const closed = await search({
+      query: 'React Native engineer',
+      statuses: ['closed'],
+      includeDuplicates: true,
+    });
     expect(closed.data.map((job) => job.source.domain)).toContain('acme.example');
   });
 
   it('reconciles stored statuses with the lifecycle policy', async () => {
     const sweep = await sweepJobLifecycle();
     expect(sweep.expired).toBeGreaterThanOrEqual(0);
-    const rows = await getDb().select({ status: jobPostings.status, url: jobPostings.canonicalUrl })
-      .from(jobPostings).where(inArray(jobPostings.documentId, documentIds));
+    const rows = await getDb()
+      .select({ status: jobPostings.status, url: jobPostings.canonicalUrl })
+      .from(jobPostings)
+      .where(inArray(jobPostings.documentId, documentIds));
     const byUrl = new Map(rows.map((row) => [row.url, row.status]));
     expect(byUrl.get('https://acme.example/careers/expired-analyst')).toBe('expired');
     expect(byUrl.get('https://acme.example/careers/abandoned-writer')).toBe('stale');
@@ -275,7 +323,9 @@ suite('Clarity Jobs corpus', () => {
   });
 
   it('fuses lexical and semantic relevance when embeddings are available', async () => {
-    const document = await getDb().select({ id: searchDocuments.id }).from(searchDocuments)
+    const document = await getDb()
+      .select({ id: searchDocuments.id })
+      .from(searchDocuments)
       .where(inArray(searchDocuments.canonicalUrl, ['https://nordic.example/jobs/designer']));
     await replaceDocumentChunks(
       getDb(),
@@ -285,24 +335,35 @@ suite('Clarity Jobs corpus', () => {
       'test-chunker',
     );
 
-    const semantic = await searchJobs(jobSearchSchema.parse({ query: 'product design role', mode: 'semantic' }));
+    const semantic = await searchJobs(
+      jobSearchSchema.parse({ query: 'product design role', mode: 'semantic' }),
+    );
     expect(semantic.mode).toBe('semantic');
     expect(semantic.data.map((job) => job.title)).toEqual(['Product Designer']);
 
-    const hybrid = await searchJobs(jobSearchSchema.parse({ query: 'Product Designer', mode: 'hybrid' }));
+    const hybrid = await searchJobs(
+      jobSearchSchema.parse({ query: 'Product Designer', mode: 'hybrid' }),
+    );
     expect(hybrid.data.map((job) => job.title)).toContain('Product Designer');
     expect(hybrid.degraded).toBeUndefined();
   });
 
   it('degrades hybrid search to lexical when the embedding route is unavailable', async () => {
     vi.mocked(createOxyEmbeddings).mockRejectedValueOnce(new Error('embedding route unavailable'));
-    const results = await searchJobs(jobSearchSchema.parse({ query: 'Product Designer', mode: 'hybrid' }));
-    expect(results.degraded).toEqual({ from: 'hybrid', to: 'lexical', reason: 'embedding_route_unavailable' });
+    const results = await searchJobs(
+      jobSearchSchema.parse({ query: 'Product Designer', mode: 'hybrid' }),
+    );
+    expect(results.degraded).toEqual({
+      from: 'hybrid',
+      to: 'lexical',
+      reason: 'embedding_route_unavailable',
+    });
     expect(results.data.map((job) => job.title)).toContain('Product Designer');
 
     vi.mocked(createOxyEmbeddings).mockRejectedValueOnce(new Error('embedding route unavailable'));
-    await expect(searchJobs(jobSearchSchema.parse({ query: 'Product Designer', mode: 'semantic' })))
-      .rejects.toMatchObject({ status: 503, code: 'semantic_unavailable' });
+    await expect(
+      searchJobs(jobSearchSchema.parse({ query: 'Product Designer', mode: 'semantic' })),
+    ).rejects.toMatchObject({ status: 503, code: 'semantic_unavailable' });
   });
 
   it('indexes a first-party listing handed over through the ingestion boundary', async () => {
@@ -314,7 +375,11 @@ suite('Clarity Jobs corpus', () => {
       employmentType: 'FULL_TIME',
       jobLocationType: 'TELECOMMUTE',
       applicantLocationRequirements: [{ '@type': 'Country', name: 'Portugal' }],
-      hiringOrganization: { '@type': 'Organization', name: 'Mention', url: 'https://mention.earth' },
+      hiringOrganization: {
+        '@type': 'Organization',
+        name: 'Mention',
+        url: 'https://mention.earth',
+      },
       url: firstPartyUrl,
     });
     const first = await ingestJobPosting({
@@ -380,27 +445,50 @@ suite('Clarity Jobs corpus', () => {
     });
 
     expect((await search({ query: 'Vanishing Role' })).data).toEqual([]);
-    const [row] = await getDb().select({ status: jobPostings.status, reason: jobPostings.closureReason })
-      .from(jobPostings).where(inArray(jobPostings.canonicalUrl, [url]));
+    const [row] = await getDb()
+      .select({ status: jobPostings.status, reason: jobPostings.closureReason })
+      .from(jobPostings)
+      .where(inArray(jobPostings.canonicalUrl, [url]));
     expect(row).toMatchObject({ status: 'closed', reason: 'posting_absent' });
   });
 
   it('records an abuse report without storing who reported it', async () => {
-    const [job] = await getDb().select({ id: jobPostings.id }).from(jobPostings)
+    const [job] = await getDb()
+      .select({ id: jobPostings.id })
+      .from(jobPostings)
       .where(inArray(jobPostings.canonicalUrl, ['https://nordic.example/jobs/designer']));
-    expect(await reportJobPosting(job.id, { reason: 'scam', detail: 'Asks for payment up front.' })).toBe(true);
+    expect(
+      await reportJobPosting(job.id, { reason: 'scam', detail: 'Asks for payment up front.' }),
+    ).toBe(true);
     expect(await reportJobPosting('missing-job-id', { reason: 'scam' })).toBe(false);
 
-    const rows = await getDb().select().from(jobReports).where(inArray(jobReports.jobPostingId, [job.id]));
+    const rows = await getDb()
+      .select()
+      .from(jobReports)
+      .where(inArray(jobReports.jobPostingId, [job.id]));
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ reason: 'scam', status: 'open' });
-    expect(Object.keys(rows[0]).sort()).toEqual(['createdAt', 'detail', 'id', 'jobPostingId', 'reason', 'status']);
+    expect(Object.keys(rows[0]).sort()).toEqual([
+      'createdAt',
+      'detail',
+      'id',
+      'jobPostingId',
+      'reason',
+      'status',
+    ]);
   });
 
   it('reports corpus health without any per-viewer counter', async () => {
     const stats = await jobCorpusStats();
     expect(stats.active).toBeGreaterThan(0);
     expect(stats.bySourceType.verified_site).toBeGreaterThan(0);
-    expect(Object.keys(stats)).toEqual(['active', 'byStatus', 'bySourceType', 'withSalary', 'grouped', 'clusters']);
+    expect(Object.keys(stats)).toEqual([
+      'active',
+      'byStatus',
+      'bySourceType',
+      'withSalary',
+      'grouped',
+      'clusters',
+    ]);
   });
 });

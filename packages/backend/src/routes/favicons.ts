@@ -21,26 +21,41 @@ const HOST_PATTERN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[
 
 /** A public DNS name: dotted, with an alphabetic TLD, and not an address. */
 export function isPublicHostname(value: string): boolean {
-  return HOST_PATTERN.test(value) && net.isIP(value) === 0 && !value.endsWith('.localhost') && !value.endsWith('.internal');
+  return (
+    HOST_PATTERN.test(value) &&
+    net.isIP(value) === 0 &&
+    !value.endsWith('.localhost') &&
+    !value.endsWith('.internal')
+  );
 }
 
 router.get('/:host', async (req, res) => {
   const host = String(req.params.host).toLowerCase();
   if (!isPublicHostname(host)) {
-    res.status(400).json({ error: { code: 'invalid_host', message: 'A public hostname is required' } });
+    res
+      .status(400)
+      .json({ error: { code: 'invalid_host', message: 'A public hostname is required' } });
     return;
   }
   const icon = await readSiteIcon(host);
   if (!icon) {
     await registerHosts(getDb(), [{ url: `https://${host}/` }]);
     res.setHeader('Cache-Control', `public, max-age=${MISS_MAX_AGE_SECONDS}`);
-    res.status(404).json({ error: { code: 'icon_not_found', message: 'Clarity has no icon for this host yet' } });
+    res.status(404).json({
+      error: { code: 'icon_not_found', message: 'Clarity has no icon for this host yet' },
+    });
     return;
   }
   res.setHeader('Content-Type', icon.contentType);
-  res.setHeader('Cache-Control', `public, max-age=${ICON_MAX_AGE_SECONDS}, stale-while-revalidate=86400`);
+  res.setHeader(
+    'Cache-Control',
+    `public, max-age=${ICON_MAX_AGE_SECONDS}, stale-while-revalidate=86400`,
+  );
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+  );
   res.send(icon.bytes);
 });
 

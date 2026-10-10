@@ -68,7 +68,10 @@ export function formatPrice(price: number, currency: string, locale: string): st
 }
 
 export function formatChangePct(changePct: number, locale: string): string {
-  const formatted = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(changePct);
+  const formatted = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(changePct);
   return `${changePct > 0 ? '+' : ''}${formatted}%`;
 }
 
@@ -91,7 +94,8 @@ export function formatUpdatedAt(value: string, locale: string, now: Date): strin
 
 export function marketCardView(input: MarketCardInput): MarketCardView {
   if (input.isPending) return { state: 'loading' };
-  if (input.isError || !input.result || input.result.status === 'unavailable') return { state: 'error' };
+  if (input.isError || !input.result || input.result.status === 'unavailable')
+    return { state: 'error' };
 
   const { quote } = input.result;
   const source = quote.source;
@@ -105,7 +109,12 @@ export function marketCardView(input: MarketCardInput): MarketCardView {
     symbol: quote.symbol,
     price: formatPrice(quote.price, quote.currency, input.locale),
     changePct: quote.changePct === null ? null : formatChangePct(quote.changePct, input.locale),
-    direction: quote.changePct === null || quote.changePct === 0 ? 'flat' : quote.changePct > 0 ? 'up' : 'down',
+    direction:
+      quote.changePct === null || quote.changePct === 0
+        ? 'flat'
+        : quote.changePct > 0
+          ? 'up'
+          : 'down',
     source,
     updatedAt,
   };

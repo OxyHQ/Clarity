@@ -26,19 +26,42 @@ export interface JobSignature {
  * never a listing's search position.
  */
 export const ATS_HOSTS: readonly string[] = [
-  'greenhouse.io', 'lever.co', 'ashbyhq.com', 'workable.com', 'myworkdayjobs.com',
-  'workday.com', 'smartrecruiters.com', 'jobvite.com', 'bamboohr.com', 'recruitee.com',
-  'teamtailor.com', 'personio.com', 'personio.de', 'breezy.hr', 'jazzhr.com', 'icims.com',
-  'taleo.net', 'successfactors.com', 'pinpointhq.com', 'join.com', 'factorialhr.com',
-  'applytojob.com', 'workatastartup.com',
+  'greenhouse.io',
+  'lever.co',
+  'ashbyhq.com',
+  'workable.com',
+  'myworkdayjobs.com',
+  'workday.com',
+  'smartrecruiters.com',
+  'jobvite.com',
+  'bamboohr.com',
+  'recruitee.com',
+  'teamtailor.com',
+  'personio.com',
+  'personio.de',
+  'breezy.hr',
+  'jazzhr.com',
+  'icims.com',
+  'taleo.net',
+  'successfactors.com',
+  'pinpointhq.com',
+  'join.com',
+  'factorialhr.com',
+  'applytojob.com',
+  'workatastartup.com',
 ];
 
-const TRACKING_PARAMETERS = /^(utm_|gh_|mc_|hsa_|pk_)|^(ref|source|src|gclid|fbclid|msclkid|trk|referrer|campaign)$/i;
+const TRACKING_PARAMETERS =
+  /^(utm_|gh_|mc_|hsa_|pk_)|^(ref|source|src|gclid|fbclid|msclkid|trk|referrer|campaign)$/i;
 
 /** Strips presentation-only URL noise so syndicated links compare equal. */
 export function normalizeListingUrl(value: string): string | undefined {
   let url: URL;
-  try { url = new URL(value); } catch { return undefined; }
+  try {
+    url = new URL(value);
+  } catch {
+    return undefined;
+  }
   url.hash = '';
   url.username = '';
   url.password = '';
@@ -78,7 +101,10 @@ export function jobClusterSignatures(job: JobSignatureInput): JobSignature[] {
   const signatures: JobSignature[] = [];
 
   if (job.employerKey && job.identifier && job.identifier.trim().length >= 3) {
-    signatures.push({ kind: 'identifier', value: `${job.employerKey}|id|${job.identifier.trim().toLowerCase()}` });
+    signatures.push({
+      kind: 'identifier',
+      value: `${job.employerKey}|id|${job.identifier.trim().toLowerCase()}`,
+    });
   }
 
   for (const candidate of [job.canonicalUrl, job.applyUrl]) {
@@ -115,7 +141,12 @@ export function canonicalSourceRank(input: {
   sourceType: JobSourceType;
 }): number {
   const host = urlDomain(input.canonicalUrl);
-  if (host && input.employerDomain && (host === input.employerDomain || host.endsWith(`.${input.employerDomain}`))) return 0;
+  if (
+    host &&
+    input.employerDomain &&
+    (host === input.employerDomain || host.endsWith(`.${input.employerDomain}`))
+  )
+    return 0;
   if (isAtsHost(host)) return 1;
   if (input.sourceType === 'verified_site') return 2;
   return 3;

@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import Expo from 'expo-server-sdk';
 import { authenticateToken } from '../middleware/auth.js';
-import { getUnreadCount, markAsRead, markAllAsRead, dismissNotification } from '../lib/notification-service.js';
+import {
+  getUnreadCount,
+  markAsRead,
+  markAllAsRead,
+  dismissNotification,
+} from '../lib/notification-service.js';
 import {
   deactivatePushToken,
   deactivateWebPushSubscription,
@@ -183,7 +188,10 @@ router.post('/web-push-subscription', async (req: Request, res: Response) => {
       auth: keys.auth,
     });
 
-    log.general.info({ userId, subscriptionId: subscription.id }, 'Web push subscription registered');
+    log.general.info(
+      { userId, subscriptionId: subscription.id },
+      'Web push subscription registered',
+    );
     res.json({ success: true, id: subscription.id });
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error registering web push subscription');

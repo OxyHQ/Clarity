@@ -32,8 +32,19 @@ export { repairMojibake } from './markdown.js';
  * and this API validate against the same arrays. Re-exported for the modules
  * that already read them from here.
  */
-export { COUNTRY_CODES, CURRENCY_CODES, isCountryCode, isCurrencyCode } from '@clarity.surf/sdk/vocabularies';
-export { JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_SALARY_INTERVALS, JOB_SENIORITY_LEVELS, JOB_WORKPLACE_TYPES };
+export {
+  COUNTRY_CODES,
+  CURRENCY_CODES,
+  isCountryCode,
+  isCurrencyCode,
+} from '@clarity.surf/sdk/vocabularies';
+export {
+  JOB_EMPLOYMENT_TYPES,
+  JOB_LIFECYCLE_STATUSES,
+  JOB_SALARY_INTERVALS,
+  JOB_SENIORITY_LEVELS,
+  JOB_WORKPLACE_TYPES,
+};
 export const JOB_SOURCE_TYPES = ['web', 'verified_site', 'first_party'] as const;
 
 /** `schema.org` employment codes, plus the unambiguous spellings sites use. */
@@ -63,21 +74,56 @@ const EMPLOYMENT_TYPE_BY_TOKEN: Readonly<Record<string, JobEmploymentType>> = Ob
  * being rounded to a level the source did not state.
  */
 const SENIORITY_BY_TOKEN: Readonly<Record<string, JobSeniority>> = Object.freeze({
-  intern: 'intern', internship: 'intern', student: 'intern', trainee: 'intern', workingstudent: 'intern',
-  entry: 'entry', junior: 'entry', jr: 'entry', graduate: 'entry', newgrad: 'entry', beginner: 'entry',
-  mid: 'mid', midweight: 'mid', intermediate: 'mid',
-  senior: 'senior', sr: 'senior',
-  lead: 'lead', teamlead: 'lead', staff: 'lead', principal: 'lead', manager: 'lead', management: 'lead',
-  director: 'director', head: 'director', headof: 'director',
-  executive: 'executive', vp: 'executive', vicepresident: 'executive', clevel: 'executive', csuite: 'executive',
+  intern: 'intern',
+  internship: 'intern',
+  student: 'intern',
+  trainee: 'intern',
+  workingstudent: 'intern',
+  entry: 'entry',
+  junior: 'entry',
+  jr: 'entry',
+  graduate: 'entry',
+  newgrad: 'entry',
+  beginner: 'entry',
+  mid: 'mid',
+  midweight: 'mid',
+  intermediate: 'mid',
+  senior: 'senior',
+  sr: 'senior',
+  lead: 'lead',
+  teamlead: 'lead',
+  staff: 'lead',
+  principal: 'lead',
+  manager: 'lead',
+  management: 'lead',
+  director: 'director',
+  head: 'director',
+  headof: 'director',
+  executive: 'executive',
+  vp: 'executive',
+  vicepresident: 'executive',
+  clevel: 'executive',
+  csuite: 'executive',
 });
 
 const SALARY_INTERVAL_BY_TOKEN: Readonly<Record<string, JobSalaryInterval>> = Object.freeze({
-  hour: 'hour', hourly: 'hour', h: 'hour',
-  day: 'day', daily: 'day', d: 'day',
-  week: 'week', weekly: 'week', w: 'week',
-  month: 'month', monthly: 'month', m: 'month',
-  year: 'year', yearly: 'year', annual: 'year', annually: 'year', y: 'year',
+  hour: 'hour',
+  hourly: 'hour',
+  h: 'hour',
+  day: 'day',
+  daily: 'day',
+  d: 'day',
+  week: 'week',
+  weekly: 'week',
+  w: 'week',
+  month: 'month',
+  monthly: 'month',
+  m: 'month',
+  year: 'year',
+  yearly: 'year',
+  annual: 'year',
+  annually: 'year',
+  y: 'year',
 });
 
 /**
@@ -85,13 +131,14 @@ const SALARY_INTERVAL_BY_TOKEN: Readonly<Record<string, JobSalaryInterval>> = Ob
  * different intervals inside a filter. The source interval and amount stay
  * authoritative for display; Clarity never converts currencies.
  */
-export const SALARY_ANNUALIZATION_FACTORS: Readonly<Record<JobSalaryInterval, number>> = Object.freeze({
-  hour: 2080,
-  day: 260,
-  week: 52,
-  month: 12,
-  year: 1,
-});
+export const SALARY_ANNUALIZATION_FACTORS: Readonly<Record<JobSalaryInterval, number>> =
+  Object.freeze({
+    hour: 2080,
+    day: 260,
+    week: 52,
+    month: 12,
+    year: 1,
+  });
 
 /**
  * ISO 3166-1 alpha-2 codes with the English (and common Spanish) names Clarity
@@ -127,7 +174,8 @@ for (const entry of COUNTRY_TABLE.split(/[\n|]/)) {
   if (!trimmed) continue;
   const [code, names] = trimmed.split(':');
   // A name table entry can only ever resolve to an officially assigned code.
-  if (!isCountryCode(code)) throw new Error(`Country table carries ${code}, which is not in COUNTRY_CODES`);
+  if (!isCountryCode(code))
+    throw new Error(`Country table carries ${code}, which is not in COUNTRY_CODES`);
   const [primary, ...aliases] = names.split(',');
   COUNTRY_NAME_BY_CODE.set(code, primary);
   COUNTRY_CODE_BY_NAME.set(code.toLowerCase(), code);
@@ -135,7 +183,8 @@ for (const entry of COUNTRY_TABLE.split(/[\n|]/)) {
 }
 
 for (const code of COUNTRY_CODES) {
-  if (!COUNTRY_CODE_BY_NAME.has(code.toLowerCase())) COUNTRY_CODE_BY_NAME.set(code.toLowerCase(), code);
+  if (!COUNTRY_CODE_BY_NAME.has(code.toLowerCase()))
+    COUNTRY_CODE_BY_NAME.set(code.toLowerCase(), code);
 }
 
 /**
@@ -144,29 +193,287 @@ for (const code of COUNTRY_CODES) {
  * country belongs to a region.
  */
 export const JOB_REGIONS: Readonly<Record<string, readonly CountryCode[]>> = Object.freeze({
-  europe: ['AD', 'AL', 'AT', 'BA', 'BE', 'BG', 'BY', 'CH', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FO', 'FR', 'GB', 'GE', 'GI', 'GR', 'HR', 'HU', 'IE', 'IS', 'IT', 'LI', 'LT', 'LU', 'LV', 'MC', 'MD', 'ME', 'MK', 'MT', 'NL', 'NO', 'PL', 'PT', 'RO', 'RS', 'RU', 'SE', 'SI', 'SK', 'SM', 'TR', 'UA', 'VA'],
-  european_union: ['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT', 'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK'],
-  north_america: ['BS', 'BB', 'BZ', 'CA', 'CR', 'CU', 'DO', 'GT', 'HN', 'HT', 'JM', 'MX', 'NI', 'PA', 'PR', 'SV', 'TT', 'US'],
+  europe: [
+    'AD',
+    'AL',
+    'AT',
+    'BA',
+    'BE',
+    'BG',
+    'BY',
+    'CH',
+    'CY',
+    'CZ',
+    'DE',
+    'DK',
+    'EE',
+    'ES',
+    'FI',
+    'FO',
+    'FR',
+    'GB',
+    'GE',
+    'GI',
+    'GR',
+    'HR',
+    'HU',
+    'IE',
+    'IS',
+    'IT',
+    'LI',
+    'LT',
+    'LU',
+    'LV',
+    'MC',
+    'MD',
+    'ME',
+    'MK',
+    'MT',
+    'NL',
+    'NO',
+    'PL',
+    'PT',
+    'RO',
+    'RS',
+    'RU',
+    'SE',
+    'SI',
+    'SK',
+    'SM',
+    'TR',
+    'UA',
+    'VA',
+  ],
+  european_union: [
+    'AT',
+    'BE',
+    'BG',
+    'CY',
+    'CZ',
+    'DE',
+    'DK',
+    'EE',
+    'ES',
+    'FI',
+    'FR',
+    'GR',
+    'HR',
+    'HU',
+    'IE',
+    'IT',
+    'LT',
+    'LU',
+    'LV',
+    'MT',
+    'NL',
+    'PL',
+    'PT',
+    'RO',
+    'SE',
+    'SI',
+    'SK',
+  ],
+  north_america: [
+    'BS',
+    'BB',
+    'BZ',
+    'CA',
+    'CR',
+    'CU',
+    'DO',
+    'GT',
+    'HN',
+    'HT',
+    'JM',
+    'MX',
+    'NI',
+    'PA',
+    'PR',
+    'SV',
+    'TT',
+    'US',
+  ],
   south_america: ['AR', 'BO', 'BR', 'CL', 'CO', 'EC', 'GY', 'PE', 'PY', 'SR', 'UY', 'VE'],
-  latin_america: ['AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PY', 'SV', 'UY', 'VE'],
-  africa: ['AO', 'BF', 'BI', 'BJ', 'BW', 'CD', 'CF', 'CG', 'CI', 'CM', 'CV', 'DJ', 'DZ', 'EG', 'ER', 'ET', 'GA', 'GH', 'GM', 'GN', 'GQ', 'GW', 'KE', 'KM', 'LR', 'LS', 'LY', 'MA', 'MG', 'ML', 'MR', 'MU', 'MW', 'MZ', 'NA', 'NE', 'NG', 'RW', 'SC', 'SD', 'SL', 'SN', 'SO', 'SS', 'SZ', 'TD', 'TG', 'TN', 'TZ', 'UG', 'ZA', 'ZM', 'ZW'],
-  asia: ['AF', 'AM', 'AZ', 'BD', 'BH', 'BN', 'BT', 'CN', 'CY', 'GE', 'HK', 'ID', 'IL', 'IN', 'IQ', 'IR', 'JO', 'JP', 'KG', 'KH', 'KP', 'KR', 'KW', 'KZ', 'LA', 'LB', 'LK', 'MM', 'MN', 'MO', 'MV', 'MY', 'NP', 'OM', 'PH', 'PK', 'PS', 'QA', 'SA', 'SG', 'SY', 'TH', 'TJ', 'TL', 'TM', 'TR', 'TW', 'UZ', 'VN', 'YE', 'AE'],
-  middle_east: ['AE', 'BH', 'CY', 'EG', 'IL', 'IQ', 'IR', 'JO', 'KW', 'LB', 'OM', 'PS', 'QA', 'SA', 'SY', 'TR', 'YE'],
+  latin_america: [
+    'AR',
+    'BO',
+    'BR',
+    'CL',
+    'CO',
+    'CR',
+    'CU',
+    'DO',
+    'EC',
+    'GT',
+    'HN',
+    'MX',
+    'NI',
+    'PA',
+    'PE',
+    'PY',
+    'SV',
+    'UY',
+    'VE',
+  ],
+  africa: [
+    'AO',
+    'BF',
+    'BI',
+    'BJ',
+    'BW',
+    'CD',
+    'CF',
+    'CG',
+    'CI',
+    'CM',
+    'CV',
+    'DJ',
+    'DZ',
+    'EG',
+    'ER',
+    'ET',
+    'GA',
+    'GH',
+    'GM',
+    'GN',
+    'GQ',
+    'GW',
+    'KE',
+    'KM',
+    'LR',
+    'LS',
+    'LY',
+    'MA',
+    'MG',
+    'ML',
+    'MR',
+    'MU',
+    'MW',
+    'MZ',
+    'NA',
+    'NE',
+    'NG',
+    'RW',
+    'SC',
+    'SD',
+    'SL',
+    'SN',
+    'SO',
+    'SS',
+    'SZ',
+    'TD',
+    'TG',
+    'TN',
+    'TZ',
+    'UG',
+    'ZA',
+    'ZM',
+    'ZW',
+  ],
+  asia: [
+    'AF',
+    'AM',
+    'AZ',
+    'BD',
+    'BH',
+    'BN',
+    'BT',
+    'CN',
+    'CY',
+    'GE',
+    'HK',
+    'ID',
+    'IL',
+    'IN',
+    'IQ',
+    'IR',
+    'JO',
+    'JP',
+    'KG',
+    'KH',
+    'KP',
+    'KR',
+    'KW',
+    'KZ',
+    'LA',
+    'LB',
+    'LK',
+    'MM',
+    'MN',
+    'MO',
+    'MV',
+    'MY',
+    'NP',
+    'OM',
+    'PH',
+    'PK',
+    'PS',
+    'QA',
+    'SA',
+    'SG',
+    'SY',
+    'TH',
+    'TJ',
+    'TL',
+    'TM',
+    'TR',
+    'TW',
+    'UZ',
+    'VN',
+    'YE',
+    'AE',
+  ],
+  middle_east: [
+    'AE',
+    'BH',
+    'CY',
+    'EG',
+    'IL',
+    'IQ',
+    'IR',
+    'JO',
+    'KW',
+    'LB',
+    'OM',
+    'PS',
+    'QA',
+    'SA',
+    'SY',
+    'TR',
+    'YE',
+  ],
   oceania: ['AU', 'FJ', 'FM', 'KI', 'MH', 'NR', 'NZ', 'PG', 'PW', 'SB', 'TO', 'TV', 'VU', 'WS'],
 });
 
 const REGION_ALIASES: Readonly<Record<string, string>> = Object.freeze({
-  europe: 'europe', european: 'europe', eu: 'european_union', 'european union': 'european_union', ue: 'european_union',
-  'north america': 'north_america', northamerica: 'north_america',
-  'south america': 'south_america', southamerica: 'south_america', sudamerica: 'south_america',
-  'latin america': 'latin_america', latam: 'latin_america', latinoamerica: 'latin_america',
-  africa: 'africa', asia: 'asia', apac: 'asia',
-  'middle east': 'middle_east', middleeast: 'middle_east',
+  europe: 'europe',
+  european: 'europe',
+  eu: 'european_union',
+  'european union': 'european_union',
+  ue: 'european_union',
+  'north america': 'north_america',
+  northamerica: 'north_america',
+  'south america': 'south_america',
+  southamerica: 'south_america',
+  sudamerica: 'south_america',
+  'latin america': 'latin_america',
+  latam: 'latin_america',
+  latinoamerica: 'latin_america',
+  africa: 'africa',
+  asia: 'asia',
+  apac: 'asia',
+  'middle east': 'middle_east',
+  middleeast: 'middle_east',
   oceania: 'oceania',
 });
 
 export function foldCase(value: string): string {
-  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 export function normalizeEmploymentType(value: string): JobEmploymentType | undefined {
@@ -215,7 +522,10 @@ export function annualizeSalary(amount: number, interval: JobSalaryInterval): nu
 
 /** Case/punctuation-insensitive title used as ONE of several dedupe signals. */
 export function normalizeJobTitle(title: string): string {
-  return foldCase(title).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return foldCase(title)
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** Registrable host of a URL, lowercased and without a leading `www.`. */
@@ -232,7 +542,12 @@ export function urlDomain(value: string | undefined): string | undefined {
 export function employerKey(name: string | undefined, url: string | undefined): string | undefined {
   const domain = urlDomain(url);
   if (domain) return `domain:${domain}`;
-  const folded = name ? foldCase(name).replace(/[^a-z0-9 ]+/g, '').replace(/\s+/g, ' ').trim() : '';
+  const folded = name
+    ? foldCase(name)
+        .replace(/[^a-z0-9 ]+/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : '';
   return folded ? `name:${folded}` : undefined;
 }
 
@@ -244,7 +559,10 @@ export function employerKey(name: string | undefined, url: string | undefined): 
  */
 export function descriptionFingerprint(description: string | undefined): string | undefined {
   if (!description) return undefined;
-  const normalized = foldCase(markdownToPlainText(description)).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = foldCase(markdownToPlainText(description))
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
   if (normalized.length < 200) return undefined;
   return createHash('sha256').update(normalized.slice(0, 4000)).digest('hex');
 }

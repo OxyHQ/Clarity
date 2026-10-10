@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { View, Text } from "react-native";
+import React, { useState, useEffect } from 'react';
+import { View, Text } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -7,36 +7,40 @@ import Animated, {
   withTiming,
   withSequence,
   Easing,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
 const thinkingPhrases = [
-  "Thinking...",
-  "Crafting...",
-  "Pondering...",
-  "Computing...",
-  "Processing...",
-  "Analyzing...",
-  "Reasoning...",
-  "Cooking...",
-  "Brewing...",
-  "Conjuring...",
+  'Thinking...',
+  'Crafting...',
+  'Pondering...',
+  'Computing...',
+  'Processing...',
+  'Analyzing...',
+  'Reasoning...',
+  'Cooking...',
+  'Brewing...',
+  'Conjuring...',
 ];
 
 const workingPhrases = [
-  "Working...",
-  "Executing...",
-  "Running...",
-  "Building...",
-  "Creating...",
-  "Doing the thing...",
+  'Working...',
+  'Executing...',
+  'Running...',
+  'Building...',
+  'Creating...',
+  'Doing the thing...',
 ];
 
-export function ThinkingIndicator({ isWorking = false, statusText }: { isWorking?: boolean; statusText?: string }) {
+export function ThinkingIndicator({
+  isWorking = false,
+  statusText,
+}: {
+  isWorking?: boolean;
+  statusText?: string;
+}) {
   const phrases = isWorking ? workingPhrases : thinkingPhrases;
-  const [phraseIndex, setPhraseIndex] = useState(() =>
-    Math.floor(Math.random() * phrases.length)
-  );
-  const [displayText, setDisplayText] = useState("");
+  const [phraseIndex, setPhraseIndex] = useState(() => Math.floor(Math.random() * phrases.length));
+  const [displayText, setDisplayText] = useState('');
   const [isTyping, setIsTyping] = useState(true);
 
   // Reset phraseIndex when isWorking changes (arrays have different lengths)
@@ -47,10 +51,7 @@ export function ThinkingIndicator({ isWorking = false, statusText }: { isWorking
   // Spinning asterisk animation
   const rotation = useSharedValue(0);
   useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 2000, easing: Easing.linear }),
-      -1
-    );
+    rotation.value = withRepeat(withTiming(360, { duration: 2000, easing: Easing.linear }), -1);
   }, [rotation]);
 
   const spinStyle = useAnimatedStyle(() => ({
@@ -61,11 +62,8 @@ export function ThinkingIndicator({ isWorking = false, statusText }: { isWorking
   const cursorOpacity = useSharedValue(1);
   useEffect(() => {
     cursorOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.2, { duration: 400 }),
-        withTiming(1, { duration: 400 })
-      ),
-      -1
+      withSequence(withTiming(0.2, { duration: 400 }), withTiming(1, { duration: 400 })),
+      -1,
     );
   }, [cursorOpacity]);
 
@@ -79,7 +77,7 @@ export function ThinkingIndicator({ isWorking = false, statusText }: { isWorking
     const phrase = phrases[phraseIndex % phrases.length];
     let charIndex = 0;
     setIsTyping(true);
-    setDisplayText("");
+    setDisplayText('');
 
     const typeInterval = setInterval(() => {
       if (charIndex < phrase.length) {
@@ -104,7 +102,7 @@ export function ThinkingIndicator({ isWorking = false, statusText }: { isWorking
   return (
     <View className="flex-row items-center gap-2 py-2">
       <Animated.View style={spinStyle}>
-        <Text className="text-base text-muted-foreground">{"\u2731"}</Text>
+        <Text className="text-base text-muted-foreground">{'\u2731'}</Text>
       </Animated.View>
       <View className="flex-row items-center">
         <Text className="text-base text-muted-foreground">{shownText}</Text>

@@ -36,6 +36,9 @@ export function bloomIcon(Icon: LucideIcon): BloomIconComponent {
 export function MenuRowIcon({ icon: Icon, tone }: { icon: LucideIcon; tone?: 'danger' }) {
   const { colors } = useTheme();
   return (
-    <Icon size={16} color={tone === 'danger' ? colors.errorSubtleForeground : colors.textSecondary} />
+    <Icon
+      size={16}
+      color={tone === 'danger' ? colors.errorSubtleForeground : colors.textSecondary}
+    />
   );
 }

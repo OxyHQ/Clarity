@@ -18,11 +18,19 @@ import { jobFeedProvider } from './registry.js';
 export type { JobFeedContext as FeedContext } from './provider.js';
 
 /** Parses one page of a feed into normalized listings and, when there is one, the next page's cursor. */
-export function parseJobFeedPage(kind: JobFeedKind, body: string, context: JobFeedContext): JobFeedPage {
+export function parseJobFeedPage(
+  kind: JobFeedKind,
+  body: string,
+  context: JobFeedContext,
+): JobFeedPage {
   return jobFeedProvider(kind).parse(body, context);
 }
 
 /** Parses one feed body into normalized listings. */
-export function parseJobFeed(kind: JobFeedKind, body: string, context: JobFeedContext): ExtractedJobPosting[] {
+export function parseJobFeed(
+  kind: JobFeedKind,
+  body: string,
+  context: JobFeedContext,
+): ExtractedJobPosting[] {
   return parseJobFeedPage(kind, body, context).listings;
 }

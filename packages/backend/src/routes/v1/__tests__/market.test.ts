@@ -28,7 +28,8 @@ vi.mock('../../../middleware/resource-auth.js', async (importOriginal) => {
       req.resourcePrincipal = principal;
       next();
     },
-    requireResourceRequestRate: (req: Request, res: Response, next: NextFunction) => rateLimit(req, res, next),
+    requireResourceRequestRate: (req: Request, res: Response, next: NextFunction) =>
+      rateLimit(req, res, next),
   };
 });
 
@@ -46,13 +47,19 @@ const scoped = (scopes: string[]): ClarityResourcePrincipal => ({
 });
 
 const NOW_ISO = '2026-09-09T12:00:00.000Z';
-const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 
 const coinGecko: typeof fetch = async (input) => {
   const url = String(input);
-  if (url.includes('/search?')) return json({ coins: [{ id: 'bitcoin', name: 'Bitcoin', symbol: 'btc' }] });
+  if (url.includes('/search?'))
+    return json({ coins: [{ id: 'bitcoin', name: 'Bitcoin', symbol: 'btc' }] });
   if (url.includes('market_chart')) return json({ prices: [[Date.parse(NOW_ISO), 78_420]] });
-  if (url.includes('/simple/price')) return json({ bitcoin: { usd: 78_420, usd_24h_change: -0.7 } });
+  if (url.includes('/simple/price'))
+    return json({ bitcoin: { usd: 78_420, usd_24h_change: -0.7 } });
   return new Response(null, { status: 502 });
 };
 const upstream = vi.fn<typeof fetch>(coinGecko);
@@ -92,7 +99,11 @@ describe('GET /v1/market/quote/:asset', () => {
     const response = await get('/quote/bitcoin');
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      asset: 'bitcoin', symbol: 'BTC', currency: 'usd', price: 78_420, source: 'coingecko',
+      asset: 'bitcoin',
+      symbol: 'BTC',
+      currency: 'usd',
+      price: 78_420,
+      source: 'coingecko',
     });
     expect(rateLimit).toHaveBeenCalledOnce();
   });
@@ -144,7 +155,11 @@ describe('GET /v1/market/capability', () => {
     const response = await get('/capability');
     expect(response.status).toBe(200);
     const capability = await response.json();
-    expect(capability.endpoint).toEqual({ method: 'GET', path: '/v1/market/quote/:asset', scope: 'clarity:market' });
+    expect(capability.endpoint).toEqual({
+      method: 'GET',
+      path: '/v1/market/quote/:asset',
+      scope: 'clarity:market',
+    });
     expect(capability.unsupported.equities).toContain('licensed equity feed');
     expect(capability.assets.faircoin.source).toBe('wfair-base');
   });

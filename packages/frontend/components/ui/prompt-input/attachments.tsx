@@ -1,7 +1,7 @@
-import React from "react";
-import { View, ScrollView, ActivityIndicator } from "react-native";
-import { CloseButton } from "@oxy.so/bloom/button";
-import { Image } from "expo-image";
+import React from 'react';
+import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { CloseButton } from '@oxy.so/bloom/button';
+import { Image } from 'expo-image';
 import {
   FileText,
   FileSpreadsheet,
@@ -9,84 +9,78 @@ import {
   FileArchive,
   FileAudio,
   File,
-} from "lucide-react-native";
-import { Text } from "@/components/ui/text";
-import { formatFileSize } from "@/lib/utils";
-import { usePromptInput, type Attachment } from "./context";
+} from 'lucide-react-native';
+import { Text } from '@/components/ui/text';
+import { formatFileSize } from '@/lib/utils';
+import { usePromptInput, type Attachment } from './context';
 
-const REMOVE_BUTTON_POSITION = { position: "absolute", top: 6, right: 6 } as const;
+const REMOVE_BUTTON_POSITION = { position: 'absolute', top: 6, right: 6 } as const;
 
 function getDocumentIcon(mimeType: string, name: string) {
-  const ext = name.split(".").pop()?.toLowerCase() || "";
+  const ext = name.split('.').pop()?.toLowerCase() || '';
 
-  if (mimeType === "application/pdf" || ext === "pdf")
-    return { Icon: FileText, color: "#EF4444", bgColor: "#EF444418" };
-  if (mimeType.includes("word") || ["doc", "docx"].includes(ext))
-    return { Icon: FileText, color: "#3B82F6", bgColor: "#3B82F618" };
+  if (mimeType === 'application/pdf' || ext === 'pdf')
+    return { Icon: FileText, color: '#EF4444', bgColor: '#EF444418' };
+  if (mimeType.includes('word') || ['doc', 'docx'].includes(ext))
+    return { Icon: FileText, color: '#3B82F6', bgColor: '#3B82F618' };
   if (
-    mimeType.includes("spreadsheet") ||
-    mimeType.includes("excel") ||
-    ["xls", "xlsx", "csv"].includes(ext)
+    mimeType.includes('spreadsheet') ||
+    mimeType.includes('excel') ||
+    ['xls', 'xlsx', 'csv'].includes(ext)
   )
     return {
       Icon: FileSpreadsheet,
-      color: "#22C55E",
-      bgColor: "#22C55E18",
+      color: '#22C55E',
+      bgColor: '#22C55E18',
     };
   if (
     [
-      "js",
-      "ts",
-      "tsx",
-      "jsx",
-      "py",
-      "rb",
-      "go",
-      "rs",
-      "java",
-      "c",
-      "cpp",
-      "h",
-      "json",
-      "xml",
-      "yaml",
-      "yml",
-      "html",
-      "css",
-      "scss",
-      "sh",
-      "sql",
+      'js',
+      'ts',
+      'tsx',
+      'jsx',
+      'py',
+      'rb',
+      'go',
+      'rs',
+      'java',
+      'c',
+      'cpp',
+      'h',
+      'json',
+      'xml',
+      'yaml',
+      'yml',
+      'html',
+      'css',
+      'scss',
+      'sh',
+      'sql',
     ].includes(ext)
   )
-    return { Icon: FileCode, color: "#8B5CF6", bgColor: "#8B5CF618" };
+    return { Icon: FileCode, color: '#8B5CF6', bgColor: '#8B5CF618' };
   if (
-    mimeType.includes("zip") ||
-    mimeType.includes("archive") ||
-    ["zip", "rar", "tar", "gz", "7z"].includes(ext)
+    mimeType.includes('zip') ||
+    mimeType.includes('archive') ||
+    ['zip', 'rar', 'tar', 'gz', '7z'].includes(ext)
   )
-    return { Icon: FileArchive, color: "#EAB308", bgColor: "#EAB30818" };
-  if (
-    mimeType.startsWith("audio/") ||
-    ["mp3", "wav", "ogg", "flac", "aac"].includes(ext)
-  )
-    return { Icon: FileAudio, color: "#EC4899", bgColor: "#EC489918" };
-  if (
-    mimeType === "text/plain" ||
-    ["txt", "md", "rtf"].includes(ext)
-  )
-    return { Icon: FileText, color: "#6B7280", bgColor: "#6B728018" };
-  return { Icon: File, color: "#9CA3AF", bgColor: "#9CA3AF18" };
+    return { Icon: FileArchive, color: '#EAB308', bgColor: '#EAB30818' };
+  if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'flac', 'aac'].includes(ext))
+    return { Icon: FileAudio, color: '#EC4899', bgColor: '#EC489918' };
+  if (mimeType === 'text/plain' || ['txt', 'md', 'rtf'].includes(ext))
+    return { Icon: FileText, color: '#6B7280', bgColor: '#6B728018' };
+  return { Icon: File, color: '#9CA3AF', bgColor: '#9CA3AF18' };
 }
 
 function truncateFilename(name: string, maxLength = 20): string {
   if (name.length <= maxLength) return name;
-  const lastDot = name.lastIndexOf(".");
-  if (lastDot < 0) return name.slice(0, maxLength - 3) + "...";
+  const lastDot = name.lastIndexOf('.');
+  if (lastDot < 0) return name.slice(0, maxLength - 3) + '...';
   const ext = name.slice(lastDot);
   const base = name.slice(0, lastDot);
   const available = maxLength - ext.length - 3;
-  if (available <= 0) return name.slice(0, maxLength - 3) + "...";
-  return base.slice(0, available) + "..." + ext;
+  if (available <= 0) return name.slice(0, maxLength - 3) + '...';
+  return base.slice(0, available) + '...' + ext;
 }
 
 function AttachmentItem({
@@ -96,18 +90,14 @@ function AttachmentItem({
   attachment: Attachment;
   onRemove: () => void;
 }) {
-  if (attachment.type === "image") {
+  if (attachment.type === 'image') {
     return (
       <View
         className="relative rounded-2xl overflow-hidden bg-muted border border-border"
         style={{ width: 120, height: 120 }}
       >
         {!attachment.isLoading && attachment.uri ? (
-          <Image
-            source={{ uri: attachment.uri }}
-            className="w-full h-full"
-            contentFit="cover"
-          />
+          <Image source={{ uri: attachment.uri }} className="w-full h-full" contentFit="cover" />
         ) : (
           <View className="absolute inset-0 items-center justify-center bg-muted">
             <ActivityIndicator size="small" />
@@ -116,7 +106,7 @@ function AttachmentItem({
         {attachment.name && !attachment.isLoading && (
           <View
             className="absolute bottom-0 left-0 right-0 px-2 py-1"
-            style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
           >
             <Text className="text-[11px] text-white" numberOfLines={1}>
               {truncateFilename(attachment.name)}
@@ -126,17 +116,14 @@ function AttachmentItem({
         <CloseButton
           onPress={onRemove}
           size="sm"
-          accessibilityLabel={`Remove ${attachment.name || "image"}`}
+          accessibilityLabel={`Remove ${attachment.name || 'image'}`}
           style={REMOVE_BUTTON_POSITION}
         />
       </View>
     );
   }
 
-  const { Icon, color, bgColor } = getDocumentIcon(
-    attachment.mimeType,
-    attachment.name
-  );
+  const { Icon, color, bgColor } = getDocumentIcon(attachment.mimeType, attachment.name);
 
   return (
     <View
@@ -151,10 +138,7 @@ function AttachmentItem({
           <Icon size={20} color={color} />
         </View>
         <View className="flex-1 pr-4">
-          <Text
-            className="text-xs font-medium text-foreground"
-            numberOfLines={1}
-          >
+          <Text className="text-xs font-medium text-foreground" numberOfLines={1}>
             {truncateFilename(attachment.name)}
           </Text>
           {attachment.size > 0 && (
@@ -167,7 +151,7 @@ function AttachmentItem({
       <CloseButton
         onPress={onRemove}
         size="xs"
-        accessibilityLabel={`Remove ${attachment.name || "document"}`}
+        accessibilityLabel={`Remove ${attachment.name || 'document'}`}
         style={REMOVE_BUTTON_POSITION}
       />
     </View>

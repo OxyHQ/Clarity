@@ -17,7 +17,12 @@ import { sendError } from '../middleware/resource-auth.js';
 import { CLARITY_JOBS_CAPABILITY } from '../search/jobs/capability.js';
 import { jobReportSchema, reportJobPosting } from '../search/jobs/reports.js';
 import {
-  JobsError, getJobPostingById, getJobPostingByUrl, jobCorpusStats, jobSearchSchema, searchJobs,
+  JobsError,
+  getJobPostingById,
+  getJobPostingByUrl,
+  jobCorpusStats,
+  jobSearchSchema,
+  searchJobs,
 } from '../search/jobs/service.js';
 
 const router = Router();
@@ -29,7 +34,10 @@ router.post('/search', async (req, res) => {
   const parsed = jobSearchSchema.safeParse(req.body);
   if (!parsed.success) {
     sendError(res, 400, 'invalid_request', 'Job search validation failed', req, {
-      issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+      issues: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
     });
     return;
   }
@@ -45,10 +53,16 @@ router.get('/capability', (_req, res) => res.json(CLARITY_JOBS_CAPABILITY));
 router.get('/stats', async (_req, res) => res.json(await jobCorpusStats()));
 
 router.get('/by-url', async (req, res) => {
-  if (typeof req.query.url !== 'string') { sendError(res, 400, 'invalid_request', 'url is required', req); return; }
+  if (typeof req.query.url !== 'string') {
+    sendError(res, 400, 'invalid_request', 'url is required', req);
+    return;
+  }
   try {
     const job = await getJobPostingByUrl(req.query.url);
-    if (!job) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+    if (!job) {
+      sendError(res, 404, 'job_not_found', 'Job posting not found', req);
+      return;
+    }
     res.json(job);
   } catch (error) {
     respond(error, req, res);
@@ -60,13 +74,19 @@ router.post('/:id/report', async (req, res) => {
   const parsed = jobReportSchema.safeParse(req.body);
   if (!parsed.success) {
     sendError(res, 400, 'invalid_request', 'A supported report reason is required', req, {
-      issues: parsed.error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })),
+      issues: parsed.error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+      })),
     });
     return;
   }
   try {
     const accepted = await reportJobPosting(String(req.params.id), parsed.data);
-    if (!accepted) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+    if (!accepted) {
+      sendError(res, 404, 'job_not_found', 'Job posting not found', req);
+      return;
+    }
     res.status(202).json({ status: 'received' });
   } catch (error) {
     respond(error, req, res);
@@ -76,7 +96,10 @@ router.post('/:id/report', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const job = await getJobPostingById(String(req.params.id));
-    if (!job) { sendError(res, 404, 'job_not_found', 'Job posting not found', req); return; }
+    if (!job) {
+      sendError(res, 404, 'job_not_found', 'Job posting not found', req);
+      return;
+    }
     res.json(job);
   } catch (error) {
     respond(error, req, res);

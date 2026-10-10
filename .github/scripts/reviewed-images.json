@@ -3,10 +3,7 @@
   "recipes": [
     {
       "name": "clarity-api",
-      "services": [
-        "clarity-api",
-        "clarity-worker"
-      ],
+      "services": ["clarity-api", "clarity-worker"],
       "ecrRepository": "oxy/clarity",
       "dockerfile": "packages/backend/Dockerfile",
       "dockerfileSha256": "217e119146ee838972eb738b2950c891fa5bb7d389228bcf7b8fbb7132d8a051",

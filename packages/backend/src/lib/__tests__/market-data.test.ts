@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  getMarketQuote, MarketDataError, type MarketQuoteCache,
-} from '../market-data.js';
+import { getMarketQuote, MarketDataError, type MarketQuoteCache } from '../market-data.js';
 
 /**
  * What Clarity serves for a market quote.
@@ -19,11 +17,23 @@ const DAY = 86_400_000;
 
 /** `days` daily points ending at NOW, priced 100, 101, 102 … */
 const dailySeries = (days: number): number[][] =>
-  Array.from({ length: days }, (_, index) => [NOW.getTime() - (days - 1 - index) * DAY, 100 + index]);
+  Array.from({ length: days }, (_, index) => [
+    NOW.getTime() - (days - 1 - index) * DAY,
+    100 + index,
+  ]);
 
-const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 
-const BITCOIN = { id: 'bitcoin', name: 'Bitcoin', symbol: 'btc', thumb: 'https://example.test/btc.png' };
+const BITCOIN = {
+  id: 'bitcoin',
+  name: 'Bitcoin',
+  symbol: 'btc',
+  thumb: 'https://example.test/btc.png',
+};
 
 /** A cache that is only ever this test's map, so nothing leaks between cases. */
 function memoryCache(): MarketQuoteCache & { entries: Map<string, string> } {
@@ -31,11 +41,15 @@ function memoryCache(): MarketQuoteCache & { entries: Map<string, string> } {
   return {
     entries,
     read: async (key) => entries.get(key) ?? null,
-    write: async (key, value) => { entries.set(key, value); },
+    write: async (key, value) => {
+      entries.set(key, value);
+    },
   };
 }
 
-function coinGecko(options: { daily?: number[][]; coins?: unknown[]; price?: unknown; failing?: RegExp } = {}) {
+function coinGecko(
+  options: { daily?: number[][]; coins?: unknown[]; price?: unknown; failing?: RegExp } = {},
+) {
   const daily = options.daily ?? dailySeries(800);
   return vi.fn<typeof fetch>(async (input) => {
     const url = String(input);
@@ -46,16 +60,30 @@ function coinGecko(options: { daily?: number[][]; coins?: unknown[]; price?: unk
     // it rather than a fixture that happens not to know the URL.
     if (url.includes('market_chart')) {
       const days = new URL(url).searchParams.get('days');
-      if (days === '1') return json({ prices: [[NOW.getTime() - 3_600_000, 79_000], [NOW.getTime(), 79_500]] });
+      if (days === '1')
+        return json({
+          prices: [
+            [NOW.getTime() - 3_600_000, 79_000],
+            [NOW.getTime(), 79_500],
+          ],
+        });
       return json({ prices: days === 'max' ? daily : daily.slice(-Number(days)) });
     }
     if (url.includes('/simple/price')) {
-      return json(options.price ?? {
-        bitcoin: {
-          usd: 78_420, usd_24h_change: -0.7, usd_24h_vol: 42, usd_market_cap: 1_500_000,
-          eur: 72_100, eur_24h_change: -0.5, eur_24h_vol: 40, eur_market_cap: 1_400_000,
+      return json(
+        options.price ?? {
+          bitcoin: {
+            usd: 78_420,
+            usd_24h_change: -0.7,
+            usd_24h_vol: 42,
+            usd_market_cap: 1_500_000,
+            eur: 72_100,
+            eur_24h_change: -0.5,
+            eur_24h_vol: 40,
+            eur_market_cap: 1_400_000,
+          },
         },
-      });
+      );
     }
     throw new Error(`unexpected request: ${url}`);
   });
@@ -76,7 +104,16 @@ describe('crypto quotes', () => {
 
   it('carries every range the card can offer', async () => {
     const quote = await crypto();
-    expect(Object.keys(quote.series).sort()).toEqual(['1D', '1M', '1Y', '5D', '5Y', '6M', 'MAX', 'YTD']);
+    expect(Object.keys(quote.series).sort()).toEqual([
+      '1D',
+      '1M',
+      '1Y',
+      '5D',
+      '5Y',
+      '6M',
+      'MAX',
+      'YTD',
+    ]);
   });
 
   it('slices the shorter ranges out of the one daily history', async () => {
@@ -104,24 +141,34 @@ describe('crypto quotes', () => {
   it('reports the numbers the card renders, and where they came from', async () => {
     const quote = await crypto();
     expect(quote).toMatchObject({
-      asset: 'bitcoin', name: 'Bitcoin', symbol: 'BTC', currency: 'usd',
-      price: 78_420, changePct: -0.7, volume24h: 42, marketCap: 1_500_000,
-      liquidityUsd: null, source: 'coingecko', updatedAt: NOW.toISOString(),
+      asset: 'bitcoin',
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      currency: 'usd',
+      price: 78_420,
+      changePct: -0.7,
+      volume24h: 42,
+      marketCap: 1_500_000,
+      liquidityUsd: null,
+      source: 'coingecko',
+      updatedAt: NOW.toISOString(),
     });
     expect(quote.changeAbs).toBeCloseTo(78_420 - 78_420 / (1 - 0.007), 6);
   });
 
   it('quotes the currency that was asked for', async () => {
     const quote = await crypto('bitcoin', coinGecko(), 'eur');
-    expect(quote).toMatchObject({ currency: 'eur', price: 72_100, changePct: -0.5, marketCap: 1_400_000 });
+    expect(quote).toMatchObject({
+      currency: 'eur',
+      price: 72_100,
+      changePct: -0.5,
+      marketCap: 1_400_000,
+    });
   });
 
   it('resolves by an exact id, symbol or name and never by search rank', async () => {
     const fetchMock = coinGecko({
-      coins: [
-        { id: 'wrapped-bitcoin', name: 'Wrapped Bitcoin', symbol: 'wbtc' },
-        BITCOIN,
-      ],
+      coins: [{ id: 'wrapped-bitcoin', name: 'Wrapped Bitcoin', symbol: 'wbtc' }, BITCOIN],
       price: { bitcoin: { usd: 78_420 } },
     });
     const quote = await crypto('BTC', fetchMock);
@@ -129,16 +176,21 @@ describe('crypto quotes', () => {
   });
 
   it('refuses an equity ticker instead of returning the nearest coin', async () => {
-    const fetchMock = coinGecko({ coins: [{ id: 'apple-fan-token', name: 'Apple Fan Token', symbol: 'aft' }] });
+    const fetchMock = coinGecko({
+      coins: [{ id: 'apple-fan-token', name: 'Apple Fan Token', symbol: 'aft' }],
+    });
     await expect(crypto('AAPL', fetchMock)).rejects.toMatchObject({
-      name: 'MarketDataError', status: 404, code: 'asset_not_found',
+      name: 'MarketDataError',
+      status: 404,
+      code: 'asset_not_found',
     });
     expect(chartCalls(fetchMock)).toHaveLength(0);
   });
 
   it('does not invent a quote when a history request fails', async () => {
     await expect(crypto('bitcoin', coinGecko({ failing: /days=max/ }))).rejects.toMatchObject({
-      status: 503, code: 'upstream_unavailable',
+      status: 503,
+      code: 'upstream_unavailable',
     });
   });
 
@@ -150,13 +202,15 @@ describe('crypto quotes', () => {
       return json({ bitcoin: { usd: 78_420 } });
     });
     await expect(crypto('bitcoin', fetchMock)).rejects.toMatchObject({
-      status: 503, code: 'upstream_unavailable',
+      status: 503,
+      code: 'upstream_unavailable',
     });
   });
 
   it('does not invent a quote when the upstream returns no price', async () => {
     await expect(crypto('bitcoin', coinGecko({ price: { bitcoin: {} } }))).rejects.toMatchObject({
-      status: 503, code: 'upstream_unavailable',
+      status: 503,
+      code: 'upstream_unavailable',
     });
   });
 });
@@ -180,7 +234,10 @@ function fairCoinExplorer(options: { price?: unknown; failing?: RegExp } = {}) {
       return json({
         period,
         source: 'wfair-base',
-        history: [{ price_usd: 0.04, timestamp: '2026-09-08T12:00:00.000Z' }, { price_usd: 0.0412, timestamp: '2026-09-09T12:00:00.000Z' }],
+        history: [
+          { price_usd: 0.04, timestamp: '2026-09-08T12:00:00.000Z' },
+          { price_usd: 0.0412, timestamp: '2026-09-09T12:00:00.000Z' },
+        ],
       });
     }
     if (url.endsWith('/price')) return json(options.price ?? FAIRCOIN_PRICE);
@@ -192,12 +249,20 @@ const faircoin = (fetchMock = fairCoinExplorer(), currency = 'usd') =>
   getMarketQuote('faircoin', { fetch: fetchMock, cache: null, now: NOW, currency });
 
 describe('FairCoin quotes', () => {
-  it('carries the explorer\'s own source and timestamp, not Clarity\'s', async () => {
+  it("carries the explorer's own source and timestamp, not Clarity's", async () => {
     const quote = await faircoin();
     expect(quote).toMatchObject({
-      asset: 'faircoin', name: 'FairCoin', symbol: 'FAIR', currency: 'usd',
-      price: 0.0412, changePct: 1.8, volume24h: 1_230.5, liquidityUsd: 48_900, marketCap: 2_100_000,
-      source: 'wfair-base', updatedAt: '2026-09-09T11:59:30.000Z',
+      asset: 'faircoin',
+      name: 'FairCoin',
+      symbol: 'FAIR',
+      currency: 'usd',
+      price: 0.0412,
+      changePct: 1.8,
+      volume24h: 1_230.5,
+      liquidityUsd: 48_900,
+      marketCap: 2_100_000,
+      source: 'wfair-base',
+      updatedAt: '2026-09-09T11:59:30.000Z',
     });
     expect(quote.updatedAt).not.toBe(NOW.toISOString());
   });
@@ -206,8 +271,9 @@ describe('FairCoin quotes', () => {
     const fetchMock = fairCoinExplorer();
     const quote = await faircoin(fetchMock);
     expect(Object.keys(quote.series)).toEqual(['24h', '7d', '30d', '1y', 'all']);
-    expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).searchParams.get('period')))
-      .toEqual([null, '24h', '7d', '30d', '1y', 'all']);
+    expect(
+      fetchMock.mock.calls.map(([url]) => new URL(String(url)).searchParams.get('period')),
+    ).toEqual([null, '24h', '7d', '30d', '1y', 'all']);
     expect(quote.series['7d']).toEqual([
       [Date.parse('2026-09-08T12:00:00.000Z'), 0.04],
       [Date.parse('2026-09-09T12:00:00.000Z'), 0.0412],
@@ -220,10 +286,12 @@ describe('FairCoin quotes', () => {
     expect(quote.price).toBe(0.0412);
   });
 
-  it('passes the explorer\'s own null price through rather than raising', async () => {
-    const quote = await faircoin(fairCoinExplorer({
-      price: { ...FAIRCOIN_PRICE, price: null, change24h: null },
-    }));
+  it("passes the explorer's own null price through rather than raising", async () => {
+    const quote = await faircoin(
+      fairCoinExplorer({
+        price: { ...FAIRCOIN_PRICE, price: null, change24h: null },
+      }),
+    );
     expect(quote.price).toBeNull();
     expect(quote.changeAbs).toBeNull();
     expect(quote.source).toBe('wfair-base');
@@ -233,20 +301,23 @@ describe('FairCoin quotes', () => {
     const withoutSource: Record<string, unknown> = { ...FAIRCOIN_PRICE };
     delete withoutSource.source;
     await expect(faircoin(fairCoinExplorer({ price: withoutSource }))).rejects.toMatchObject({
-      status: 503, code: 'upstream_unavailable',
+      status: 503,
+      code: 'upstream_unavailable',
     });
   });
 
   it('fails when the price request itself is down', async () => {
     await expect(faircoin(fairCoinExplorer({ failing: /\/price$/ }))).rejects.toMatchObject({
-      status: 503, code: 'upstream_unavailable',
+      status: 503,
+      code: 'upstream_unavailable',
     });
   });
 
   it('refuses a currency the explorer does not publish, without calling it', async () => {
     const fetchMock = fairCoinExplorer();
     await expect(faircoin(fetchMock, 'eur')).rejects.toMatchObject({
-      status: 400, code: 'currency_unsupported',
+      status: 400,
+      code: 'currency_unsupported',
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -256,7 +327,11 @@ describe('FairCoin quotes', () => {
       const fetchMock = fairCoinExplorer();
       const quote = await getMarketQuote(alias, { fetch: fetchMock, cache: null, now: NOW });
       expect(quote.source).toBe('wfair-base');
-      expect(fetchMock.mock.calls.every(([url]) => String(url).startsWith('https://explorer.fairco.in/'))).toBe(true);
+      expect(
+        fetchMock.mock.calls.every(([url]) =>
+          String(url).startsWith('https://explorer.fairco.in/'),
+        ),
+      ).toBe(true);
     }
   });
 });
@@ -269,7 +344,11 @@ describe('caching', () => {
     const callsAfterFirst = fetchMock.mock.calls.length;
     expect(callsAfterFirst).toBe(4);
 
-    const second = await getMarketQuote('bitcoin', { fetch: fetchMock, cache, now: new Date(NOW.getTime() + 30_000) });
+    const second = await getMarketQuote('bitcoin', {
+      fetch: fetchMock,
+      cache,
+      now: new Date(NOW.getTime() + 30_000),
+    });
     expect(fetchMock.mock.calls).toHaveLength(callsAfterFirst);
     expect(second).toEqual(first);
     // The cached copy still reports when the number was READ, not when it was served.
@@ -293,16 +372,25 @@ describe('caching', () => {
     const cache = memoryCache();
     const fetchMock = coinGecko();
     await getMarketQuote('bitcoin', { fetch: fetchMock, cache, now: NOW, currency: 'usd' });
-    const euros = await getMarketQuote('bitcoin', { fetch: fetchMock, cache, now: NOW, currency: 'eur' });
+    const euros = await getMarketQuote('bitcoin', {
+      fetch: fetchMock,
+      cache,
+      now: NOW,
+      currency: 'eur',
+    });
     expect(euros.price).toBe(72_100);
     expect(fetchMock.mock.calls).toHaveLength(8);
-    expect([...cache.entries.keys()]).toEqual(['market:quote:v1:bitcoin:usd', 'market:quote:v1:bitcoin:eur']);
+    expect([...cache.entries.keys()]).toEqual([
+      'market:quote:v1:bitcoin:usd',
+      'market:quote:v1:bitcoin:eur',
+    ]);
   });
 
   it('caches nothing when the upstream failed', async () => {
     const cache = memoryCache();
-    await expect(getMarketQuote('bitcoin', { fetch: coinGecko({ failing: /days=max/ }), cache, now: NOW }))
-      .rejects.toBeInstanceOf(MarketDataError);
+    await expect(
+      getMarketQuote('bitcoin', { fetch: coinGecko({ failing: /days=max/ }), cache, now: NOW }),
+    ).rejects.toBeInstanceOf(MarketDataError);
     expect(cache.entries.size).toBe(0);
 
     const recovered = await getMarketQuote('bitcoin', { fetch: coinGecko(), cache, now: NOW });
@@ -311,8 +399,12 @@ describe('caching', () => {
 
   it('still answers when the cache backend is broken', async () => {
     const broken: MarketQuoteCache = {
-      read: async () => { throw new Error('redis unavailable'); },
-      write: async () => { throw new Error('redis unavailable'); },
+      read: async () => {
+        throw new Error('redis unavailable');
+      },
+      write: async () => {
+        throw new Error('redis unavailable');
+      },
     };
     const quote = await getMarketQuote('bitcoin', { fetch: coinGecko(), cache: broken, now: NOW });
     expect(quote.price).toBe(78_420);

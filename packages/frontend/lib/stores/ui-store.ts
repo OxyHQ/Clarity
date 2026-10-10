@@ -48,20 +48,15 @@ export const useUIStore = create<UIState>((set) => ({
   shortcutsDialogOpen: false,
   canvasArtifacts: [],
 
-  toggleSidebar: () =>
-    set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
-  setSidebarOpen: (open) =>
-    set({ sidebarOpen: open }),
+  setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  toggleSidebarCollapsed: () =>
-    set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+  toggleSidebarCollapsed: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
 
-  setSidebarCollapsed: (collapsed) =>
-    set({ sidebarCollapsed: collapsed }),
+  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
-  setSidebarMode: (mode) =>
-    set({ sidebarMode: mode }),
+  setSidebarMode: (mode) => set({ sidebarMode: mode }),
 
   setRightPanel: (panel) =>
     set({ rightPanel: panel, ...(panel === null && { thoughtMessageId: null }) }),
@@ -72,14 +67,11 @@ export const useUIStore = create<UIState>((set) => ({
       ...(state.rightPanel === panel && { thoughtMessageId: null }),
     })),
 
-  openThoughtPanel: (messageId) =>
-    set({ rightPanel: 'thought', thoughtMessageId: messageId }),
+  openThoughtPanel: (messageId) => set({ rightPanel: 'thought', thoughtMessageId: messageId }),
 
-  setThoughtMessages: (messages) =>
-    set({ thoughtMessages: messages }),
+  setThoughtMessages: (messages) => set({ thoughtMessages: messages }),
 
-  setShortcutsDialogOpen: (open) =>
-    set({ shortcutsDialogOpen: open }),
+  setShortcutsDialogOpen: (open) => set({ shortcutsDialogOpen: open }),
 
   toggleShortcutsDialog: () =>
     set((state) => ({ shortcutsDialogOpen: !state.shortcutsDialogOpen })),
@@ -87,6 +79,5 @@ export const useUIStore = create<UIState>((set) => ({
   addCanvasArtifact: (artifact) =>
     set((state) => ({ canvasArtifacts: [...state.canvasArtifacts, artifact] })),
 
-  clearCanvasArtifacts: () =>
-    set({ canvasArtifacts: [] }),
+  clearCanvasArtifacts: () => set({ canvasArtifacts: [] }),
 }));

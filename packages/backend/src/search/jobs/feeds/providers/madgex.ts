@@ -13,9 +13,14 @@ const PAGE_SIZE = 20;
 
 export const madgex: JobFeedProvider = {
   kind: 'madgex',
-  identifier: { meaning: 'the host of a Madgex job board serving /jobsrss/, e.g. jobs.chronicle.com', shape: 'slug', pattern: /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/ },
+  identifier: {
+    meaning: 'the host of a Madgex job board serving /jobsrss/, e.g. jobs.chronicle.com',
+    shape: 'slug',
+    pattern: /^[a-z0-9-]+(?:\.[a-z0-9-]+)+$/,
+  },
   completeListing: true,
-  request: (identifier, cursor) => get(`https://${identifier}/jobsrss/?page=${Number(cursor ?? 1) || 1}`, XML_ACCEPT),
+  request: (identifier, cursor) =>
+    get(`https://${identifier}/jobsrss/?page=${Number(cursor ?? 1) || 1}`, XML_ACCEPT),
   parse(body, context) {
     const items = elements(body, 'item');
     const current = Number(context.cursor ?? 1) || 1;
@@ -25,9 +30,13 @@ export const madgex: JobFeedProvider = {
       references: items.flatMap((item) => {
         const link = text(tag(item, 'link'));
         const published = date(text(tag(item, 'pubDate')));
-        return link ? [{ url: withoutTracking(link), ...(published ? { lastModified: published } : {}) }] : [];
+        return link
+          ? [{ url: withoutTracking(link), ...(published ? { lastModified: published } : {}) }]
+          : [];
       }),
-      ...(items.length === PAGE_SIZE && current * PAGE_SIZE < total ? { nextCursor: String(current + 1) } : {}),
+      ...(items.length === PAGE_SIZE && current * PAGE_SIZE < total
+        ? { nextCursor: String(current + 1) }
+        : {}),
     };
   },
   listingPage: jsonLdPage,

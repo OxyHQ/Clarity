@@ -51,15 +51,54 @@ type Block = { kind: 'para' | 'heading' | 'list'; text: string };
 
 /** Elements whose contents are not listing text at all. */
 const REMOVED = new Set([
-  'SCRIPT', 'STYLE', 'IFRAME', 'NOSCRIPT', 'TEMPLATE', 'SVG', 'MATH', 'OBJECT', 'EMBED',
-  'CANVAS', 'HEAD', 'TITLE',
+  'SCRIPT',
+  'STYLE',
+  'IFRAME',
+  'NOSCRIPT',
+  'TEMPLATE',
+  'SVG',
+  'MATH',
+  'OBJECT',
+  'EMBED',
+  'CANVAS',
+  'HEAD',
+  'TITLE',
 ]);
 
 const BLOCKS = new Set([
-  'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'CAPTION', 'CENTER', 'DD', 'DETAILS', 'DIALOG',
-  'DIV', 'DL', 'DT', 'FIELDSET', 'FIGCAPTION', 'FIGURE', 'FOOTER', 'FORM', 'HEADER', 'HGROUP',
-  'HR', 'LI', 'MAIN', 'NAV', 'P', 'SECTION', 'SUMMARY', 'TABLE', 'TBODY', 'TFOOT', 'THEAD', 'TR',
-  'BODY', 'HTML',
+  'ADDRESS',
+  'ARTICLE',
+  'ASIDE',
+  'BLOCKQUOTE',
+  'CAPTION',
+  'CENTER',
+  'DD',
+  'DETAILS',
+  'DIALOG',
+  'DIV',
+  'DL',
+  'DT',
+  'FIELDSET',
+  'FIGCAPTION',
+  'FIGURE',
+  'FOOTER',
+  'FORM',
+  'HEADER',
+  'HGROUP',
+  'HR',
+  'LI',
+  'MAIN',
+  'NAV',
+  'P',
+  'SECTION',
+  'SUMMARY',
+  'TABLE',
+  'TBODY',
+  'TFOOT',
+  'THEAD',
+  'TR',
+  'BODY',
+  'HTML',
 ]);
 
 /**
@@ -67,15 +106,104 @@ const BLOCKS = new Set([
  * one of these, so a Markdown body that mentions `<company>` stays Markdown.
  */
 const HTML_TAG_NAMES = new Set([
-  'a', 'abbr', 'address', 'article', 'aside', 'b', 'bdi', 'bdo', 'big', 'blockquote', 'body', 'br',
-  'button', 'canvas', 'caption', 'center', 'cite', 'code', 'col', 'colgroup', 'dd', 'del', 'details',
-  'dfn', 'dialog', 'div', 'dl', 'dt', 'em', 'embed', 'fieldset', 'figcaption', 'figure', 'font',
-  'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'hr', 'html', 'i',
-  'iframe', 'img', 'input', 'ins', 'kbd', 'label', 'li', 'link', 'main', 'mark', 'math', 'meta',
-  'nav', 'noscript', 'object', 'ol', 'p', 'picture', 'pre', 'q', 's', 'samp', 'script', 'section',
-  'small', 'source', 'span', 'strike', 'strong', 'style', 'sub', 'summary', 'sup', 'svg', 'table',
-  'tbody', 'td', 'template', 'tfoot', 'th', 'thead', 'time', 'title', 'tr', 'tt', 'u', 'ul', 'var',
-  'video', 'wbr',
+  'a',
+  'abbr',
+  'address',
+  'article',
+  'aside',
+  'b',
+  'bdi',
+  'bdo',
+  'big',
+  'blockquote',
+  'body',
+  'br',
+  'button',
+  'canvas',
+  'caption',
+  'center',
+  'cite',
+  'code',
+  'col',
+  'colgroup',
+  'dd',
+  'del',
+  'details',
+  'dfn',
+  'dialog',
+  'div',
+  'dl',
+  'dt',
+  'em',
+  'embed',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'font',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'head',
+  'header',
+  'hgroup',
+  'hr',
+  'html',
+  'i',
+  'iframe',
+  'img',
+  'input',
+  'ins',
+  'kbd',
+  'label',
+  'li',
+  'link',
+  'main',
+  'mark',
+  'math',
+  'meta',
+  'nav',
+  'noscript',
+  'object',
+  'ol',
+  'p',
+  'picture',
+  'pre',
+  'q',
+  's',
+  'samp',
+  'script',
+  'section',
+  'small',
+  'source',
+  'span',
+  'strike',
+  'strong',
+  'style',
+  'sub',
+  'summary',
+  'sup',
+  'svg',
+  'table',
+  'tbody',
+  'td',
+  'template',
+  'tfoot',
+  'th',
+  'thead',
+  'time',
+  'title',
+  'tr',
+  'tt',
+  'u',
+  'ul',
+  'var',
+  'video',
+  'wbr',
 ]);
 
 /** Sentinel for `<br>` inside an inline run, resolved when the run is flushed. */
@@ -110,14 +238,20 @@ export function toJobMarkdown(value: string): string {
 // HTML → Markdown
 // ---------------------------------------------------------------------------
 
-interface WalkContext { strong: boolean; em: boolean; link: boolean; pre: boolean }
+interface WalkContext {
+  strong: boolean;
+  em: boolean;
+  link: boolean;
+  pre: boolean;
+}
 
 class Builder {
   readonly blocks: Block[] = [];
   inline = '';
 
   flush(): void {
-    for (const paragraph of finalizeInline(this.inline)) this.blocks.push({ kind: 'para', text: paragraph });
+    for (const paragraph of finalizeInline(this.inline))
+      this.blocks.push({ kind: 'para', text: paragraph });
     this.inline = '';
   }
 
@@ -137,7 +271,9 @@ type DomNode = {
 
 export function htmlToMarkdown(html: string): string {
   const fullDocument = /<html[\s>]|<body[\s>]/i.test(html);
-  const { document } = parseHTML(fullDocument ? html : `<!doctype html><html><head></head><body>${html}</body></html>`);
+  const { document } = parseHTML(
+    fullDocument ? html : `<!doctype html><html><head></head><body>${html}</body></html>`,
+  );
   const root = (document.body ?? document.documentElement) as unknown as DomNode | null;
   if (!root) return '';
   const builder = new Builder();
@@ -158,7 +294,10 @@ function walk(node: DomNode, builder: Builder, context: WalkContext): void {
   if (node.nodeType === 3) {
     const raw = node.data ?? '';
     if (context.pre) {
-      builder.inline += raw.split(/\r\n|\r|\n/).map((line) => escapeText(line.replace(/[ \t\f\v\u00a0]+/g, ' '))).join(BR);
+      builder.inline += raw
+        .split(/\r\n|\r|\n/)
+        .map((line) => escapeText(line.replace(/[ \t\f\v\u00a0]+/g, ' ')))
+        .join(BR);
     } else {
       builder.inline += escapeText(raw.replace(/\s+/g, ' '));
     }
@@ -172,16 +311,27 @@ function walk(node: DomNode, builder: Builder, context: WalkContext): void {
     case 'BR':
       builder.inline += BR;
       return;
-    case 'H1': case 'H2': case 'H3': case 'H4': case 'H5': case 'H6': {
+    case 'H1':
+    case 'H2':
+    case 'H3':
+    case 'H4':
+    case 'H5':
+    case 'H6': {
       const inner = new Builder();
       walkChildren(node, inner, context);
       inner.flush();
-      const text = inner.blocks.map((block) => block.text).join(' ').replace(/\\\n/g, ' ').replace(/\s+/g, ' ').trim();
+      const text = inner.blocks
+        .map((block) => block.text)
+        .join(' ')
+        .replace(/\\\n/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
       if (text) builder.push({ kind: 'heading', text: `${'#'.repeat(Number(name[1]))} ${text}` });
       else builder.flush();
       return;
     }
-    case 'UL': case 'OL': {
+    case 'UL':
+    case 'OL': {
       const list = renderList(node, name === 'OL', context);
       if (list) builder.push(list);
       else builder.flush();
@@ -192,16 +342,19 @@ function walk(node: DomNode, builder: Builder, context: WalkContext): void {
       walkChildren(node, builder, { ...context, pre: true });
       builder.flush();
       return;
-    case 'STRONG': case 'B':
+    case 'STRONG':
+    case 'B':
       wrapInline(node, builder, { ...context, strong: true }, context.strong ? undefined : '**');
       return;
-    case 'EM': case 'I':
+    case 'EM':
+    case 'I':
       wrapInline(node, builder, { ...context, em: true }, context.em ? undefined : '_');
       return;
     case 'A':
       renderLink(node, builder, context);
       return;
-    case 'TD': case 'TH':
+    case 'TD':
+    case 'TH':
       walkChildren(node, builder, context);
       builder.inline += ' ';
       return;
@@ -221,7 +374,12 @@ function walk(node: DomNode, builder: Builder, context: WalkContext): void {
  * delimiter — but only when they produced a single inline run. Emphasis cannot
  * span paragraphs, so a `<b>` around block content keeps just its text.
  */
-function wrapInline(node: DomNode, builder: Builder, context: WalkContext, delimiter: string | undefined): void {
+function wrapInline(
+  node: DomNode,
+  builder: Builder,
+  context: WalkContext,
+  delimiter: string | undefined,
+): void {
   const start = builder.inline.length;
   const blocksBefore = builder.blocks.length;
   walkChildren(node, builder, context);
@@ -254,14 +412,22 @@ function renderLink(node: DomNode, builder: Builder, context: WalkContext): void
 function safeLinkUrl(href: string | null | undefined): string | undefined {
   if (!href) return undefined;
   let parsed: URL;
-  try { parsed = new URL(href.trim()); } catch { return undefined; }
+  try {
+    parsed = new URL(href.trim());
+  } catch {
+    return undefined;
+  }
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return undefined;
-  return parsed.href.replace(/[()<>\s]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`);
+  return parsed.href.replace(
+    /[()<>\s]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0')}`,
+  );
 }
 
 function renderList(node: DomNode, ordered: boolean, context: WalkContext): Block | undefined {
   const startAttribute = Number.parseInt(node.getAttribute?.('start') ?? '', 10);
-  let counter = ordered && Number.isFinite(startAttribute) && startAttribute >= 0 ? startAttribute : 1;
+  let counter =
+    ordered && Number.isFinite(startAttribute) && startAttribute >= 0 ? startAttribute : 1;
   const items: string[] = [];
   let loose = new Builder();
 
@@ -279,15 +445,27 @@ function renderList(node: DomNode, ordered: boolean, context: WalkContext): Bloc
       const nested = renderList(child, childName === 'OL', context);
       if (!nested) continue;
       loose.flush();
-      if (loose.blocks.length > 0) { emit(loose.blocks); loose = new Builder(); }
-      if (items.length === 0) { items.push(nested.text); continue; }
+      if (loose.blocks.length > 0) {
+        emit(loose.blocks);
+        loose = new Builder();
+      }
+      if (items.length === 0) {
+        items.push(nested.text);
+        continue;
+      }
       const indent = ' '.repeat(items[items.length - 1].indexOf(' ') + 1);
-      items[items.length - 1] += `\n${nested.text.split('\n').map((line) => (line ? indent + line : line)).join('\n')}`;
+      items[items.length - 1] += `\n${nested.text
+        .split('\n')
+        .map((line) => (line ? indent + line : line))
+        .join('\n')}`;
       continue;
     }
     if (childName === 'LI') {
       loose.flush();
-      if (loose.blocks.length > 0) { emit(loose.blocks); loose = new Builder(); }
+      if (loose.blocks.length > 0) {
+        emit(loose.blocks);
+        loose = new Builder();
+      }
       const item = new Builder();
       walkChildren(child, item, context);
       item.flush();
@@ -306,7 +484,10 @@ function itemBody(blocks: readonly Block[]): string {
   let body = '';
   blocks.forEach((block, index) => {
     const text = block.kind === 'heading' ? block.text.replace(/^#+ /, '') : block.text;
-    if (index === 0) { body = text; return; }
+    if (index === 0) {
+      body = text;
+      return;
+    }
     const previous = blocks[index - 1];
     const separator = block.kind === 'list' ? '\n' : previous.kind === 'list' ? '\n\n' : '\\\n';
     body += separator + text;
@@ -316,22 +497,27 @@ function itemBody(blocks: readonly Block[]): string {
 
 function indentItem(marker: string, body: string): string {
   const indent = ' '.repeat(marker.length + 1);
-  return `${marker} ${body.split('\n').map((line, index) => (index === 0 || !line ? line : indent + line)).join('\n')}`;
+  return `${marker} ${body
+    .split('\n')
+    .map((line, index) => (index === 0 || !line ? line : indent + line))
+    .join('\n')}`;
 }
 
 /** Splits an inline run into paragraphs at `<br><br>` and escapes block markers. */
 function finalizeInline(run: string): string[] {
   return run
     .split(/(?:[ \t]*\uE000[ \t]*){2,}/)
-    .map((paragraph) => paragraph
-      .replace(/^[\s\uE000]+|[\s\uE000]+$/g, '')
-      .replace(/ {2,}/g, ' ')
-      // Text that reads as a character reference once rendered ("&amp;lt;" in the source).
-      .replace(/(?<!\\)&(?=#?[a-zA-Z0-9]+;)/g, '\\&')
-      .replace(/ *\uE000 */g, '\\\n')
-      .split('\n')
-      .map(escapeLineStart)
-      .join('\n'))
+    .map((paragraph) =>
+      paragraph
+        .replace(/^[\s\uE000]+|[\s\uE000]+$/g, '')
+        .replace(/ {2,}/g, ' ')
+        // Text that reads as a character reference once rendered ("&amp;lt;" in the source).
+        .replace(/(?<!\\)&(?=#?[a-zA-Z0-9]+;)/g, '\\&')
+        .replace(/ *\uE000 */g, '\\\n')
+        .split('\n')
+        .map(escapeLineStart)
+        .join('\n'),
+    )
     .filter((paragraph) => paragraph.length > 0);
 }
 
@@ -366,13 +552,19 @@ const BLOCK_START = /^\s*(?:[-+*•·▪◦●‣]|\d{1,9}[.)]|#{1,6}|>|```|~~~)
 
 export function normalizeMarkdown(value: string): string {
   const lines = value.replace(/\r\n?/g, '\n').split('\n');
-  const output = lines.map((line, index) => {
-    let current = line.replace(/^(\s*)[•·▪◦●‣]\s+/, '$1- ');
-    const next = lines[index + 1] ?? '';
-    const hardBreak = / {2,}$/.test(current) && current.trim().length > 0 && next.trim().length > 0 && !BLOCK_START.test(next);
-    current = current.replace(/[ \t\u00a0]+$/, '');
-    return hardBreak && !current.endsWith('\\') ? `${current}\\` : current;
-  }).join('\n');
+  const output = lines
+    .map((line, index) => {
+      let current = line.replace(/^(\s*)[•·▪◦●‣]\s+/, '$1- ');
+      const next = lines[index + 1] ?? '';
+      const hardBreak =
+        / {2,}$/.test(current) &&
+        current.trim().length > 0 &&
+        next.trim().length > 0 &&
+        !BLOCK_START.test(next);
+      current = current.replace(/[ \t\u00a0]+$/, '');
+      return hardBreak && !current.endsWith('\\') ? `${current}\\` : current;
+    })
+    .join('\n');
   return escapeMarkupOutsideCode(output)
     .replace(/\n{3,}/g, '\n\n')
     .replace(/^\n+|\s+$/g, '')
@@ -390,10 +582,7 @@ function escapeMarkupOutsideCode(value: string): string {
 }
 
 function escapeMarkup(value: string): string {
-  return value.replace(
-    /(?<!\\)<(?![a-zA-Z][a-zA-Z0-9+.-]{1,31}:[^\s<>]*>)(?=[a-zA-Z/!?])/g,
-    '\\<',
-  );
+  return value.replace(/(?<!\\)<(?![a-zA-Z][a-zA-Z0-9+.-]{1,31}:[^\s<>]*>)(?=[a-zA-Z/!?])/g, '\\<');
 }
 
 // ---------------------------------------------------------------------------
@@ -408,18 +597,25 @@ function escapeMarkup(value: string): string {
  */
 export function markdownToPlainText(markdown: string | null | undefined): string {
   if (!markdown) return '';
-  const lines = markdown.replace(/[\uE000\uE001]/g, '').replace(/\r\n?/g, '\n').split('\n').flatMap((line) => {
-    if (/^\s{0,3}(```|~~~)/.test(line)) return [];
-    if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line) || /^\s{0,3}=+\s*$/.test(line)) return [];
-    return [line
-      .replace(/^\s{0,3}#{1,6}(\s+|$)/, '')
-      .replace(/\s+#+\s*$/, '')
-      .replace(/^\s*(>\s?)+/, '')
-      .replace(/^\s*(?:[-+*]|\d{1,9}[.)])\s+(\[[ xX]\]\s+)?/, '')
-      .replace(/(?<!\\)\\$/, '')
-      .replace(/ {2,}$/, '')];
-  });
-  const inline = lines.join('\n')
+  const lines = markdown
+    .replace(/[\uE000\uE001]/g, '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .flatMap((line) => {
+      if (/^\s{0,3}(```|~~~)/.test(line)) return [];
+      if (/^\s{0,3}([-*_])(\s*\1){2,}\s*$/.test(line) || /^\s{0,3}=+\s*$/.test(line)) return [];
+      return [
+        line
+          .replace(/^\s{0,3}#{1,6}(\s+|$)/, '')
+          .replace(/\s+#+\s*$/, '')
+          .replace(/^\s*(>\s?)+/, '')
+          .replace(/^\s*(?:[-+*]|\d{1,9}[.)])\s+(\[[ xX]\]\s+)?/, '')
+          .replace(/(?<!\\)\\$/, '')
+          .replace(/ {2,}$/, ''),
+      ];
+    });
+  const inline = lines
+    .join('\n')
     .replace(/!\[((?:\\.|[^\]\\])*)\]\((?:[^()\s]|\([^()]*\))*(?:\s+"[^"]*")?\)/g, '$1')
     .replace(/(?<!\\)\[((?:\\.|[^\]\\])*)\]\((?:[^()\s]|\([^()]*\))*(?:\s+"[^"]*")?\)/g, '$1')
     .replace(/(?<!\\)<((?:https?|mailto):[^\s<>]+)>/g, '$1')
@@ -432,7 +628,8 @@ export function markdownToPlainText(markdown: string | null | undefined): string
     .replace(/\\&/g, '\uE001')
     .replace(/\\([!-/:-@[-`{-~])/g, '$1');
   // An escaped `&` is a literal ampersand, never the start of a reference.
-  return decodeHtmlEntities(inline).replace(/\uE001/g, '&')
+  return decodeHtmlEntities(inline)
+    .replace(/\uE001/g, '&')
     .split('\n')
     .map((line) => line.trim())
     .join('\n')
@@ -445,26 +642,41 @@ export function markdownToPlainText(markdown: string | null | undefined): string
 // ---------------------------------------------------------------------------
 
 const entityCache = new Map<string, string>();
-let entityDocument: { createElement: (name: string) => { innerHTML: string; textContent: string | null } } | undefined;
+let entityDocument:
+  | { createElement: (name: string) => { innerHTML: string; textContent: string | null } }
+  | undefined;
 
 /** Decodes named and numeric character references; unknown ones stay as written. */
 export function decodeHtmlEntities(value: string): string {
   if (!value.includes('&')) return value;
-  return value.replace(/&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});/g, (entity, body: string) => {
-    if (body.startsWith('#')) {
-      const code = body[1] === 'x' || body[1] === 'X' ? Number.parseInt(body.slice(2), 16) : Number.parseInt(body.slice(1), 10);
-      if (!Number.isFinite(code) || code === 0 || code > 0x10ffff || (code >= 0xd800 && code <= 0xdfff)) return '\uFFFD';
-      return String.fromCodePoint(code);
-    }
-    const cached = entityCache.get(body);
-    if (cached !== undefined) return cached;
-    entityDocument ??= parseHTML('<!doctype html><html><body></body></html>').document as unknown as typeof entityDocument;
-    const element = entityDocument!.createElement('span');
-    element.innerHTML = entity;
-    const decoded = element.textContent ?? entity;
-    // A name the HTML spec does not define decodes to itself, not a prefix match.
-    const resolved = decoded.length > 0 && !decoded.includes(';') ? decoded : entity;
-    if (entityCache.size < 512) entityCache.set(body, resolved);
-    return resolved;
-  });
+  return value.replace(
+    /&(#[0-9]{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]{1,31});/g,
+    (entity, body: string) => {
+      if (body.startsWith('#')) {
+        const code =
+          body[1] === 'x' || body[1] === 'X'
+            ? Number.parseInt(body.slice(2), 16)
+            : Number.parseInt(body.slice(1), 10);
+        if (
+          !Number.isFinite(code) ||
+          code === 0 ||
+          code > 0x10ffff ||
+          (code >= 0xd800 && code <= 0xdfff)
+        )
+          return '\uFFFD';
+        return String.fromCodePoint(code);
+      }
+      const cached = entityCache.get(body);
+      if (cached !== undefined) return cached;
+      entityDocument ??= parseHTML('<!doctype html><html><body></body></html>')
+        .document as unknown as typeof entityDocument;
+      const element = entityDocument!.createElement('span');
+      element.innerHTML = entity;
+      const decoded = element.textContent ?? entity;
+      // A name the HTML spec does not define decodes to itself, not a prefix match.
+      const resolved = decoded.length > 0 && !decoded.includes(';') ? decoded : entity;
+      if (entityCache.size < 512) entityCache.set(body, resolved);
+      return resolved;
+    },
+  );
 }

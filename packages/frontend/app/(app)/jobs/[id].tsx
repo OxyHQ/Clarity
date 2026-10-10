@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useState } from "react";
-import { Linking, Pressable, ScrollView, View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCallback, useMemo, useState } from 'react';
+import { Linking, Pressable, ScrollView, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Briefcase,
@@ -11,26 +11,26 @@ import {
   Flag,
   MapPin,
   Wallet,
-} from "lucide-react-native";
+} from 'lucide-react-native';
 
-import type { JobReportReason } from "@clarity/shared-types";
+import type { JobReportReason } from '@clarity/shared-types';
 
-import { Skeleton } from "@/components/ui/skeleton";
-import { ClarityMarkdown } from "@/lib/sdk";
-import { Text } from "@/components/ui/text";
-import { useJobPosting, useReportJobPosting } from "@/lib/hooks/use-jobs";
-import { formatLocations, formatPostedAt, formatSalary } from "@/lib/jobs-format";
-import { useColorScheme } from "@/lib/useColorScheme";
-import { useTranslation } from "@/hooks/useTranslation";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { Button, GlyphButton } from "@oxy.so/bloom/button";
+import { Skeleton } from '@/components/ui/skeleton';
+import { ClarityMarkdown } from '@/lib/sdk';
+import { Text } from '@/components/ui/text';
+import { useJobPosting, useReportJobPosting } from '@/lib/hooks/use-jobs';
+import { formatLocations, formatPostedAt, formatSalary } from '@/lib/jobs-format';
+import { useColorScheme } from '@/lib/useColorScheme';
+import { useTranslation } from '@/hooks/useTranslation';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { Button, GlyphButton } from '@oxy.so/bloom/button';
 
 const REPORT_REASONS: JobReportReason[] = [
-  "scam",
-  "already_filled",
-  "misleading",
-  "discriminatory",
-  "other",
+  'scam',
+  'already_filled',
+  'misleading',
+  'discriminatory',
+  'other',
 ];
 
 export default function JobDetailScreen() {
@@ -39,16 +39,19 @@ export default function JobDetailScreen() {
   const router = useRouter();
   const { colors } = useColorScheme();
   // Long-text listing fields are Markdown with no raw HTML (Clarity Jobs contract).
-  const markdownColors = useMemo(() => ({
-    text: colors.mutedForeground,
-    border: colors.border,
-    muted: colors.muted,
-    mutedForeground: colors.mutedForeground,
-    primary: colors.primary,
-  }), [colors.mutedForeground, colors.border, colors.muted, colors.primary]);
+  const markdownColors = useMemo(
+    () => ({
+      text: colors.mutedForeground,
+      border: colors.border,
+      muted: colors.muted,
+      mutedForeground: colors.mutedForeground,
+      primary: colors.primary,
+    }),
+    [colors.mutedForeground, colors.border, colors.muted, colors.primary],
+  );
   const insets = useSafeAreaInsets();
-  const job = useJobPosting(typeof id === "string" ? id : undefined);
-  const report = useReportJobPosting(typeof id === "string" ? id : undefined);
+  const job = useJobPosting(typeof id === 'string' ? id : undefined);
+  const report = useReportJobPosting(typeof id === 'string' ? id : undefined);
   const [reportOpen, setReportOpen] = useState(false);
 
   const openCanonical = useCallback(() => {
@@ -58,7 +61,9 @@ export default function JobDetailScreen() {
 
   const posting = job.data;
   const salary = formatSalary(posting?.salary);
-  const location = posting ? formatLocations(posting.locations, posting.applicantLocationRequirements) : undefined;
+  const location = posting
+    ? formatLocations(posting.locations, posting.applicantLocationRequirements)
+    : undefined;
   const posted = formatPostedAt(posting?.publishedAt ?? posting?.firstSeenAt);
 
   return (
@@ -66,21 +71,25 @@ export default function JobDetailScreen() {
       <View className="border-b border-border bg-background z-10">
         <View
           className="flex-row items-center gap-3 px-4 h-14"
-          style={{ maxWidth: 860, alignSelf: "center", width: "100%" }}
+          style={{ maxWidth: 860, alignSelf: 'center', width: '100%' }}
         >
           <GlyphButton
             icon={bloomIcon(ArrowLeft)}
-            accessibilityLabel={t("common.back")}
+            accessibilityLabel={t('common.back')}
             onPress={() => router.back()}
           />
-          <Text className="font-sans text-sm font-medium text-foreground">{t("jobs.title")}</Text>
+          <Text className="font-sans text-sm font-medium text-foreground">{t('jobs.title')}</Text>
         </View>
       </View>
 
-      <ScrollView className="flex-1" contentContainerClassName="pb-16" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="pb-16"
+        showsVerticalScrollIndicator={false}
+      >
         <View
           className="w-full px-4 py-6 gap-5"
-          style={{ maxWidth: 860, alignSelf: "center", width: "100%" }}
+          style={{ maxWidth: 860, alignSelf: 'center', width: '100%' }}
         >
           {job.isPending ? (
             <View className="gap-3">
@@ -90,15 +99,17 @@ export default function JobDetailScreen() {
             </View>
           ) : job.isError || !posting ? (
             <View className="rounded-xl border border-border/60 bg-card p-6 gap-3 items-start">
-              <Text className="text-sm font-medium text-foreground">{t("jobs.detailErrorTitle")}</Text>
-              <Text className="text-sm text-muted-foreground">{t("jobs.detailErrorBody")}</Text>
+              <Text className="text-sm font-medium text-foreground">
+                {t('jobs.detailErrorTitle')}
+              </Text>
+              <Text className="text-sm text-muted-foreground">{t('jobs.detailErrorBody')}</Text>
               <Button appearance="outline" tone="neutral" onPress={() => job.refetch()}>
-                {t("jobs.retry")}
+                {t('jobs.retry')}
               </Button>
             </View>
           ) : (
             <>
-              {posting.status !== "active" ? (
+              {posting.status !== 'active' ? (
                 <View className="rounded-xl border border-border/60 bg-muted/50 p-3">
                   <Text className="text-xs text-muted-foreground">
                     {t(`jobs.status.${posting.status}`)}
@@ -111,7 +122,9 @@ export default function JobDetailScreen() {
                 <View className="flex-row items-center gap-1.5">
                   <Building2 size={14} color={colors.mutedForeground} />
                   <Text className="text-base text-muted-foreground">
-                    {posting.department ? `${posting.employer.name} · ${posting.department}` : posting.employer.name}
+                    {posting.department
+                      ? `${posting.employer.name} · ${posting.department}`
+                      : posting.employer.name}
                   </Text>
                 </View>
               </View>
@@ -167,18 +180,20 @@ export default function JobDetailScreen() {
               {/* Attribution first: Clarity indexed this listing, it did not publish it. */}
               <View className="rounded-xl border border-border/60 bg-card p-4 gap-3">
                 <Text className="text-xs text-muted-foreground">
-                  {t("jobs.indexedNotice", { domain: posting.source.domain })}
+                  {t('jobs.indexedNotice', { domain: posting.source.domain })}
                 </Text>
                 <Button
                   onPress={openCanonical}
                   accessibilityRole="link"
                   leadingIcon={bloomIcon(ExternalLink)}
                 >
-                  {t("jobs.viewOriginal")}
+                  {t('jobs.viewOriginal')}
                 </Button>
                 {posting.otherSources.length > 0 ? (
                   <View className="gap-1 pt-1 border-t border-border/40">
-                    <Text className="text-xs font-medium text-foreground">{t("jobs.otherSources")}</Text>
+                    <Text className="text-xs font-medium text-foreground">
+                      {t('jobs.otherSources')}
+                    </Text>
                     {posting.otherSources.map((source) => (
                       <Pressable
                         key={source.canonicalUrl}
@@ -194,14 +209,18 @@ export default function JobDetailScreen() {
 
               {posting.description ? (
                 <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">{t("jobs.descriptionHeading")}</Text>
+                  <Text className="text-sm font-medium text-foreground">
+                    {t('jobs.descriptionHeading')}
+                  </Text>
                   <ClarityMarkdown content={posting.description} colors={markdownColors} />
                 </View>
               ) : null}
 
               {posting.skills.length > 0 ? (
                 <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">{t("jobs.skillsHeading")}</Text>
+                  <Text className="text-sm font-medium text-foreground">
+                    {t('jobs.skillsHeading')}
+                  </Text>
                   <View className="flex-row flex-wrap gap-1.5">
                     {posting.skills.map((skill) => (
                       <View key={skill} className="rounded-md border border-border/60 px-2 py-1">
@@ -214,21 +233,27 @@ export default function JobDetailScreen() {
 
               {posting.qualifications ? (
                 <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">{t("jobs.qualificationsHeading")}</Text>
+                  <Text className="text-sm font-medium text-foreground">
+                    {t('jobs.qualificationsHeading')}
+                  </Text>
                   <ClarityMarkdown content={posting.qualifications} colors={markdownColors} />
                 </View>
               ) : null}
 
               {posting.responsibilities ? (
                 <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">{t("jobs.responsibilitiesHeading")}</Text>
+                  <Text className="text-sm font-medium text-foreground">
+                    {t('jobs.responsibilitiesHeading')}
+                  </Text>
                   <ClarityMarkdown content={posting.responsibilities} colors={markdownColors} />
                 </View>
               ) : null}
 
               {posting.benefits ? (
                 <View className="gap-2">
-                  <Text className="text-sm font-medium text-foreground">{t("jobs.benefitsHeading")}</Text>
+                  <Text className="text-sm font-medium text-foreground">
+                    {t('jobs.benefitsHeading')}
+                  </Text>
                   <ClarityMarkdown content={posting.benefits} colors={markdownColors} />
                 </View>
               ) : null}
@@ -236,7 +261,7 @@ export default function JobDetailScreen() {
               {/* Reports are an operator signal only; they never change ranking. */}
               <View className="gap-2 pt-2 border-t border-border/40">
                 {report.isSuccess ? (
-                  <Text className="text-xs text-muted-foreground">{t("jobs.reportThanks")}</Text>
+                  <Text className="text-xs text-muted-foreground">{t('jobs.reportThanks')}</Text>
                 ) : (
                   <>
                     <Pressable
@@ -245,7 +270,7 @@ export default function JobDetailScreen() {
                       className="flex-row items-center gap-1.5"
                     >
                       <Flag size={12} color={colors.mutedForeground} />
-                      <Text className="text-xs text-muted-foreground">{t("jobs.report")}</Text>
+                      <Text className="text-xs text-muted-foreground">{t('jobs.report')}</Text>
                     </Pressable>
                     {reportOpen ? (
                       <View className="flex-row flex-wrap gap-1.5">
@@ -265,14 +290,14 @@ export default function JobDetailScreen() {
                       </View>
                     ) : null}
                     {report.isError ? (
-                      <Text className="text-xs text-muted-foreground">{t("jobs.reportError")}</Text>
+                      <Text className="text-xs text-muted-foreground">{t('jobs.reportError')}</Text>
                     ) : null}
                   </>
                 )}
-                <Text className="text-xs text-muted-foreground">{t("jobs.reportNotice")}</Text>
+                <Text className="text-xs text-muted-foreground">{t('jobs.reportNotice')}</Text>
               </View>
 
-              <Text className="text-xs text-muted-foreground">{t("jobs.disclaimer")}</Text>
+              <Text className="text-xs text-muted-foreground">{t('jobs.disclaimer')}</Text>
             </>
           )}
         </View>

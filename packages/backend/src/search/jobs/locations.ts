@@ -10,12 +10,21 @@
 import type { JobLocation } from '@clarity/shared-types';
 import type { CountryCode } from '@clarity.surf/sdk/vocabularies';
 
-import { foldPlaceName, matchPlace, type PlaceCandidate, type PlaceResolver } from '../places/resolve.js';
+import {
+  foldPlaceName,
+  matchPlace,
+  type PlaceCandidate,
+  type PlaceResolver,
+} from '../places/resolve.js';
 import type { ExtractedJobPosting } from './extract.js';
 
 /** Display text for a location that only named a place. */
-export function placeLabel(place: Pick<PlaceCandidate, 'name' | 'admin1Name' | 'countryCode' | 'kind'>): string {
-  return [place.name, place.kind === 'city' ? place.admin1Name : undefined, place.countryCode].filter(Boolean).join(', ');
+export function placeLabel(
+  place: Pick<PlaceCandidate, 'name' | 'admin1Name' | 'countryCode' | 'kind'>,
+): string {
+  return [place.name, place.kind === 'city' ? place.admin1Name : undefined, place.countryCode]
+    .filter(Boolean)
+    .join(', ');
 }
 
 function withPlace(location: JobLocation, place: PlaceCandidate): JobLocation {
@@ -25,7 +34,9 @@ function withPlace(location: JobLocation, place: PlaceCandidate): JobLocation {
     countryCode: location.countryCode ?? (place.countryCode as CountryCode),
     ...(place.kind === 'city' && !location.locality ? { locality: place.name } : {}),
     ...(place.kind === 'region' && !location.region ? { region: place.name } : {}),
-    ...(place.kind === 'city' && !location.region && place.admin1Name ? { region: place.admin1Name } : {}),
+    ...(place.kind === 'city' && !location.region && place.admin1Name
+      ? { region: place.admin1Name }
+      : {}),
     placeId: place.id,
   };
 }
@@ -47,8 +58,14 @@ export async function resolveJobLocations(
   const claimedIds = locations.flatMap((location) => (location.placeId ? [location.placeId] : []));
   const lookups = locations.flatMap((location) =>
     !location.placeId && location.locality && location.countryCode
-      ? [{ countryCode: location.countryCode as CountryCode, names: [foldPlaceName(location.locality)] }]
-      : []);
+      ? [
+          {
+            countryCode: location.countryCode as CountryCode,
+            names: [foldPlaceName(location.locality)],
+          },
+        ]
+      : [],
+  );
   const [claimed, candidates] = await Promise.all([
     claimedIds.length > 0 ? resolver.byIds(claimedIds) : Promise.resolve([]),
     lookups.length > 0 ? resolver.candidates(lookups) : Promise.resolve([]),
@@ -58,7 +75,8 @@ export async function resolveJobLocations(
   const resolve = (location: JobLocation): JobLocation | undefined => {
     if (location.placeId) {
       const place = claimedById.get(location.placeId);
-      if (!place || (location.countryCode && location.countryCode !== place.countryCode)) return withoutPlace(location);
+      if (!place || (location.countryCode && location.countryCode !== place.countryCode))
+        return withoutPlace(location);
       return withPlace(location, place);
     }
     if (!location.locality || !location.countryCode) return location;

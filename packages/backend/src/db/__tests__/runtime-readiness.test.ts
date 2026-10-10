@@ -9,28 +9,57 @@ const agentHash = createHash('sha256').update(agentId).digest('hex');
 
 describe('runtime cutover readiness', () => {
   it('opens only for the exact agent identity recorded by the reconciled snapshot', () => {
-    expect(evaluateRuntimeReadiness({
-      status: 'cutover',
-      aliaAgentIdSha256: agentHash,
-    }, agentId)).toEqual({ ready: true });
+    expect(
+      evaluateRuntimeReadiness(
+        {
+          status: 'cutover',
+          aliaAgentIdSha256: agentHash,
+        },
+        agentId,
+      ),
+    ).toEqual({ ready: true });
   });
 
   it('opens for a deployment attested as never having had prior data, same as a real cutover', () => {
-    expect(evaluateRuntimeReadiness({
-      status: 'fresh_install',
-      aliaAgentIdSha256: agentHash,
-    }, agentId)).toEqual({ ready: true });
+    expect(
+      evaluateRuntimeReadiness(
+        {
+          status: 'fresh_install',
+          aliaAgentIdSha256: agentHash,
+        },
+        agentId,
+      ),
+    ).toEqual({ ready: true });
   });
 
   it.each([
     [undefined, agentId, 'postgres_cutover_unattested'],
-    [{ status: 'reconciled', aliaAgentIdSha256: agentHash }, agentId, 'postgres_cutover_unattested'],
+    [
+      { status: 'reconciled', aliaAgentIdSha256: agentHash },
+      agentId,
+      'postgres_cutover_unattested',
+    ],
     [{ status: 'cutover', aliaAgentIdSha256: agentHash }, undefined, 'clarity_agent_unconfigured'],
-    [{ status: 'cutover', aliaAgentIdSha256: agentHash }, 'different-agent', 'clarity_agent_unconfigured'],
+    [
+      { status: 'cutover', aliaAgentIdSha256: agentHash },
+      'different-agent',
+      'clarity_agent_unconfigured',
+    ],
     [{ status: 'cutover', aliaAgentIdSha256: null }, agentId, 'clarity_agent_attestation_mismatch'],
-    [{ status: 'fresh_install', aliaAgentIdSha256: null }, agentId, 'clarity_agent_attestation_mismatch'],
-    [{ status: 'fresh_install', aliaAgentIdSha256: agentHash }, 'different-agent', 'clarity_agent_unconfigured'],
-  ] as const)('fails closed for an incomplete or changed attestation', (row, configured, reason) => {
-    expect(evaluateRuntimeReadiness(row, configured)).toEqual({ ready: false, reason });
-  });
+    [
+      { status: 'fresh_install', aliaAgentIdSha256: null },
+      agentId,
+      'clarity_agent_attestation_mismatch',
+    ],
+    [
+      { status: 'fresh_install', aliaAgentIdSha256: agentHash },
+      'different-agent',
+      'clarity_agent_unconfigured',
+    ],
+  ] as const)(
+    'fails closed for an incomplete or changed attestation',
+    (row, configured, reason) => {
+      expect(evaluateRuntimeReadiness(row, configured)).toEqual({ ready: false, reason });
+    },
+  );
 });

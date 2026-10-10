@@ -20,7 +20,9 @@ export const JOB_FEED_KINDS = Object.keys(JOB_FEED_PROVIDERS) as [JobFeedKind, .
 
 /** How a kind's `identifier` column is interpreted, for operators and errors. */
 export const JOB_FEED_IDENTIFIER_MEANING: Readonly<Record<JobFeedKind, string>> = Object.freeze(
-  Object.fromEntries(JOB_FEED_KINDS.map((kind) => [kind, JOB_FEED_PROVIDERS[kind].identifier.meaning])) as Record<JobFeedKind, string>,
+  Object.fromEntries(
+    JOB_FEED_KINDS.map((kind) => [kind, JOB_FEED_PROVIDERS[kind].identifier.meaning]),
+  ) as Record<JobFeedKind, string>,
 );
 
 const SLUG = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,100}$/;
@@ -34,17 +36,23 @@ export function assertJobFeedIdentifier(kind: JobFeedKind, identifier: string): 
   const { identifier: rule } = jobFeedProvider(kind);
   if (rule.shape === 'url') {
     const parsed = new URL(identifier);
-    if (parsed.protocol !== 'https:') throw new Error(`A ${kind} feed identifier must be an https URL`);
+    if (parsed.protocol !== 'https:')
+      throw new Error(`A ${kind} feed identifier must be an https URL`);
     if (parsed.username || parsed.password) throw new Error('A feed URL may not carry credentials');
     return;
   }
   if (rule.shape === 'none') return;
   if (rule.shape === 'optional' && (identifier === '' || identifier === kind)) return;
-  if (!(rule.pattern ?? SLUG).test(identifier)) throw new Error(`Identifier for ${kind} must be ${rule.meaning}`);
+  if (!(rule.pattern ?? SLUG).test(identifier))
+    throw new Error(`Identifier for ${kind} must be ${rule.meaning}`);
 }
 
 /** The request for one page of a feed; `cursor` is absent for the newest page. */
-export function jobFeedRequest(kind: JobFeedKind, identifier: string, cursor?: string): JobFeedRequest {
+export function jobFeedRequest(
+  kind: JobFeedKind,
+  identifier: string,
+  cursor?: string,
+): JobFeedRequest {
   assertJobFeedIdentifier(kind, identifier);
   return jobFeedProvider(kind).request(identifier, cursor);
 }

@@ -2,13 +2,7 @@ import React from 'react';
 import { View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Text } from '@/components/ui/text';
-import {
-  FileText,
-  Image as ImageIcon,
-  File,
-  MoreHorizontal,
-  Trash2,
-} from 'lucide-react-native';
+import { FileText, Image as ImageIcon, File, MoreHorizontal, Trash2 } from 'lucide-react-native';
 import { GlyphButton } from '@oxy.so/bloom/button';
 import {
   DropdownMenu,
@@ -62,13 +56,12 @@ export function FileCard({ file, onPress, onDelete }: FileCardProps) {
     file.type.split('/').pop()?.toUpperCase(),
     file.size > 0 ? formatFileSize(file.size) : null,
     formatDate(file.createdAt),
-  ].filter(Boolean).join(' \u00B7 ');
+  ]
+    .filter(Boolean)
+    .join(' \u00B7 ');
 
   return (
-    <Pressable
-      onPress={() => onPress?.(file)}
-      className="active:opacity-70"
-    >
+    <Pressable onPress={() => onPress?.(file)} className="active:opacity-70">
       <View className="flex-row items-center py-2.5 gap-3">
         {/* Thumbnail / Icon */}
         <View className="w-9 h-9 rounded-full bg-muted items-center justify-center overflow-hidden">

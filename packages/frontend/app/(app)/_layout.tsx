@@ -17,7 +17,12 @@ function SearchShell() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   return (
-    <AppShell sidebar={sidebar} header={<></>} drawerOpen={sidebarOpen} onDrawerOpenChange={setSidebarOpen}>
+    <AppShell
+      sidebar={sidebar}
+      header={<></>}
+      drawerOpen={sidebarOpen}
+      onDrawerOpenChange={setSidebarOpen}
+    >
       <Slot />
     </AppShell>
   );
@@ -28,7 +33,12 @@ function SettingsShell() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   return (
-    <AppShell sidebar={sidebar} header={<></>} drawerOpen={sidebarOpen} onDrawerOpenChange={setSidebarOpen}>
+    <AppShell
+      sidebar={sidebar}
+      header={<></>}
+      drawerOpen={sidebarOpen}
+      onDrawerOpenChange={setSidebarOpen}
+    >
       <Slot />
     </AppShell>
   );

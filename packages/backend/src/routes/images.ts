@@ -31,18 +31,26 @@ const ID_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
 
 async function sourceUrlOf(kind: ImageKind, id: string): Promise<string | undefined> {
   if (kind === 'documents') {
-    const [row] = await getDb().select({ url: searchDocuments.imageUrl })
-      .from(searchDocuments).where(eq(searchDocuments.id, id)).limit(1);
+    const [row] = await getDb()
+      .select({ url: searchDocuments.imageUrl })
+      .from(searchDocuments)
+      .where(eq(searchDocuments.id, id))
+      .limit(1);
     return row?.url ?? undefined;
   }
-  const [row] = await getDb().select({ url: jobPostings.employerLogoUrl })
-    .from(jobPostings).where(eq(jobPostings.id, id)).limit(1);
+  const [row] = await getDb()
+    .select({ url: jobPostings.employerLogoUrl })
+    .from(jobPostings)
+    .where(eq(jobPostings.id, id))
+    .limit(1);
   return row?.url ?? undefined;
 }
 
 function notFound(res: Response): void {
   res.setHeader('Cache-Control', `public, max-age=${MISS_MAX_AGE_SECONDS}`);
-  res.status(404).json({ error: { code: 'image_not_found', message: 'Clarity has no image here' } });
+  res
+    .status(404)
+    .json({ error: { code: 'image_not_found', message: 'Clarity has no image here' } });
 }
 
 function serve(kind: ImageKind) {
@@ -64,12 +72,18 @@ function serve(kind: ImageKind) {
       return;
     }
     const current = imageVersion(sourceUrl) === version;
-    res.setHeader('Cache-Control', current
-      ? `public, max-age=${MAX_AGE_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`
-      : `public, max-age=${STALE_VERSION_MAX_AGE_SECONDS}`);
+    res.setHeader(
+      'Cache-Control',
+      current
+        ? `public, max-age=${MAX_AGE_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`
+        : `public, max-age=${STALE_VERSION_MAX_AGE_SECONDS}`,
+    );
     res.setHeader('Content-Type', image.contentType);
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    );
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     res.send(image.bytes);
   };

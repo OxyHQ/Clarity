@@ -39,7 +39,8 @@ export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarn
   const usageWarning = queryClient.getQueryData<UsageWarningData>(queryKeys.credits.usageWarning);
 
   // Low credits banner (< 50 credits remaining, non-zero)
-  const isLowCredits = !lowCreditsDismissed && creditsInfo && creditsInfo.credits < 50 && creditsInfo.credits > 0;
+  const isLowCredits =
+    !lowCreditsDismissed && creditsInfo && creditsInfo.credits < 50 && creditsInfo.credits > 0;
   if (!usageWarning && isLowCredits) {
     return (
       <View className="mx-auto w-full max-w-3xl px-4 pb-1">
@@ -48,10 +49,19 @@ export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarn
           <Text className="text-xs flex-1 text-yellow-700 dark:text-yellow-400">
             {t('usageLimit.creditsRemaining', { count: creditsInfo.credits })}
           </Text>
-          <Button appearance="plain" linkTone="primary" size="xs" onPress={() => router.push('/(app)/settings/usage')}>
+          <Button
+            appearance="plain"
+            linkTone="primary"
+            size="xs"
+            onPress={() => router.push('/(app)/settings/usage')}
+          >
             {t('usageLimit.buyMore')}
           </Button>
-          <CloseButton size="2xs" onPress={() => setLowCreditsDismissed(true)} accessibilityLabel={t('common.close')} />
+          <CloseButton
+            size="2xs"
+            onPress={() => setLowCreditsDismissed(true)}
+            accessibilityLabel={t('common.close')}
+          />
         </View>
       </View>
     );
@@ -83,18 +93,28 @@ export function CreditWarningBanner({ selectedModel, onSwitchModel }: CreditWarn
     statusText = t('usageLimit.spendingHighToday');
   }
 
-  const suggestionText = savingsRatio > 1
-    ? t('usageLimit.switchToModel', { model: alt.name, ratio: savingsRatio })
-    : t('usageLimit.switchToModelAlt', { model: alt.name });
+  const suggestionText =
+    savingsRatio > 1
+      ? t('usageLimit.switchToModel', { model: alt.name, ratio: savingsRatio })
+      : t('usageLimit.switchToModelAlt', { model: alt.name });
 
   return (
     <View className="mx-auto w-full max-w-3xl px-4 pb-1">
-      <View className={`flex-row items-center gap-2 rounded-lg px-3 py-2 ${isCritical ? 'bg-destructive/10' : 'bg-yellow-500/10'}`}>
+      <View
+        className={`flex-row items-center gap-2 rounded-lg px-3 py-2 ${isCritical ? 'bg-destructive/10' : 'bg-yellow-500/10'}`}
+      >
         <Zap size={14} className={isCritical ? 'text-destructive' : 'text-yellow-600'} />
-        <Text className={`text-xs flex-1 ${isCritical ? 'text-destructive' : 'text-yellow-700 dark:text-yellow-400'}`}>
+        <Text
+          className={`text-xs flex-1 ${isCritical ? 'text-destructive' : 'text-yellow-700 dark:text-yellow-400'}`}
+        >
           {statusText} {suggestionText}
         </Text>
-        <Button appearance="plain" linkTone="primary" size="xs" onPress={() => onSwitchModel(alt.model)}>
+        <Button
+          appearance="plain"
+          linkTone="primary"
+          size="xs"
+          onPress={() => onSwitchModel(alt.model)}
+        >
           {t('usageLimit.switchModel')}
         </Button>
         <CloseButton size="2xs" onPress={handleDismiss} accessibilityLabel={t('common.close')} />

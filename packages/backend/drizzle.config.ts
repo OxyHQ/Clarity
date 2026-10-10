@@ -8,4 +8,3 @@ export default defineConfig({
   casing: DATABASE_CASING,
   dbCredentials: { url: process.env.DATABASE_URL ?? '' },
 });
-

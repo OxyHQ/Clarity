@@ -22,7 +22,7 @@ Build shared types before a consumer after changing a shared contract.
 ## Required checks
 
 ```bash
-bun run --filter @clarity/backend lint
+bun run lint            # Biome (lint + format check), whole repo — CI runs `bunx biome ci .`
 bun run --filter @clarity/backend test
 bun run build:backend
 ```

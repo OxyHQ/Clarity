@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
-import { View } from "react-native";
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
+import React, { useEffect } from 'react';
+import { View } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,22 +10,22 @@ import Animated, {
   withSequence,
   withDelay,
   Easing,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
 export type LoaderProps = {
   variant?:
-    | "circular"
-    | "pulse"
-    | "pulse-dot"
-    | "dots"
-    | "typing"
-    | "wave"
-    | "bars"
-    | "terminal"
-    | "text-blink"
-    | "text-shimmer"
-    | "loading-dots";
-  size?: "sm" | "md" | "lg";
+    | 'circular'
+    | 'pulse'
+    | 'pulse-dot'
+    | 'dots'
+    | 'typing'
+    | 'wave'
+    | 'bars'
+    | 'terminal'
+    | 'text-blink'
+    | 'text-shimmer'
+    | 'loading-dots';
+  size?: 'sm' | 'md' | 'lg';
   text?: string;
   className?: string;
 };
@@ -34,19 +34,16 @@ export type LoaderProps = {
 
 function CircularLoader({
   className,
-  size = "md",
+  size = 'md',
 }: {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
   const dimensions = { sm: 16, md: 20, lg: 24 };
   const rotation = useSharedValue(0);
 
   useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(360, { duration: 800, easing: Easing.linear }),
-      -1
-    );
+    rotation.value = withRepeat(withTiming(360, { duration: 800, easing: Easing.linear }), -1);
   }, [rotation]);
 
   const spinStyle = useAnimatedStyle(() => ({
@@ -57,7 +54,7 @@ function CircularLoader({
   return (
     <Animated.View
       style={[spinStyle, { width: d, height: d }]}
-      className={cn("rounded-full border-2 border-primary border-t-transparent", className)}
+      className={cn('rounded-full border-2 border-primary border-t-transparent', className)}
       accessibilityLabel="Loading"
     />
   );
@@ -67,21 +64,18 @@ function CircularLoader({
 
 function PulseLoader({
   className,
-  size = "md",
+  size = 'md',
 }: {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
   const dimensions = { sm: 16, md: 20, lg: 24 };
   const scale = useSharedValue(1);
 
   useEffect(() => {
     scale.value = withRepeat(
-      withSequence(
-        withTiming(1.2, { duration: 750 }),
-        withTiming(1, { duration: 750 })
-      ),
-      -1
+      withSequence(withTiming(1.2, { duration: 750 }), withTiming(1, { duration: 750 })),
+      -1,
     );
   }, [scale]);
 
@@ -93,7 +87,7 @@ function PulseLoader({
   return (
     <Animated.View
       style={[pulseStyle, { width: d, height: d }]}
-      className={cn("rounded-full border-2 border-primary", className)}
+      className={cn('rounded-full border-2 border-primary', className)}
       accessibilityLabel="Loading"
     />
   );
@@ -103,10 +97,10 @@ function PulseLoader({
 
 function PulseDotLoader({
   className,
-  size = "md",
+  size = 'md',
 }: {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
   const dimensions = { sm: 4, md: 8, lg: 12 };
   const scale = useSharedValue(1);
@@ -114,18 +108,12 @@ function PulseDotLoader({
 
   useEffect(() => {
     scale.value = withRepeat(
-      withSequence(
-        withTiming(1.5, { duration: 600 }),
-        withTiming(1, { duration: 600 })
-      ),
-      -1
+      withSequence(withTiming(1.5, { duration: 600 }), withTiming(1, { duration: 600 })),
+      -1,
     );
     opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.4, { duration: 600 }),
-        withTiming(1, { duration: 600 })
-      ),
-      -1
+      withSequence(withTiming(0.4, { duration: 600 }), withTiming(1, { duration: 600 })),
+      -1,
     );
   }, [scale, opacity]);
 
@@ -138,7 +126,7 @@ function PulseDotLoader({
   return (
     <Animated.View
       style={[dotStyle, { width: d, height: d }]}
-      className={cn("rounded-full bg-primary", className)}
+      className={cn('rounded-full bg-primary', className)}
       accessibilityLabel="Loading"
     />
   );
@@ -153,40 +141,35 @@ function AnimatedDot({
 }: {
   delay: number;
   dotSize: number;
-  animType: "bounce" | "opacity";
+  animType: 'bounce' | 'opacity';
 }) {
-  const value = useSharedValue(animType === "bounce" ? 0 : 0.3);
+  const value = useSharedValue(animType === 'bounce' ? 0 : 0.3);
 
   useEffect(() => {
-    if (animType === "bounce") {
+    if (animType === 'bounce') {
       value.value = withDelay(
         delay,
         withRepeat(
           withSequence(
             withTiming(-dotSize, { duration: 350, easing: Easing.out(Easing.ease) }),
-            withTiming(0, { duration: 350, easing: Easing.in(Easing.ease) })
+            withTiming(0, { duration: 350, easing: Easing.in(Easing.ease) }),
           ),
-          -1
-        )
+          -1,
+        ),
       );
     } else {
       value.value = withDelay(
         delay,
         withRepeat(
-          withSequence(
-            withTiming(1, { duration: 500 }),
-            withTiming(0.3, { duration: 500 })
-          ),
-          -1
-        )
+          withSequence(withTiming(1, { duration: 500 }), withTiming(0.3, { duration: 500 })),
+          -1,
+        ),
       );
     }
   }, [value, delay, dotSize, animType]);
 
   const style = useAnimatedStyle(() =>
-    animType === "bounce"
-      ? { transform: [{ translateY: value.value }] }
-      : { opacity: value.value }
+    animType === 'bounce' ? { transform: [{ translateY: value.value }] } : { opacity: value.value },
   );
 
   return (
@@ -199,21 +182,12 @@ function AnimatedDot({
 
 // --- Dots ---
 
-function DotsLoader({
-  className,
-  size = "md",
-}: {
-  className?: string;
-  size?: "sm" | "md" | "lg";
-}) {
+function DotsLoader({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
   const dotSizes = { sm: 6, md: 8, lg: 10 };
   const d = dotSizes[size];
 
   return (
-    <View
-      className={cn("flex-row items-center gap-1", className)}
-      accessibilityLabel="Loading"
-    >
+    <View className={cn('flex-row items-center gap-1', className)} accessibilityLabel="Loading">
       {[0, 1, 2].map((i) => (
         <AnimatedDot key={i} delay={i * 160} dotSize={d} animType="bounce" />
       ))}
@@ -225,19 +199,16 @@ function DotsLoader({
 
 function TypingLoader({
   className,
-  size = "md",
+  size = 'md',
 }: {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
   const dotSizes = { sm: 4, md: 6, lg: 8 };
   const d = dotSizes[size];
 
   return (
-    <View
-      className={cn("flex-row items-center gap-1", className)}
-      accessibilityLabel="Loading"
-    >
+    <View className={cn('flex-row items-center gap-1', className)} accessibilityLabel="Loading">
       {[0, 1, 2].map((i) => (
         <AnimatedDot key={i} delay={i * 250} dotSize={d} animType="opacity" />
       ))}
@@ -266,10 +237,10 @@ function AnimatedBar({
       withRepeat(
         withSequence(
           withTiming(maxHeight, { duration: 400, easing: Easing.inOut(Easing.ease) }),
-          withTiming(baseHeight, { duration: 400, easing: Easing.inOut(Easing.ease) })
+          withTiming(baseHeight, { duration: 400, easing: Easing.inOut(Easing.ease) }),
         ),
-        -1
-      )
+        -1,
+      ),
     );
   }, [height, delay, baseHeight, maxHeight]);
 
@@ -283,13 +254,7 @@ function AnimatedBar({
 
 // --- Wave ---
 
-function WaveLoader({
-  className,
-  size = "md",
-}: {
-  className?: string;
-  size?: "sm" | "md" | "lg";
-}) {
+function WaveLoader({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
   const barWidth = { sm: 2, md: 2, lg: 4 };
   const heights = {
     sm: [6, 9, 12, 9, 6],
@@ -303,10 +268,7 @@ function WaveLoader({
   const maxH = Math.max(...h);
 
   return (
-    <View
-      className={cn("flex-row items-center gap-0.5", className)}
-      accessibilityLabel="Loading"
-    >
+    <View className={cn('flex-row items-center gap-0.5', className)} accessibilityLabel="Loading">
       {h.map((baseH, i) => (
         <AnimatedBar
           key={i}
@@ -322,13 +284,7 @@ function WaveLoader({
 
 // --- Bars ---
 
-function BarsLoader({
-  className,
-  size = "md",
-}: {
-  className?: string;
-  size?: "sm" | "md" | "lg";
-}) {
+function BarsLoader({ className, size = 'md' }: { className?: string; size?: 'sm' | 'md' | 'lg' }) {
   const barWidths = { sm: 4, md: 6, lg: 8 };
   const containerHeights = { sm: 16, md: 20, lg: 24 };
 
@@ -337,18 +293,12 @@ function BarsLoader({
 
   return (
     <View
-      className={cn("flex-row items-end gap-1", className)}
+      className={cn('flex-row items-end gap-1', className)}
       style={{ height: maxH }}
       accessibilityLabel="Loading"
     >
       {[0, 1, 2].map((i) => (
-        <AnimatedBar
-          key={i}
-          delay={i * 200}
-          width={w}
-          baseHeight={maxH * 0.3}
-          maxHeight={maxH}
-        />
+        <AnimatedBar key={i} delay={i * 200} width={w} baseHeight={maxH * 0.3} maxHeight={maxH} />
       ))}
     </View>
   );
@@ -358,27 +308,24 @@ function BarsLoader({
 
 function TerminalLoader({
   className,
-  size = "md",
+  size = 'md',
 }: {
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
   const cursorDimensions = {
     sm: { h: 12, w: 6 },
     md: { h: 16, w: 8 },
     lg: { h: 20, w: 10 },
   };
-  const textSizes = { sm: "text-xs", md: "text-sm", lg: "text-base" } as const;
+  const textSizes = { sm: 'text-xs', md: 'text-sm', lg: 'text-base' } as const;
 
   const opacity = useSharedValue(1);
 
   useEffect(() => {
     opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 0 }),
-        withDelay(500, withTiming(0, { duration: 0 }))
-      ),
-      -1
+      withSequence(withTiming(1, { duration: 0 }), withDelay(500, withTiming(0, { duration: 0 }))),
+      -1,
     );
   }, [opacity]);
 
@@ -389,17 +336,9 @@ function TerminalLoader({
   const { h, w } = cursorDimensions[size];
 
   return (
-    <View
-      className={cn("flex-row items-center gap-1", className)}
-      accessibilityLabel="Loading"
-    >
-      <Text className={cn("text-primary font-mono", textSizes[size])}>
-        {">"}
-      </Text>
-      <Animated.View
-        style={[blinkStyle, { height: h, width: w }]}
-        className="bg-primary"
-      />
+    <View className={cn('flex-row items-center gap-1', className)} accessibilityLabel="Loading">
+      <Text className={cn('text-primary font-mono', textSizes[size])}>{'>'}</Text>
+      <Animated.View style={[blinkStyle, { height: h, width: w }]} className="bg-primary" />
     </View>
   );
 }
@@ -407,24 +346,21 @@ function TerminalLoader({
 // --- TextBlink ---
 
 function TextBlinkLoader({
-  text = "Thinking",
+  text = 'Thinking',
   className,
-  size = "md",
+  size = 'md',
 }: {
   text?: string;
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
-  const textSizes = { sm: "text-xs", md: "text-sm", lg: "text-base" } as const;
+  const textSizes = { sm: 'text-xs', md: 'text-sm', lg: 'text-base' } as const;
   const opacity = useSharedValue(1);
 
   useEffect(() => {
     opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.3, { duration: 1000 }),
-        withTiming(1, { duration: 1000 })
-      ),
-      -1
+      withSequence(withTiming(0.3, { duration: 1000 }), withTiming(1, { duration: 1000 })),
+      -1,
     );
   }, [opacity]);
 
@@ -433,10 +369,8 @@ function TextBlinkLoader({
   }));
 
   return (
-    <Animated.View style={blinkStyle} className={cn("", className)}>
-      <Text className={cn("font-medium text-foreground", textSizes[size])}>
-        {text}
-      </Text>
+    <Animated.View style={blinkStyle} className={cn('', className)}>
+      <Text className={cn('font-medium text-foreground', textSizes[size])}>{text}</Text>
     </Animated.View>
   );
 }
@@ -444,24 +378,21 @@ function TextBlinkLoader({
 // --- TextShimmer (pulse-based for now, will connect to TextShimmer component later) ---
 
 function TextShimmerLoader({
-  text = "Thinking",
+  text = 'Thinking',
   className,
-  size = "md",
+  size = 'md',
 }: {
   text?: string;
   className?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
-  const textSizes = { sm: "text-xs", md: "text-sm", lg: "text-base" } as const;
+  const textSizes = { sm: 'text-xs', md: 'text-sm', lg: 'text-base' } as const;
   const opacity = useSharedValue(0.5);
 
   useEffect(() => {
     opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1200 }),
-        withTiming(0.5, { duration: 1200 })
-      ),
-      -1
+      withSequence(withTiming(1, { duration: 1200 }), withTiming(0.5, { duration: 1200 })),
+      -1,
     );
   }, [opacity]);
 
@@ -470,10 +401,8 @@ function TextShimmerLoader({
   }));
 
   return (
-    <Animated.View style={shimmerStyle} className={cn("", className)}>
-      <Text className={cn("font-medium text-muted-foreground", textSizes[size])}>
-        {text}
-      </Text>
+    <Animated.View style={shimmerStyle} className={cn('', className)}>
+      <Text className={cn('font-medium text-muted-foreground', textSizes[size])}>{text}</Text>
     </Animated.View>
   );
 }
@@ -490,10 +419,10 @@ function AnimatedTextDot({ delay }: { delay: number }) {
         withSequence(
           withTiming(1, { duration: 300 }),
           withTiming(0, { duration: 300 }),
-          withDelay(500, withTiming(0, { duration: 0 }))
+          withDelay(500, withTiming(0, { duration: 0 })),
         ),
-        -1
-      )
+        -1,
+      ),
     );
   }, [opacity, delay]);
 
@@ -510,20 +439,18 @@ function AnimatedTextDot({ delay }: { delay: number }) {
 
 function TextDotsLoader({
   className,
-  text = "Thinking",
-  size = "md",
+  text = 'Thinking',
+  size = 'md',
 }: {
   className?: string;
   text?: string;
-  size?: "sm" | "md" | "lg";
+  size?: 'sm' | 'md' | 'lg';
 }) {
-  const textSizes = { sm: "text-xs", md: "text-sm", lg: "text-base" } as const;
+  const textSizes = { sm: 'text-xs', md: 'text-sm', lg: 'text-base' } as const;
 
   return (
-    <View className={cn("flex-row items-center", className)}>
-      <Text className={cn("text-primary font-medium", textSizes[size])}>
-        {text}
-      </Text>
+    <View className={cn('flex-row items-center', className)}>
+      <Text className={cn('text-primary font-medium', textSizes[size])}>{text}</Text>
       <View className="flex-row">
         <AnimatedTextDot delay={200} />
         <AnimatedTextDot delay={400} />
@@ -535,29 +462,29 @@ function TextDotsLoader({
 
 // --- Main Loader ---
 
-function Loader({ variant = "circular", size = "md", text, className }: LoaderProps) {
+function Loader({ variant = 'circular', size = 'md', text, className }: LoaderProps) {
   switch (variant) {
-    case "circular":
+    case 'circular':
       return <CircularLoader size={size} className={className} />;
-    case "pulse":
+    case 'pulse':
       return <PulseLoader size={size} className={className} />;
-    case "pulse-dot":
+    case 'pulse-dot':
       return <PulseDotLoader size={size} className={className} />;
-    case "dots":
+    case 'dots':
       return <DotsLoader size={size} className={className} />;
-    case "typing":
+    case 'typing':
       return <TypingLoader size={size} className={className} />;
-    case "wave":
+    case 'wave':
       return <WaveLoader size={size} className={className} />;
-    case "bars":
+    case 'bars':
       return <BarsLoader size={size} className={className} />;
-    case "terminal":
+    case 'terminal':
       return <TerminalLoader size={size} className={className} />;
-    case "text-blink":
+    case 'text-blink':
       return <TextBlinkLoader text={text} size={size} className={className} />;
-    case "text-shimmer":
+    case 'text-shimmer':
       return <TextShimmerLoader text={text} size={size} className={className} />;
-    case "loading-dots":
+    case 'loading-dots':
       return <TextDotsLoader text={text} size={size} className={className} />;
     default:
       return <CircularLoader size={size} className={className} />;

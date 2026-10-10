@@ -43,7 +43,7 @@ router.post('/new', authenticateToken, async (req: Request, res: Response) => {
       title: conversation.title,
       source: conversation.source,
       createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt
+      updatedAt: conversation.updatedAt,
     });
   } catch (error: unknown) {
     log.chat.error({ err: error }, 'Error creating conversation');
@@ -73,21 +73,20 @@ router.get('/', authenticateToken, async (req: Request, res: Response) => {
     const results = hasMore ? conversations.slice(0, limit) : conversations;
 
     // Next cursor is the updatedAt of the last conversation
-    const nextCursor = hasMore && results.length > 0
-      ? results[results.length - 1].updatedAt.toISOString()
-      : null;
+    const nextCursor =
+      hasMore && results.length > 0 ? results[results.length - 1].updatedAt.toISOString() : null;
 
     res.json({
-      conversations: results.map(c => ({
+      conversations: results.map((c) => ({
         id: c.conversationId,
         title: c.title,
         lastMessage: c.lastMessage,
         source: c.source || 'app',
         createdAt: c.createdAt,
-        updatedAt: c.updatedAt
+        updatedAt: c.updatedAt,
       })),
       nextCursor,
-      hasMore
+      hasMore,
     });
   } catch (error: unknown) {
     log.chat.error({ err: error }, 'Error fetching conversations');
@@ -127,7 +126,7 @@ router.get('/:id', authenticateToken, async (req: Request, res: Response) => {
         createdAt: message.createdAt,
       })),
       createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt
+      updatedAt: conversation.updatedAt,
     });
   } catch (error: unknown) {
     log.chat.error({ err: error }, 'Error fetching conversation');
@@ -145,12 +144,12 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
     const { conversationId, title, messages } = req.body as Record<string, unknown>;
 
     if (
-      typeof conversationId !== 'string'
-      || conversationId.length === 0
-      || conversationId.length > 128
-      || !Array.isArray(messages)
-      || messages.length > 100
-      || (title !== undefined && (typeof title !== 'string' || title.length > 500))
+      typeof conversationId !== 'string' ||
+      conversationId.length === 0 ||
+      conversationId.length > 128 ||
+      !Array.isArray(messages) ||
+      messages.length > 100 ||
+      (title !== undefined && (typeof title !== 'string' || title.length > 500))
     ) {
       return res.status(400).json({ error: 'Invalid request body' });
     }
@@ -172,9 +171,8 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       oxyUserId: req.user.id,
       conversationId,
       ...(typeof title === 'string' && title.length > 0 ? { title } : {}),
-      titleOnInsert: typeof firstUserContent === 'string'
-        ? firstUserContent.slice(0, 50)
-        : 'New chat',
+      titleOnInsert:
+        typeof firstUserContent === 'string' ? firstUserContent.slice(0, 50) : 'New chat',
       ...(lastMessage === undefined ? {} : { lastMessage }),
       source: 'app',
       messages: validMessages,
@@ -186,7 +184,7 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
       lastMessage: conversation.lastMessage,
       source: conversation.source || 'app',
       createdAt: conversation.createdAt,
-      updatedAt: conversation.updatedAt
+      updatedAt: conversation.updatedAt,
     });
   } catch (error: unknown) {
     log.chat.error({ err: error }, 'Error saving conversation');
@@ -195,34 +193,38 @@ router.post('/', authenticateToken, async (req: Request, res: Response) => {
 });
 
 // Vote on a message (thumbs up/down)
-router.patch('/:id/messages/:messageId/vote', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
+router.patch(
+  '/:id/messages/:messageId/vote',
+  authenticateToken,
+  async (req: Request, res: Response) => {
+    try {
+      if (!req.user?.id) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
+      const { vote } = req.body;
+      if (vote !== 'up' && vote !== 'down' && vote !== null) {
+        return res.status(400).json({ error: 'vote must be "up", "down", or null' });
+      }
+
+      const updated = await voteMessage(
+        req.user.id,
+        routeParam(req, 'id'),
+        routeParam(req, 'messageId'),
+        vote,
+      );
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Message not found' });
+      }
+
+      res.json({ success: true, vote });
+    } catch (error: unknown) {
+      log.chat.error({ err: error }, 'Error voting on message');
+      res.status(500).json({ error: 'Failed to vote on message' });
     }
-
-    const { vote } = req.body;
-    if (vote !== 'up' && vote !== 'down' && vote !== null) {
-      return res.status(400).json({ error: 'vote must be "up", "down", or null' });
-    }
-
-    const updated = await voteMessage(
-      req.user.id,
-      routeParam(req, 'id'),
-      routeParam(req, 'messageId'),
-      vote,
-    );
-
-    if (!updated) {
-      return res.status(404).json({ error: 'Message not found' });
-    }
-
-    res.json({ success: true, vote });
-  } catch (error: unknown) {
-    log.chat.error({ err: error }, 'Error voting on message');
-    res.status(500).json({ error: 'Failed to vote on message' });
-  }
-});
+  },
+);
 
 // Delete a conversation
 router.delete('/:id', authenticateToken, async (req: Request, res: Response) => {

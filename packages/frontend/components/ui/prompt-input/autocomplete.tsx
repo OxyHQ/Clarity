@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { View, Pressable } from "react-native";
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import { usePromptInput } from "./context";
-import { useSearchSuggestions, useRecordSuggestionUsage } from "@/lib/hooks/use-suggestions";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { View, Pressable } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { usePromptInput } from './context';
+import { useSearchSuggestions, useRecordSuggestionUsage } from '@/lib/hooks/use-suggestions';
 
 interface Completion {
   text: string;
@@ -14,13 +14,13 @@ interface Completion {
 
 export type PromptInputAutocompleteProps = {
   enabled?: boolean;
-  position?: "top" | "bottom";
+  position?: 'top' | 'bottom';
   className?: string;
 };
 
 export function PromptInputAutocomplete({
   enabled = true,
-  position = "top",
+  position = 'top',
   className,
 }: PromptInputAutocompleteProps) {
   const { value, setValue, setHandleCompletionKey } = usePromptInput();
@@ -87,45 +87,44 @@ export function PromptInputAutocomplete({
   }, [completions]);
 
   // Arrow key handler — stable callback using refs
-  const handleKey = useCallback((key: string): boolean => {
-    const items = completionsRef.current;
-    if (items.length === 0) return false;
+  const handleKey = useCallback(
+    (key: string): boolean => {
+      const items = completionsRef.current;
+      if (items.length === 0) return false;
 
-    if (key === "ArrowDown") {
-      const next = selectedIndexRef.current < items.length - 1
-        ? selectedIndexRef.current + 1
-        : 0;
-      selectedIndexRef.current = next;
-      setSelectedIndex(next);
-      return true;
-    }
+      if (key === 'ArrowDown') {
+        const next = selectedIndexRef.current < items.length - 1 ? selectedIndexRef.current + 1 : 0;
+        selectedIndexRef.current = next;
+        setSelectedIndex(next);
+        return true;
+      }
 
-    if (key === "ArrowUp") {
-      const next = selectedIndexRef.current > 0
-        ? selectedIndexRef.current - 1
-        : items.length - 1;
-      selectedIndexRef.current = next;
-      setSelectedIndex(next);
-      return true;
-    }
+      if (key === 'ArrowUp') {
+        const next = selectedIndexRef.current > 0 ? selectedIndexRef.current - 1 : items.length - 1;
+        selectedIndexRef.current = next;
+        setSelectedIndex(next);
+        return true;
+      }
 
-    if (key === "Enter") {
-      if (selectedIndexRef.current < 0) return false;
-      const item = items[selectedIndexRef.current];
-      if (item.suggestionId) recordUsage(item.suggestionId);
-      setValue(item.text);
-      return true;
-    }
+      if (key === 'Enter') {
+        if (selectedIndexRef.current < 0) return false;
+        const item = items[selectedIndexRef.current];
+        if (item.suggestionId) recordUsage(item.suggestionId);
+        setValue(item.text);
+        return true;
+      }
 
-    if (key === "Escape") {
-      if (selectedIndexRef.current < 0) return false;
-      selectedIndexRef.current = -1;
-      setSelectedIndex(-1);
-      return true;
-    }
+      if (key === 'Escape') {
+        if (selectedIndexRef.current < 0) return false;
+        selectedIndexRef.current = -1;
+        setSelectedIndex(-1);
+        return true;
+      }
 
-    return false;
-  }, [setValue, recordUsage]);
+      return false;
+    },
+    [setValue, recordUsage],
+  );
 
   // Register/unregister the key handler based on completions
   useEffect(() => {
@@ -141,7 +140,7 @@ export function PromptInputAutocomplete({
 
   return (
     <View className={className}>
-      <View className={position === "bottom" ? "pt-0.5" : "pb-0.5"}>
+      <View className={position === 'bottom' ? 'pt-0.5' : 'pb-0.5'}>
         {completions.map((item, index) => (
           <Pressable
             key={item.suggestionId || item.text}
@@ -152,20 +151,16 @@ export function PromptInputAutocomplete({
               setValue(item.text);
             }}
             className={cn(
-              "px-3 py-1.5 rounded-lg active:bg-muted/50",
-              index === selectedIndex && "bg-muted"
+              'px-3 py-1.5 rounded-lg active:bg-muted/50',
+              index === selectedIndex && 'bg-muted',
             )}
           >
             <Text className="text-sm leading-5" numberOfLines={1}>
-              <Text className="text-foreground">
-                {item.text.slice(0, item.matchStart)}
-              </Text>
+              <Text className="text-foreground">{item.text.slice(0, item.matchStart)}</Text>
               <Text className="text-primary font-medium">
                 {item.text.slice(item.matchStart, item.matchEnd)}
               </Text>
-              <Text className="text-foreground">
-                {item.text.slice(item.matchEnd)}
-              </Text>
+              <Text className="text-foreground">{item.text.slice(item.matchEnd)}</Text>
             </Text>
           </Pressable>
         ))}

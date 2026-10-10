@@ -20,7 +20,10 @@ const AGENT_TOKEN = 'claritybot';
 const CACHE_MS = 24 * 60 * 60 * 1000;
 const MAX_ROBOTS_BYTES = 512 * 1024;
 
-interface Rule { allow: boolean; pattern: string }
+interface Rule {
+  allow: boolean;
+  pattern: string;
+}
 
 export interface RobotsPolicy {
   rules: Rule[];
@@ -34,7 +37,12 @@ export interface RobotsPolicy {
 
 /** Parses robots.txt for ClarityBot. */
 export function parseRobots(body: string): RobotsPolicy {
-  interface Group { agents: string[]; rules: Rule[]; crawlDelay?: number; signals: string[] }
+  interface Group {
+    agents: string[];
+    rules: Rule[];
+    crawlDelay?: number;
+    signals: string[];
+  }
   const groups: Group[] = [];
   let current: Group | undefined;
   let lastWasAgent = false;
@@ -46,7 +54,10 @@ export function parseRobots(body: string): RobotsPolicy {
     const field = line.slice(0, separator).trim().toLowerCase();
     const value = line.slice(separator + 1).trim();
     if (field === 'user-agent') {
-      if (!current || !lastWasAgent) { current = { agents: [], rules: [], signals: [] }; groups.push(current); }
+      if (!current || !lastWasAgent) {
+        current = { agents: [], rules: [], signals: [] };
+        groups.push(current);
+      }
       current.agents.push(value.toLowerCase());
       lastWasAgent = true;
       continue;
@@ -65,10 +76,15 @@ export function parseRobots(body: string): RobotsPolicy {
       if (Number.isFinite(seconds) && seconds >= 0) current.crawlDelay = seconds;
     }
   }
-  const named = groups.filter((group) => group.agents.some((agent) => agent.split('/')[0].trim() === AGENT_TOKEN));
-  const applicable = named.length > 0 ? named : groups.filter((group) => group.agents.includes('*'));
+  const named = groups.filter((group) =>
+    group.agents.some((agent) => agent.split('/')[0].trim() === AGENT_TOKEN),
+  );
+  const applicable =
+    named.length > 0 ? named : groups.filter((group) => group.agents.includes('*'));
   const signals = [...globalSignals, ...applicable.flatMap((group) => group.signals)];
-  const delays = applicable.map((group) => group.crawlDelay).filter((delay): delay is number => delay !== undefined);
+  const delays = applicable
+    .map((group) => group.crawlDelay)
+    .filter((delay): delay is number => delay !== undefined);
   return {
     rules: applicable.flatMap((group) => group.rules),
     ...(delays.length > 0 ? { crawlDelaySeconds: Math.max(...delays) } : {}),
@@ -81,7 +97,9 @@ export function parseRobots(body: string): RobotsPolicy {
 function matches(pattern: string, path: string): boolean {
   const anchored = pattern.endsWith('$');
   const source = (anchored ? pattern.slice(0, -1) : pattern)
-    .split('*').map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*');
+    .split('*')
+    .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+    .join('.*');
   return new RegExp(`^${source}${anchored ? '$' : ''}`).test(path);
 }
 
@@ -133,7 +151,10 @@ async function fetchPolicyOnce(origin: string): Promise<RobotsPolicy> {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       bytes += buffer.length;
       // RFC 9309 lets a crawler stop reading past a size limit; rules beyond it are ignored.
-      if (bytes > MAX_ROBOTS_BYTES) { result.response.destroy(); break; }
+      if (bytes > MAX_ROBOTS_BYTES) {
+        result.response.destroy();
+        break;
+      }
       chunks.push(buffer);
     }
     return parseRobots(Buffer.concat(chunks).toString('utf8'));
@@ -158,8 +179,10 @@ export async function assertRobotsAllow(url: string): Promise<number> {
   const policy = await robotsPolicy(url);
   const target = new URL(url);
   if (policy.unreachable) throw new Error(`robots.txt for ${target.origin} could not be read`);
-  if (policy.searchOptOut) throw new Error(`${target.origin} opts out of search (Content-Signal: search=no)`);
-  if (!robotsAllows(policy, `${target.pathname}${target.search}`)) throw new Error(`robots.txt for ${target.origin} disallows ${target.pathname}`);
+  if (policy.searchOptOut)
+    throw new Error(`${target.origin} opts out of search (Content-Signal: search=no)`);
+  if (!robotsAllows(policy, `${target.pathname}${target.search}`))
+    throw new Error(`robots.txt for ${target.origin} disallows ${target.pathname}`);
   return policy.crawlDelaySeconds ?? 0;
 }
 

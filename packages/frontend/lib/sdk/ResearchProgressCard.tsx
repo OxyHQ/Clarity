@@ -27,7 +27,14 @@ const PHASE_LABELS: Record<string, string> = {
   complete: 'Research complete',
 };
 
-const PHASE_ORDER = ['decomposing', 'searching', 'synthesizing', 'follow_up', 'finalizing', 'complete'];
+const PHASE_ORDER = [
+  'decomposing',
+  'searching',
+  'synthesizing',
+  'follow_up',
+  'finalizing',
+  'complete',
+];
 
 export function ResearchProgressCard({ progress }: ResearchProgressCardProps) {
   const [showSources, setShowSources] = useState(false);
@@ -48,9 +55,7 @@ export function ResearchProgressCard({ progress }: ResearchProgressCardProps) {
           )}
         </View>
         <View className="flex-1">
-          <Text className="text-sm font-semibold text-foreground">
-            Deep Research
-          </Text>
+          <Text className="text-sm font-semibold text-foreground">Deep Research</Text>
           <Text className="text-xs text-muted-foreground">
             {progress.message || PHASE_LABELS[progress.phase || ''] || 'Researching...'}
           </Text>
@@ -71,9 +76,7 @@ export function ResearchProgressCard({ progress }: ResearchProgressCardProps) {
             key={phase}
             className={cn(
               'flex-1 h-1 rounded-full',
-              i <= phaseIndex
-                ? (isComplete ? 'bg-green-500' : 'bg-primary')
-                : 'bg-muted',
+              i <= phaseIndex ? (isComplete ? 'bg-green-500' : 'bg-primary') : 'bg-muted',
             )}
           />
         ))}

@@ -1,11 +1,11 @@
-import React from "react";
-import { View, type ViewProps } from "react-native";
-import { CloseButton, GlyphButton } from "@oxy.so/bloom/button";
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import { ThumbsUp, ThumbsDown } from "lucide-react-native";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { useTranslation } from "@/hooks/useTranslation";
+import React from 'react';
+import { View, type ViewProps } from 'react-native';
+import { CloseButton, GlyphButton } from '@oxy.so/bloom/button';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { ThumbsUp, ThumbsDown } from 'lucide-react-native';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { useTranslation } from '@/hooks/useTranslation';
 
 type FeedbackBarProps = ViewProps & {
   title?: string;
@@ -28,8 +28,8 @@ export function FeedbackBar({
   return (
     <View
       className={cn(
-        "flex-row items-center rounded-xl border border-border bg-background",
-        className
+        'flex-row items-center rounded-xl border border-border bg-background',
+        className,
       )}
       {...props}
     >
@@ -44,19 +44,19 @@ export function FeedbackBar({
           glyphSize={16}
           icon={bloomIcon(ThumbsUp)}
           onPress={onHelpful}
-          accessibilityLabel={t("actions.goodResponse")}
+          accessibilityLabel={t('actions.goodResponse')}
         />
         <GlyphButton
           size={32}
           glyphSize={16}
           icon={bloomIcon(ThumbsDown)}
           onPress={onNotHelpful}
-          accessibilityLabel={t("actions.badResponse")}
+          accessibilityLabel={t('actions.badResponse')}
         />
       </View>
 
       <View className="border-l border-border items-center justify-center self-stretch px-3">
-        <CloseButton size="md" onPress={onClose} accessibilityLabel={t("common.close")} />
+        <CloseButton size="md" onPress={onClose} accessibilityLabel={t('common.close')} />
       </View>
     </View>
   );

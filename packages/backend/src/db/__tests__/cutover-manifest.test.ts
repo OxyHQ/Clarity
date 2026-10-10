@@ -94,7 +94,9 @@ describe('cutover manifest', () => {
     const manifest = validManifest();
     manifest.collections[1]!.sourceName = manifest.collections[0]!.sourceName;
     manifest.snapshot.inventorySha256 = sha256(canonicalJson(inventoryPayload(manifest)));
-    expect(() => validateCutoverManifest(manifest)).toThrow('source collection names must be unique');
+    expect(() => validateCutoverManifest(manifest)).toThrow(
+      'source collection names must be unique',
+    );
   });
 
   it('rejects external receipts completed before the fixed source snapshot', () => {
@@ -112,7 +114,8 @@ describe('cutover manifest', () => {
     expect(() => validateCutoverManifest(stale)).toThrow('runtime evidence predates');
 
     const duplicate = validManifest();
-    duplicate.runtimeEvidence.oxyInference.receiptId = duplicate.runtimeEvidence.aliaAgentChat.receiptId;
+    duplicate.runtimeEvidence.oxyInference.receiptId =
+      duplicate.runtimeEvidence.aliaAgentChat.receiptId;
     expect(() => validateCutoverManifest(duplicate)).toThrow('receipt IDs must be unique');
   });
 
@@ -124,7 +127,9 @@ describe('cutover manifest', () => {
       writeFileSync(manifestPath, '{}');
       writeFileSync(join(outside, 'data.jsonl'), '{}\n');
       symlinkSync(join(outside, 'data.jsonl'), join(root, 'data.jsonl'));
-      expect(() => resolveDataFile(manifestPath, 'data.jsonl')).toThrow('escapes the manifest directory');
+      expect(() => resolveDataFile(manifestPath, 'data.jsonl')).toThrow(
+        'escapes the manifest directory',
+      );
     } finally {
       rmSync(root, { recursive: true, force: true });
       rmSync(outside, { recursive: true, force: true });

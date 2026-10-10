@@ -19,25 +19,27 @@ await esbuild.build({
   format: 'esm',
   outdir: 'dist',
   // Keep node_modules external except @oxy.so/* (their ESM builds have broken imports)
-  plugins: [{
-    name: 'externalize-except-oxyhq',
-    setup(build) {
-      // The closed vocabularies (currencies, countries, job enums) are owned by
-      // the public SDK and compiled into the API from source, so the API and
-      // every SDK consumer validate against the same arrays without the
-      // runtime image needing a built SDK.
-      build.onResolve({ filter: /^@clarity\.surf\/sdk\/vocabularies$/ }, () => ({
-        path: fileURLToPath(new URL('../sdk/src/vocabularies.ts', import.meta.url)),
-      }));
-      // Let @oxy.so/* packages be bundled (their ESM has missing .js extensions)
-      build.onResolve({ filter: /^@oxyhq\// }, () => undefined);
-      // Externalize all other bare imports (node_modules)
-      build.onResolve({ filter: /^[^./]/ }, args => {
-        if (args.path.startsWith('@oxy.so/')) return undefined;
-        return { path: args.path, external: true };
-      });
+  plugins: [
+    {
+      name: 'externalize-except-oxyhq',
+      setup(build) {
+        // The closed vocabularies (currencies, countries, job enums) are owned by
+        // the public SDK and compiled into the API from source, so the API and
+        // every SDK consumer validate against the same arrays without the
+        // runtime image needing a built SDK.
+        build.onResolve({ filter: /^@clarity\.surf\/sdk\/vocabularies$/ }, () => ({
+          path: fileURLToPath(new URL('../sdk/src/vocabularies.ts', import.meta.url)),
+        }));
+        // Let @oxy.so/* packages be bundled (their ESM has missing .js extensions)
+        build.onResolve({ filter: /^@oxyhq\// }, () => undefined);
+        // Externalize all other bare imports (node_modules)
+        build.onResolve({ filter: /^[^./]/ }, (args) => {
+          if (args.path.startsWith('@oxy.so/')) return undefined;
+          return { path: args.path, external: true };
+        });
+      },
     },
-  }],
+  ],
   sourcemap: false,
   minify: false,
   logLevel: 'info',

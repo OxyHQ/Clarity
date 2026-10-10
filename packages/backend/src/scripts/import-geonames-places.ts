@@ -19,8 +19,13 @@ import { readTargetDatabase } from '@oxy.so/db/migrate';
 import { closePostgres, connectPostgres, getDb } from '../db/index.js';
 import { places } from '../db/schema/index.js';
 import {
-  GEONAMES_ADMIN1_FILE, GEONAMES_CITIES_FILE, GEONAMES_DUMP_URL,
-  parseAdmin1Codes, parseGazetteer, readZipEntry, type PlaceRecord,
+  GEONAMES_ADMIN1_FILE,
+  GEONAMES_CITIES_FILE,
+  GEONAMES_DUMP_URL,
+  parseAdmin1Codes,
+  parseGazetteer,
+  readZipEntry,
+  type PlaceRecord,
 } from '../search/places/geonames.js';
 
 const BATCH_SIZE = 500;
@@ -59,28 +64,42 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const targetDatabase = readTargetDatabase(argv);
   const dryRun = argv.includes('--dry-run');
-  const sourceDir = argv.find((arg) => arg.startsWith('--source-dir='))?.slice('--source-dir='.length);
+  const sourceDir = argv
+    .find((arg) => arg.startsWith('--source-dir='))
+    ?.slice('--source-dir='.length);
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
 
   const [citiesArchive, admin1File] = await Promise.all([
     load(GEONAMES_CITIES_FILE, sourceDir),
     load(GEONAMES_ADMIN1_FILE, sourceDir),
   ]);
-  const citiesText = readZipEntry(citiesArchive, GEONAMES_CITIES_FILE.replace(/\.zip$/, '.txt')).toString('utf8');
-  const { records, skippedCountries } = parseGazetteer(citiesText, parseAdmin1Codes(admin1File.toString('utf8')));
+  const citiesText = readZipEntry(
+    citiesArchive,
+    GEONAMES_CITIES_FILE.replace(/\.zip$/, '.txt'),
+  ).toString('utf8');
+  const { records, skippedCountries } = parseGazetteer(
+    citiesText,
+    parseAdmin1Codes(admin1File.toString('utf8')),
+  );
   const cities = records.filter((record) => record.kind === 'city').length;
   console.info(`Parsed ${cities} cities and ${records.length - cities} regions from GeoNames`);
   if (skippedCountries.size > 0) {
-    console.info(`Skipped rows outside COUNTRY_CODES: ${[...skippedCountries].map(([code, count]) => `${code}=${count}`).join(', ')}`);
+    console.info(
+      `Skipped rows outside COUNTRY_CODES: ${[...skippedCountries].map(([code, count]) => `${code}=${count}`).join(', ')}`,
+    );
   }
 
   connectPostgres(process.env.DATABASE_URL);
   const database = getDb();
   try {
     // Checked before any write, on the connection that will do the writing.
-    const [current] = await database.execute<{ name: string }>(sql`select current_database() as name`);
+    const [current] = await database.execute<{ name: string }>(
+      sql`select current_database() as name`,
+    );
     if (current?.name !== targetDatabase) {
-      throw new Error(`Connected to database ${JSON.stringify(current?.name)}, not --target-database=${targetDatabase}`);
+      throw new Error(
+        `Connected to database ${JSON.stringify(current?.name)}, not --target-database=${targetDatabase}`,
+      );
     }
     if (dryRun) {
       console.info(`Dry run: would upsert ${records.length} places into ${targetDatabase}`);
@@ -89,7 +108,10 @@ async function main(): Promise<void> {
     await database.transaction(async (tx) => {
       for (let offset = 0; offset < records.length; offset += BATCH_SIZE) {
         const batch: PlaceRecord[] = records.slice(offset, offset + BATCH_SIZE);
-        await tx.insert(places).values(batch).onConflictDoUpdate({ target: places.id, set: upsertSet() });
+        await tx
+          .insert(places)
+          .values(batch)
+          .onConflictDoUpdate({ target: places.id, set: upsertSet() });
       }
     });
     console.info(`Upserted ${records.length} places into ${targetDatabase}`);

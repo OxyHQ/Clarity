@@ -20,7 +20,11 @@ export interface StoredToolInvocation {
   result: StoredToolResult;
 }
 
-interface StoredLink { url: string; title?: string; snippet?: string }
+interface StoredLink {
+  url: string;
+  title?: string;
+  snippet?: string;
+}
 interface StoredToolResult {
   action?: string;
   url?: string;
@@ -43,7 +47,11 @@ function compactLink(value: unknown): StoredLink | null {
   const link = asRecord(value);
   const url = httpUrl(link?.url);
   if (!link || !url) return null;
-  return { url, title: excerpt(asText(link.title), MAX_TEXT), snippet: excerpt(asText(link.snippet), MAX_TEXT) };
+  return {
+    url,
+    title: excerpt(asText(link.title), MAX_TEXT),
+    snippet: excerpt(asText(link.snippet), MAX_TEXT),
+  };
 }
 
 function asText(value: unknown): string | undefined {
@@ -59,16 +67,26 @@ export function compactToolResult(output: unknown): StoredToolResult | null {
     ? result.results.flatMap((value) => compactLink(value) ?? []).slice(0, MAX_LINKS)
     : [];
   const sources = Array.isArray(result.sources)
-    ? result.sources.flatMap((value) => {
-      const link = compactLink(value);
-      const id = asRecord(value)?.id;
-      return link ? [{ id: typeof id === 'number' ? id : undefined, url: link.url, title: link.title }] : [];
-    }).slice(0, MAX_LINKS)
+    ? result.sources
+        .flatMap((value) => {
+          const link = compactLink(value);
+          const id = asRecord(value)?.id;
+          return link
+            ? [{ id: typeof id === 'number' ? id : undefined, url: link.url, title: link.title }]
+            : [];
+        })
+        .slice(0, MAX_LINKS)
     : [];
   if (!url && results.length === 0 && sources.length === 0) return null;
   return {
     action: typeof result.action === 'string' ? result.action.slice(0, 32) : undefined,
-    ...(url ? { url, title: excerpt(asText(result.title), MAX_TEXT), content: excerpt(asText(result.content), 200) } : {}),
+    ...(url
+      ? {
+          url,
+          title: excerpt(asText(result.title), MAX_TEXT),
+          content: excerpt(asText(result.content), 200),
+        }
+      : {}),
     results: results.length ? results : undefined,
     sources: sources.length ? sources : undefined,
   };
@@ -90,14 +108,27 @@ export function createToolSourceCollector() {
     const result = compactToolResult(event.output);
     if (!result) return;
     const call = args.get(toolCallId);
-    const toolName = typeof event.name === 'string' && event.name ? event.name : call?.toolName ?? 'unknown';
-    invocations.set(toolCallId, { toolCallId, toolName: toolName.slice(0, 64), state: 'result', args: call?.args, result });
+    const toolName =
+      typeof event.name === 'string' && event.name ? event.name : (call?.toolName ?? 'unknown');
+    invocations.set(toolCallId, {
+      toolCallId,
+      toolName: toolName.slice(0, 64),
+      state: 'result',
+      args: call?.args,
+      result,
+    });
   }
 
   function onToolCall(value: unknown) {
     const call = asRecord(value);
     const fn = asRecord(call?.function);
-    if (!call || typeof call.id !== 'string' || typeof fn?.name !== 'string' || args.size >= MAX_INVOCATIONS) return;
+    if (
+      !call ||
+      typeof call.id !== 'string' ||
+      typeof fn?.name !== 'string' ||
+      args.size >= MAX_INVOCATIONS
+    )
+      return;
     let parsed: Record<string, unknown> | null = null;
     try {
       parsed = typeof fn.arguments === 'string' ? asRecord(JSON.parse(fn.arguments)) : null;
@@ -111,7 +142,10 @@ export function createToolSourceCollector() {
 
   return {
     observe(eventName: string, payload: unknown) {
-      if (eventName === 'alia.tool_result' || eventName === 'clarity.tool_result') { onResult(payload); return; }
+      if (eventName === 'alia.tool_result' || eventName === 'clarity.tool_result') {
+        onResult(payload);
+        return;
+      }
       const choices = asRecord(payload)?.choices;
       const delta = Array.isArray(choices) ? asRecord(asRecord(choices[0])?.delta) : null;
       if (!delta) return;

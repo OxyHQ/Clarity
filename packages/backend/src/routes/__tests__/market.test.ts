@@ -19,7 +19,9 @@ import type { MarketQuotesResponse } from '@clarity/shared-types';
  * a request that escaped the stub would fail rather than reach CoinGecko.
  */
 
-const checkLimit = vi.fn(async () => ({ allowed: true }) as { allowed: boolean; resetInSeconds?: number });
+const checkLimit = vi.fn(
+  async () => ({ allowed: true }) as { allowed: boolean; resetInSeconds?: number },
+);
 
 vi.mock('../../lib/sliding-window-limiter.js', () => ({ checkLimit }));
 
@@ -31,7 +33,11 @@ const EXPLORER_PUBLISHED_AT = '2026-09-09T11:57:30.000Z';
 /** Far below a cent, which is where FAIR actually trades. */
 const FAIR_PRICE = 0.0234;
 
-const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+const json = (body: unknown) =>
+  new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
 
 /**
  * Both upstreams. CoinGecko answers for bitcoin; the FairCoin explorer answers
@@ -40,10 +46,16 @@ const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200
  */
 const upstreams: typeof fetch = async (input) => {
   const url = String(input);
-  if (url.includes('/search?')) return json({ coins: [{ id: 'bitcoin', name: 'Bitcoin', symbol: 'btc' }] });
-  if (url.includes('market_chart')) return json({ prices: [[Date.parse(CLARITY_READ_AT), 78_420]] });
-  if (url.includes('/simple/price')) return json({ bitcoin: { usd: 78_420, usd_24h_change: -0.7, usd_market_cap: 1_540_000_000_000 } });
-  if (url.includes('/price/history')) return json({ history: [{ price_usd: FAIR_PRICE, timestamp: EXPLORER_PUBLISHED_AT }] });
+  if (url.includes('/search?'))
+    return json({ coins: [{ id: 'bitcoin', name: 'Bitcoin', symbol: 'btc' }] });
+  if (url.includes('market_chart'))
+    return json({ prices: [[Date.parse(CLARITY_READ_AT), 78_420]] });
+  if (url.includes('/simple/price'))
+    return json({
+      bitcoin: { usd: 78_420, usd_24h_change: -0.7, usd_market_cap: 1_540_000_000_000 },
+    });
+  if (url.includes('/price/history'))
+    return json({ history: [{ price_usd: FAIR_PRICE, timestamp: EXPLORER_PUBLISHED_AT }] });
   if (url.includes('/price')) {
     return json({
       price: FAIR_PRICE,
@@ -85,25 +97,32 @@ afterEach(() => {
 
 /** `fetch` is stubbed with the upstream mock, so the test client needs the real one. */
 const client = globalThis.fetch.bind(globalThis);
-const get = (path: string, ip = '203.0.113.9') => client(`${baseUrl}${path}`, { headers: { 'x-forwarded-for': ip } });
+const get = (path: string, ip = '203.0.113.9') =>
+  client(`${baseUrl}${path}`, { headers: { 'x-forwarded-for': ip } });
 
 describe('GET /market/quotes', () => {
   it('serves a quote with no credential at all', async () => {
     const response = await get('/quotes?assets=bitcoin');
     expect(response.status).toBe(200);
-    const body = await response.json() as MarketQuotesResponse;
-    expect(body.results).toEqual([{
-      requested: 'bitcoin',
-      status: 'quoted',
-      quote: expect.objectContaining({
-        asset: 'bitcoin', symbol: 'BTC', currency: 'usd', price: 78_420, source: 'coingecko',
-      }),
-    }]);
+    const body = (await response.json()) as MarketQuotesResponse;
+    expect(body.results).toEqual([
+      {
+        requested: 'bitcoin',
+        status: 'quoted',
+        quote: expect.objectContaining({
+          asset: 'bitcoin',
+          symbol: 'BTC',
+          currency: 'usd',
+          price: 78_420,
+          source: 'coingecko',
+        }),
+      },
+    ]);
   });
 
   it('carries FairCoin OWN source and timestamp, not Clarity clock', async () => {
     const response = await get('/quotes?assets=fair');
-    const body = await response.json() as MarketQuotesResponse;
+    const body = (await response.json()) as MarketQuotesResponse;
     const [result] = body.results;
     expect(result.status).toBe('quoted');
     if (result.status !== 'quoted') return;
@@ -115,7 +134,7 @@ describe('GET /market/quotes', () => {
 
   it('serves a sub-cent price at full precision, never rounded away', async () => {
     const response = await get('/quotes?assets=faircoin');
-    const body = await response.json() as MarketQuotesResponse;
+    const body = (await response.json()) as MarketQuotesResponse;
     const [result] = body.results;
     if (result.status !== 'quoted') throw new Error('expected a quote');
     expect(result.quote.price).toBe(FAIR_PRICE);
@@ -123,7 +142,7 @@ describe('GET /market/quotes', () => {
 
   it('answers summaries, so a card does not pay for chart history it never draws', async () => {
     const response = await get('/quotes?assets=bitcoin');
-    const body = await response.json() as MarketQuotesResponse;
+    const body = (await response.json()) as MarketQuotesResponse;
     const [result] = body.results;
     if (result.status !== 'quoted') throw new Error('expected a quote');
     expect(result.quote).not.toHaveProperty('series');
@@ -136,7 +155,7 @@ describe('GET /market/quotes', () => {
     });
     const response = await get('/quotes?assets=bitcoin,faircoin');
     expect(response.status).toBe(200);
-    const body = await response.json() as MarketQuotesResponse;
+    const body = (await response.json()) as MarketQuotesResponse;
     expect(body.results.map((result) => [result.requested, result.status])).toEqual([
       ['bitcoin', 'quoted'],
       ['faircoin', 'unavailable'],
@@ -147,10 +166,10 @@ describe('GET /market/quotes', () => {
   });
 
   it('names the asset that was asked for, so a caller can pair answers with its own list', async () => {
-    upstream.mockImplementation(async (input) => (
-      String(input).includes('/search?') ? json({ coins: [] }) : upstreams(input)
-    ));
-    const body = await (await get('/quotes?assets=AAPL')).json() as MarketQuotesResponse;
+    upstream.mockImplementation(async (input) =>
+      String(input).includes('/search?') ? json({ coins: [] }) : upstreams(input),
+    );
+    const body = (await (await get('/quotes?assets=AAPL')).json()) as MarketQuotesResponse;
     expect(body.results[0].requested).toBe('AAPL');
     expect(body.results[0].status).toBe('unavailable');
     const [result] = body.results;

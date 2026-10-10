@@ -6,7 +6,10 @@ import { and, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 
 import {
-  COUNTRY_CODES, PLACE_KINDS, type CountryCode, type PlaceKind,
+  COUNTRY_CODES,
+  PLACE_KINDS,
+  type CountryCode,
+  type PlaceKind,
 } from '@clarity.surf/sdk/vocabularies';
 import type { Place } from '@clarity.surf/sdk';
 
@@ -52,10 +55,14 @@ export async function searchPlaces(input: PlaceSearchInput): Promise<Place[]> {
   if (!folded) return [];
   const prefix = `${escapeLike(folded)}%`;
   const exact = sql`${places.matchNames} @> array[${folded}]::text[]`;
-  const filters: SQL[] = [sql`(${exact} or ${places.searchName} like ${prefix} escape '\\' or ${places.searchName} % ${folded})`];
+  const filters: SQL[] = [
+    sql`(${exact} or ${places.searchName} like ${prefix} escape '\\' or ${places.searchName} % ${folded})`,
+  ];
   if (input.countryCode) filters.push(eq(places.countryCode, input.countryCode));
   if (input.kind) filters.push(eq(places.kind, input.kind));
-  const rows = await getDb().select().from(places)
+  const rows = await getDb()
+    .select()
+    .from(places)
     .where(and(...filters))
     .orderBy(
       sql`(${exact}) desc`,
@@ -84,7 +91,9 @@ const candidateColumns = {
   population: places.population,
 };
 
-function toCandidate(row: { kind: string; population: number | null } & Omit<PlaceCandidate, 'kind' | 'population'>): PlaceCandidate {
+function toCandidate(
+  row: { kind: string; population: number | null } & Omit<PlaceCandidate, 'kind' | 'population'>,
+): PlaceCandidate {
   return { ...row, kind: row.kind as PlaceKind, population: row.population ?? 0 };
 }
 
@@ -101,20 +110,35 @@ export function createPlaceResolver(executor: ClarityExecutor = getDb()): PlaceR
       }
       const clauses = [...byCountry.entries()]
         .filter(([, names]) => names.size > 0)
-        .map(([countryCode, names]) => and(
-          eq(places.countryCode, countryCode),
-          sql`${places.matchNames} && array[${sql.join([...names].map((name) => sql`${name}`), sql`, `)}]::text[]`,
-        ));
+        .map(([countryCode, names]) =>
+          and(
+            eq(places.countryCode, countryCode),
+            sql`${places.matchNames} && array[${sql.join(
+              [...names].map((name) => sql`${name}`),
+              sql`, `,
+            )}]::text[]`,
+          ),
+        );
       if (clauses.length === 0) return [];
-      const rows = await executor.select(candidateColumns).from(places)
-        .where(sql.join(clauses.map((clause) => sql`(${clause})`), sql` or `))
+      const rows = await executor
+        .select(candidateColumns)
+        .from(places)
+        .where(
+          sql.join(
+            clauses.map((clause) => sql`(${clause})`),
+            sql` or `,
+          ),
+        )
         .limit(500);
       return rows.map(toCandidate);
     },
     async byIds(ids) {
       const valid = [...new Set(ids.filter((id) => /^\d{1,12}$/.test(id)))];
       if (valid.length === 0) return [];
-      const rows = await executor.select(candidateColumns).from(places).where(inArray(places.id, valid));
+      const rows = await executor
+        .select(candidateColumns)
+        .from(places)
+        .where(inArray(places.id, valid));
       return rows.map(toCandidate);
     },
     async isEmpty() {

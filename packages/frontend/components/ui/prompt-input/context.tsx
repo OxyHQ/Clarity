@@ -1,10 +1,10 @@
-import React, { createContext, useContext } from "react";
-import type { TextInput as RNTextInput } from "react-native";
+import React, { createContext, useContext } from 'react';
+import type { TextInput as RNTextInput } from 'react-native';
 
 export interface Attachment {
   id: string;
   uri: string;
-  type: "image" | "document";
+  type: 'image' | 'document';
   name: string;
   size: number;
   mimeType: string;
@@ -33,7 +33,7 @@ export type PromptInputContextType = {
 
 export const PromptInputContext = createContext<PromptInputContextType>({
   isLoading: false,
-  value: "",
+  value: '',
   setValue: () => {},
   maxHeight: 240,
   onSubmit: undefined,

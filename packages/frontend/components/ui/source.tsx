@@ -1,14 +1,10 @@
-import React, { createContext, useContext, useState } from "react";
-import { View, Pressable, Linking } from "react-native";
-import { Text } from "@/components/ui/text";
-import { Image } from "expo-image";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import { cn } from "@/lib/utils";
-import config from "@/lib/config";
+import React, { createContext, useContext, useState } from 'react';
+import { View, Pressable, Linking } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { Image } from 'expo-image';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+import config from '@/lib/config';
 
 /**
  * The site's favicon as Clarity serves it — one stored icon per host, so the
@@ -31,7 +27,7 @@ const SourceContext = createContext<{
 
 function useSourceContext() {
   const ctx = useContext(SourceContext);
-  if (!ctx) throw new Error("Source.* must be used inside <Source>");
+  if (!ctx) throw new Error('Source.* must be used inside <Source>');
   return ctx;
 }
 
@@ -43,11 +39,11 @@ export type SourceProps = {
 };
 
 export function Source({ href, children }: SourceProps) {
-  let domain = "";
+  let domain = '';
   try {
     domain = new URL(href).hostname;
   } catch {
-    domain = href.split("/").pop() || href;
+    domain = href.split('/').pop() || href;
   }
 
   return (
@@ -65,22 +61,18 @@ export type SourceTriggerProps = {
   className?: string;
 };
 
-export function SourceTrigger({
-  label,
-  showFavicon = false,
-  className,
-}: SourceTriggerProps) {
+export function SourceTrigger({ label, showFavicon = false, className }: SourceTriggerProps) {
   const { href, domain } = useSourceContext();
-  const displayLabel = label ?? domain.replace("www.", "");
+  const displayLabel = label ?? domain.replace('www.', '');
 
   return (
     <CollapsibleTrigger asChild>
       <Pressable
         className={cn(
-          "flex-row items-center gap-1 rounded-full bg-muted px-1 h-5 overflow-hidden",
-          showFavicon && "pl-1 pr-2",
-          "web:hover:bg-muted-foreground/30 active:bg-muted-foreground/30",
-          className
+          'flex-row items-center gap-1 rounded-full bg-muted px-1 h-5 overflow-hidden',
+          showFavicon && 'pl-1 pr-2',
+          'web:hover:bg-muted-foreground/30 active:bg-muted-foreground/30',
+          className,
         )}
         onLongPress={() => Linking.openURL(href)}
       >
@@ -108,11 +100,7 @@ export type SourceContentProps = {
   className?: string;
 };
 
-export function SourceContent({
-  title,
-  description,
-  className,
-}: SourceContentProps) {
+export function SourceContent({ title, description, className }: SourceContentProps) {
   const { href, domain } = useSourceContext();
 
   return (
@@ -120,9 +108,9 @@ export function SourceContent({
       <Pressable
         onPress={() => Linking.openURL(href)}
         className={cn(
-          "mt-2 rounded-xl border border-border bg-card p-3 gap-2",
-          "active:opacity-80",
-          className
+          'mt-2 rounded-xl border border-border bg-card p-3 gap-2',
+          'active:opacity-80',
+          className,
         )}
       >
         <View className="flex-row items-center gap-1.5">
@@ -133,7 +121,7 @@ export function SourceContent({
             style={{ width: 16, height: 16, borderRadius: 8 }}
           />
           <Text className="text-sm text-primary" numberOfLines={1}>
-            {domain.replace("www.", "")}
+            {domain.replace('www.', '')}
           </Text>
         </View>
         <Text className="text-sm font-medium text-foreground" numberOfLines={2}>

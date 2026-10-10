@@ -14,13 +14,16 @@ export async function createConversation(input: {
   title: string;
   source: ConversationSource;
 }): Promise<ConversationRow> {
-  const [row] = await getDb().insert(conversations).values({
-    id: randomUUID(),
-    oxyUserId: input.oxyUserId,
-    conversationId: input.conversationId,
-    title: input.title,
-    source: input.source,
-  }).returning();
+  const [row] = await getDb()
+    .insert(conversations)
+    .values({
+      id: randomUUID(),
+      oxyUserId: input.oxyUserId,
+      conversationId: input.conversationId,
+      title: input.title,
+      source: input.source,
+    })
+    .returning();
   if (!row) throw new Error('conversation insert returned no row');
   return row;
 }
@@ -30,10 +33,14 @@ export async function listConversations(
   limit: number,
   before?: Date,
 ): Promise<ConversationRow[]> {
-  return getDb().select().from(conversations)
-    .where(before
-      ? and(eq(conversations.oxyUserId, oxyUserId), lt(conversations.updatedAt, before))
-      : eq(conversations.oxyUserId, oxyUserId))
+  return getDb()
+    .select()
+    .from(conversations)
+    .where(
+      before
+        ? and(eq(conversations.oxyUserId, oxyUserId), lt(conversations.updatedAt, before))
+        : eq(conversations.oxyUserId, oxyUserId),
+    )
     .orderBy(desc(conversations.updatedAt), desc(conversations.id))
     .limit(limit);
 }
@@ -42,10 +49,13 @@ export async function findConversation(
   oxyUserId: string,
   conversationId: string,
 ): Promise<ConversationRow | null> {
-  const [row] = await getDb().select().from(conversations).where(and(
-    eq(conversations.oxyUserId, oxyUserId),
-    eq(conversations.conversationId, conversationId),
-  )).limit(1);
+  const [row] = await getDb()
+    .select()
+    .from(conversations)
+    .where(
+      and(eq(conversations.oxyUserId, oxyUserId), eq(conversations.conversationId, conversationId)),
+    )
+    .limit(1);
   return row ?? null;
 }
 
@@ -53,10 +63,11 @@ export async function listMessages(
   oxyUserId: string,
   conversationId: string,
 ): Promise<MessageRow[]> {
-  return getDb().select().from(messages).where(and(
-    eq(messages.oxyUserId, oxyUserId),
-    eq(messages.conversationId, conversationId),
-  )).orderBy(asc(messages.createdAt), asc(messages.id));
+  return getDb()
+    .select()
+    .from(messages)
+    .where(and(eq(messages.oxyUserId, oxyUserId), eq(messages.conversationId, conversationId)))
+    .orderBy(asc(messages.createdAt), asc(messages.id));
 }
 
 export interface WritableMessage {
@@ -74,20 +85,21 @@ export function toWritableMessage(value: unknown): WritableMessage | null {
   const message = value as Record<string, unknown>;
   if (message.role !== 'user' && message.role !== 'assistant') return null;
   if (
-    typeof message.content !== 'string'
-    && (!Array.isArray(message.content) || message.content.some((block) => (
-      !block || typeof block !== 'object' || Array.isArray(block)
-    )))
-  ) return null;
+    typeof message.content !== 'string' &&
+    (!Array.isArray(message.content) ||
+      message.content.some((block) => !block || typeof block !== 'object' || Array.isArray(block)))
+  )
+    return null;
   if (message.id !== undefined && typeof message.id !== 'string') return null;
   if (message.vote !== undefined && message.vote !== 'up' && message.vote !== 'down') return null;
   if (message.toolInvocations !== undefined && !Array.isArray(message.toolInvocations)) return null;
   if (message.audioUrl !== undefined && typeof message.audioUrl !== 'string') return null;
   if (
-    message.createdAt !== undefined
-    && !(message.createdAt instanceof Date)
-    && typeof message.createdAt !== 'string'
-  ) return null;
+    message.createdAt !== undefined &&
+    !(message.createdAt instanceof Date) &&
+    typeof message.createdAt !== 'string'
+  )
+    return null;
   return {
     ...(typeof message.id === 'string' ? { id: message.id } : {}),
     role: message.role,
@@ -136,17 +148,21 @@ async function upsertConversationIn(
     ...(input.lastMessage === undefined ? {} : { lastMessage: input.lastMessage }),
     updatedAt: new Date(),
   };
-  const [row] = await tx.insert(conversations).values({
-    id: randomUUID(),
-    oxyUserId: input.oxyUserId,
-    conversationId: input.conversationId,
-    title: input.title ?? input.titleOnInsert,
-    ...(input.lastMessage === undefined ? {} : { lastMessage: input.lastMessage }),
-    ...(input.source === undefined ? {} : { source: input.source }),
-  }).onConflictDoUpdate({
-    target: [conversations.oxyUserId, conversations.conversationId],
-    set: changed,
-  }).returning();
+  const [row] = await tx
+    .insert(conversations)
+    .values({
+      id: randomUUID(),
+      oxyUserId: input.oxyUserId,
+      conversationId: input.conversationId,
+      title: input.title ?? input.titleOnInsert,
+      ...(input.lastMessage === undefined ? {} : { lastMessage: input.lastMessage }),
+      ...(input.source === undefined ? {} : { source: input.source }),
+    })
+    .onConflictDoUpdate({
+      target: [conversations.oxyUserId, conversations.conversationId],
+      set: changed,
+    })
+    .returning();
   if (!row) throw new Error('conversation upsert returned no row');
   return row;
 }
@@ -163,10 +179,14 @@ export async function replaceConversation(input: {
 }): Promise<ConversationRow> {
   return getDb().transaction(async (tx) => {
     const row = await upsertConversationIn(tx, input);
-    await tx.delete(messages).where(and(
-      eq(messages.oxyUserId, input.oxyUserId),
-      eq(messages.conversationId, input.conversationId),
-    ));
+    await tx
+      .delete(messages)
+      .where(
+        and(
+          eq(messages.oxyUserId, input.oxyUserId),
+          eq(messages.conversationId, input.conversationId),
+        ),
+      );
     const values = messageValues(input.oxyUserId, input.conversationId, input.messages);
     if (values.length > 0) await tx.insert(messages).values(values);
     return row;
@@ -179,11 +199,16 @@ export async function updateConversationTitle(
   title: string,
   onlyAutomatic = false,
 ): Promise<number> {
-  const result = await getDb().update(conversations).set({ title, updatedAt: new Date() }).where(and(
-    eq(conversations.oxyUserId, oxyUserId),
-    eq(conversations.conversationId, conversationId),
-    ...(onlyAutomatic ? [eq(conversations.isManualTitle, false)] : []),
-  ));
+  const result = await getDb()
+    .update(conversations)
+    .set({ title, updatedAt: new Date() })
+    .where(
+      and(
+        eq(conversations.oxyUserId, oxyUserId),
+        eq(conversations.conversationId, conversationId),
+        ...(onlyAutomatic ? [eq(conversations.isManualTitle, false)] : []),
+      ),
+    );
   return result.count;
 }
 
@@ -193,28 +218,40 @@ export async function voteMessage(
   messageId: string,
   vote: 'up' | 'down' | null,
 ): Promise<boolean> {
-  const result = await getDb().update(messages).set({ vote }).where(and(
-    eq(messages.oxyUserId, oxyUserId),
-    eq(messages.conversationId, conversationId),
-    eq(messages.messageId, messageId),
-  ));
+  const result = await getDb()
+    .update(messages)
+    .set({ vote })
+    .where(
+      and(
+        eq(messages.oxyUserId, oxyUserId),
+        eq(messages.conversationId, conversationId),
+        eq(messages.messageId, messageId),
+      ),
+    );
   return result.count > 0;
 }
 
-export async function deleteConversation(oxyUserId: string, conversationId: string): Promise<boolean> {
+export async function deleteConversation(
+  oxyUserId: string,
+  conversationId: string,
+): Promise<boolean> {
   return getDb().transaction(async (tx) => {
-    const result = await tx.delete(conversations).where(and(
-      eq(conversations.oxyUserId, oxyUserId),
-      eq(conversations.conversationId, conversationId),
-    ));
+    const result = await tx
+      .delete(conversations)
+      .where(
+        and(
+          eq(conversations.oxyUserId, oxyUserId),
+          eq(conversations.conversationId, conversationId),
+        ),
+      );
     return result.count > 0;
   });
 }
 
 export async function countMessages(oxyUserId: string, conversationId: string): Promise<number> {
-  const [row] = await getDb().select({ count: sql<number>`count(*)::int` }).from(messages).where(and(
-    eq(messages.oxyUserId, oxyUserId),
-    eq(messages.conversationId, conversationId),
-  ));
+  const [row] = await getDb()
+    .select({ count: sql<number>`count(*)::int` })
+    .from(messages)
+    .where(and(eq(messages.oxyUserId, oxyUserId), eq(messages.conversationId, conversationId)));
   return row?.count ?? 0;
 }

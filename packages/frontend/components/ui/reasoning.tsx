@@ -1,22 +1,11 @@
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { View, Pressable } from "react-native";
-import { Text } from "@/components/ui/text";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Pressable } from 'react-native';
+import { Text } from '@/components/ui/text';
 import { ClarityMarkdown } from '@/lib/sdk';
-import { useColorScheme } from "@/lib/useColorScheme";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
-import { Brain, ChevronDown, ChevronRight } from "lucide-react-native";
-import { cn } from "@/lib/utils";
+import { useColorScheme } from '@/lib/useColorScheme';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Brain, ChevronDown, ChevronRight } from 'lucide-react-native';
+import { cn } from '@/lib/utils';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -24,7 +13,7 @@ import Animated, {
   withTiming,
   withSequence,
   cancelAnimation,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
 // Context for sharing state between Reasoning components
 type ReasoningContextType = {
@@ -42,7 +31,7 @@ const ReasoningContext = createContext<ReasoningContextType | null>(null);
 export function useReasoning() {
   const context = useContext(ReasoningContext);
   if (!context) {
-    throw new Error("useReasoning must be used within a Reasoning component");
+    throw new Error('useReasoning must be used within a Reasoning component');
   }
   return context;
 }
@@ -158,7 +147,7 @@ export function Reasoning({
       <Collapsible
         open={isOpen}
         onOpenChange={handleOpenChange}
-        className={cn("w-full", className)}
+        className={cn('w-full', className)}
       >
         {children}
       </Collapsible>
@@ -183,12 +172,9 @@ export function ReasoningTrigger({
   useEffect(() => {
     if (isStreaming) {
       pulseOpacity.value = withRepeat(
-        withSequence(
-          withTiming(0.4, { duration: 800 }),
-          withTiming(1, { duration: 800 })
-        ),
+        withSequence(withTiming(0.4, { duration: 800 }), withTiming(1, { duration: 800 })),
         -1, // Infinite repeat
-        false
+        false,
       );
     } else {
       cancelAnimation(pulseOpacity);
@@ -203,9 +189,9 @@ export function ReasoningTrigger({
   // Default thinking message
   const defaultThinkingMessage = (streaming: boolean, dur?: number) => {
     if (streaming) {
-      return dur ? `Thinking for ${dur}s...` : "Thinking...";
+      return dur ? `Thinking for ${dur}s...` : 'Thinking...';
     }
-    return dur ? `Thought for ${dur} seconds` : "Reasoning";
+    return dur ? `Thought for ${dur} seconds` : 'Reasoning';
   };
 
   const message = getThinkingMessage
@@ -216,18 +202,15 @@ export function ReasoningTrigger({
     <Pressable
       onPress={onPress}
       className={cn(
-        "flex-row items-center gap-2 py-2 px-3 rounded-lg",
-        "active:opacity-70",
-        className
+        'flex-row items-center gap-2 py-2 px-3 rounded-lg',
+        'active:opacity-70',
+        className,
       )}
     >
       <Animated.View style={isStreaming ? pulseStyle : undefined}>
         <Brain size={16} color="#a855f7" />
       </Animated.View>
-      <Text
-        className="text-sm font-medium flex-1"
-        style={{ color: "#a855f7" }}
-      >
+      <Text className="text-sm font-medium flex-1" style={{ color: '#a855f7' }}>
         {message}
       </Text>
       {onPress ? (
@@ -235,7 +218,7 @@ export function ReasoningTrigger({
       ) : (
         <View
           style={{
-            transform: [{ rotate: isOpen ? "180deg" : "0deg" }],
+            transform: [{ rotate: isOpen ? '180deg' : '0deg' }],
           }}
         >
           <ChevronDown size={16} color="#a855f7" />
@@ -250,11 +233,7 @@ export function ReasoningTrigger({
     return triggerContent;
   }
 
-  return (
-    <CollapsibleTrigger asChild>
-      {triggerContent}
-    </CollapsibleTrigger>
-  );
+  return <CollapsibleTrigger asChild>{triggerContent}</CollapsibleTrigger>;
 }
 
 /**
@@ -265,27 +244,25 @@ export function ReasoningContent({ children, className }: ReasoningContentProps)
   const { isStreaming } = useReasoning();
   const { colors } = useColorScheme();
 
-  const clarityColors = useMemo(() => ({
-    text: colors.foreground,
-    border: colors.border,
-    muted: colors.muted,
-    mutedForeground: colors.mutedForeground,
-    primary: colors.primary,
-  }), [colors.foreground, colors.border, colors.muted, colors.mutedForeground, colors.primary]);
+  const clarityColors = useMemo(
+    () => ({
+      text: colors.foreground,
+      border: colors.border,
+      muted: colors.muted,
+      mutedForeground: colors.mutedForeground,
+      primary: colors.primary,
+    }),
+    [colors.foreground, colors.border, colors.muted, colors.mutedForeground, colors.primary],
+  );
 
   return (
     <CollapsibleContent>
-      <View
-        className={cn(
-          "px-3 pb-3 pt-1",
-          className
-        )}
-      >
+      <View className={cn('px-3 pb-3 pt-1', className)}>
         <View
           className="rounded-lg p-3"
           style={{
-            backgroundColor: "#a855f710",
-            borderColor: "#a855f730",
+            backgroundColor: '#a855f710',
+            borderColor: '#a855f730',
             borderWidth: 1,
           }}
         >

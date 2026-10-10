@@ -8,9 +8,18 @@
  * so rather than fill it in.
  */
 import { JOB_RANKING_SIGNALS } from './ranking-contract.js';
-import { JOB_FEED_STALE_AFTER_DAYS, JOB_RETENTION_DAYS, JOB_STALE_AFTER_DAYS } from './lifecycle.js';
 import {
-  CURRENCY_CODES, JOB_EMPLOYMENT_TYPES, JOB_LIFECYCLE_STATUSES, JOB_REGIONS, JOB_SALARY_INTERVALS, JOB_SENIORITY_LEVELS,
+  JOB_FEED_STALE_AFTER_DAYS,
+  JOB_RETENTION_DAYS,
+  JOB_STALE_AFTER_DAYS,
+} from './lifecycle.js';
+import {
+  CURRENCY_CODES,
+  JOB_EMPLOYMENT_TYPES,
+  JOB_LIFECYCLE_STATUSES,
+  JOB_REGIONS,
+  JOB_SALARY_INTERVALS,
+  JOB_SENIORITY_LEVELS,
   JOB_WORKPLACE_TYPES,
 } from './taxonomy.js';
 
@@ -21,50 +30,80 @@ export const CLARITY_JOBS_CAPABILITY = {
   endpoint: { method: 'POST', path: '/v1/jobs/search', scope: 'clarity:search' },
   grounding: {
     factualLayer: 'clarity_jobs_projection',
-    absentFieldPolicy: 'A field missing from a result was not stated by the source. Never infer it.',
-    attribution: 'Always show source.canonicalUrl. Clarity indexed the listing; it is not the employer.',
+    absentFieldPolicy:
+      'A field missing from a result was not stated by the source. Never infer it.',
+    attribution:
+      'Always show source.canonicalUrl. Clarity indexed the listing; it is not the employer.',
     staleAfterDays: JOB_STALE_AFTER_DAYS,
     feedStaleAfterDays: JOB_FEED_STALE_AFTER_DAYS,
     retentionDays: JOB_RETENTION_DAYS,
-    locationFormat: 'locations[].countryCode is ISO 3166-1 alpha-2; locations[].placeId, when present, is a GeoNames id resolvable with GET /v1/places/:id. A location without placeId was not matched to a single place.',
-    textFormat: 'description, qualifications, responsibilities, educationRequirements, experienceRequirements and benefits are Markdown with no raw HTML; snippet and every other text field are plain text.',
+    locationFormat:
+      'locations[].countryCode is ISO 3166-1 alpha-2; locations[].placeId, when present, is a GeoNames id resolvable with GET /v1/places/:id. A location without placeId was not matched to a single place.',
+    textFormat:
+      'description, qualifications, responsibilities, educationRequirements, experienceRequirements and benefits are Markdown with no raw HTML; snippet and every other text field are plain text.',
   },
   ranking: { signals: JOB_RANKING_SIGNALS, commercialSignals: 'none' },
   parameters: {
     type: 'object',
     additionalProperties: false,
     properties: {
-      query: { type: 'string', maxLength: 500, description: 'Free-text role description. Omit to browse by filters alone.' },
+      query: {
+        type: 'string',
+        maxLength: 500,
+        description: 'Free-text role description. Omit to browse by filters alone.',
+      },
       mode: { type: 'string', enum: ['lexical', 'semantic', 'hybrid'], default: 'hybrid' },
       locations: {
-        type: 'array', maxItems: 20, items: { type: 'string', maxLength: 120 },
+        type: 'array',
+        maxItems: 20,
+        items: { type: 'string', maxLength: 120 },
         description: `Country name or ISO 3166-1 alpha-2 code, city/region name, or a macro-region: ${Object.keys(JOB_REGIONS).join(', ')}. A value that is not a country or region matches city and region names as text.`,
       },
       workplaceTypes: { type: 'array', items: { type: 'string', enum: [...JOB_WORKPLACE_TYPES] } },
-      employmentTypes: { type: 'array', items: { type: 'string', enum: [...JOB_EMPLOYMENT_TYPES] } },
-      seniorities: {
-        type: 'array', items: { type: 'string', enum: [...JOB_SENIORITY_LEVELS] },
-        description: 'Career level as the listing states it. Listings that state no level are excluded when this is set.',
+      employmentTypes: {
+        type: 'array',
+        items: { type: 'string', enum: [...JOB_EMPLOYMENT_TYPES] },
       },
-      employers: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 200 }, description: 'Employer name or employer domain.' },
+      seniorities: {
+        type: 'array',
+        items: { type: 'string', enum: [...JOB_SENIORITY_LEVELS] },
+        description:
+          'Career level as the listing states it. Listings that state no level are excluded when this is set.',
+      },
+      employers: {
+        type: 'array',
+        maxItems: 20,
+        items: { type: 'string', maxLength: 200 },
+        description: 'Employer name or employer domain.',
+      },
       sourceDomains: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 253 } },
       skills: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 80 } },
       salary: {
-        type: 'object', additionalProperties: false,
+        type: 'object',
+        additionalProperties: false,
         properties: {
           min: { type: 'number', minimum: 0 },
           max: { type: 'number', minimum: 0 },
-          currency: { type: 'string', enum: [...CURRENCY_CODES], description: 'Active ISO 4217 code. Clarity never converts currencies.' },
+          currency: {
+            type: 'string',
+            enum: [...CURRENCY_CODES],
+            description: 'Active ISO 4217 code. Clarity never converts currencies.',
+          },
           interval: { type: 'string', enum: [...JOB_SALARY_INTERVALS], default: 'year' },
         },
       },
       publishedAfter: { type: 'string', format: 'date-time' },
       publishedBefore: { type: 'string', format: 'date-time' },
       statuses: {
-        type: 'array', items: { type: 'string', enum: [...JOB_LIFECYCLE_STATUSES] },
+        type: 'array',
+        items: { type: 'string', enum: [...JOB_LIFECYCLE_STATUSES] },
         description: 'Defaults to active only. Expired and closed listings are never implied.',
       },
-      includeDuplicates: { type: 'boolean', default: false, description: 'Return every syndicated copy instead of one grouped result.' },
+      includeDuplicates: {
+        type: 'boolean',
+        default: false,
+        description: 'Return every syndicated copy instead of one grouped result.',
+      },
       limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
       cursor: { type: 'string' },
     },

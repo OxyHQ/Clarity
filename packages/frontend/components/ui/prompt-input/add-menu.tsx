@@ -1,17 +1,17 @@
-import React from "react";
-import { File, Image as ImageIcon, Plus } from "lucide-react-native";
-import { GlyphButton } from "@oxy.so/bloom/button";
+import React from 'react';
+import { File, Image as ImageIcon, Plus } from 'lucide-react-native';
+import { GlyphButton } from '@oxy.so/bloom/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@oxy.so/bloom/dropdown-menu";
-import { bloomIcon, MenuRowIcon } from "@/lib/bloom-icon";
-import { useTranslation } from "@/hooks/useTranslation";
-import { useImagePicker } from "@/hooks/useImagePicker";
-import { useDocumentPicker } from "@/hooks/useDocumentPicker";
-import { usePromptInput } from "./context";
+} from '@oxy.so/bloom/dropdown-menu';
+import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
+import { useTranslation } from '@/hooks/useTranslation';
+import { useImagePicker } from '@/hooks/useImagePicker';
+import { useDocumentPicker } from '@/hooks/useDocumentPicker';
+import { usePromptInput } from './context';
 
 export type PromptInputAddMenuProps = {
   className?: string;
@@ -32,7 +32,7 @@ export function PromptInputAddMenu({ className, iconSize = 16 }: PromptInputAddM
           addAttachment({
             id: `img-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             uri: asset.uri,
-            type: "image",
+            type: 'image',
             name: asset.name,
             size: asset.size,
             mimeType: asset.mimeType,
@@ -40,7 +40,7 @@ export function PromptInputAddMenu({ className, iconSize = 16 }: PromptInputAddM
         });
       }
     } catch (err) {
-      console.error("Error picking images:", err);
+      console.error('Error picking images:', err);
     }
   };
 
@@ -52,7 +52,7 @@ export function PromptInputAddMenu({ className, iconSize = 16 }: PromptInputAddM
           addAttachment({
             id: `doc-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             uri: doc.uri,
-            type: "document",
+            type: 'document',
             name: doc.name,
             size: doc.size,
             mimeType: doc.mimeType,
@@ -60,18 +60,18 @@ export function PromptInputAddMenu({ className, iconSize = 16 }: PromptInputAddM
         });
       }
     } catch (err) {
-      console.error("Error picking documents:", err);
+      console.error('Error picking documents:', err);
     }
   };
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild label={t("actions.addAttachment")} className={className}>
+      <DropdownMenuTrigger asChild label={t('actions.addAttachment')} className={className}>
         <GlyphButton
           size={32}
           glyphSize={iconSize}
           icon={bloomIcon(Plus)}
-          accessibilityLabel={t("actions.addAttachment")}
+          accessibilityLabel={t('actions.addAttachment')}
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start">

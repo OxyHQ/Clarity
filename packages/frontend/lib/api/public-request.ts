@@ -17,11 +17,16 @@ import config from '../config';
 export async function requestPublicApi<T>(path: string, init: RequestInit): Promise<T> {
   const response = await fetch(`${config.apiUrl}${path}`, {
     ...init,
-    headers: { accept: 'application/json', ...(init.body ? { 'content-type': 'application/json' } : {}) },
+    headers: {
+      accept: 'application/json',
+      ...(init.body ? { 'content-type': 'application/json' } : {}),
+    },
   });
   if (!response.ok) {
-    const body = await response.json().catch(() => undefined) as { error?: { code?: string; message?: string } } | undefined;
+    const body = (await response.json().catch(() => undefined)) as
+      | { error?: { code?: string; message?: string } }
+      | undefined;
     throw new Error(body?.error?.message ?? `Clarity request failed with ${response.status}`);
   }
-  return await response.json() as T;
+  return (await response.json()) as T;
 }

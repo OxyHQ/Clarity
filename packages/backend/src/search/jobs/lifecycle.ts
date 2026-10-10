@@ -50,7 +50,12 @@ function staleInterval(): SQL {
 export const JOB_RECRAWL_INTERVAL_SECONDS = 86_400;
 
 /** Reasons Clarity records when a source withdraws a listing. */
-export const JOB_CLOSURE_REASONS = ['http_gone', 'posting_absent', 'source_closed', 'document_removed'] as const;
+export const JOB_CLOSURE_REASONS = [
+  'http_gone',
+  'posting_absent',
+  'source_closed',
+  'document_removed',
+] as const;
 export type JobClosureReason = (typeof JOB_CLOSURE_REASONS)[number];
 
 export function jobLifecycleStatus(input: {
@@ -64,7 +69,8 @@ export function jobLifecycleStatus(input: {
   const now = input.now ?? new Date();
   if (input.documentStatus === 'removed' || input.documentStatus === 'blocked') return 'removed';
   if (input.closedAt) return 'closed';
-  if (input.validThrough) return input.validThrough.getTime() <= now.getTime() ? 'expired' : 'active';
+  if (input.validThrough)
+    return input.validThrough.getTime() <= now.getTime() ? 'expired' : 'active';
   const staleAfterMs = staleAfterDays(input.sourceType) * 24 * 60 * 60 * 1000;
   return now.getTime() - input.lastSeenAt.getTime() > staleAfterMs ? 'stale' : 'active';
 }

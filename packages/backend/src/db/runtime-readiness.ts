@@ -13,9 +13,7 @@ export type RuntimeNotReadyReason =
   | 'clarity_service_identity_unconfigured'
   | 'clarity_agent_attestation_mismatch';
 
-export type RuntimeReadiness =
-  | { ready: true }
-  | { ready: false; reason: RuntimeNotReadyReason };
+export type RuntimeReadiness = { ready: true } | { ready: false; reason: RuntimeNotReadyReason };
 
 export interface RuntimeAttestation {
   status: string;
@@ -60,10 +58,14 @@ export async function getRuntimeReadiness(
     return { ready: false, reason: 'clarity_service_identity_unconfigured' };
   }
   try {
-    const [row] = await getDb().select({
-      status: runtimeState.status,
-      aliaAgentIdSha256: runtimeState.aliaAgentIdSha256,
-    }).from(runtimeState).where(eq(runtimeState.id, 'postgres-cutover')).limit(1);
+    const [row] = await getDb()
+      .select({
+        status: runtimeState.status,
+        aliaAgentIdSha256: runtimeState.aliaAgentIdSha256,
+      })
+      .from(runtimeState)
+      .where(eq(runtimeState.id, 'postgres-cutover'))
+      .limit(1);
     return evaluateRuntimeReadiness(row, agentId);
   } catch {
     return { ready: false, reason: 'database_unavailable' };

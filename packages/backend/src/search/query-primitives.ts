@@ -12,7 +12,11 @@ export function canonicalizePublicUrl(value: string): string {
   }
   url.hash = '';
   url.hostname = url.hostname.toLowerCase();
-  if ((url.protocol === 'https:' && url.port === '443') || (url.protocol === 'http:' && url.port === '80')) url.port = '';
+  if (
+    (url.protocol === 'https:' && url.port === '443') ||
+    (url.protocol === 'http:' && url.port === '80')
+  )
+    url.port = '';
   return url.toString();
 }
 
@@ -23,7 +27,9 @@ export function escapeLike(value: string): string {
 export function excerpt(value: string | null | undefined, length = 300): string | undefined {
   if (!value) return undefined;
   const collapsed = value.replace(/\s+/g, ' ').trim();
-  return collapsed ? `${collapsed.slice(0, length)}${collapsed.length > length ? '…' : ''}` : undefined;
+  return collapsed
+    ? `${collapsed.slice(0, length)}${collapsed.length > length ? '…' : ''}`
+    : undefined;
 }
 
 export function encodeSearchCursor(offset: number): string {
@@ -37,7 +43,12 @@ export function decodeSearchCursor(value?: string): number | undefined {
     const parsed: unknown = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'));
     if (typeof parsed !== 'object' || parsed === null || !('offset' in parsed)) return undefined;
     const offset = parsed.offset;
-    return typeof offset === 'number' && Number.isSafeInteger(offset) && offset >= 0 && offset <= 10_000 ? offset : undefined;
+    return typeof offset === 'number' &&
+      Number.isSafeInteger(offset) &&
+      offset >= 0 &&
+      offset <= 10_000
+      ? offset
+      : undefined;
   } catch (error) {
     if (error instanceof SyntaxError) return undefined;
     throw error;

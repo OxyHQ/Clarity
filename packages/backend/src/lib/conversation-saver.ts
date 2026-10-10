@@ -18,7 +18,10 @@ import { log } from './logger.js';
 
 // Known translations of "TITLE" that LLMs may produce
 const TAG = String.raw`CLARITY_TITLE|TITLE|TÍTULO|TITRE|TITOLO|TITEL|ЗАГОЛОВОК`;
-const TITLE_EXTRACT_RE = new RegExp(String.raw`\[(${TAG})\](.*?)\[\/\1\]|<(${TAG})>(.*?)<\/\3>`, 'i');
+const TITLE_EXTRACT_RE = new RegExp(
+  String.raw`\[(${TAG})\](.*?)\[\/\1\]|<(${TAG})>(.*?)<\/\3>`,
+  'i',
+);
 const TITLE_STRIP_RE = new RegExp(String.raw`\[(${TAG})\].*?\[\/\1\]|<(${TAG})>.*?<\/\2>`, 'gi');
 
 /** Extract or generate a conversation title from the AI response, with fallbacks. */
@@ -72,13 +75,14 @@ export function carryOverToolInvocations(
   return history.map((message, index) => {
     const previous = stored[index];
     if (
-      message.toolInvocations
-      || !previous
-      || previous.role !== message.role
-      || !Array.isArray(previous.toolInvocations)
-      || previous.toolInvocations.length === 0
-      || comparable(previous.content) !== comparable(message.content)
-    ) return message;
+      message.toolInvocations ||
+      !previous ||
+      previous.role !== message.role ||
+      !Array.isArray(previous.toolInvocations) ||
+      previous.toolInvocations.length === 0 ||
+      comparable(previous.content) !== comparable(message.content)
+    )
+      return message;
     return { ...message, toolInvocations: previous.toolInvocations };
   });
 }
@@ -90,7 +94,9 @@ export function carryOverToolInvocations(
 export async function saveConversation(params: SaveConversationParams): Promise<void> {
   const { userId, conversationId, messages, assistantResponse, toolInvocations, source } = params;
 
-  const history = messages.map(toWritableMessage).filter((message): message is WritableMessage => message !== null);
+  const history = messages
+    .map(toWritableMessage)
+    .filter((message): message is WritableMessage => message !== null);
   // Only an earlier answer can carry tool activity; a first turn has none.
   const stored = history.some((message) => message.role === 'assistant')
     ? await listMessages(userId, conversationId)
@@ -102,7 +108,7 @@ export async function saveConversation(params: SaveConversationParams): Promise<
       content: stripTitleTags(assistantResponse),
       ...(toolInvocations && toolInvocations.length > 0 && { toolInvocations }),
     },
-  ].filter(msg => msg != null && msg.role && msg.content !== undefined);
+  ].filter((msg) => msg != null && msg.role && msg.content !== undefined);
 
   const title = extractConversationTitle(assistantResponse, messages);
 

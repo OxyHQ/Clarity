@@ -11,38 +11,47 @@ function jsonLd(posting: Record<string, unknown>): unknown[] {
 
 describe('JobPosting extraction', () => {
   it('normalizes a complete Google-style posting', () => {
-    const [job] = extractJobPostings(jsonLd({
-      title: 'Senior React Native Engineer',
-      description: '<p>Build the <b>mobile</b> client.</p><ul><li>Ship features</li></ul>',
-      identifier: { '@type': 'PropertyValue', name: 'Acme', value: 'REQ-1042' },
-      datePosted: '2026-09-01',
-      validThrough: '2026-12-01T00:00:00Z',
-      employmentType: ['FULL_TIME', 'CONTRACTOR'],
-      hiringOrganization: {
-        '@type': 'Organization',
-        name: 'Acme',
-        url: 'https://www.acme.example/',
-        logo: '/logo.png',
-      },
-      jobLocation: {
-        '@type': 'Place',
-        address: {
-          '@type': 'PostalAddress',
-          addressLocality: 'Barcelona',
-          addressRegion: 'Catalonia',
-          addressCountry: 'Spain',
-          postalCode: '08001',
+    const [job] = extractJobPostings(
+      jsonLd({
+        title: 'Senior React Native Engineer',
+        description: '<p>Build the <b>mobile</b> client.</p><ul><li>Ship features</li></ul>',
+        identifier: { '@type': 'PropertyValue', name: 'Acme', value: 'REQ-1042' },
+        datePosted: '2026-09-01',
+        validThrough: '2026-12-01T00:00:00Z',
+        employmentType: ['FULL_TIME', 'CONTRACTOR'],
+        hiringOrganization: {
+          '@type': 'Organization',
+          name: 'Acme',
+          url: 'https://www.acme.example/',
+          logo: '/logo.png',
         },
-      },
-      baseSalary: {
-        '@type': 'MonetaryAmount',
-        currency: 'EUR',
-        value: { '@type': 'QuantitativeValue', minValue: 60000, maxValue: 80000, unitText: 'YEAR' },
-      },
-      skills: 'React Native, TypeScript',
-      directApply: true,
-      url: 'https://acme.example/careers/react-native',
-    }), 'https://acme.example/careers/react-native', extractedAt);
+        jobLocation: {
+          '@type': 'Place',
+          address: {
+            '@type': 'PostalAddress',
+            addressLocality: 'Barcelona',
+            addressRegion: 'Catalonia',
+            addressCountry: 'Spain',
+            postalCode: '08001',
+          },
+        },
+        baseSalary: {
+          '@type': 'MonetaryAmount',
+          currency: 'EUR',
+          value: {
+            '@type': 'QuantitativeValue',
+            minValue: 60000,
+            maxValue: 80000,
+            unitText: 'YEAR',
+          },
+        },
+        skills: 'React Native, TypeScript',
+        directApply: true,
+        url: 'https://acme.example/careers/react-native',
+      }),
+      'https://acme.example/careers/react-native',
+      extractedAt,
+    );
 
     expect(job).toMatchObject({
       title: 'Senior React Native Engineer',
@@ -59,29 +68,37 @@ describe('JobPosting extraction', () => {
       salary: { min: 60000, max: 80000, currency: 'EUR', interval: 'year' },
       canonicalUrl: 'https://acme.example/careers/react-native',
     });
-    expect(job.locations).toEqual([{
-      raw: 'Barcelona, Catalonia, Spain',
-      countryCode: 'ES',
-      country: 'Spain',
-      region: 'Catalonia',
-      locality: 'Barcelona',
-      postalCode: '08001',
-    }]);
+    expect(job.locations).toEqual([
+      {
+        raw: 'Barcelona, Catalonia, Spain',
+        countryCode: 'ES',
+        country: 'Spain',
+        region: 'Catalonia',
+        locality: 'Barcelona',
+        postalCode: '08001',
+      },
+    ]);
     expect(job.description).toBe('Build the **mobile** client.\n\n- Ship features');
     expect(job.publishedAt?.toISOString()).toBe('2026-09-01T00:00:00.000Z');
     expect(job.validThrough?.toISOString()).toBe('2026-12-01T00:00:00.000Z');
     expect(job.evidence.salary).toEqual({ source: 'json_ld', selector: 'JobPosting', extractedAt });
-    expect(job.evidence.employer).toEqual({ source: 'json_ld', selector: 'JobPosting', extractedAt });
+    expect(job.evidence.employer).toEqual({
+      source: 'json_ld',
+      selector: 'JobPosting',
+      extractedAt,
+    });
   });
 
   it('reads postings nested in an @graph wrapper', () => {
-    const nodes = [{
-      '@context': 'https://schema.org',
-      '@graph': [
-        { '@type': 'WebPage', name: 'Careers' },
-        { '@type': ['JobPosting'], title: 'Designer', hiringOrganization: { name: 'Studio' } },
-      ],
-    }];
+    const nodes = [
+      {
+        '@context': 'https://schema.org',
+        '@graph': [
+          { '@type': 'WebPage', name: 'Careers' },
+          { '@type': ['JobPosting'], title: 'Designer', hiringOrganization: { name: 'Studio' } },
+        ],
+      },
+    ];
     expect(hasJobPosting(nodes)).toBe(true);
     expect(extractJobPostings(nodes, 'https://studio.example/jobs', extractedAt)).toHaveLength(1);
   });
@@ -95,37 +112,62 @@ describe('JobPosting extraction', () => {
   });
 
   it('derives remote and hybrid only from explicit structured signals', () => {
-    const remote = extractJobPostings(jsonLd({
-      title: 'Remote Engineer',
-      hiringOrganization: { name: 'Acme' },
-      jobLocationType: 'TELECOMMUTE',
-      applicantLocationRequirements: [{ '@type': 'Country', name: 'Spain' }, { '@type': 'Country', name: 'Portugal' }],
-    }), 'https://acme.example/remote', extractedAt);
-    expect(remote[0]).toMatchObject({ workplaceType: 'remote', applicantLocationRequirements: ['Spain', 'Portugal'] });
+    const remote = extractJobPostings(
+      jsonLd({
+        title: 'Remote Engineer',
+        hiringOrganization: { name: 'Acme' },
+        jobLocationType: 'TELECOMMUTE',
+        applicantLocationRequirements: [
+          { '@type': 'Country', name: 'Spain' },
+          { '@type': 'Country', name: 'Portugal' },
+        ],
+      }),
+      'https://acme.example/remote',
+      extractedAt,
+    );
+    expect(remote[0]).toMatchObject({
+      workplaceType: 'remote',
+      applicantLocationRequirements: ['Spain', 'Portugal'],
+    });
 
-    const hybrid = extractJobPostings(jsonLd({
-      title: 'Hybrid Engineer',
-      hiringOrganization: { name: 'Acme' },
-      jobLocationType: 'TELECOMMUTE',
-      jobLocation: { address: { addressLocality: 'Madrid', addressCountry: 'ES' } },
-    }), 'https://acme.example/hybrid', extractedAt);
+    const hybrid = extractJobPostings(
+      jsonLd({
+        title: 'Hybrid Engineer',
+        hiringOrganization: { name: 'Acme' },
+        jobLocationType: 'TELECOMMUTE',
+        jobLocation: { address: { addressLocality: 'Madrid', addressCountry: 'ES' } },
+      }),
+      'https://acme.example/hybrid',
+      extractedAt,
+    );
     expect(hybrid[0].workplaceType).toBe('hybrid');
 
-    const unknown = extractJobPostings(jsonLd({
-      title: 'Unstated Engineer',
-      hiringOrganization: { name: 'Acme' },
-    }), 'https://acme.example/unknown', extractedAt);
+    const unknown = extractJobPostings(
+      jsonLd({
+        title: 'Unstated Engineer',
+        hiringOrganization: { name: 'Acme' },
+      }),
+      'https://acme.example/unknown',
+      extractedAt,
+    );
     expect(unknown[0].workplaceType).toBeUndefined();
     expect(unknown[0].evidence.workplaceType).toBeUndefined();
   });
 
   it('never invents a salary, employment type or date that the source omitted', () => {
-    const [job] = extractJobPostings(jsonLd({
-      title: 'Analyst',
-      hiringOrganization: { name: 'Acme' },
-      baseSalary: { '@type': 'MonetaryAmount', value: { '@type': 'QuantitativeValue', value: 50000 } },
-      employmentType: 'SOMETHING_ELSE',
-    }), 'https://acme.example/analyst', extractedAt);
+    const [job] = extractJobPostings(
+      jsonLd({
+        title: 'Analyst',
+        hiringOrganization: { name: 'Acme' },
+        baseSalary: {
+          '@type': 'MonetaryAmount',
+          value: { '@type': 'QuantitativeValue', value: 50000 },
+        },
+        employmentType: 'SOMETHING_ELSE',
+      }),
+      'https://acme.example/analyst',
+      extractedAt,
+    );
     expect(job.salary).toBeUndefined();
     expect(job.employmentTypes).toEqual([]);
     expect(job.publishedAt).toBeUndefined();
@@ -134,50 +176,94 @@ describe('JobPosting extraction', () => {
   });
 
   it('accepts a single hourly amount and a bare numeric value', () => {
-    const [hourly] = extractJobPostings(jsonLd({
-      title: 'Support Agent',
-      hiringOrganization: { name: 'Acme' },
-      baseSalary: {
-        '@type': 'MonetaryAmount', currency: 'usd',
-        value: { '@type': 'QuantitativeValue', value: '25.5', unitText: 'HOUR' },
-      },
-    }), 'https://acme.example/support', extractedAt);
+    const [hourly] = extractJobPostings(
+      jsonLd({
+        title: 'Support Agent',
+        hiringOrganization: { name: 'Acme' },
+        baseSalary: {
+          '@type': 'MonetaryAmount',
+          currency: 'usd',
+          value: { '@type': 'QuantitativeValue', value: '25.5', unitText: 'HOUR' },
+        },
+      }),
+      'https://acme.example/support',
+      extractedAt,
+    );
     expect(hourly.salary).toEqual({ min: 25.5, max: 25.5, currency: 'USD', interval: 'hour' });
   });
 
   it('drops nodes without a title or hiring organization', () => {
-    expect(extractJobPostings(jsonLd({ title: 'Orphan role' }), 'https://acme.example/x', extractedAt)).toEqual([]);
-    expect(extractJobPostings(jsonLd({ hiringOrganization: { name: 'Acme' } }), 'https://acme.example/x', extractedAt)).toEqual([]);
+    expect(
+      extractJobPostings(jsonLd({ title: 'Orphan role' }), 'https://acme.example/x', extractedAt),
+    ).toEqual([]);
+    expect(
+      extractJobPostings(
+        jsonLd({ hiringOrganization: { name: 'Acme' } }),
+        'https://acme.example/x',
+        extractedAt,
+      ),
+    ).toEqual([]);
   });
 
   it('keeps several postings on one page distinguishable', () => {
-    const jobs = extractJobPostings([
-      { '@type': 'JobPosting', title: 'One', hiringOrganization: { name: 'Acme' }, url: 'https://acme.example/1' },
-      { '@type': 'JobPosting', title: 'Two', hiringOrganization: { name: 'Acme' }, url: 'https://acme.example/2' },
-      { '@type': 'JobPosting', title: 'Three', hiringOrganization: { name: 'Acme' } },
-    ], 'https://acme.example/careers', extractedAt);
-    expect(jobs.map((job) => job.sourceKey)).toEqual(['https://acme.example/1', 'https://acme.example/2', '2']);
+    const jobs = extractJobPostings(
+      [
+        {
+          '@type': 'JobPosting',
+          title: 'One',
+          hiringOrganization: { name: 'Acme' },
+          url: 'https://acme.example/1',
+        },
+        {
+          '@type': 'JobPosting',
+          title: 'Two',
+          hiringOrganization: { name: 'Acme' },
+          url: 'https://acme.example/2',
+        },
+        { '@type': 'JobPosting', title: 'Three', hiringOrganization: { name: 'Acme' } },
+      ],
+      'https://acme.example/careers',
+      extractedAt,
+    );
+    expect(jobs.map((job) => job.sourceKey)).toEqual([
+      'https://acme.example/1',
+      'https://acme.example/2',
+      '2',
+    ]);
   });
 
   it('marks API-ingested payloads with their own field source', () => {
-    const [job] = extractJobPostings(jsonLd({
-      title: 'Community Manager',
-      hiringOrganization: { name: 'Mention' },
-    }), 'https://mention.earth/jobs/7', extractedAt, 'api');
+    const [job] = extractJobPostings(
+      jsonLd({
+        title: 'Community Manager',
+        hiringOrganization: { name: 'Mention' },
+      }),
+      'https://mention.earth/jobs/7',
+      extractedAt,
+      'api',
+    );
     expect(job.evidence.title).toEqual({ source: 'api', selector: 'JobPosting', extractedAt });
   });
 
   it('keeps the structure of every long-text field as Markdown and short fields as plain text', () => {
-    const [job] = extractJobPostings(jsonLd({
-      title: 'Data &amp; <b>Platform</b> Engineer',
-      description: '<h3>About</h3><p>We index <a href="https://acme.example/jobs">public jobs</a>.</p><script>track()</script>',
-      qualifications: '<ul><li>TypeScript</li><li>Postgres</li></ul>',
-      responsibilities: ['Own the crawler', 'Review changes'],
-      educationRequirements: { '@type': 'EducationalOccupationalCredential', credentialCategory: 'bachelor degree' },
-      experienceRequirements: '## Experience\n\n- 3+ years',
-      industry: '<i>Software</i>',
-      hiringOrganization: { name: 'Acme' },
-    }), 'https://acme.example/jobs/1', extractedAt);
+    const [job] = extractJobPostings(
+      jsonLd({
+        title: 'Data &amp; <b>Platform</b> Engineer',
+        description:
+          '<h3>About</h3><p>We index <a href="https://acme.example/jobs">public jobs</a>.</p><script>track()</script>',
+        qualifications: '<ul><li>TypeScript</li><li>Postgres</li></ul>',
+        responsibilities: ['Own the crawler', 'Review changes'],
+        educationRequirements: {
+          '@type': 'EducationalOccupationalCredential',
+          credentialCategory: 'bachelor degree',
+        },
+        experienceRequirements: '## Experience\n\n- 3+ years',
+        industry: '<i>Software</i>',
+        hiringOrganization: { name: 'Acme' },
+      }),
+      'https://acme.example/jobs/1',
+      extractedAt,
+    );
 
     expect(job.title).toBe('Data & Platform Engineer');
     expect(job.industry).toBe('Software');
@@ -189,15 +275,27 @@ describe('JobPosting extraction', () => {
   });
 
   it('fingerprints the same listing identically from HTML and from a Markdown publisher', () => {
-    const paragraph = 'Clarity indexes public job postings and keeps every listing attributed to its source page. ';
-    const fromHtml = extractJobPostings(jsonLd({
-      title: 'Engineer', hiringOrganization: { name: 'Acme' },
-      description: `<h2>Role</h2><p>${paragraph.repeat(3)}</p><ol><li>Crawl</li><li>Index</li></ol>`,
-    }), 'https://acme.example/jobs/1', extractedAt)[0];
-    const fromMarkdown = extractJobPostings(jsonLd({
-      title: 'Engineer', hiringOrganization: { name: 'Acme' },
-      description: `## Role\n\n${paragraph.repeat(3).trim()}\n\n1. Crawl\n2. Index`,
-    }), 'https://mention.earth/jobs/1', extractedAt, 'api')[0];
+    const paragraph =
+      'Clarity indexes public job postings and keeps every listing attributed to its source page. ';
+    const fromHtml = extractJobPostings(
+      jsonLd({
+        title: 'Engineer',
+        hiringOrganization: { name: 'Acme' },
+        description: `<h2>Role</h2><p>${paragraph.repeat(3)}</p><ol><li>Crawl</li><li>Index</li></ol>`,
+      }),
+      'https://acme.example/jobs/1',
+      extractedAt,
+    )[0];
+    const fromMarkdown = extractJobPostings(
+      jsonLd({
+        title: 'Engineer',
+        hiringOrganization: { name: 'Acme' },
+        description: `## Role\n\n${paragraph.repeat(3).trim()}\n\n1. Crawl\n2. Index`,
+      }),
+      'https://mention.earth/jobs/1',
+      extractedAt,
+      'api',
+    )[0];
     expect(fromHtml.description).toBe(fromMarkdown.description);
     expect(fromHtml.descriptionFingerprint).toBeDefined();
     expect(fromHtml.descriptionFingerprint).toBe(fromMarkdown.descriptionFingerprint);

@@ -1,9 +1,9 @@
-import React from "react";
-import { ArrowUp, Square } from "lucide-react-native";
-import { Button } from "@oxy.so/bloom/button";
-import { bloomIcon } from "@/lib/bloom-icon";
-import { useTranslation } from "@/hooks/useTranslation";
-import { usePromptInput } from "./context";
+import React from 'react';
+import { ArrowUp, Square } from 'lucide-react-native';
+import { Button } from '@oxy.so/bloom/button';
+import { bloomIcon } from '@/lib/bloom-icon';
+import { useTranslation } from '@/hooks/useTranslation';
+import { usePromptInput } from './context';
 
 export type PromptInputSubmitButtonProps = {
   isLoading?: boolean;
@@ -29,7 +29,7 @@ export function PromptInputSubmitButton({
         size="sm"
         icon={bloomIcon(Square)}
         onPress={onStop}
-        accessibilityLabel={t("actions.stop")}
+        accessibilityLabel={t('actions.stop')}
         className={className}
       />
     );
@@ -46,7 +46,7 @@ export function PromptInputSubmitButton({
       icon={bloomIcon(ArrowUp)}
       onPress={onSubmit}
       disabled={!hasContent}
-      accessibilityLabel={t("chat.sendButton")}
+      accessibilityLabel={t('chat.sendButton')}
       className={className}
     />
   );

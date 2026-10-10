@@ -9,13 +9,7 @@
 // ---------------------------------------------------------------------------
 
 /** Functional category a Clarity model belongs to. */
-export type ModelCategory =
-  | 'general'
-  | 'coding'
-  | 'vision'
-  | 'audio'
-  | 'multimodal'
-  | 'voice';
+export type ModelCategory = 'general' | 'coding' | 'vision' | 'audio' | 'multimodal' | 'voice';
 
 /** Capabilities advertised for a Clarity model. */
 export interface ClarityModelCapabilities {

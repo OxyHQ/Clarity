@@ -25,7 +25,7 @@ class AudioCaptureProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < samples.length; i++) {
       // Clamp and convert Float32 [-1, 1] to Int16 [-32768, 32767]
       const s = Math.max(-1, Math.min(1, samples[i]));
-      this._buffer[this._bufferIndex++] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+      this._buffer[this._bufferIndex++] = s < 0 ? s * 0x8000 : s * 0x7fff;
 
       this._levelSum += s * s;
       this._levelCount++;

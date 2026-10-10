@@ -31,7 +31,9 @@ export const authenticateToken = createOxyAuthMiddleware(oxyClient, { auth: { de
 /** Canonical Oxy service-principal middleware for fail-closed internal routes. */
 // `middleware.service()` is typed against core's framework-neutral request, whose
 // `user` is the full profile; this app's Express request carries `OxyRequestUser`.
-export const oxyServiceAuth = oxyClient.middleware.service({ debug: true }) as unknown as RequestHandler;
+export const oxyServiceAuth = oxyClient.middleware.service({
+  debug: true,
+}) as unknown as RequestHandler;
 
 const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, { auth: { debug: true } });
 

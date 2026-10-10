@@ -46,12 +46,16 @@ function nameOf(value: unknown): string | undefined {
 }
 
 /** What the page's structured data says about the article. */
-export function metadataFromStructuredData(structuredData: unknown, now = Date.now()): ArticleMetadata {
+export function metadataFromStructuredData(
+  structuredData: unknown,
+  now = Date.now(),
+): ArticleMetadata {
   const all = flattenNodes(Array.isArray(structuredData) ? structuredData : [structuredData]);
   const candidates = [...all.filter(isArticle), ...all.filter((node) => !isArticle(node))];
   const metadata: ArticleMetadata = {};
   for (const node of candidates) {
-    metadata.publishedAt ??= plausibleDate(node.datePublished, now) ?? plausibleDate(node.dateCreated, now);
+    metadata.publishedAt ??=
+      plausibleDate(node.datePublished, now) ?? plausibleDate(node.dateCreated, now);
     metadata.modifiedAt ??= plausibleDate(node.dateModified, now);
     metadata.publisher ??= nameOf(node.publisher) ?? nameOf(node.sourceOrganization);
   }

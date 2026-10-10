@@ -1,12 +1,12 @@
-import { clsx, type ClassValue } from "clsx";
-import { Platform } from "react-native";
-import { twMerge } from "tailwind-merge";
-import type { Message as DBMessage, Document } from "@/lib/db/schema";
-import type { ToolInvocation } from "@clarity/shared-types";
+import { clsx, type ClassValue } from 'clsx';
+import { Platform } from 'react-native';
+import { twMerge } from 'tailwind-merge';
+import type { Message as DBMessage, Document } from '@/lib/db/schema';
+import type { ToolInvocation } from '@clarity/shared-types';
 
 export interface Message {
   id: string;
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string;
   toolInvocations?: ToolInvocation[];
   annotations?: any[];
@@ -18,23 +18,25 @@ export interface CoreMessage {
 }
 
 export interface CoreToolMessage extends CoreMessage {
-  role: "tool";
+  role: 'tool';
   content: Array<{
-    type: "tool-result";
+    type: 'tool-result';
     toolCallId: string;
     result: any;
   }>;
 }
 
 export interface CoreAssistantMessage extends CoreMessage {
-  role: "assistant";
-  content: string | Array<{
-    type: "text" | "tool-call";
-    text?: string;
-    toolCallId?: string;
-    toolName?: string;
-    args?: any;
-  }>;
+  role: 'assistant';
+  content:
+    | string
+    | Array<{
+        type: 'text' | 'tool-call';
+        text?: string;
+        toolCallId?: string;
+        toolName?: string;
+        args?: any;
+      }>;
 }
 
 export function cn(...inputs: ClassValue[]) {
@@ -47,13 +49,13 @@ export function isValidYoutubeUrl(url: string) {
 }
 
 export function isWeb() {
-  return Platform.OS === "web";
+  return Platform.OS === 'web';
 }
 export function isNative() {
-  return Platform.OS === "ios" || Platform.OS === "android";
+  return Platform.OS === 'ios' || Platform.OS === 'android';
 }
 export function isIOS() {
-  return Platform.OS === "ios";
+  return Platform.OS === 'ios';
 }
 
 interface ApplicationError extends Error {
@@ -65,9 +67,7 @@ export const fetcher = async (url: string) => {
   const res = await fetch(url);
 
   if (!res.ok) {
-    const error = new Error(
-      "An error occurred while fetching the data.",
-    ) as ApplicationError;
+    const error = new Error('An error occurred while fetching the data.') as ApplicationError;
 
     error.info = await res.json();
     error.status = res.status;
@@ -79,16 +79,16 @@ export const fetcher = async (url: string) => {
 };
 
 export function getLocalStorage(key: string) {
-  if (typeof window !== "undefined") {
-    return JSON.parse(localStorage.getItem(key) || "[]");
+  if (typeof window !== 'undefined') {
+    return JSON.parse(localStorage.getItem(key) || '[]');
   }
   return [];
 }
 
 export function generateUUID(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -112,7 +112,7 @@ function addToolMessageToChat({
           if (toolResult) {
             return {
               ...toolInvocation,
-              state: "result",
+              state: 'result',
               result: toolResult.result,
             };
           }
@@ -126,29 +126,27 @@ function addToolMessageToChat({
   });
 }
 
-export function convertToUIMessages(
-  messages: Array<DBMessage>,
-): Array<Message> {
+export function convertToUIMessages(messages: Array<DBMessage>): Array<Message> {
   return messages.reduce((chatMessages: Array<Message>, message) => {
-    if (message.role === "tool") {
+    if (message.role === 'tool') {
       return addToolMessageToChat({
         toolMessage: message as CoreToolMessage,
         messages: chatMessages,
       });
     }
 
-    let textContent = "";
+    let textContent = '';
     const toolInvocations: Array<ToolInvocation> = [];
 
-    if (typeof message.content === "string") {
+    if (typeof message.content === 'string') {
       textContent = message.content;
     } else if (Array.isArray(message.content)) {
       for (const content of message.content) {
-        if (content.type === "text") {
+        if (content.type === 'text') {
           textContent += content.text;
-        } else if (content.type === "tool-call") {
+        } else if (content.type === 'tool-call') {
           toolInvocations.push({
-            state: "call",
+            state: 'call',
             toolCallId: content.toolCallId,
             toolName: content.toolName,
             args: content.args,
@@ -159,7 +157,7 @@ export function convertToUIMessages(
 
     chatMessages.push({
       id: message.id,
-      role: message.role as Message["role"],
+      role: message.role as Message['role'],
       content: textContent,
       toolInvocations,
     });
@@ -174,9 +172,9 @@ export function sanitizeResponseMessages(
   const toolResultIds: Array<string> = [];
 
   for (const message of messages) {
-    if (message.role === "tool") {
+    if (message.role === 'tool') {
       for (const content of message.content) {
-        if (content.type === "tool-result") {
+        if (content.type === 'tool-result') {
           toolResultIds.push(content.toolCallId);
         }
       }
@@ -184,16 +182,16 @@ export function sanitizeResponseMessages(
   }
 
   const messagesBySanitizedContent = messages.map((message) => {
-    if (message.role !== "assistant") return message;
+    if (message.role !== 'assistant') return message;
 
-    if (typeof message.content === "string") return message;
+    if (typeof message.content === 'string') return message;
 
     const sanitizedContent = message.content.filter((content) => {
-      if (content.type === "tool-call") {
-        return typeof content.toolCallId === "string" && toolResultIds.includes(content.toolCallId);
+      if (content.type === 'tool-call') {
+        return typeof content.toolCallId === 'string' && toolResultIds.includes(content.toolCallId);
       }
-      if (content.type === "text") {
-        return typeof content.text === "string" && content.text.length > 0;
+      if (content.type === 'text') {
+        return typeof content.text === 'string' && content.text.length > 0;
       }
       return true;
     });
@@ -204,29 +202,26 @@ export function sanitizeResponseMessages(
     };
   });
 
-  return messagesBySanitizedContent.filter(
-    (message) => message.content.length > 0,
-  );
+  return messagesBySanitizedContent.filter((message) => message.content.length > 0);
 }
 
 export function sanitizeUIMessages(messages: Array<Message>): Array<Message> {
   const messagesBySanitizedToolInvocations = messages.map((message) => {
-    if (message.role !== "assistant") return message;
+    if (message.role !== 'assistant') return message;
 
     if (!message.toolInvocations) return message;
 
     const toolResultIds: Array<string> = [];
 
     for (const toolInvocation of message.toolInvocations) {
-      if (toolInvocation.state === "result") {
+      if (toolInvocation.state === 'result') {
         toolResultIds.push(toolInvocation.toolCallId);
       }
     }
 
     const sanitizedToolInvocations = message.toolInvocations.filter(
       (toolInvocation) =>
-        toolInvocation.state === "result" ||
-        toolResultIds.includes(toolInvocation.toolCallId),
+        toolInvocation.state === 'result' || toolResultIds.includes(toolInvocation.toolCallId),
     );
 
     return {
@@ -237,13 +232,12 @@ export function sanitizeUIMessages(messages: Array<Message>): Array<Message> {
 
   return messagesBySanitizedToolInvocations.filter(
     (message) =>
-      message.content.length > 0 ||
-      (message.toolInvocations && message.toolInvocations.length > 0),
+      message.content.length > 0 || (message.toolInvocations && message.toolInvocations.length > 0),
   );
 }
 
 export function getMostRecentUserMessage(messages: Array<CoreMessage>) {
-  const userMessages = messages.filter((message) => message.role === "user");
+  const userMessages = messages.filter((message) => message.role === 'user');
   return userMessages.at(-1);
 }
 
@@ -255,10 +249,7 @@ export function formatFileSize(bytes: number): string {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 }
 
-export function getDocumentTimestampByIndex(
-  documents: Array<Document>,
-  index: number,
-) {
+export function getDocumentTimestampByIndex(documents: Array<Document>, index: number) {
   if (!documents) return new Date();
   if (index > documents.length) return new Date();
 

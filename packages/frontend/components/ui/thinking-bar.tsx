@@ -1,15 +1,15 @@
-import React, { useEffect } from "react";
-import { View, Pressable } from "react-native";
-import { Text } from "@/components/ui/text";
-import { cn } from "@/lib/utils";
-import { ChevronRight } from "lucide-react-native";
+import React, { useEffect } from 'react';
+import { View, Pressable } from 'react-native';
+import { Text } from '@/components/ui/text';
+import { cn } from '@/lib/utils';
+import { ChevronRight } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withRepeat,
   withSequence,
   withTiming,
-} from "react-native-reanimated";
+} from 'react-native-reanimated';
 
 type ThinkingBarProps = {
   className?: string;
@@ -19,22 +19,13 @@ type ThinkingBarProps = {
   onPress?: () => void;
 };
 
-function ShimmerText({
-  children,
-  className,
-}: {
-  children: string;
-  className?: string;
-}) {
+function ShimmerText({ children, className }: { children: string; className?: string }) {
   const opacity = useSharedValue(0.5);
 
   useEffect(() => {
     opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: 1200 }),
-        withTiming(0.5, { duration: 1200 })
-      ),
-      -1
+      withSequence(withTiming(1, { duration: 1200 }), withTiming(0.5, { duration: 1200 })),
+      -1,
     );
   }, [opacity]);
 
@@ -44,27 +35,22 @@ function ShimmerText({
 
   return (
     <Animated.View style={shimmerStyle}>
-      <Text className={cn("font-medium text-foreground", className)}>
-        {children}
-      </Text>
+      <Text className={cn('font-medium text-foreground', className)}>{children}</Text>
     </Animated.View>
   );
 }
 
 export function ThinkingBar({
   className,
-  text = "Thinking",
+  text = 'Thinking',
   onStop,
-  stopLabel = "Answer now",
+  stopLabel = 'Answer now',
   onPress,
 }: ThinkingBarProps) {
   return (
-    <View className={cn("w-full flex-row items-center justify-between", className)}>
+    <View className={cn('w-full flex-row items-center justify-between', className)}>
       {onPress ? (
-        <Pressable
-          onPress={onPress}
-          className="flex-row items-center gap-1 active:opacity-70"
-        >
+        <Pressable onPress={onPress} className="flex-row items-center gap-1 active:opacity-70">
           <ShimmerText>{text}</ShimmerText>
           <ChevronRight size={16} className="text-muted-foreground" />
         </Pressable>
@@ -72,13 +58,14 @@ export function ThinkingBar({
         <ShimmerText>{text}</ShimmerText>
       )}
       {onStop && (
-        <Pressable
-          onPress={onStop}
-          className="web:hover:opacity-80 active:opacity-70"
-        >
+        <Pressable onPress={onStop} className="web:hover:opacity-80 active:opacity-70">
           <Text
             className="text-sm text-muted-foreground"
-            style={{ borderBottomWidth: 1, borderStyle: "dotted", borderColor: "rgba(128,128,128,0.5)" }}
+            style={{
+              borderBottomWidth: 1,
+              borderStyle: 'dotted',
+              borderColor: 'rgba(128,128,128,0.5)',
+            }}
           >
             {stopLabel}
           </Text>

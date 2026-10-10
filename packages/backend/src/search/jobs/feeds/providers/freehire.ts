@@ -12,20 +12,52 @@
  */
 import type { JobFeedProvider } from '../provider.js';
 import {
-  date, get, json, listing, locationText, markdown, nextOffset, node, nodes, num, page, places, strings, text,
+  date,
+  get,
+  json,
+  listing,
+  locationText,
+  markdown,
+  nextOffset,
+  node,
+  nodes,
+  num,
+  page,
+  places,
+  strings,
+  text,
   workplace,
 } from '../listing.js';
 import { normalizeCountry } from '../../taxonomy.js';
 
 const PAGE_SIZE = 100;
 const QUERY_WINDOW = 10_000;
-const SLICE_KEYS = ['source', 'countries', 'regions', 'category', 'work_mode', 'company_slug', 'posting_language'] as const;
-const IDENTIFIER = new RegExp(`^(?:freehire|(?:${SLICE_KEYS.join('|')})=[a-z0-9_.-]{1,60}(?:&(?:${SLICE_KEYS.join('|')})=[a-z0-9_.-]{1,60}){0,5})$`);
+const SLICE_KEYS = [
+  'source',
+  'countries',
+  'regions',
+  'category',
+  'work_mode',
+  'company_slug',
+  'posting_language',
+] as const;
+const IDENTIFIER = new RegExp(
+  `^(?:freehire|(?:${SLICE_KEYS.join('|')})=[a-z0-9_.-]{1,60}(?:&(?:${SLICE_KEYS.join('|')})=[a-z0-9_.-]{1,60}){0,5})$`,
+);
 const EXCLUDED_SOURCES = [
   // Keyed or licence-restricted upstreams.
-  'adzuna', 'reed', 'himalayas', 'themuse',
+  'adzuna',
+  'reed',
+  'himalayas',
+  'themuse',
   // Read directly by Clarity, under their own attribution.
-  'remoteok', 'remotive', 'arbeitnow', 'jobicy', '4dayweek', 'jobtech', 'workingnomads',
+  'remoteok',
+  'remotive',
+  'arbeitnow',
+  'jobicy',
+  '4dayweek',
+  'jobtech',
+  'workingnomads',
 ];
 
 function searchUrl(identifier: string, cursor?: string): string {
@@ -48,32 +80,50 @@ function searchUrl(identifier: string, cursor?: string): string {
 
 export const freehire: JobFeedProvider = {
   kind: 'freehire',
-  identifier: { meaning: '`freehire`, or a slice such as source=workday&countries=us', shape: 'slug', pattern: IDENTIFIER },
+  identifier: {
+    meaning: '`freehire`, or a slice such as source=workday&countries=us',
+    shape: 'slug',
+    pattern: IDENTIFIER,
+  },
   request: (identifier, cursor) => get(searchUrl(identifier, cursor)),
   terms: 'No scraping beyond the documented API; respect its rate limits.',
   parse(body, context) {
     const payload = node(json(body, 'freehire'));
     const jobs = nodes(payload['data']);
     const meta = node(payload['meta']);
-    return page(jobs.map((job) => {
-      if (job['closed_at']) return undefined;
-      const slug = text(job['public_slug']);
-      const countries = strings(job['countries']).map((code) => normalizeCountry(code)).filter(Boolean);
-      const [located] = locationText(text(job['location']));
-      return listing({
-        title: text(job['title']),
-        employerName: text(job['company']),
-        canonicalUrl: slug ? `https://freehire.me/jobs/${encodeURIComponent(slug)}` : undefined,
-        applyUrl: text(job['url']),
-        context,
-        description: markdown(job['description']),
-        // A single stated country completes a text location that named none.
-        locations: places([located && !located.countryCode && countries.length === 1 ? { ...located, countryCode: countries[0] } : located]),
-        workplaceType: workplace(job['work_mode']),
-        skills: strings(job['skills'], 20),
-        identifier: text(job['external_id']),
-        publishedAt: date(job['posted_at'] ?? job['created_at']),
-      });
-    }), nextOffset(context.cursor, jobs.length, PAGE_SIZE, Math.min(num(meta['total']) ?? QUERY_WINDOW, QUERY_WINDOW)));
+    return page(
+      jobs.map((job) => {
+        if (job['closed_at']) return undefined;
+        const slug = text(job['public_slug']);
+        const countries = strings(job['countries'])
+          .map((code) => normalizeCountry(code))
+          .filter(Boolean);
+        const [located] = locationText(text(job['location']));
+        return listing({
+          title: text(job['title']),
+          employerName: text(job['company']),
+          canonicalUrl: slug ? `https://freehire.me/jobs/${encodeURIComponent(slug)}` : undefined,
+          applyUrl: text(job['url']),
+          context,
+          description: markdown(job['description']),
+          // A single stated country completes a text location that named none.
+          locations: places([
+            located && !located.countryCode && countries.length === 1
+              ? { ...located, countryCode: countries[0] }
+              : located,
+          ]),
+          workplaceType: workplace(job['work_mode']),
+          skills: strings(job['skills'], 20),
+          identifier: text(job['external_id']),
+          publishedAt: date(job['posted_at'] ?? job['created_at']),
+        });
+      }),
+      nextOffset(
+        context.cursor,
+        jobs.length,
+        PAGE_SIZE,
+        Math.min(num(meta['total']) ?? QUERY_WINDOW, QUERY_WINDOW),
+      ),
+    );
   },
 };

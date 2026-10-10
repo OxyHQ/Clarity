@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -7,9 +7,9 @@ import {
   type LayoutChangeEvent,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
-} from "react-native";
-import { useRouter } from "expo-router";
-import * as Linking from "expo-linking";
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import Animated, {
   FadeIn,
   FadeInUp,
@@ -21,8 +21,8 @@ import Animated, {
   withSequence,
   withTiming,
   Easing,
-} from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
+} from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   MessageCircle,
   Eye,
@@ -32,13 +32,13 @@ import {
   ArrowUp,
   Plus,
   Mic,
-} from "lucide-react-native";
-import { OxySignInButton, useAuth } from "@oxy.so/services";
-import { Text } from "@/components/ui/text";
-import { TextShimmer } from "@/components/ui/text-shimmer";
-import { ClarityWordmark } from "@/components/ui/clarity-wordmark";
-import { useTranslation } from "@/hooks/useTranslation";
-import { useColorScheme } from "@/lib/useColorScheme";
+} from 'lucide-react-native';
+import { OxySignInButton, useAuth } from '@oxy.so/services';
+import { Text } from '@/components/ui/text';
+import { TextShimmer } from '@/components/ui/text-shimmer';
+import { ClarityWordmark } from '@/components/ui/clarity-wordmark';
+import { useTranslation } from '@/hooks/useTranslation';
+import { useColorScheme } from '@/lib/useColorScheme';
 
 interface LandingPageProps {
   returnTo?: string;
@@ -47,15 +47,7 @@ interface LandingPageProps {
 // ---------------------------------------------------------------------------
 // Floating orb — decorative background element
 // ---------------------------------------------------------------------------
-function FloatingOrb({
-  size,
-  color,
-  style,
-}: {
-  size: number;
-  color: string;
-  style?: object;
-}) {
+function FloatingOrb({ size, color, style }: { size: number; color: string; style?: object }) {
   const translateY = useSharedValue(0);
   const translateX = useSharedValue(0);
 
@@ -66,33 +58,30 @@ function FloatingOrb({
           duration: 3000,
           easing: Easing.inOut(Easing.ease),
         }),
-        withTiming(20, { duration: 3000, easing: Easing.inOut(Easing.ease) })
+        withTiming(20, { duration: 3000, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
     translateX.value = withRepeat(
       withSequence(
         withTiming(10, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-10, { duration: 4000, easing: Easing.inOut(Easing.ease) })
+        withTiming(-10, { duration: 4000, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
   }, []);
 
   const animStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: translateY.value },
-      { translateX: translateX.value },
-    ],
+    transform: [{ translateY: translateY.value }, { translateX: translateX.value }],
   }));
 
   return (
     <Animated.View
       style={[
         {
-          position: "absolute",
+          position: 'absolute',
           width: size,
           height: size,
           borderRadius: size / 2,
@@ -116,10 +105,10 @@ function BlinkingCursor() {
     opacity.value = withRepeat(
       withSequence(
         withTiming(0, { duration: 530, easing: Easing.inOut(Easing.ease) }),
-        withTiming(1, { duration: 530, easing: Easing.inOut(Easing.ease) })
+        withTiming(1, { duration: 530, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
   }, []);
 
@@ -144,10 +133,7 @@ function DemoPromptInput({ typedText }: { typedText: string }) {
         {/* Text area row */}
         <View className="min-h-[44px] px-4 py-3 justify-center">
           <View className="flex-row items-center">
-            <Text
-              className="text-base text-muted-foreground flex-1"
-              numberOfLines={1}
-            >
+            <Text className="text-base text-muted-foreground flex-1" numberOfLines={1}>
               {typedText}
             </Text>
             <BlinkingCursor />
@@ -181,12 +167,12 @@ function DemoPromptInput({ typedText }: { typedText: string }) {
 const CAPABILITIES = [
   {
     icon: MessageCircle,
-    titleKey: "landing.cap1Title",
-    descKey: "landing.cap1Desc",
+    titleKey: 'landing.cap1Title',
+    descKey: 'landing.cap1Desc',
   },
-  { icon: Eye, titleKey: "landing.cap2Title", descKey: "landing.cap2Desc" },
-  { icon: Bot, titleKey: "landing.cap3Title", descKey: "landing.cap3Desc" },
-  { icon: Code, titleKey: "landing.cap4Title", descKey: "landing.cap4Desc" },
+  { icon: Eye, titleKey: 'landing.cap2Title', descKey: 'landing.cap2Desc' },
+  { icon: Bot, titleKey: 'landing.cap3Title', descKey: 'landing.cap3Desc' },
+  { icon: Code, titleKey: 'landing.cap4Title', descKey: 'landing.cap4Desc' },
 ] as const;
 
 function CapabilityCard({
@@ -207,16 +193,14 @@ function CapabilityCard({
       entering={FadeInUp.delay(400 + index * 150)
         .duration(600)
         .springify()}
-      style={isLargeScreen ? { width: "48%" } : undefined}
-      className={`rounded-2xl border border-border bg-background p-8 shadow-sm shadow-foreground/5 ${isLargeScreen ? "" : "w-full"}`}
+      style={isLargeScreen ? { width: '48%' } : undefined}
+      className={`rounded-2xl border border-border bg-background p-8 shadow-sm shadow-foreground/5 ${isLargeScreen ? '' : 'w-full'}`}
     >
       <View className="w-14 h-14 rounded-2xl bg-primary/10 items-center justify-center mb-5">
         <Icon size={26} className="text-primary" />
       </View>
       <Text className="text-lg font-bold text-foreground mb-2">{title}</Text>
-      <Text className="text-sm text-muted-foreground leading-6">
-        {description}
-      </Text>
+      <Text className="text-sm text-muted-foreground leading-6">{description}</Text>
     </Animated.View>
   );
 }
@@ -231,10 +215,10 @@ function ScrollIndicator() {
     bounceY.value = withRepeat(
       withSequence(
         withTiming(8, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+        withTiming(0, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
       ),
       -1,
-      true
+      true,
     );
   }, []);
 
@@ -243,10 +227,7 @@ function ScrollIndicator() {
   }));
 
   return (
-    <Animated.View
-      style={[animStyle, { alignSelf: "center" }]}
-      className="mt-8 opacity-40"
-    >
+    <Animated.View style={[animStyle, { alignSelf: 'center' }]} className="mt-8 opacity-40">
       <ChevronDown size={28} className="text-muted-foreground" />
     </Animated.View>
   );
@@ -258,11 +239,11 @@ function ScrollIndicator() {
 // Logo wordmark is static — no expression cycling needed
 
 const DEMO_KEYS = [
-  "landing.demo1",
-  "landing.demo2",
-  "landing.demo3",
-  "landing.demo4",
-  "landing.demo5",
+  'landing.demo1',
+  'landing.demo2',
+  'landing.demo3',
+  'landing.demo4',
+  'landing.demo5',
 ] as const;
 
 // ---------------------------------------------------------------------------
@@ -279,7 +260,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
   // Auth redirect
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      router.replace(returnTo || "/");
+      router.replace(returnTo || '/');
     }
   }, [isAuthenticated, isLoading]);
 
@@ -290,11 +271,11 @@ export function LandingPage({ returnTo }: LandingPageProps) {
   }, []);
 
   // Typewriter effect
-  const [typedText, setTypedText] = useState("");
+  const [typedText, setTypedText] = useState('');
   const typewriterRef = useRef({
     promptIdx: 0,
     charIdx: 0,
-    phase: "typing" as "typing" | "pausing" | "clearing",
+    phase: 'typing' as 'typing' | 'pausing' | 'clearing',
   });
 
   useEffect(() => {
@@ -312,7 +293,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
         return;
       }
 
-      if (phase === "typing") {
+      if (phase === 'typing') {
         // Type 2 chars per frame for snappy feel
         if (now - lastTime >= 12) {
           lastTime = now;
@@ -320,18 +301,18 @@ export function LandingPage({ returnTo }: LandingPageProps) {
           typewriterRef.current.charIdx = next;
           setTypedText(currentPrompt.slice(0, next));
           if (next >= currentPrompt.length) {
-            typewriterRef.current.phase = "pausing";
+            typewriterRef.current.phase = 'pausing';
             pauseUntil = now + 1200;
           }
         }
-      } else if (phase === "pausing") {
-        typewriterRef.current.phase = "clearing";
-        setTypedText("");
+      } else if (phase === 'pausing') {
+        typewriterRef.current.phase = 'clearing';
+        setTypedText('');
         typewriterRef.current.charIdx = 0;
         typewriterRef.current.promptIdx = (promptIdx + 1) % prompts.length;
         pauseUntil = now + 200;
       } else {
-        typewriterRef.current.phase = "typing";
+        typewriterRef.current.phase = 'typing';
       }
 
       rafId = requestAnimationFrame(tick);
@@ -345,20 +326,16 @@ export function LandingPage({ returnTo }: LandingPageProps) {
   const scrollY = useSharedValue(0);
   const inputThreshold = useSharedValue(0);
 
-  const handleScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      scrollY.value = e.nativeEvent.contentOffset.y;
-    },
-    []
-  );
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollY.value = e.nativeEvent.contentOffset.y;
+  }, []);
 
   const handleInputLayout = useCallback(
     (e: LayoutChangeEvent) => {
       // The point where the inline input leaves the viewport
-      inputThreshold.value =
-        e.nativeEvent.layout.y + e.nativeEvent.layout.height - height + 120;
+      inputThreshold.value = e.nativeEvent.layout.y + e.nativeEvent.layout.height - height + 120;
     },
-    [height]
+    [height],
   );
 
   // Inline input: visible when not scrolled past, fades out
@@ -367,7 +344,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
       scrollY.value,
       [inputThreshold.value - 50, inputThreshold.value + 100],
       [1, 0],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return { opacity };
   });
@@ -378,20 +355,18 @@ export function LandingPage({ returnTo }: LandingPageProps) {
       scrollY.value,
       [inputThreshold.value, inputThreshold.value + 150],
       [0, 1],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return {
       opacity: progress,
-      transform: [
-        { translateY: interpolate(progress, [0, 1], [30, 0]) },
-      ],
+      transform: [{ translateY: interpolate(progress, [0, 1], [30, 0]) }],
     };
   });
 
   if (isLoading) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
-        <Text className="text-muted-foreground">{t("common.loading")}</Text>
+        <Text className="text-muted-foreground">{t('common.loading')}</Text>
       </View>
     );
   }
@@ -410,19 +385,15 @@ export function LandingPage({ returnTo }: LandingPageProps) {
       >
         {/* ==================== HERO (full-bleed) ==================== */}
         <View
-          style={{ minHeight: height, overflow: "hidden" }}
+          style={{ minHeight: height, overflow: 'hidden' }}
           className="items-center justify-center px-6 relative"
         >
           {/* Subtle hero gradient overlay */}
           <LinearGradient
-            colors={[
-              "transparent",
-              colors.primary + "08",
-              "transparent",
-            ]}
+            colors={['transparent', colors.primary + '08', 'transparent']}
             locations={[0, 0.5, 1]}
             style={{
-              position: "absolute",
+              position: 'absolute',
               top: 0,
               left: 0,
               right: 0,
@@ -435,55 +406,44 @@ export function LandingPage({ returnTo }: LandingPageProps) {
           <View
             pointerEvents="none"
             style={{
-              position: "absolute",
+              position: 'absolute',
               top: 0,
               left: 0,
               right: 0,
               bottom: 0,
-              overflow: "hidden",
+              overflow: 'hidden',
             }}
           >
-            <FloatingOrb
-              size={260}
-              color={colors.primary}
-              style={{ top: "10%", left: "-10%" }}
-            />
+            <FloatingOrb size={260} color={colors.primary} style={{ top: '10%', left: '-10%' }} />
             <FloatingOrb
               size={180}
               color={colors.primary}
-              style={{ bottom: "15%", right: "-5%" }}
+              style={{ bottom: '15%', right: '-5%' }}
             />
-            <FloatingOrb
-              size={120}
-              color={colors.primary}
-              style={{ top: "40%", left: "70%" }}
-            />
+            <FloatingOrb size={120} color={colors.primary} style={{ top: '40%', left: '70%' }} />
           </View>
 
           {/* Content */}
-          <Animated.View
-            entering={FadeIn.duration(800)}
-            className="items-center w-full max-w-2xl"
-          >
+          <Animated.View entering={FadeIn.duration(800)} className="items-center w-full max-w-2xl">
             <ClarityWordmark height={logoHeight} />
             <View className="mt-6 mb-2">
               <TextShimmer
                 duration={6}
                 spread={30}
-                className={`font-bold text-center ${isLargeScreen ? "text-7xl" : "text-5xl"}`}
+                className={`font-bold text-center ${isLargeScreen ? 'text-7xl' : 'text-5xl'}`}
               >
                 Clarity
               </TextShimmer>
             </View>
             <Text
-              className={`text-muted-foreground text-center mb-10 font-light ${isLargeScreen ? "text-xl" : "text-lg"}`}
+              className={`text-muted-foreground text-center mb-10 font-light ${isLargeScreen ? 'text-xl' : 'text-lg'}`}
             >
-              {t("landing.tagline")}
+              {t('landing.tagline')}
             </Text>
 
             {/* Inline demo prompt input — fades out on scroll */}
             <Animated.View
-              style={[{ width: "100%" }, inlineInputStyle]}
+              style={[{ width: '100%' }, inlineInputStyle]}
               className="mb-8"
               onLayout={handleInputLayout}
             >
@@ -499,22 +459,18 @@ export function LandingPage({ returnTo }: LandingPageProps) {
         {/* ==================== CAPABILITIES (bg-surface band) ==================== */}
         <View className="w-full bg-surface">
           <View
-            className={`px-6 ${isLargeScreen ? "py-28" : "py-20"}`}
-            style={{ maxWidth: 960, alignSelf: "center", width: "100%" }}
+            className={`px-6 ${isLargeScreen ? 'py-28' : 'py-20'}`}
+            style={{ maxWidth: 960, alignSelf: 'center', width: '100%' }}
           >
-            <Animated.View
-              entering={FadeInUp.delay(200).duration(700).springify()}
-            >
+            <Animated.View entering={FadeInUp.delay(200).duration(700).springify()}>
               <Text
-                className={`font-bold text-foreground text-center mb-12 ${isLargeScreen ? "text-4xl" : "text-2xl"}`}
+                className={`font-bold text-foreground text-center mb-12 ${isLargeScreen ? 'text-4xl' : 'text-2xl'}`}
               >
-                {t("landing.capabilitiesTitle")}
+                {t('landing.capabilitiesTitle')}
               </Text>
             </Animated.View>
 
-            <View
-              className={`gap-5 ${isLargeScreen ? "flex-row flex-wrap justify-between" : ""}`}
-            >
+            <View className={`gap-5 ${isLargeScreen ? 'flex-row flex-wrap justify-between' : ''}`}>
               {CAPABILITIES.map((cap, idx) => (
                 <CapabilityCard
                   key={cap.titleKey}
@@ -532,10 +488,10 @@ export function LandingPage({ returnTo }: LandingPageProps) {
         {/* ==================== BOTTOM CTA (gradient band) ==================== */}
         <View className="w-full relative">
           <LinearGradient
-            colors={["transparent", colors.primary + "0A"]}
+            colors={['transparent', colors.primary + '0A']}
             locations={[0, 1]}
             style={{
-              position: "absolute",
+              position: 'absolute',
               top: 0,
               left: 0,
               right: 0,
@@ -545,41 +501,29 @@ export function LandingPage({ returnTo }: LandingPageProps) {
           />
           <Animated.View
             entering={FadeInUp.delay(200).duration(700)}
-            className={`items-center px-6 pb-12 ${isLargeScreen ? "py-28" : "py-20"}`}
-            style={{ maxWidth: 700, alignSelf: "center", width: "100%" }}
+            className={`items-center px-6 pb-12 ${isLargeScreen ? 'py-28' : 'py-20'}`}
+            style={{ maxWidth: 700, alignSelf: 'center', width: '100%' }}
           >
             <Text
-              className={`font-bold text-foreground text-center mb-3 ${isLargeScreen ? "text-4xl" : "text-2xl"}`}
+              className={`font-bold text-foreground text-center mb-3 ${isLargeScreen ? 'text-4xl' : 'text-2xl'}`}
             >
-              {t("landing.ctaTitle")}
+              {t('landing.ctaTitle')}
             </Text>
             <Text className="text-lg text-muted-foreground text-center mb-10">
-              {t("landing.ctaSubtitle")}
+              {t('landing.ctaSubtitle')}
             </Text>
 
             <OxySignInButton />
 
             {/* Terms */}
             <View className="mt-6 flex-row flex-wrap justify-center px-4 gap-1">
-              <Text className="text-xs text-muted-foreground">
-                {t("login.termsPrefix")}
-              </Text>
-              <Pressable
-                onPress={() => Linking.openURL("https://clarity.surf/terms")}
-              >
-                <Text className="text-xs text-primary">
-                  {t("login.termsOfService")}
-                </Text>
+              <Text className="text-xs text-muted-foreground">{t('login.termsPrefix')}</Text>
+              <Pressable onPress={() => Linking.openURL('https://clarity.surf/terms')}>
+                <Text className="text-xs text-primary">{t('login.termsOfService')}</Text>
               </Pressable>
-              <Text className="text-xs text-muted-foreground">
-                {t("login.termsAnd")}
-              </Text>
-              <Pressable
-                onPress={() => Linking.openURL("https://clarity.surf/privacy")}
-              >
-                <Text className="text-xs text-primary">
-                  {t("login.privacyPolicy")}
-                </Text>
+              <Text className="text-xs text-muted-foreground">{t('login.termsAnd')}</Text>
+              <Pressable onPress={() => Linking.openURL('https://clarity.surf/privacy')}>
+                <Text className="text-xs text-primary">{t('login.privacyPolicy')}</Text>
               </Pressable>
             </View>
           </Animated.View>
@@ -591,7 +535,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
         pointerEvents="box-none"
         style={[
           {
-            position: "absolute",
+            position: 'absolute',
             bottom: 0,
             left: 0,
             right: 0,
@@ -600,7 +544,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
         ]}
       >
         <LinearGradient
-          colors={["transparent", colors.background]}
+          colors={['transparent', colors.background]}
           locations={[0, 0.4]}
           style={{
             paddingTop: 48,
@@ -610,7 +554,7 @@ export function LandingPage({ returnTo }: LandingPageProps) {
           pointerEvents="box-none"
         >
           <View
-            style={{ maxWidth: 672, alignSelf: "center", width: "100%" }}
+            style={{ maxWidth: 672, alignSelf: 'center', width: '100%' }}
             pointerEvents="box-none"
           >
             <DemoPromptInput typedText={typedText} />

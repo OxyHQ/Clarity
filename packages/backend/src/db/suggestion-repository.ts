@@ -8,10 +8,16 @@ export type SuggestionRow = typeof suggestions.$inferSelect;
 export type SuggestionType = 'welcome' | 'autocomplete';
 export type SuggestionScope = 'global' | 'personal';
 
-export function deriveTemplateFields(text: string): { isTemplate: boolean; templateVariables: string[] } {
+export function deriveTemplateFields(text: string): {
+  isTemplate: boolean;
+  templateVariables: string[];
+} {
   const matches = text.match(/\{(\w+)\}/g);
   if (!matches) return { isTemplate: false, templateVariables: [] };
-  return { isTemplate: true, templateVariables: [...new Set(matches.map((match) => match.slice(1, -1)))] };
+  return {
+    isTemplate: true,
+    templateVariables: [...new Set(matches.map((match) => match.slice(1, -1)))],
+  };
 }
 
 function notExpired(): SQL {
@@ -90,10 +96,15 @@ export async function listSuggestions(input: {
     visibleTo(input.oxyUserId),
   ];
   if (input.type) conditions.push(eq(suggestions.type, input.type));
-  if (input.category && input.category !== 'all') conditions.push(eq(suggestions.category, input.category));
-  return getDb().select().from(suggestions).where(and(...conditions))
+  if (input.category && input.category !== 'all')
+    conditions.push(eq(suggestions.category, input.category));
+  return getDb()
+    .select()
+    .from(suggestions)
+    .where(and(...conditions))
     .orderBy(desc(suggestions.priority), desc(suggestions.usageCount), asc(suggestions.title))
-    .limit(input.limit).offset(input.offset);
+    .limit(input.limit)
+    .offset(input.offset);
 }
 
 export async function listWelcomePool(
@@ -101,19 +112,27 @@ export async function listWelcomePool(
   oxyUserId: string | undefined,
   limit: number,
 ): Promise<SuggestionRow[]> {
-  return getDb().select().from(suggestions).where(and(
-    eq(suggestions.type, 'welcome'),
-    eq(suggestions.language, language),
-    notExpired(),
-    visibleTo(oxyUserId),
-  )).orderBy(desc(suggestions.priority), desc(suggestions.id)).limit(limit);
+  return getDb()
+    .select()
+    .from(suggestions)
+    .where(
+      and(
+        eq(suggestions.type, 'welcome'),
+        eq(suggestions.language, language),
+        notExpired(),
+        visibleTo(oxyUserId),
+      ),
+    )
+    .orderBy(desc(suggestions.priority), desc(suggestions.id))
+    .limit(limit);
 }
 
 export async function listOwnSuggestions(oxyUserId: string): Promise<SuggestionRow[]> {
-  return getDb().select().from(suggestions).where(and(
-    eq(suggestions.oxyUserId, oxyUserId),
-    eq(suggestions.scope, 'personal'),
-  )).orderBy(desc(suggestions.createdAt), desc(suggestions.id));
+  return getDb()
+    .select()
+    .from(suggestions)
+    .where(and(eq(suggestions.oxyUserId, oxyUserId), eq(suggestions.scope, 'personal')))
+    .orderBy(desc(suggestions.createdAt), desc(suggestions.id));
 }
 
 export interface SuggestionPatch {
@@ -137,25 +156,40 @@ export async function updateOwnSuggestion(
     ...(patch.text === undefined ? {} : deriveTemplateFields(patch.text)),
     updatedAt: new Date(),
   };
-  const [row] = await getDb().update(suggestions).set(set).where(and(
-    eq(suggestions.suggestionId, suggestionId),
-    eq(suggestions.oxyUserId, oxyUserId),
-    eq(suggestions.isBuiltIn, false),
-  )).returning();
+  const [row] = await getDb()
+    .update(suggestions)
+    .set(set)
+    .where(
+      and(
+        eq(suggestions.suggestionId, suggestionId),
+        eq(suggestions.oxyUserId, oxyUserId),
+        eq(suggestions.isBuiltIn, false),
+      ),
+    )
+    .returning();
   return row ?? null;
 }
 
-export async function deleteOwnSuggestion(suggestionId: string, oxyUserId: string): Promise<boolean> {
-  const result = await getDb().delete(suggestions).where(and(
-    eq(suggestions.suggestionId, suggestionId),
-    eq(suggestions.oxyUserId, oxyUserId),
-    eq(suggestions.isBuiltIn, false),
-  ));
+export async function deleteOwnSuggestion(
+  suggestionId: string,
+  oxyUserId: string,
+): Promise<boolean> {
+  const result = await getDb()
+    .delete(suggestions)
+    .where(
+      and(
+        eq(suggestions.suggestionId, suggestionId),
+        eq(suggestions.oxyUserId, oxyUserId),
+        eq(suggestions.isBuiltIn, false),
+      ),
+    );
   return result.count > 0;
 }
 
 export async function incrementSuggestionUsage(suggestionId: string): Promise<void> {
-  await getDb().update(suggestions).set({ usageCount: sql`${suggestions.usageCount} + 1` })
+  await getDb()
+    .update(suggestions)
+    .set({ usageCount: sql`${suggestions.usageCount} + 1` })
     .where(eq(suggestions.suggestionId, suggestionId));
 }
 
@@ -168,7 +202,9 @@ export async function searchSuggestions(input: {
   scope: SuggestionScope;
   oxyUserId?: string;
   limit: number;
-}): Promise<Array<Pick<SuggestionRow, 'suggestionId' | 'title' | 'text' | 'language' | 'triggerWords'>>> {
+}): Promise<
+  Array<Pick<SuggestionRow, 'suggestionId' | 'title' | 'text' | 'language' | 'triggerWords'>>
+> {
   const escaped = escapeLike(input.query.toLowerCase());
   const conditions: SQL[] = [
     eq(suggestions.scope, input.scope),
@@ -183,13 +219,16 @@ export async function searchSuggestions(input: {
     if (!input.oxyUserId) return [];
     conditions.push(eq(suggestions.oxyUserId, input.oxyUserId));
   }
-  return getDb().select({
-    suggestionId: suggestions.suggestionId,
-    title: suggestions.title,
-    text: suggestions.text,
-    language: suggestions.language,
-    triggerWords: suggestions.triggerWords,
-  }).from(suggestions).where(and(...conditions))
+  return getDb()
+    .select({
+      suggestionId: suggestions.suggestionId,
+      title: suggestions.title,
+      text: suggestions.text,
+      language: suggestions.language,
+      triggerWords: suggestions.triggerWords,
+    })
+    .from(suggestions)
+    .where(and(...conditions))
     .orderBy(desc(suggestions.priority), desc(suggestions.usageCount))
     .limit(input.limit);
 }

@@ -15,7 +15,8 @@ export function useNews(languages: readonly string[], limit = 30) {
   const filter = languages.length ? `&languages=${encodeURIComponent(languages.join(','))}` : '';
   return useQuery({
     queryKey: queryKeys.news.list(limit, languages),
-    queryFn: ({ signal }) => requestPublicApi<NewsResponse>(`/news?limit=${limit}${filter}`, { method: 'GET', signal }),
+    queryFn: ({ signal }) =>
+      requestPublicApi<NewsResponse>(`/news?limit=${limit}${filter}`, { method: 'GET', signal }),
     staleTime: 5 * 60_000,
   });
 }

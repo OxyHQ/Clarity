@@ -34,7 +34,10 @@ const quoted = (overrides: Partial<MarketQuoteSummary> = {}): MarketQuoteResult 
   quote: summary(overrides),
 });
 
-const view = (result: MarketQuoteResult | undefined, state: { isPending?: boolean; isError?: boolean } = {}) =>
+const view = (
+  result: MarketQuoteResult | undefined,
+  state: { isPending?: boolean; isError?: boolean } = {},
+) =>
   marketCardView({
     result,
     isPending: state.isPending ?? false,

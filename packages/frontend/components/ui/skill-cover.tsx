@@ -1,17 +1,11 @@
-import React, { useMemo } from "react";
-import { View, Text, StyleSheet } from "react-native";
-import {
-  Canvas,
-  Group,
-  Rect,
-  RoundedRect,
-  Shadow,
-} from "@shopify/react-native-skia";
-import { useDerivedValue } from "react-native-reanimated";
-import { useClock } from "@shopify/react-native-skia";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { useColorScheme } from "@/lib/useColorScheme";
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { Canvas, Group, Rect, RoundedRect, Shadow } from '@shopify/react-native-skia';
+import { useDerivedValue } from 'react-native-reanimated';
+import { useClock } from '@shopify/react-native-skia';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import { useColorScheme } from '@/lib/useColorScheme';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -85,7 +79,7 @@ function generatePalette(hash: number, color?: string): [HSL, HSL, HSL] {
   const rng = createRng(hash);
 
   // If a color hex is provided, derive palette from it
-  if (color && color.startsWith("#") && color.length >= 7) {
+  if (color && color.startsWith('#') && color.length >= 7) {
     const [baseHue, baseSat] = hexToHsl(color);
     const sat = Math.max(60, baseSat);
     return [
@@ -155,28 +149,27 @@ function computeCellColor(
   palette: [HSL, HSL, HSL],
   lightMode = false,
 ): string {
-  "worklet";
+  'worklet';
   const [h, s, l] = palette[cell.colorIndex];
 
-  const pulse =
-    Math.sin(time * PULSE_SPEED + cell.phase) * PULSE_AMPLITUDE;
-  const breatheOffset =
-    Math.sin(time * BREATHE_SPEED) * BREATHE_AMPLITUDE;
+  const pulse = Math.sin(time * PULSE_SPEED + cell.phase) * PULSE_AMPLITUDE;
+  const breatheOffset = Math.sin(time * BREATHE_SPEED) * BREATHE_AMPLITUDE;
   const waveDist = (cell.col + cell.row) / WAVE_LENGTH;
   const wave = Math.sin(time * WAVE_SPEED + waveDist) * WAVE_AMPLITUDE;
-  const sparkleVal =
-    Math.sin(time * SPARKLE_SPEED + cell.sparklePhase);
+  const sparkleVal = Math.sin(time * SPARKLE_SPEED + cell.sparklePhase);
   const sparkle =
     sparkleVal > SPARKLE_THRESHOLD
-      ? ((sparkleVal - SPARKLE_THRESHOLD) / (1 - SPARKLE_THRESHOLD)) *
-        SPARKLE_BOOST
+      ? ((sparkleVal - SPARKLE_THRESHOLD) / (1 - SPARKLE_THRESHOLD)) * SPARKLE_BOOST
       : 0;
 
   // Light mode: boost lightness, soften saturation
   const baseLightness = lightMode ? l + 20 : l;
   const finalLight = Math.min(
     lightMode ? 95 : 90,
-    Math.max(lightMode ? 50 : 20, (baseLightness + pulse + breatheOffset + wave + sparkle) * cell.brightness),
+    Math.max(
+      lightMode ? 50 : 20,
+      (baseLightness + pulse + breatheOffset + wave + sparkle) * cell.brightness,
+    ),
   );
   const finalSat = Math.min(100, lightMode ? s - 10 : s + 5);
 
@@ -193,9 +186,9 @@ function computeCellColor(
 
   const hex = (v: number) => {
     const h = v.toString(16);
-    return h.length < 2 ? "0" + h : h;
+    return h.length < 2 ? '0' + h : h;
   };
-  return "#" + hex(r) + hex(g) + hex(b);
+  return '#' + hex(r) + hex(g) + hex(b);
 }
 
 // ─── Animated cell ───────────────────────────────────────────────────────────
@@ -257,10 +250,10 @@ function StaticCell({
 // ─── Main component ──────────────────────────────────────────────────────────
 
 function formatShortDate(dateStr?: string): string {
-  if (!dateStr) return "";
+  if (!dateStr) return '';
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "";
-  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 }
 
 export interface SkillCoverProps {
@@ -309,8 +302,8 @@ export function SkillCover({
     const r = Math.round(255 * f(0));
     const g = Math.round(255 * f(8));
     const b = Math.round(255 * f(4));
-    const hex = (v: number) => v.toString(16).padStart(2, "0");
-    return "#" + hex(r) + hex(g) + hex(b);
+    const hex = (v: number) => v.toString(16).padStart(2, '0');
+    return '#' + hex(r) + hex(g) + hex(b);
   }, [palette, lightMode]);
 
   const staticColors = useMemo(
@@ -345,12 +338,18 @@ export function SkillCover({
         width,
         height,
         borderRadius: 4,
-        overflow: "hidden",
+        overflow: 'hidden',
       }}
     >
-      <Canvas style={{ width, height, position: "absolute" }}>
+      <Canvas style={{ width, height, position: 'absolute' }}>
         {/* Background */}
-        <Rect x={0} y={0} width={width} height={height} color={isDarkColorScheme ? "#08080f" : "#f5f5f7"} />
+        <Rect
+          x={0}
+          y={0}
+          width={width}
+          height={height}
+          color={isDarkColorScheme ? '#08080f' : '#f5f5f7'}
+        />
 
         {/* Scale-pulsing grid — per-cell glow (matches canvas shadowBlur) */}
         <Group transform={scaleTransform}>
@@ -393,12 +392,7 @@ export function SkillCover({
           strokeWidth={1.5}
           color={glowColor}
         >
-          <Shadow
-            dx={0}
-            dy={0}
-            blur={width * GLOW_RADIUS_RATIO}
-            color={glowColor}
-          />
+          <Shadow dx={0} dy={0} blur={width * GLOW_RADIUS_RATIO} color={glowColor} />
         </RoundedRect>
       </Canvas>
 
@@ -406,35 +400,33 @@ export function SkillCover({
       {(title || author || updatedAt) && (
         <View
           style={{
-            position: "absolute",
+            position: 'absolute',
             bottom: 2,
             left: 2,
             right: 2,
             height: height - 3 * (height / rows) - 2,
             borderBottomLeftRadius: 2,
             borderBottomRightRadius: 2,
-            overflow: "hidden",
+            overflow: 'hidden',
           }}
           pointerEvents="none"
         >
           <BlurView
             intensity={30}
-            tint={isDarkColorScheme ? "dark" : "light"}
+            tint={isDarkColorScheme ? 'dark' : 'light'}
             style={StyleSheet.absoluteFill}
           />
           <LinearGradient
             colors={[
-              "transparent",
-              isDarkColorScheme
-                ? "rgba(0,0,0,0.7)"
-                : "rgba(255,255,255,0.7)",
+              'transparent',
+              isDarkColorScheme ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)',
             ]}
             style={StyleSheet.absoluteFill}
           />
           <View
             style={{
               flex: 1,
-              justifyContent: "space-between",
+              justifyContent: 'space-between',
               padding: width * 0.07,
             }}
           >
@@ -442,22 +434,24 @@ export function SkillCover({
               <Text
                 numberOfLines={3}
                 style={{
-                  color: isDarkColorScheme ? "rgba(255,255,255,0.95)" : "rgba(0,0,0,0.9)",
+                  color: isDarkColorScheme ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.9)',
                   fontSize: titleSize,
-                  fontWeight: "900",
+                  fontWeight: '900',
                   lineHeight: titleSize * 1.15,
                 }}
               >
                 {title}
               </Text>
-            ) : <View />}
+            ) : (
+              <View />
+            )}
             {(author || updatedAt) && (
               <View>
                 {author && (
                   <Text
                     numberOfLines={1}
                     style={{
-                      color: isDarkColorScheme ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)",
+                      color: isDarkColorScheme ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)',
                       fontSize: metaSize,
                     }}
                   >
@@ -468,7 +462,7 @@ export function SkillCover({
                   <Text
                     numberOfLines={1}
                     style={{
-                      color: isDarkColorScheme ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)",
+                      color: isDarkColorScheme ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)',
                       fontSize: metaSize,
                     }}
                   >

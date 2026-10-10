@@ -19,7 +19,7 @@ const TIER_BY_PLAN_ID: Readonly<Record<string, Tier>> = Object.freeze({
 export async function getUserTier(userId: string): Promise<Tier> {
   const subscription = await findActiveSubscription(userId);
   if (!subscription) return 'free';
-  return subscription.planId ? TIER_BY_PLAN_ID[subscription.planId] ?? 'free' : 'free';
+  return subscription.planId ? (TIER_BY_PLAN_ID[subscription.planId] ?? 'free') : 'free';
 }
 
 /** Burst protection for authenticated user sessions; Alia owns usage limits. */

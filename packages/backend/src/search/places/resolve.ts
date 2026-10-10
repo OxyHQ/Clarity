@@ -23,7 +23,9 @@ export interface PlaceCandidate {
 
 export interface PlaceResolver {
   /** Places whose `matchNames` contain any of the folded names, inside those countries. */
-  candidates(queries: readonly { countryCode: CountryCode; names: readonly string[] }[]): Promise<PlaceCandidate[]>;
+  candidates(
+    queries: readonly { countryCode: CountryCode; names: readonly string[] }[],
+  ): Promise<PlaceCandidate[]>;
   byIds(ids: readonly string[]): Promise<PlaceCandidate[]>;
   /** True when no gazetteer has been imported. */
   isEmpty(): Promise<boolean>;
@@ -36,7 +38,9 @@ export type PlaceMatch =
 
 /** Canonical folding for place names on both sides of a match. */
 export function foldPlaceName(value: string): string {
-  return foldCase(value).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return foldCase(value)
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
 }
 
 /** GeoNames reference a publisher states in `jobLocation.sameAs`. */
@@ -62,17 +66,29 @@ export function matchPlace(
 ): PlaceMatch {
   const locality = foldPlaceName(input.locality);
   if (!locality) return { status: 'not_found' };
-  const inCountry = candidates.filter((candidate) => candidate.countryCode === input.countryCode && candidate.kind === 'city');
-  const exact = inCountry.filter((candidate) =>
-    foldPlaceName(candidate.name) === locality || foldPlaceName(candidate.asciiName) === locality);
-  const tier = exact.length > 0 ? exact : inCountry.filter((candidate) => candidate.matchNames.includes(locality));
+  const inCountry = candidates.filter(
+    (candidate) => candidate.countryCode === input.countryCode && candidate.kind === 'city',
+  );
+  const exact = inCountry.filter(
+    (candidate) =>
+      foldPlaceName(candidate.name) === locality || foldPlaceName(candidate.asciiName) === locality,
+  );
+  const tier =
+    exact.length > 0
+      ? exact
+      : inCountry.filter((candidate) => candidate.matchNames.includes(locality));
   if (tier.length === 0) return { status: 'not_found' };
   if (tier.length === 1) return { status: 'resolved', place: tier[0] };
 
   const region = input.region ? foldPlaceName(input.region) : '';
   if (region) {
-    const inRegion = tier.filter((candidate) => candidate.admin1Name && foldPlaceName(candidate.admin1Name) === region);
+    const inRegion = tier.filter(
+      (candidate) => candidate.admin1Name && foldPlaceName(candidate.admin1Name) === region,
+    );
     if (inRegion.length === 1) return { status: 'resolved', place: inRegion[0] };
   }
-  return { status: 'ambiguous', candidates: [...tier].sort((left, right) => right.population - left.population) };
+  return {
+    status: 'ambiguous',
+    candidates: [...tier].sort((left, right) => right.population - left.population),
+  };
 }

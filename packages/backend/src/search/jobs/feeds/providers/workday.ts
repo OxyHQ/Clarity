@@ -13,16 +13,36 @@
  */
 import type { JobFeedProvider } from '../provider.js';
 import {
-  date, employmentTypes, json, listing, markdown, nextOffset, node, num, page, place, places, post, get, text,
-  nodes, workplace,
+  date,
+  employmentTypes,
+  json,
+  listing,
+  markdown,
+  nextOffset,
+  node,
+  num,
+  page,
+  place,
+  places,
+  post,
+  get,
+  text,
+  nodes,
+  workplace,
 } from '../listing.js';
 
 const PAGE_SIZE = 20;
 /** Workday answers no search beyond its first 2,000 rows. */
 const SEARCH_WINDOW = 2_000;
-const IDENTIFIER = /^([a-z0-9][a-z0-9-]{0,62})\.wd(\d{1,3})\/([A-Za-z0-9_-]{1,100})(?:\?((?:[A-Za-z][A-Za-z0-9_]{0,60}=[A-Za-z0-9_-]{1,64})(?:&[A-Za-z][A-Za-z0-9_]{0,60}=[A-Za-z0-9_-]{1,64}){0,4}))?$/;
+const IDENTIFIER =
+  /^([a-z0-9][a-z0-9-]{0,62})\.wd(\d{1,3})\/([A-Za-z0-9_-]{1,100})(?:\?((?:[A-Za-z][A-Za-z0-9_]{0,60}=[A-Za-z0-9_-]{1,64})(?:&[A-Za-z][A-Za-z0-9_]{0,60}=[A-Za-z0-9_-]{1,64}){0,4}))?$/;
 
-interface WorkdaySite { tenant: string; host: string; site: string; facets: Record<string, string[]> }
+interface WorkdaySite {
+  tenant: string;
+  host: string;
+  site: string;
+  facets: Record<string, string[]>;
+}
 
 function site(identifier: string): WorkdaySite {
   const match = IDENTIFIER.exec(identifier);
@@ -42,10 +62,20 @@ function api(board: WorkdaySite): string {
 
 export const workday: JobFeedProvider = {
   kind: 'workday',
-  identifier: { meaning: '<tenant>.wd<N>/<site> from <tenant>.wd<N>.myworkdayjobs.com/<site>, optionally ?facet=id', shape: 'slug', pattern: IDENTIFIER },
+  identifier: {
+    meaning:
+      '<tenant>.wd<N>/<site> from <tenant>.wd<N>.myworkdayjobs.com/<site>, optionally ?facet=id',
+    shape: 'slug',
+    pattern: IDENTIFIER,
+  },
   request(identifier, cursor) {
     const board = site(identifier);
-    return post(`${api(board)}/jobs`, { limit: PAGE_SIZE, offset: Number(cursor ?? 0), searchText: '', appliedFacets: board.facets });
+    return post(`${api(board)}/jobs`, {
+      limit: PAGE_SIZE,
+      offset: Number(cursor ?? 0),
+      searchText: '',
+      appliedFacets: board.facets,
+    });
   },
   parse(body, context) {
     const board = site(context.identifier);
@@ -56,7 +86,9 @@ export const workday: JobFeedProvider = {
       return listing({
         title: text(row['title']),
         employerName: context.label ?? board.tenant,
-        canonicalUrl: path?.startsWith('/') ? `https://${board.host}/${board.site}${path}` : undefined,
+        canonicalUrl: path?.startsWith('/')
+          ? `https://${board.host}/${board.site}${path}`
+          : undefined,
         context,
         // The first bullet is the requisition id on the tenants seen so far.
         identifier: Array.isArray(row['bulletFields']) ? text(row['bulletFields'][0]) : undefined,
@@ -79,7 +111,9 @@ export const workday: JobFeedProvider = {
       if (info['posted'] === false) return undefined;
       const requisition = node(info['jobRequisitionLocation']);
       const countryCode = text(node(requisition['country'])['alpha2Code']);
-      const additional = Array.isArray(info['additionalLocations']) ? info['additionalLocations'] : [];
+      const additional = Array.isArray(info['additionalLocations'])
+        ? info['additionalLocations']
+        : [];
       return listing({
         ...posting,
         context,

@@ -23,7 +23,7 @@ export function hostnameOf(url: string): string | undefined {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : null;
 }
 
@@ -48,8 +48,10 @@ export function linksOf(invocation: ToolInvocation): Source[] {
   const result = asRecord(invocation.result);
   if (invocation.state !== 'result' || !result) return [];
   const { toolName } = invocation;
-  const list = (values: unknown) => (Array.isArray(values) ? values.flatMap((value) => sourceFrom(value) ?? []) : []);
-  if (toolName === 'webSearch' || (toolName === 'browse' && result.action === 'search')) return list(result.results);
+  const list = (values: unknown) =>
+    Array.isArray(values) ? values.flatMap((value) => sourceFrom(value) ?? []) : [];
+  if (toolName === 'webSearch' || (toolName === 'browse' && result.action === 'search'))
+    return list(result.results);
   if (toolName === 'webScraper' || (toolName === 'browse' && result.action === 'read')) {
     const page = sourceFrom(result, 'content');
     return page ? [page] : [];
@@ -87,11 +89,15 @@ export function citationUrls(
 ): Map<number, string> {
   const urls = new Map<number, string>();
   for (const source of message.researchProgress?.sources ?? []) {
-    if (typeof source.id === 'number' && typeof source.url === 'string') urls.set(source.id, source.url);
+    if (typeof source.id === 'number' && typeof source.url === 'string')
+      urls.set(source.id, source.url);
   }
   if (urls.size > 0) return urls;
-  const withSources = (message.toolInvocations ?? []).map(linksOf).filter((links) => links.length > 0);
-  if (withSources.length === 1) withSources[0].forEach((source, index) => urls.set(index + 1, source.url));
+  const withSources = (message.toolInvocations ?? [])
+    .map(linksOf)
+    .filter((links) => links.length > 0);
+  if (withSources.length === 1)
+    withSources[0].forEach((source, index) => urls.set(index + 1, source.url));
   return urls;
 }
 

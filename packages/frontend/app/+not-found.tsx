@@ -7,7 +7,10 @@ export default function NotFoundScreen() {
     <>
       <Head>
         <title>404 - Page Not Found | Clarity</title>
-        <meta name="description" content="The page you're looking for doesn't exist. Return to Clarity to continue your AI-powered conversations." />
+        <meta
+          name="description"
+          content="The page you're looking for doesn't exist. Return to Clarity to continue your AI-powered conversations."
+        />
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <Stack.Screen options={{ title: 'Oops!' }} />

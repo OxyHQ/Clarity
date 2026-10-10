@@ -2,7 +2,10 @@ import { and, eq, gt, gte, isNull, lt, lte, or, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
 import {
-  searchQuotaGrants, searchRateLimitBuckets, searchUsageEvents, searchUsageRollups,
+  searchQuotaGrants,
+  searchRateLimitBuckets,
+  searchUsageEvents,
+  searchUsageRollups,
 } from '../db/schema/index.js';
 import type { ClarityResourcePrincipal } from '../middleware/resource-auth.js';
 
@@ -48,22 +51,33 @@ const operationMetric: Partial<Record<BillableOperation, QuotaMetric>> = {
   fetch_started: 'fetch_month',
 };
 
-export async function effectiveQuota(executor: ClarityExecutor, subject: QuotaSubject, metric: QuotaMetric, now = new Date()): Promise<number> {
+export async function effectiveQuota(
+  executor: ClarityExecutor,
+  subject: QuotaSubject,
+  metric: QuotaMetric,
+  now = new Date(),
+): Promise<number> {
   if (subject.tier === 'internal') return INTERNAL_QUOTAS[metric];
   const { accountId } = subject;
-  const [{ additional }] = await executor.select({
-    additional: sql<number>`coalesce(sum(${searchQuotaGrants.additionalLimit}), 0)::int`,
-  }).from(searchQuotaGrants).where(and(
-    eq(searchQuotaGrants.ownerAccountId, accountId),
-    eq(searchQuotaGrants.metric, metric),
-    lte(searchQuotaGrants.startsAt, now),
-    or(isNull(searchQuotaGrants.expiresAt), gt(searchQuotaGrants.expiresAt, now)),
-  ));
+  const [{ additional }] = await executor
+    .select({
+      additional: sql<number>`coalesce(sum(${searchQuotaGrants.additionalLimit}), 0)::int`,
+    })
+    .from(searchQuotaGrants)
+    .where(
+      and(
+        eq(searchQuotaGrants.ownerAccountId, accountId),
+        eq(searchQuotaGrants.metric, metric),
+        lte(searchQuotaGrants.startsAt, now),
+        or(isNull(searchQuotaGrants.expiresAt), gt(searchQuotaGrants.expiresAt, now)),
+      ),
+    );
   return SANDBOX_QUOTAS[metric] + additional;
 }
 
 export async function consumeUsage(input: {
-  principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> & Pick<QuotaSubject, 'tier'>;
+  principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> &
+    Pick<QuotaSubject, 'tier'>;
   operation: BillableOperation;
   idempotencyKey?: string;
   quantity?: number;
@@ -74,13 +88,21 @@ export async function consumeUsage(input: {
   const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
   return getDb().transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${input.principal.accountId}:${input.operation}:${periodStart.toISOString()}`}, 0))`);
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended(${`${input.principal.accountId}:${input.operation}:${periodStart.toISOString()}`}, 0))`,
+    );
     if (input.idempotencyKey) {
-      const [existing] = await tx.select({ id: searchUsageEvents.id }).from(searchUsageEvents).where(and(
-        eq(searchUsageEvents.ownerAccountId, input.principal.accountId),
-        eq(searchUsageEvents.operation, input.operation),
-        eq(searchUsageEvents.idempotencyKey, input.idempotencyKey),
-      )).limit(1);
+      const [existing] = await tx
+        .select({ id: searchUsageEvents.id })
+        .from(searchUsageEvents)
+        .where(
+          and(
+            eq(searchUsageEvents.ownerAccountId, input.principal.accountId),
+            eq(searchUsageEvents.operation, input.operation),
+            eq(searchUsageEvents.idempotencyKey, input.idempotencyKey),
+          ),
+        )
+        .limit(1);
       if (existing) return { accepted: true, duplicate: true };
     }
     const metric = operationMetric[input.operation];
@@ -88,57 +110,136 @@ export async function consumeUsage(input: {
     let used: number | undefined;
     if (metric) {
       limit = await effectiveQuota(tx, input.principal, metric, now);
-      const [current] = await tx.select({ quantity: sql<number>`coalesce(sum(${searchUsageEvents.quantity}), 0)::int` }).from(searchUsageEvents).where(and(
-        eq(searchUsageEvents.ownerAccountId, input.principal.accountId),
-        eq(searchUsageEvents.operation, input.operation),
-        gte(searchUsageEvents.occurredAt, periodStart),
-        lt(searchUsageEvents.occurredAt, periodEnd),
-      ));
+      const [current] = await tx
+        .select({ quantity: sql<number>`coalesce(sum(${searchUsageEvents.quantity}), 0)::int` })
+        .from(searchUsageEvents)
+        .where(
+          and(
+            eq(searchUsageEvents.ownerAccountId, input.principal.accountId),
+            eq(searchUsageEvents.operation, input.operation),
+            gte(searchUsageEvents.occurredAt, periodStart),
+            lt(searchUsageEvents.occurredAt, periodEnd),
+          ),
+        );
       used = current.quantity;
       if (used + quantity > limit) return { accepted: false, duplicate: false, limit, used };
       // Metered for every caller; only an external one is ever refused.
       if (!Number.isFinite(limit)) limit = undefined;
     }
     await tx.insert(searchUsageEvents).values({
-      id: crypto.randomUUID(), ownerAccountId: input.principal.accountId,
-      applicationId: input.principal.applicationId, credentialId: input.principal.credentialId,
-      operation: input.operation, idempotencyKey: input.idempotencyKey, quantity, occurredAt: now,
+      id: crypto.randomUUID(),
+      ownerAccountId: input.principal.accountId,
+      applicationId: input.principal.applicationId,
+      credentialId: input.principal.credentialId,
+      operation: input.operation,
+      idempotencyKey: input.idempotencyKey,
+      quantity,
+      occurredAt: now,
     });
-    await tx.insert(searchUsageRollups).values({
-      ownerAccountId: input.principal.accountId, applicationId: input.principal.applicationId,
-      credentialId: input.principal.credentialId ?? '', operation: input.operation,
-      periodStart, periodEnd, quantity, updatedAt: now,
-    }).onConflictDoUpdate({
-      target: [searchUsageRollups.ownerAccountId, searchUsageRollups.applicationId, searchUsageRollups.credentialId, searchUsageRollups.operation, searchUsageRollups.periodStart],
-      set: { quantity: sql`${searchUsageRollups.quantity} + ${quantity}`, periodEnd, updatedAt: now },
-    });
-    return { accepted: true, duplicate: false, limit, used: used === undefined ? undefined : used + quantity };
+    await tx
+      .insert(searchUsageRollups)
+      .values({
+        ownerAccountId: input.principal.accountId,
+        applicationId: input.principal.applicationId,
+        credentialId: input.principal.credentialId ?? '',
+        operation: input.operation,
+        periodStart,
+        periodEnd,
+        quantity,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: [
+          searchUsageRollups.ownerAccountId,
+          searchUsageRollups.applicationId,
+          searchUsageRollups.credentialId,
+          searchUsageRollups.operation,
+          searchUsageRollups.periodStart,
+        ],
+        set: {
+          quantity: sql`${searchUsageRollups.quantity} + ${quantity}`,
+          periodEnd,
+          updatedAt: now,
+        },
+      });
+    return {
+      accepted: true,
+      duplicate: false,
+      limit,
+      used: used === undefined ? undefined : used + quantity,
+    };
   });
 }
 
-export async function consumeRequestRate(principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> & Pick<QuotaSubject, 'tier'>, now = new Date()): Promise<{ accepted: boolean; retryAfterSeconds?: number }> {
+export async function consumeRequestRate(
+  principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> &
+    Pick<QuotaSubject, 'tier'>,
+  now = new Date(),
+): Promise<{ accepted: boolean; retryAfterSeconds?: number }> {
   const bucketStart = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
   const expiresAt = new Date(bucketStart.getTime() + 120_000);
   const dimensions = [
-    { dimension: 'application' as const, id: principal.applicationId, metric: 'requests_minute_application' as const },
-    ...(principal.credentialId ? [{ dimension: 'credential' as const, id: principal.credentialId, metric: 'requests_minute_credential' as const }] : []),
+    {
+      dimension: 'application' as const,
+      id: principal.applicationId,
+      metric: 'requests_minute_application' as const,
+    },
+    ...(principal.credentialId
+      ? [
+          {
+            dimension: 'credential' as const,
+            id: principal.credentialId,
+            metric: 'requests_minute_credential' as const,
+          },
+        ]
+      : []),
   ];
   return getDb().transaction(async (tx) => {
     for (const item of dimensions) {
-      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`${item.dimension}:${item.id}:${bucketStart.toISOString()}`}, 0))`);
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${`${item.dimension}:${item.id}:${bucketStart.toISOString()}`}, 0))`,
+      );
     }
     for (const item of dimensions) {
       const limit = await effectiveQuota(tx, principal, item.metric, now);
-      const [bucket] = await tx.select({ quantity: searchRateLimitBuckets.quantity }).from(searchRateLimitBuckets).where(and(
-        eq(searchRateLimitBuckets.dimension, item.dimension), eq(searchRateLimitBuckets.dimensionId, item.id), eq(searchRateLimitBuckets.bucketStart, bucketStart),
-      )).limit(1);
-      if ((bucket?.quantity ?? 0) >= limit) return { accepted: false, retryAfterSeconds: Math.max(1, Math.ceil((bucketStart.getTime() + 60_000 - now.getTime()) / 1000)) };
+      const [bucket] = await tx
+        .select({ quantity: searchRateLimitBuckets.quantity })
+        .from(searchRateLimitBuckets)
+        .where(
+          and(
+            eq(searchRateLimitBuckets.dimension, item.dimension),
+            eq(searchRateLimitBuckets.dimensionId, item.id),
+            eq(searchRateLimitBuckets.bucketStart, bucketStart),
+          ),
+        )
+        .limit(1);
+      if ((bucket?.quantity ?? 0) >= limit)
+        return {
+          accepted: false,
+          retryAfterSeconds: Math.max(
+            1,
+            Math.ceil((bucketStart.getTime() + 60_000 - now.getTime()) / 1000),
+          ),
+        };
     }
     for (const item of dimensions) {
-      await tx.insert(searchRateLimitBuckets).values({ dimension: item.dimension, dimensionId: item.id, bucketStart, quantity: 1, expiresAt }).onConflictDoUpdate({
-        target: [searchRateLimitBuckets.dimension, searchRateLimitBuckets.dimensionId, searchRateLimitBuckets.bucketStart],
-        set: { quantity: sql`${searchRateLimitBuckets.quantity} + 1`, expiresAt },
-      });
+      await tx
+        .insert(searchRateLimitBuckets)
+        .values({
+          dimension: item.dimension,
+          dimensionId: item.id,
+          bucketStart,
+          quantity: 1,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: [
+            searchRateLimitBuckets.dimension,
+            searchRateLimitBuckets.dimensionId,
+            searchRateLimitBuckets.bucketStart,
+          ],
+          set: { quantity: sql`${searchRateLimitBuckets.quantity} + 1`, expiresAt },
+        });
     }
     return { accepted: true };
   });

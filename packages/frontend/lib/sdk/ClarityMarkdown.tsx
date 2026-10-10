@@ -6,7 +6,10 @@ import type { ClarityColors } from './types';
 
 // Hardcoded fallback colors for standalone usage (when no color override is passed).
 // The main app always passes resolved colors via the `colors` prop.
-const FALLBACK_LIGHT: Pick<ClarityColors, 'text' | 'muted' | 'border' | 'primary' | 'mutedForeground'> = {
+const FALLBACK_LIGHT: Pick<
+  ClarityColors,
+  'text' | 'muted' | 'border' | 'primary' | 'mutedForeground'
+> = {
   text: '#11181C',
   muted: '#F4F4F5',
   border: '#E5E5EA',
@@ -23,7 +26,11 @@ const FALLBACK_DARK: typeof FALLBACK_LIGHT = {
 
 const BODY_TEXT = { fontSize: 16, lineHeight: 28 } as const;
 const HEADING_TEXT = { fontSize: 16, lineHeight: 22 } as const;
-const SANS_FONT = Platform.select({ ios: 'Inter', android: 'Inter', default: 'Inter, sans-serif' })!;
+const SANS_FONT = Platform.select({
+  ios: 'Inter',
+  android: 'Inter',
+  default: 'Inter, sans-serif',
+})!;
 const MONO_FONT = Platform.select({ ios: 'Courier', android: 'monospace', default: 'monospace' })!;
 
 function createRules(colors: ClarityColors): RenderRules {
@@ -33,7 +40,14 @@ function createRules(colors: ClarityColors): RenderRules {
     heading1: (node: ASTNode, children: React.ReactNode) => (
       <Text
         key={node.key}
-        style={{ marginBottom: 8, marginTop: 12, fontSize: 18, fontWeight: '600', lineHeight: 24, color: textColor }}
+        style={{
+          marginBottom: 8,
+          marginTop: 12,
+          fontSize: 18,
+          fontWeight: '600',
+          lineHeight: 24,
+          color: textColor,
+        }}
       >
         {children}
       </Text>
@@ -41,7 +55,13 @@ function createRules(colors: ClarityColors): RenderRules {
     heading2: (node: ASTNode, children: React.ReactNode) => (
       <Text
         key={node.key}
-        style={{ marginBottom: 8, marginTop: 12, ...HEADING_TEXT, fontWeight: '600', color: textColor }}
+        style={{
+          marginBottom: 8,
+          marginTop: 12,
+          ...HEADING_TEXT,
+          fontWeight: '600',
+          color: textColor,
+        }}
       >
         {children}
       </Text>
@@ -49,7 +69,13 @@ function createRules(colors: ClarityColors): RenderRules {
     heading3: (node: ASTNode, children: React.ReactNode) => (
       <Text
         key={node.key}
-        style={{ marginBottom: 6, marginTop: 8, ...HEADING_TEXT, fontWeight: '600', color: textColor }}
+        style={{
+          marginBottom: 6,
+          marginTop: 8,
+          ...HEADING_TEXT,
+          fontWeight: '600',
+          color: textColor,
+        }}
       >
         {children}
       </Text>
@@ -57,7 +83,13 @@ function createRules(colors: ClarityColors): RenderRules {
     heading4: (node: ASTNode, children: React.ReactNode) => (
       <Text
         key={node.key}
-        style={{ marginBottom: 6, marginTop: 8, ...HEADING_TEXT, fontWeight: '500', color: textColor }}
+        style={{
+          marginBottom: 6,
+          marginTop: 8,
+          ...HEADING_TEXT,
+          fontWeight: '500',
+          color: textColor,
+        }}
       >
         {children}
       </Text>
@@ -65,7 +97,13 @@ function createRules(colors: ClarityColors): RenderRules {
     heading5: (node: ASTNode, children: React.ReactNode) => (
       <Text
         key={node.key}
-        style={{ marginBottom: 4, marginTop: 8, ...HEADING_TEXT, fontWeight: '500', color: textColor }}
+        style={{
+          marginBottom: 4,
+          marginTop: 8,
+          ...HEADING_TEXT,
+          fontWeight: '500',
+          color: textColor,
+        }}
       >
         {children}
       </Text>
@@ -73,7 +111,13 @@ function createRules(colors: ClarityColors): RenderRules {
     heading6: (node: ASTNode, children: React.ReactNode) => (
       <Text
         key={node.key}
-        style={{ marginBottom: 4, marginTop: 8, ...HEADING_TEXT, fontWeight: '500', color: textColor }}
+        style={{
+          marginBottom: 4,
+          marginTop: 8,
+          ...HEADING_TEXT,
+          fontWeight: '500',
+          color: textColor,
+        }}
       >
         {children}
       </Text>
@@ -119,19 +163,27 @@ function createRules(colors: ClarityColors): RenderRules {
 
       return (
         <View key={node.key} style={{ flexDirection: 'row', paddingVertical: 2, paddingLeft: 16 }}>
-          <Text style={{ marginRight: 8, minWidth: 14, ...BODY_TEXT, color: mutedForeground }}>{bullet}</Text>
+          <Text style={{ marginRight: 8, minWidth: 14, ...BODY_TEXT, color: mutedForeground }}>
+            {bullet}
+          </Text>
           <Text style={{ flex: 1, ...BODY_TEXT, color: textColor }}>{children}</Text>
         </View>
       );
     },
     ordered_list: (node: ASTNode, children: React.ReactNode) => (
-      <View key={node.key} style={{ marginVertical: 8 }}>{children}</View>
+      <View key={node.key} style={{ marginVertical: 8 }}>
+        {children}
+      </View>
     ),
     unordered_list: (node: ASTNode, children: React.ReactNode) => (
-      <View key={node.key} style={{ marginVertical: 8 }}>{children}</View>
+      <View key={node.key} style={{ marginVertical: 8 }}>
+        {children}
+      </View>
     ),
     strong: (node: ASTNode, children: React.ReactNode) => (
-      <Text key={node.key} style={{ fontWeight: '600', ...BODY_TEXT, color: textColor }}>{children}</Text>
+      <Text key={node.key} style={{ fontWeight: '600', ...BODY_TEXT, color: textColor }}>
+        {children}
+      </Text>
     ),
     link: (node: ASTNode, children: React.ReactNode) => (
       <Text
@@ -146,7 +198,9 @@ function createRules(colors: ClarityColors): RenderRules {
       </Text>
     ),
     paragraph: (node: ASTNode, children: React.ReactNode) => (
-      <Text key={node.key} style={{ marginBottom: 8, ...BODY_TEXT, color: textColor }}>{children}</Text>
+      <Text key={node.key} style={{ marginBottom: 8, ...BODY_TEXT, color: textColor }}>
+        {children}
+      </Text>
     ),
     blockquote: (node: ASTNode, children: React.ReactNode) => (
       <View
@@ -176,7 +230,11 @@ function createRules(colors: ClarityColors): RenderRules {
       />
     ),
     body: (node: ASTNode, children: React.ReactNode) => {
-      return <View key={node.key} style={{ marginBottom: -8 }}>{children}</View>;
+      return (
+        <View key={node.key} style={{ marginBottom: -8 }}>
+          {children}
+        </View>
+      );
     },
   };
 }
@@ -222,7 +280,13 @@ function createStyles(colors: ClarityColors) {
       borderRadius: 6,
       padding: 12,
     },
-    table: { borderWidth: 1, borderColor: border, borderRadius: 12, marginVertical: 8, overflow: 'hidden' as const },
+    table: {
+      borderWidth: 1,
+      borderColor: border,
+      borderRadius: 12,
+      marginVertical: 8,
+      overflow: 'hidden' as const,
+    },
     thead: { backgroundColor: muted },
     th: { flex: 1, padding: 8, fontWeight: '600' as const, ...BODY_TEXT, color: textColor },
     td: { flex: 1, padding: 8, ...BODY_TEXT, color: textColor },
@@ -248,8 +312,18 @@ export function ClarityMarkdown({ content, colors: colorOverrides }: ClarityMark
   const fallback = scheme === 'dark' ? FALLBACK_DARK : FALLBACK_LIGHT;
   const colors = { ...fallback, ...colorOverrides } as ClarityColors;
 
-  const customRules = useMemo(() => createRules(colors), [colors.text, colors.muted, colors.border, colors.primary, colors.mutedForeground]);
-  const markdownStyles = useMemo(() => createStyles(colors), [colors.text, colors.muted, colors.border, colors.primary, colors.mutedForeground]);
+  const customRules = useMemo(
+    () => createRules(colors),
+    [colors.text, colors.muted, colors.border, colors.primary, colors.mutedForeground],
+  );
+  const markdownStyles = useMemo(
+    () => createStyles(colors),
+    [colors.text, colors.muted, colors.border, colors.primary, colors.mutedForeground],
+  );
 
-  return <Markdown rules={customRules} style={markdownStyles}>{content}</Markdown>;
+  return (
+    <Markdown rules={customRules} style={markdownStyles}>
+      {content}
+    </Markdown>
+  );
 }

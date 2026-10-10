@@ -21,10 +21,11 @@ import { queryKeys } from './query-keys';
 export function useMarketQuotes(assets: readonly string[]) {
   return useQuery({
     queryKey: queryKeys.market.quotes(assets),
-    queryFn: ({ signal }) => requestPublicApi<MarketQuotesResponse>(
-      `/market/quotes?assets=${encodeURIComponent(assets.join(','))}`,
-      { method: 'GET', signal },
-    ),
+    queryFn: ({ signal }) =>
+      requestPublicApi<MarketQuotesResponse>(
+        `/market/quotes?assets=${encodeURIComponent(assets.join(','))}`,
+        { method: 'GET', signal },
+      ),
     staleTime: 60_000,
     refetchInterval: 60_000,
   });

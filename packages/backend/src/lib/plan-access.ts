@@ -24,40 +24,36 @@ export async function getUserEntitlements(userId: string): Promise<Entitlements>
 
   const subscriptions = await findActiveSubscriptions(userId);
 
-  const planIds = subscriptions
-    .map(s => s.planId)
-    .filter(Boolean) as string[];
+  const planIds = subscriptions.map((s) => s.planId).filter(Boolean) as string[];
   if (planIds.length === 0) planIds.push('free');
 
   // Fetch all product plans and filter client-side during the storage port.
   const [allPlans, allPlanFeatures] = await Promise.all([
     getPlans(),
-    Promise.all(planIds.map(id => getPlanFeatures(id))).then(results => results.flat()),
+    Promise.all(planIds.map((id) => getPlanFeatures(id))).then((results) => results.flat()),
   ]);
-  const plans = allPlans.filter(p => planIds.includes(p.planId));
-  const planFeatures = allPlanFeatures.filter(pf => pf.enabled !== false);
+  const plans = allPlans.filter((p) => planIds.includes(p.planId));
+  const planFeatures = allPlanFeatures.filter((pf) => pf.enabled !== false);
 
   const modelIds = new Set(FREE_MODEL_IDS);
   for (const plan of plans) {
-    plan.modelIds?.forEach(id => modelIds.add(id));
+    plan.modelIds?.forEach((id) => modelIds.add(id));
   }
 
   const features: Record<string, boolean | number> = {};
   for (const pf of planFeatures) {
     if (pf.limitValue != null) {
-      features[pf.featureId] = Math.max(
-        (features[pf.featureId] as number) || 0,
-        pf.limitValue,
-      );
+      features[pf.featureId] = Math.max((features[pf.featureId] as number) || 0, pf.limitValue);
     } else {
       features[pf.featureId] = true;
     }
   }
 
   const highestPlan = plans.reduce<{ planId: string; sortOrder: number }>(
-    (highest, plan) => plan.sortOrder > highest.sortOrder
-      ? { planId: plan.planId, sortOrder: plan.sortOrder }
-      : highest,
+    (highest, plan) =>
+      plan.sortOrder > highest.sortOrder
+        ? { planId: plan.planId, sortOrder: plan.sortOrder }
+        : highest,
     { planId: 'free', sortOrder: -1 },
   ).planId;
 

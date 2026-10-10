@@ -53,24 +53,27 @@ describe('the pinned workload attestation handle', () => {
   it('names the dedicated Clarity task role, never the shared one', () => {
     // The shared `oxy-ecs-task` is bound to no application by design; a service
     // attesting it would have no identity at all.
-    expect(CLARITY_AGENT_MANIFEST.workloadIdentity.roleArn)
-      .toBe('arn:aws:iam::237343248947:role/oxy-clarity-task');
+    expect(CLARITY_AGENT_MANIFEST.workloadIdentity.roleArn).toBe(
+      'arn:aws:iam::237343248947:role/oxy-clarity-task',
+    );
   });
 });
 
 describe('Clarity service configuration', () => {
   it('accepts the exact credential pair', () => {
-    expect(hasExactClarityServiceConfiguration(
-      env({ OXY_SERVICE_API_KEY: CLIENT_ID, OXY_SERVICE_API_SECRET: 'a-secret' }),
-    )).toBe(true);
+    expect(
+      hasExactClarityServiceConfiguration(
+        env({ OXY_SERVICE_API_KEY: CLIENT_ID, OXY_SERVICE_API_SECRET: 'a-secret' }),
+      ),
+    ).toBe(true);
   });
 
   it('accepts a task that carries no secret but can attest its role', () => {
     // The state this migration produces: the client id stays behind as a plain
     // environment variable, only the secret is removed.
-    expect(hasExactClarityServiceConfiguration(
-      env({ OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS }),
-    )).toBe(true);
+    expect(
+      hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS })),
+    ).toBe(true);
     // And once the environment variable goes too.
     expect(hasExactClarityServiceConfiguration(env(ON_ECS))).toBe(true);
   });
@@ -79,31 +82,45 @@ describe('Clarity service configuration', () => {
     // A laptop. Readiness must keep reporting this rather than serving traffic
     // it cannot authenticate.
     expect(hasExactClarityServiceConfiguration(env())).toBe(false);
-    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID }))).toBe(false);
+    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID }))).toBe(
+      false,
+    );
   });
 
   it('still pins the client id byte for byte, in either mode', () => {
     const foreign = 'oxy_dk_0000000000000000000000000000000000000000000000';
-    expect(hasExactClarityServiceConfiguration(
-      env({ OXY_SERVICE_API_KEY: foreign, OXY_SERVICE_API_SECRET: 'a-secret' }),
-    )).toBe(false);
+    expect(
+      hasExactClarityServiceConfiguration(
+        env({ OXY_SERVICE_API_KEY: foreign, OXY_SERVICE_API_SECRET: 'a-secret' }),
+      ),
+    ).toBe(false);
     // A foreign client id left behind is a deployment error even when nothing
     // would read it, so attestation does not excuse it.
-    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: foreign, ...ON_ECS }))).toBe(false);
+    expect(
+      hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: foreign, ...ON_ECS })),
+    ).toBe(false);
     // Clarity's PUBLIC app is a different application; it must not mint here.
-    expect(hasExactClarityServiceConfiguration(
-      env({ OXY_SERVICE_API_KEY: CLARITY_AGENT_MANIFEST.publicApplication.clientId, ...ON_ECS }),
-    )).toBe(false);
+    expect(
+      hasExactClarityServiceConfiguration(
+        env({ OXY_SERVICE_API_KEY: CLARITY_AGENT_MANIFEST.publicApplication.clientId, ...ON_ECS }),
+      ),
+    ).toBe(false);
   });
 
   it('refuses a secret with no client id to pin it to', () => {
-    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_SECRET: 'a-secret' }))).toBe(false);
+    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_SECRET: 'a-secret' }))).toBe(
+      false,
+    );
   });
 
   it('keeps enforcing the canonical Oxy origin in production', () => {
-    expect(hasExactClarityServiceConfiguration({
-      NODE_ENV: 'production', OXY_API_URL: 'https://api.evil.example', ...ON_ECS,
-    } as NodeJS.ProcessEnv)).toBe(false);
+    expect(
+      hasExactClarityServiceConfiguration({
+        NODE_ENV: 'production',
+        OXY_API_URL: 'https://api.evil.example',
+        ...ON_ECS,
+      } as NodeJS.ProcessEnv),
+    ).toBe(false);
   });
 });
 
@@ -113,9 +130,9 @@ describe('Clarity service token claims', () => {
   });
 
   it('accepts an attested token, which carries the handle in place of the credential id', () => {
-    expect(() => assertExactClarityServiceClaims(
-      serviceToken({ credentialId: ATTESTATION_ID }),
-    )).not.toThrow();
+    expect(() =>
+      assertExactClarityServiceClaims(serviceToken({ credentialId: ATTESTATION_ID })),
+    ).not.toThrow();
   });
 
   /**
@@ -133,21 +150,29 @@ describe('Clarity service token claims', () => {
       .slice(0, 24)}`;
     expect(mention).toBe('wl_d61be5cd068abb658ed4d193');
     expect(mention).not.toBe(ATTESTATION_ID);
-    expect(() => assertExactClarityServiceClaims(serviceToken({ credentialId: mention })))
-      .toThrow('canonical Clarity service identity');
+    expect(() => assertExactClarityServiceClaims(serviceToken({ credentialId: mention }))).toThrow(
+      'canonical Clarity service identity',
+    );
   });
 
   it.each([
-    { name: 'a shared task role', credentialId: `wl_${createHash('sha256').update('arn:aws:iam::237343248947:role/oxy-ecs-task').digest('hex').slice(0, 24)}` },
+    {
+      name: 'a shared task role',
+      credentialId: `wl_${createHash('sha256').update('arn:aws:iam::237343248947:role/oxy-ecs-task').digest('hex').slice(0, 24)}`,
+    },
     { name: 'a well-formed but unknown handle', credentialId: 'wl_000000000000000000000000' },
     { name: 'a handle prefix alone', credentialId: 'wl_' },
     { name: 'the handle with a suffix', credentialId: `${ATTESTATION_ID}x` },
-    { name: 'Clarity’s public-app credential', credentialId: CLARITY_AGENT_MANIFEST.publicApplication.credentialId },
+    {
+      name: 'Clarity’s public-app credential',
+      credentialId: CLARITY_AGENT_MANIFEST.publicApplication.credentialId,
+    },
     { name: 'a missing credential id', credentialId: undefined },
     { name: 'a non-string credential id', credentialId: { id: ATTESTATION_ID } },
   ])('refuses $name', ({ credentialId }) => {
-    expect(() => assertExactClarityServiceClaims(serviceToken({ credentialId })))
-      .toThrow('canonical Clarity service identity');
+    expect(() => assertExactClarityServiceClaims(serviceToken({ credentialId }))).toThrow(
+      'canonical Clarity service identity',
+    );
   });
 
   it('still refuses a token from another application, payer or scope set', () => {
@@ -162,10 +187,14 @@ describe('Clarity service token claims', () => {
     ];
     for (const overrides of wrong) {
       // An attested token gets no more latitude than a credential-minted one.
-      expect(() => assertExactClarityServiceClaims(serviceToken({ ...overrides, credentialId: ATTESTATION_ID })))
-        .toThrow('canonical Clarity service identity');
-      expect(() => assertExactClarityServiceClaims(serviceToken(overrides)))
-        .toThrow('canonical Clarity service identity');
+      expect(() =>
+        assertExactClarityServiceClaims(
+          serviceToken({ ...overrides, credentialId: ATTESTATION_ID }),
+        ),
+      ).toThrow('canonical Clarity service identity');
+      expect(() => assertExactClarityServiceClaims(serviceToken(overrides))).toThrow(
+        'canonical Clarity service identity',
+      );
     }
   });
 });

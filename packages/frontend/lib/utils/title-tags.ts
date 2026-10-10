@@ -3,17 +3,20 @@ const TAG = String.raw`CLARITY_TITLE|TITLE|TÍTULO|TITRE|TITOLO|TITEL|ЗАГОЛ
 
 /** Matches complete [TITLE]...[/TITLE] and <TITLE>...</TITLE> tags (including translated variants) */
 export const TITLE_STRIP_RE = new RegExp(
-  String.raw`\[(${TAG})\].*?\[\/\1\]|<(${TAG})>.*?<\/\2>`, 'gi',
+  String.raw`\[(${TAG})\].*?\[\/\1\]|<(${TAG})>.*?<\/\2>`,
+  'gi',
 );
 
 /** Also matches incomplete/partial title tags at end of stream (for streaming display) */
 export const TITLE_PARTIAL_RE = new RegExp(
-  String.raw`\[(${TAG})\].*?(\[\/\1\])?$|<(${TAG})>.*?(<\/\3>)?$`, 'si',
+  String.raw`\[(${TAG})\].*?(\[\/\1\])?$|<(${TAG})>.*?(<\/\3>)?$`,
+  'si',
 );
 
 /** Regex to extract the title value from the first matching tag */
 const TITLE_EXTRACT_RE = new RegExp(
-  String.raw`\[(${TAG})\](.*?)\[\/\1\]|<(${TAG})>(.*?)<\/\3>`, 'i',
+  String.raw`\[(${TAG})\](.*?)\[\/\1\]|<(${TAG})>(.*?)<\/\3>`,
+  'i',
 );
 
 /** Extract the title value from content and return cleaned content + title */

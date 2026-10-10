@@ -80,7 +80,10 @@ export function processMessage(content: string, platform: Platform): ProcessedMe
           .replace(/\[(?:CLARITY_)?TGIMAGE[^\]]*\]\s*/g, '')
           .replace(/\[(?:CLARITY_)?TGLINKS[^\]]*\][\s\S]*?\[\/(?:CLARITY_)?TGLINKS\]\s*/g, '')
           .replace(/\[(?:CLARITY_)?TGDOC[^\]]*\]\s*/g, '')
-          .replace(/\[(?:CLARITY_)?COMPACTLIST[^\]]*\][\s\S]*?\[\/(?:CLARITY_)?COMPACTLIST\]\s*/g, '')
+          .replace(
+            /\[(?:CLARITY_)?COMPACTLIST[^\]]*\][\s\S]*?\[\/(?:CLARITY_)?COMPACTLIST\]\s*/g,
+            '',
+          )
           .replace(/\[(?:CLARITY_)?BANNER[^\]]*\][\s\S]*?\[\/(?:CLARITY_)?BANNER\]\s*/g, '')
           .replace(/\[(?:CLARITY_)?COMPARISON[^\]]*\][\s\S]*?\[\/(?:CLARITY_)?COMPARISON\]\s*/g, '')
           .replace(/\[(?:CLARITY_)?TIMELINE[^\]]*\][\s\S]*?\[\/(?:CLARITY_)?TIMELINE\]\s*/g, '')

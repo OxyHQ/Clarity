@@ -7,12 +7,25 @@
 import type { JobEmploymentType } from '@clarity/shared-types';
 
 import type { JobFeedProvider } from '../provider.js';
-import { XML_ACCEPT, elements, get, listing, markdown, page, place, places, tag, text } from '../listing.js';
+import {
+  XML_ACCEPT,
+  elements,
+  get,
+  listing,
+  markdown,
+  page,
+  place,
+  places,
+  tag,
+  text,
+} from '../listing.js';
 
 /** `dd/mm/yyyy`. */
 function slashDate(value: string | undefined): Date | undefined {
   const match = value ? /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(value.trim()) : null;
-  return match ? new Date(Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1]))) : undefined;
+  return match
+    ? new Date(Date.UTC(Number(match[3]), Number(match[2]) - 1, Number(match[1])))
+    : undefined;
 }
 
 function types(contract: string | undefined, hours: string | undefined): JobEmploymentType[] {
@@ -30,25 +43,36 @@ export const feinaactiva: JobFeedProvider = {
   identifier: { meaning: 'unused; leave it as the kind name', shape: 'none' },
   completeListing: true,
   request: () => get('https://feinaactiva.gencat.cat/api/offers/offers-xml', XML_ACCEPT),
-  terms: 'Llicència oberta d\'ús d\'informació – Catalunya: free reuse, citing the source.',
+  terms: "Llicència oberta d'ús d'informació – Catalunya: free reuse, citing the source.",
   parse(body, context) {
-    return page(elements(body, 'ad').map((ad) => {
-      if (text(tag(ad, 'status')) && text(tag(ad, 'status')) !== 'PUBLISHED') return undefined;
-      const requirements = [tag(ad, 'experience'), tag(ad, 'requirements')].map((value) => text(value)).filter(Boolean).join('\n\n');
-      return listing({
-        title: text(tag(ad, 'title')),
-        employerName: text(tag(ad, 'company')),
-        canonicalUrl: text(tag(ad, 'url')),
-        context,
-        description: markdown(tag(ad, 'content')),
-        qualifications: requirements ? markdown(requirements) : undefined,
-        educationRequirements: text(tag(ad, 'studies')),
-        locations: places([place({ locality: tag(ad, 'city'), region: tag(ad, 'region'), postalCode: tag(ad, 'postcode') })]),
-        employmentTypes: types(text(tag(ad, 'contract')), text(tag(ad, 'workingHours'))),
-        occupationalCategory: text(tag(ad, 'category')),
-        identifier: text(tag(ad, 'id')),
-        publishedAt: slashDate(text(tag(ad, 'date'))),
-      });
-    }));
+    return page(
+      elements(body, 'ad').map((ad) => {
+        if (text(tag(ad, 'status')) && text(tag(ad, 'status')) !== 'PUBLISHED') return undefined;
+        const requirements = [tag(ad, 'experience'), tag(ad, 'requirements')]
+          .map((value) => text(value))
+          .filter(Boolean)
+          .join('\n\n');
+        return listing({
+          title: text(tag(ad, 'title')),
+          employerName: text(tag(ad, 'company')),
+          canonicalUrl: text(tag(ad, 'url')),
+          context,
+          description: markdown(tag(ad, 'content')),
+          qualifications: requirements ? markdown(requirements) : undefined,
+          educationRequirements: text(tag(ad, 'studies')),
+          locations: places([
+            place({
+              locality: tag(ad, 'city'),
+              region: tag(ad, 'region'),
+              postalCode: tag(ad, 'postcode'),
+            }),
+          ]),
+          employmentTypes: types(text(tag(ad, 'contract')), text(tag(ad, 'workingHours'))),
+          occupationalCategory: text(tag(ad, 'category')),
+          identifier: text(tag(ad, 'id')),
+          publishedAt: slashDate(text(tag(ad, 'date'))),
+        });
+      }),
+    );
   },
 };

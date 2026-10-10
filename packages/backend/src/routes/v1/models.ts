@@ -60,18 +60,16 @@ router.get('/', async (req, res) => {
 
     let clarityModels = allModelsWithAvailability;
     if (chat) {
-      clarityModels = clarityModels.filter(m => m.chatVisible);
+      clarityModels = clarityModels.filter((m) => m.chatVisible);
     } else if (category) {
-      clarityModels = clarityModels.filter(m => m.category === category);
+      clarityModels = clarityModels.filter((m) => m.category === category);
     }
 
     const defaultModel = category
       ? getDefaultModelForCategory(category)
       : getClarityModel(getDefaultClarityModel());
 
-    const data = clarityModels.map(model =>
-      serializeModel(model, model.id === defaultModel?.id)
-    );
+    const data = clarityModels.map((model) => serializeModel(model, model.id === defaultModel?.id));
 
     // Sort: default first, then by credit multiplier
     data.sort((a, b) => {
@@ -94,7 +92,7 @@ router.get('/', async (req, res) => {
         type: 'server_error',
         param: null,
         code: null,
-      }
+      },
     });
   }
 });
@@ -114,7 +112,7 @@ router.get('/:modelId', async (req, res) => {
           type: 'invalid_request_error',
           param: 'model',
           code: 'model_not_found',
-        }
+        },
       });
       return;
     }
@@ -128,7 +126,7 @@ router.get('/:modelId', async (req, res) => {
         type: 'server_error',
         param: null,
         code: null,
-      }
+      },
     });
   }
 });

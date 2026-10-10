@@ -24,7 +24,9 @@ export function LanguageSelector() {
   // set), else the single resolved device/fallback locale — the same
   // fallback `LanguageSelectorScreen` itself uses.
   const selectedLanguages = currentLanguages.length > 0 ? currentLanguages : [currentLanguage];
-  const languageDescription = selectedLanguages.map((code) => getNativeLanguageName(code)).join(', ');
+  const languageDescription = selectedLanguages
+    .map((code) => getNativeLanguageName(code))
+    .join(', ');
 
   return (
     <View className="gap-2">
@@ -32,9 +34,7 @@ export function LanguageSelector() {
         <Globe2 size={20} className="text-primary" />
         <Text className="text-base font-semibold">{t('settings.appLanguage.title')}</Text>
       </View>
-      <Text className="text-sm text-muted-foreground">
-        {t('settings.appLanguage.description')}
-      </Text>
+      <Text className="text-sm text-muted-foreground">{t('settings.appLanguage.description')}</Text>
       <Pressable
         onPress={() => showBottomSheet?.('LanguageSelector')}
         className="border border-border rounded-lg px-4 py-3 bg-background flex-row items-center justify-between"

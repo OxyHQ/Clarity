@@ -54,14 +54,25 @@ suite('site icons on Postgres', () => {
 
   it('fetches due icons, stores the sniffed image, and serves only what is ready', async () => {
     safeFetch.mockImplementation(async (url: string) =>
-      url === 'https://icons-a.example/brand.png' ? answer(200, PNG, url) : answer(404, '', url));
+      url === 'https://icons-a.example/brand.png' ? answer(200, PNG, url) : answer(404, '', url),
+    );
 
     const outcome = await refreshDueIcons(50);
     expect(outcome.fetched).toBeGreaterThanOrEqual(1);
 
-    const [a] = await getDb().select().from(searchHosts).where(eq(searchHosts.host, 'icons-a.example'));
-    const [b] = await getDb().select().from(searchHosts).where(eq(searchHosts.host, 'icons-b.example'));
-    expect(a).toMatchObject({ iconStatus: 'ready', iconContentType: 'image/png', iconSourceUrl: 'https://icons-a.example/brand.png' });
+    const [a] = await getDb()
+      .select()
+      .from(searchHosts)
+      .where(eq(searchHosts.host, 'icons-a.example'));
+    const [b] = await getDb()
+      .select()
+      .from(searchHosts)
+      .where(eq(searchHosts.host, 'icons-b.example'));
+    expect(a).toMatchObject({
+      iconStatus: 'ready',
+      iconContentType: 'image/png',
+      iconSourceUrl: 'https://icons-a.example/brand.png',
+    });
     expect(b.iconStatus).toBe('missing');
     expect(a.iconNextFetchAt.getTime()).toBeGreaterThan(Date.now() + 20 * 24 * 60 * 60 * 1000);
 
@@ -71,12 +82,18 @@ suite('site icons on Postgres', () => {
   });
 
   it('keeps an icon it had when a refresh fails', async () => {
-    await getDb().update(searchHosts).set({ iconNextFetchAt: new Date(0) }).where(eq(searchHosts.host, 'icons-a.example'));
+    await getDb()
+      .update(searchHosts)
+      .set({ iconNextFetchAt: new Date(0) })
+      .where(eq(searchHosts.host, 'icons-a.example'));
     safeFetch.mockImplementation(async (url: string) => answer(503, '', url));
 
     await refreshDueIcons(50);
 
-    const [a] = await getDb().select().from(searchHosts).where(eq(searchHosts.host, 'icons-a.example'));
+    const [a] = await getDb()
+      .select()
+      .from(searchHosts)
+      .where(eq(searchHosts.host, 'icons-a.example'));
     expect(a.iconStatus).toBe('ready');
     expect(a.iconBytes?.equals(PNG)).toBe(true);
   });

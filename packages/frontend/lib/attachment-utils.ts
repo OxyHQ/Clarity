@@ -13,9 +13,9 @@ export type MessageContentPart =
  */
 export async function buildMessageContent(
   text: string,
-  attachments: Attachment[]
+  attachments: Attachment[],
 ): Promise<string | MessageContentPart[]> {
-  const imageAttachments = attachments.filter(a => a.type === 'image' && a.uri);
+  const imageAttachments = attachments.filter((a) => a.type === 'image' && a.uri);
   if (imageAttachments.length === 0) return text;
 
   const parts: MessageContentPart[] = [{ type: 'text', text }];
@@ -44,4 +44,3 @@ export async function buildMessageContent(
 
   return parts;
 }
-

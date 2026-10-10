@@ -15,7 +15,11 @@ const CHUNK_STRIDE = 1600;
 const CHUNK_LENGTH = 2000;
 const EMBEDDING_BATCH = 128;
 
-export interface TextChunk { start: number; end: number; text: string }
+export interface TextChunk {
+  start: number;
+  end: number;
+  text: string;
+}
 
 export function chunkText(text: string): TextChunk[] {
   const result: TextChunk[] = [];
@@ -29,7 +33,7 @@ export function chunkText(text: string): TextChunk[] {
 export async function embedChunks(texts: readonly string[]): Promise<number[][]> {
   const embeddings: number[][] = [];
   for (let start = 0; start < texts.length; start += EMBEDDING_BATCH) {
-    embeddings.push(...await createOxyEmbeddings(texts.slice(start, start + EMBEDDING_BATCH)));
+    embeddings.push(...(await createOxyEmbeddings(texts.slice(start, start + EMBEDDING_BATCH))));
   }
   return embeddings;
 }
@@ -47,18 +51,27 @@ export async function documentChunksCurrent(
   chunkCount: number,
   extractorVersion: string,
 ): Promise<boolean> {
-  const [row] = await executor.select({
-    mainContent: searchDocuments.mainContent,
-    embedded: sql<number>`(
+  const [row] = await executor
+    .select({
+      mainContent: searchDocuments.mainContent,
+      embedded: sql<number>`(
       select count(*)::int from ${searchChunks}
       where ${searchChunks.documentId} = ${searchDocuments.id}
         and ${searchChunks.extractorVersion} = ${extractorVersion}
         and ${searchChunks.embeddingModel} = ${CLARITY_EMBEDDING_MODEL}
         and ${searchChunks.embedding} is not null
     )`,
-    total: sql<number>`(select count(*)::int from ${searchChunks} where ${searchChunks.documentId} = ${searchDocuments.id})`,
-  }).from(searchDocuments).where(eq(searchDocuments.canonicalUrl, canonicalUrl)).limit(1);
-  return Boolean(row) && row.mainContent === mainContent && row.embedded === chunkCount && row.total === chunkCount;
+      total: sql<number>`(select count(*)::int from ${searchChunks} where ${searchChunks.documentId} = ${searchDocuments.id})`,
+    })
+    .from(searchDocuments)
+    .where(eq(searchDocuments.canonicalUrl, canonicalUrl))
+    .limit(1);
+  return (
+    Boolean(row) &&
+    row.mainContent === mainContent &&
+    row.embedded === chunkCount &&
+    row.total === chunkCount
+  );
 }
 
 /** Replaces a document's chunks. Missing embeddings leave it lexically searchable. */
@@ -71,16 +84,18 @@ export async function replaceDocumentChunks(
 ): Promise<void> {
   await tx.delete(searchChunks).where(eq(searchChunks.documentId, documentId));
   if (chunks.length === 0) return;
-  await tx.insert(searchChunks).values(chunks.map((chunk, position) => ({
-    id: crypto.randomUUID(),
-    documentId,
-    position,
-    startOffset: chunk.start,
-    endOffset: chunk.end,
-    text: chunk.text,
-    searchVector: sql`to_tsvector('simple', ${chunk.text})`,
-    embedding: embeddings?.[position],
-    embeddingModel: embeddings ? CLARITY_EMBEDDING_MODEL : undefined,
-    extractorVersion,
-  })));
+  await tx.insert(searchChunks).values(
+    chunks.map((chunk, position) => ({
+      id: crypto.randomUUID(),
+      documentId,
+      position,
+      startOffset: chunk.start,
+      endOffset: chunk.end,
+      text: chunk.text,
+      searchVector: sql`to_tsvector('simple', ${chunk.text})`,
+      embedding: embeddings?.[position],
+      embeddingModel: embeddings ? CLARITY_EMBEDDING_MODEL : undefined,
+      extractorVersion,
+    })),
+  );
 }

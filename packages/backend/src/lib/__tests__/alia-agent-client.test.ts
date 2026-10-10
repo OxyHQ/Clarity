@@ -62,43 +62,96 @@ describe('Clarity Alia agent boundary', () => {
 
   it('rejects all client agent controls and privileged message roles', () => {
     for (const key of [
-      'agentId', 'agentMode', 'skillId', 'skillIds', 'mcpServerId', 'fallbackPolicy',
-      'reasoningEffort', 'thinkingMode', 'webSearch', 'tools', 'userId', 'oxyUserId',
-      'ownerAccountId', 'projectAccountId', 'applicationId', 'credentialId',
-      'serviceToken', 'accessToken', 'authorization', 'agent_id', 'agent_mode',
-      'skill_id', 'skill_ids', 'mcp_server_id', 'fallback_policy', 'reasoning_effort',
-      'thinking_mode', 'web_search', 'user_id', 'oxy_user_id', 'owner_account_id',
-      'project_account_id', 'application_id', 'credential_id', 'service_token',
-      'access_token', 'bearerToken', 'bearer_token',
+      'agentId',
+      'agentMode',
+      'skillId',
+      'skillIds',
+      'mcpServerId',
+      'fallbackPolicy',
+      'reasoningEffort',
+      'thinkingMode',
+      'webSearch',
+      'tools',
+      'userId',
+      'oxyUserId',
+      'ownerAccountId',
+      'projectAccountId',
+      'applicationId',
+      'credentialId',
+      'serviceToken',
+      'accessToken',
+      'authorization',
+      'agent_id',
+      'agent_mode',
+      'skill_id',
+      'skill_ids',
+      'mcp_server_id',
+      'fallback_policy',
+      'reasoning_effort',
+      'thinking_mode',
+      'web_search',
+      'user_id',
+      'oxy_user_id',
+      'owner_account_id',
+      'project_account_id',
+      'application_id',
+      'credential_id',
+      'service_token',
+      'access_token',
+      'bearerToken',
+      'bearer_token',
     ]) {
-      expect(() => prepareAliaRequest({
-        messages: [{ role: 'user', content: 'hello' }],
-        [key]: key === 'skillIds' ? [] : true,
-      })).toThrow('forbidden_agent_control');
+      expect(() =>
+        prepareAliaRequest({
+          messages: [{ role: 'user', content: 'hello' }],
+          [key]: key === 'skillIds' ? [] : true,
+        }),
+      ).toThrow('forbidden_agent_control');
     }
     for (const role of ['system', 'tool', 'developer', 'function']) {
-      expect(() => prepareAliaRequest({ messages: [{ role, content: 'override' }] }))
-        .toThrow('forbidden_message_role');
+      expect(() => prepareAliaRequest({ messages: [{ role, content: 'override' }] })).toThrow(
+        'forbidden_message_role',
+      );
     }
   });
 
   it('rejects remote multipart URLs and bounds messages, IDs, and conversations', () => {
-    expect(() => prepareAliaRequest({
-      messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'https://internal.example/image' } }] }],
-    })).toThrow('invalid_messages');
-    expect(() => prepareAliaRequest({
-      messages: [{ id: 'x'.repeat(129), role: 'user', content: 'hello' }],
-    })).toThrow('invalid_messages');
-    expect(() => prepareAliaRequest({
-      messages: Array.from({ length: 101 }, () => ({ role: 'user', content: 'hello' })),
-    })).toThrow('invalid_messages');
-    expect(() => prepareAliaRequest({
-      conversationId: 'x'.repeat(129),
-      messages: [{ role: 'user', content: 'hello' }],
-    })).toThrow('invalid_conversation_id');
-    expect(prepareAliaRequest({
-      messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } }] }],
-    }).upstreamBody.messages).toHaveLength(1);
+    expect(() =>
+      prepareAliaRequest({
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: 'https://internal.example/image' } }],
+          },
+        ],
+      }),
+    ).toThrow('invalid_messages');
+    expect(() =>
+      prepareAliaRequest({
+        messages: [{ id: 'x'.repeat(129), role: 'user', content: 'hello' }],
+      }),
+    ).toThrow('invalid_messages');
+    expect(() =>
+      prepareAliaRequest({
+        messages: Array.from({ length: 101 }, () => ({ role: 'user', content: 'hello' })),
+      }),
+    ).toThrow('invalid_messages');
+    expect(() =>
+      prepareAliaRequest({
+        conversationId: 'x'.repeat(129),
+        messages: [{ role: 'user', content: 'hello' }],
+      }),
+    ).toThrow('invalid_conversation_id');
+    expect(
+      prepareAliaRequest({
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: 'data:image/png;base64,aGVsbG8=' } }],
+          },
+        ],
+      }).upstreamBody.messages,
+    ).toHaveLength(1);
   });
 
   it.each([
@@ -106,28 +159,37 @@ describe('Clarity Alia agent boundary', () => {
     { name: 'non-numeric', overrides: { exp: 'tomorrow' } },
     { name: 'expires too soon', overrides: { exp: Math.floor(Date.now() / 1000) + 29 } },
   ])('rejects a $name service-token expiry', ({ overrides }) => {
-    expect(() => assertExactClarityServiceClaims(serviceToken(overrides))).toThrow('canonical Clarity service identity');
+    expect(() => assertExactClarityServiceClaims(serviceToken(overrides))).toThrow(
+      'canonical Clarity service identity',
+    );
   });
 
   it('does not infer routing from name order and rejects unknown IDs', () => {
-    expect(() => prepareAliaRequest({
-      messages: [{ role: 'user', content: 'hello' }],
-      model: 'clarity-aardvark',
-    })).toThrow('model_not_found');
+    expect(() =>
+      prepareAliaRequest({
+        messages: [{ role: 'user', content: 'hello' }],
+        model: 'clarity-aardvark',
+      }),
+    ).toThrow('model_not_found');
   });
 
   it('fails closed instead of inventing an agent ID', () => {
-    expect(() => getAliaAgentConfig({ ALIA_API_URL: 'https://api.alia.onl' }))
-      .toThrow(AliaAgentConfigurationError);
-    expect(() => getAliaAgentConfig({
-      CLARITY_ALIA_AGENT_ID: ` ${CLARITY_AGENT_MANIFEST.agentId}`,
-      ALIA_API_URL: 'https://api.alia.onl',
-    })).toThrow(AliaAgentConfigurationError);
-    expect(() => getAliaAgentConfig({
-      NODE_ENV: 'production',
-      CLARITY_ALIA_AGENT_ID: CLARITY_AGENT_MANIFEST.agentId,
-      ALIA_API_URL: 'https://attacker.invalid',
-    })).toThrow('canonical Alia origin');
+    expect(() => getAliaAgentConfig({ ALIA_API_URL: 'https://api.alia.onl' })).toThrow(
+      AliaAgentConfigurationError,
+    );
+    expect(() =>
+      getAliaAgentConfig({
+        CLARITY_ALIA_AGENT_ID: ` ${CLARITY_AGENT_MANIFEST.agentId}`,
+        ALIA_API_URL: 'https://api.alia.onl',
+      }),
+    ).toThrow(AliaAgentConfigurationError);
+    expect(() =>
+      getAliaAgentConfig({
+        NODE_ENV: 'production',
+        CLARITY_ALIA_AGENT_ID: CLARITY_AGENT_MANIFEST.agentId,
+        ALIA_API_URL: 'https://attacker.invalid',
+      }),
+    ).toThrow('canonical Alia origin');
   });
 
   it('translates chunk-split Alia SSE and keeps Clarity model identity', () => {
@@ -138,12 +200,14 @@ describe('Clarity Alia agent boundary', () => {
     const encoder = new TextEncoder();
     const crlf = String.fromCharCode(13, 10);
     const boundary = String.fromCharCode(10, 10);
-    const first = transformer.push(encoder.encode(
-      `event: alia.reasoning${crlf}data: {"content":"th`,
-    ));
-    const second = transformer.push(encoder.encode(
-      `ink","model":"profile:v1"}${crlf}${crlf}data: {"model":"profile:v1","choices":[{"delta":{"content":"ok"}}],"alia_usage":{"billable_tokens":2}}${boundary}`,
-    ));
+    const first = transformer.push(
+      encoder.encode(`event: alia.reasoning${crlf}data: {"content":"th`),
+    );
+    const second = transformer.push(
+      encoder.encode(
+        `ink","model":"profile:v1"}${crlf}${crlf}data: {"model":"profile:v1","choices":[{"delta":{"content":"ok"}}],"alia_usage":{"billable_tokens":2}}${boundary}`,
+      ),
+    );
     const tail = transformer.finish();
 
     expect(first).toBe('');
@@ -157,9 +221,11 @@ describe('Clarity Alia agent boundary', () => {
 
   it('drops an upstream routing switch that cannot change the product model ID', () => {
     const transformer = new ClaritySseTransformer('clarity-thinking');
-    const output = transformer.push(new TextEncoder().encode(
-      `event: alia.model_switch${String.fromCharCode(10)}data: {"from":"profile:v1-pro-max","to":"publisher/model"}${String.fromCharCode(10, 10)}`,
-    ));
+    const output = transformer.push(
+      new TextEncoder().encode(
+        `event: alia.model_switch${String.fromCharCode(10)}data: {"from":"profile:v1-pro-max","to":"publisher/model"}${String.fromCharCode(10, 10)}`,
+      ),
+    );
     expect(output).toBe('');
   });
 
@@ -185,17 +251,34 @@ describe('Clarity Alia agent boundary', () => {
     process.env.ALIA_API_URL = 'https://alia.example.test';
     const mintedServiceToken = serviceToken();
     vi.mocked(OxyServer.prototype.serviceToken).mockResolvedValue(mintedServiceToken);
-    const fetchMock = vi.fn(async () => new globalThis.Response('{"ok":true}', {
-      status: 200,
-      headers: { 'content-type': 'application/json' },
-    }));
+    const fetchMock = vi.fn(
+      async () =>
+        new globalThis.Response('{"ok":true}', {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const sent: { status?: number; body?: unknown; headers: Record<string, string> } = { headers: {} };
+    const sent: { status?: number; body?: unknown; headers: Record<string, string> } = {
+      headers: {},
+    };
     const response = {
-      status(value: number) { sent.status = value; return this; },
-      send(value: unknown) { sent.body = value; return this; },
-      json(value: unknown) { sent.body = value; return this; },
-      setHeader(name: string, value: string) { sent.headers[name] = value; return this; },
+      status(value: number) {
+        sent.status = value;
+        return this;
+      },
+      send(value: unknown) {
+        sent.body = value;
+        return this;
+      },
+      json(value: unknown) {
+        sent.body = value;
+        return this;
+      },
+      setHeader(name: string, value: string) {
+        sent.headers[name] = value;
+        return this;
+      },
     } as unknown as Response;
     const request = {
       method: 'PUT',
@@ -222,19 +305,29 @@ describe('Clarity Alia agent boundary', () => {
   });
 
   it('fails closed if Oxy mints a token for another payer or broader scopes', async () => {
-    vi.mocked(OxyServer.prototype.serviceToken).mockResolvedValue(serviceToken({
-      ownerAccountId: 'wrong-project',
-      scopes: ['user:read', 'inference:invoke', 'accounts:read'],
-    }));
-    const response = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() } as unknown as Response;
+    vi.mocked(OxyServer.prototype.serviceToken).mockResolvedValue(
+      serviceToken({
+        ownerAccountId: 'wrong-project',
+        scopes: ['user:read', 'inference:invoke', 'accounts:read'],
+      }),
+    );
+    const response = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    } as unknown as Response;
     const request = { method: 'GET', query: {}, user: { id: 'oxy-user-1' } } as unknown as Request;
-    await expect(proxyAliaJson(request, response, '/memory')).rejects.toThrow('canonical Clarity service identity');
+    await expect(proxyAliaJson(request, response, '/memory')).rejects.toThrow(
+      'canonical Clarity service identity',
+    );
   });
 
   it('does not forward agent or delegated-identity controls through non-chat Alia proxies', async () => {
     const fetchMock = vi.fn();
     globalThis.fetch = fetchMock as unknown as typeof fetch;
-    const response = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() } as unknown as Response;
+    const response = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    } as unknown as Response;
     const request = {
       method: 'POST',
       query: {},
@@ -260,7 +353,8 @@ describe('Clarity Alia agent boundary', () => {
     } as unknown as Request;
     await proxyAliaJson(serviceRequest, response, '/memory');
     expect(response.status).toHaveBeenCalledWith(401);
-    await expect(proxyAliaJson(serviceRequest, response, '//attacker.test/path'))
-      .rejects.toThrow('origin-relative');
+    await expect(proxyAliaJson(serviceRequest, response, '//attacker.test/path')).rejects.toThrow(
+      'origin-relative',
+    );
   });
 });

@@ -10,7 +10,11 @@ import { extractDocument } from './search/extractor.js';
 import { chunkText, embedChunks, replaceDocumentChunks } from './search/chunking.js';
 import { extractJobPostings } from './search/jobs/extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/lifecycle.js';
-import { closeJobPostingsForDocument, projectJobPostings, pruneInactiveJobDocuments } from './search/jobs/projection.js';
+import {
+  closeJobPostingsForDocument,
+  projectJobPostings,
+  pruneInactiveJobDocuments,
+} from './search/jobs/projection.js';
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
@@ -30,16 +34,30 @@ const jobRecrawlBatchSize = 50;
 /** Reclaim crashed workers before counting concurrency. A stale claim never owns a write. */
 export async function recoverExpiredLeases(): Promise<number> {
   return getDb().transaction(async (tx) => {
-    const expired = await tx.select().from(crawlPages).where(and(
-      eq(crawlPages.status, 'fetching'), lt(crawlPages.leaseExpiresAt, new Date()),
-    )).orderBy(crawlPages.jobId, crawlPages.id).limit(100).for('update', { skipLocked: true });
+    const expired = await tx
+      .select()
+      .from(crawlPages)
+      .where(and(eq(crawlPages.status, 'fetching'), lt(crawlPages.leaseExpiresAt, new Date())))
+      .orderBy(crawlPages.jobId, crawlPages.id)
+      .limit(100)
+      .for('update', { skipLocked: true });
     for (const page of expired) {
-      await tx.update(crawlPages).set({
-        status: page.attemptCount < 3 ? 'retry' : 'failed', availableAt: new Date(),
-        leaseOwner: null, leaseExpiresAt: null, heartbeatAt: null,
-        lastErrorCode: 'lease_expired', lastErrorDetail: 'The crawl worker stopped renewing its lease', updatedAt: new Date(),
-      }).where(eq(crawlPages.id, page.id));
-      await tx.update(fetchAttempts).set({ status: 'failed', errorCode: 'lease_expired', finishedAt: new Date() })
+      await tx
+        .update(crawlPages)
+        .set({
+          status: page.attemptCount < 3 ? 'retry' : 'failed',
+          availableAt: new Date(),
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          heartbeatAt: null,
+          lastErrorCode: 'lease_expired',
+          lastErrorDetail: 'The crawl worker stopped renewing its lease',
+          updatedAt: new Date(),
+        })
+        .where(eq(crawlPages.id, page.id));
+      await tx
+        .update(fetchAttempts)
+        .set({ status: 'failed', errorCode: 'lease_expired', finishedAt: new Date() })
         .where(and(eq(fetchAttempts.crawlPageId, page.id), eq(fetchAttempts.status, 'running')));
       await finishJobIfComplete(tx, page.jobId);
     }
@@ -48,23 +66,44 @@ export async function recoverExpiredLeases(): Promise<number> {
 }
 
 /** Lock and fence every result commit, including errors and removed documents. */
-export async function ownsPageLease(tx: ClarityExecutor, page: typeof crawlPages.$inferSelect): Promise<boolean> {
+export async function ownsPageLease(
+  tx: ClarityExecutor,
+  page: typeof crawlPages.$inferSelect,
+): Promise<boolean> {
   if (!page.leaseOwner) return false;
-  const [owned] = await tx.select({ id: crawlPages.id }).from(crawlPages).where(and(
-    eq(crawlPages.id, page.id), eq(crawlPages.status, 'fetching'),
-    eq(crawlPages.leaseOwner, page.leaseOwner), eq(crawlPages.attemptCount, page.attemptCount),
-    gt(crawlPages.leaseExpiresAt, new Date()),
-  )).for('update');
+  const [owned] = await tx
+    .select({ id: crawlPages.id })
+    .from(crawlPages)
+    .where(
+      and(
+        eq(crawlPages.id, page.id),
+        eq(crawlPages.status, 'fetching'),
+        eq(crawlPages.leaseOwner, page.leaseOwner),
+        eq(crawlPages.attemptCount, page.attemptCount),
+        gt(crawlPages.leaseExpiresAt, new Date()),
+      ),
+    )
+    .for('update');
   return Boolean(owned);
 }
 
 export async function renewPageLease(page: typeof crawlPages.$inferSelect): Promise<void> {
   if (!page.leaseOwner) return;
-  await getDb().update(crawlPages).set({
-    leaseExpiresAt: sql`now() + interval '60 seconds'`, heartbeatAt: new Date(),
-  }).where(and(eq(crawlPages.id, page.id), eq(crawlPages.status, 'fetching'),
-    eq(crawlPages.leaseOwner, page.leaseOwner), eq(crawlPages.attemptCount, page.attemptCount),
-    gt(crawlPages.leaseExpiresAt, new Date())));
+  await getDb()
+    .update(crawlPages)
+    .set({
+      leaseExpiresAt: sql`now() + interval '60 seconds'`,
+      heartbeatAt: new Date(),
+    })
+    .where(
+      and(
+        eq(crawlPages.id, page.id),
+        eq(crawlPages.status, 'fetching'),
+        eq(crawlPages.leaseOwner, page.leaseOwner),
+        eq(crawlPages.attemptCount, page.attemptCount),
+        gt(crawlPages.leaseExpiresAt, new Date()),
+      ),
+    );
 }
 
 export async function leaseNextPage() {
@@ -73,42 +112,104 @@ export async function leaseNextPage() {
   return getDb().transaction(async (tx) => {
     const saturatedOwners: string[] = [];
     while (true) {
-      const [page] = await tx.select().from(crawlPages).where(and(
-        or(eq(crawlPages.status, 'queued'), eq(crawlPages.status, 'retry')),
-        lt(crawlPages.availableAt, new Date()),
-        or(sql`${crawlPages.leaseExpiresAt} is null`, lt(crawlPages.leaseExpiresAt, new Date())),
-        saturatedOwners.length ? sql`${crawlPages.jobId} in (select ${crawlJobs.id} from ${crawlJobs} where ${notInArray(crawlJobs.ownerAccountId, saturatedOwners)})` : undefined,
-        sql`exists (select 1 from ${crawlJobs} where ${crawlJobs.id} = ${crawlPages.jobId} and ${crawlJobs.status} in ('queued', 'running'))`,
-      // NULLS LAST matches clarity_crawl_pages_claim_idx; a bare DESC means NULLS FIRST and
-      // forces a sort of every claimable page on each claim.
-      )).orderBy(sql`${crawlPages.priority} desc nulls last`, crawlPages.availableAt, crawlPages.createdAt, crawlPages.id).limit(1).for('update', { skipLocked: true });
+      const [page] = await tx
+        .select()
+        .from(crawlPages)
+        .where(
+          and(
+            or(eq(crawlPages.status, 'queued'), eq(crawlPages.status, 'retry')),
+            lt(crawlPages.availableAt, new Date()),
+            or(
+              sql`${crawlPages.leaseExpiresAt} is null`,
+              lt(crawlPages.leaseExpiresAt, new Date()),
+            ),
+            saturatedOwners.length
+              ? sql`${crawlPages.jobId} in (select ${crawlJobs.id} from ${crawlJobs} where ${notInArray(crawlJobs.ownerAccountId, saturatedOwners)})`
+              : undefined,
+            sql`exists (select 1 from ${crawlJobs} where ${crawlJobs.id} = ${crawlPages.jobId} and ${crawlJobs.status} in ('queued', 'running'))`,
+            // NULLS LAST matches clarity_crawl_pages_claim_idx; a bare DESC means NULLS FIRST and
+            // forces a sort of every claimable page on each claim.
+          ),
+        )
+        .orderBy(
+          sql`${crawlPages.priority} desc nulls last`,
+          crawlPages.availableAt,
+          crawlPages.createdAt,
+          crawlPages.id,
+        )
+        .limit(1)
+        .for('update', { skipLocked: true });
       if (!page) return undefined;
-      const [job] = await tx.select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier }).from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
+      const [job] = await tx
+        .select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier })
+        .from(crawlJobs)
+        .where(eq(crawlJobs.id, page.jobId))
+        .limit(1);
       if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
-      const [lock] = await tx.execute<{ locked: boolean }>(sql`select pg_try_advisory_xact_lock(hashtextextended(${`${job.ownerAccountId}:concurrent_fetches`}, 0)) as locked`);
+      const [lock] = await tx.execute<{ locked: boolean }>(
+        sql`select pg_try_advisory_xact_lock(hashtextextended(${`${job.ownerAccountId}:concurrent_fetches`}, 0)) as locked`,
+      );
       if (!lock.locked) {
         saturatedOwners.push(job.ownerAccountId);
         continue;
       }
-      const concurrencyLimit = await effectiveQuota(tx, { accountId: job.ownerAccountId, tier: callerTierOf(job) }, 'concurrent_fetches');
-      const [active] = await tx.select({ quantity: sql<number>`count(*)::int` }).from(crawlPages).innerJoin(crawlJobs, eq(crawlPages.jobId, crawlJobs.id)).where(and(eq(crawlJobs.ownerAccountId, job.ownerAccountId), eq(crawlPages.status, 'fetching'), gt(crawlPages.leaseExpiresAt, new Date())));
+      const concurrencyLimit = await effectiveQuota(
+        tx,
+        { accountId: job.ownerAccountId, tier: callerTierOf(job) },
+        'concurrent_fetches',
+      );
+      const [active] = await tx
+        .select({ quantity: sql<number>`count(*)::int` })
+        .from(crawlPages)
+        .innerJoin(crawlJobs, eq(crawlPages.jobId, crawlJobs.id))
+        .where(
+          and(
+            eq(crawlJobs.ownerAccountId, job.ownerAccountId),
+            eq(crawlPages.status, 'fetching'),
+            gt(crawlPages.leaseExpiresAt, new Date()),
+          ),
+        );
       if (active.quantity >= concurrencyLimit) {
         saturatedOwners.push(job.ownerAccountId);
         continue;
       }
-      const [leased] = await tx.update(crawlPages).set({ status: 'fetching', leaseOwner: workerId, leaseExpiresAt: sql`now() + interval '${sql.raw(String(leaseSeconds))} seconds'`, heartbeatAt: new Date(), attemptCount: page.attemptCount + 1, updatedAt: new Date() }).where(eq(crawlPages.id, page.id)).returning();
-      await tx.update(crawlJobs).set({ status: 'running', startedAt: sql`coalesce(${crawlJobs.startedAt}, now())`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
+      const [leased] = await tx
+        .update(crawlPages)
+        .set({
+          status: 'fetching',
+          leaseOwner: workerId,
+          leaseExpiresAt: sql`now() + interval '${sql.raw(String(leaseSeconds))} seconds'`,
+          heartbeatAt: new Date(),
+          attemptCount: page.attemptCount + 1,
+          updatedAt: new Date(),
+        })
+        .where(eq(crawlPages.id, page.id))
+        .returning();
+      await tx
+        .update(crawlJobs)
+        .set({
+          status: 'running',
+          startedAt: sql`coalesce(${crawlJobs.startedAt}, now())`,
+          updatedAt: new Date(),
+        })
+        .where(eq(crawlJobs.id, page.jobId));
       return leased;
     }
   });
 }
 
 export async function processPage(page: typeof crawlPages.$inferSelect): Promise<void> {
-  const heartbeat = setInterval(() => {
-    void renewPageLease(page).catch((error: unknown) => {
-      console.error('Crawl lease heartbeat failed', { crawlPageId: page.id, error: error instanceof Error ? error.message : 'unknown lease failure' });
-    });
-  }, leaseSeconds * 1000 / 3);
+  const heartbeat = setInterval(
+    () => {
+      void renewPageLease(page).catch((error: unknown) => {
+        console.error('Crawl lease heartbeat failed', {
+          crawlPageId: page.id,
+          error: error instanceof Error ? error.message : 'unknown lease failure',
+        });
+      });
+    },
+    (leaseSeconds * 1000) / 3,
+  );
   heartbeat.unref();
   try {
     await processLeasedPage(page);
@@ -122,26 +223,66 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
   const attemptId = crypto.randomUUID();
   const [job] = await getDb().select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
   if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
-  const principal = { accountId: job.ownerAccountId, applicationId: job.applicationId, credentialId: job.credentialId ?? undefined, tier: callerTierOf(job) };
-  if (!await getDb().transaction((tx) => ownsPageLease(tx, page))) return;
-  const fetchUsage = await consumeUsage({ principal, operation: 'fetch_started', idempotencyKey: `crawl-page:${page.id}:attempt:${page.attemptCount}` });
+  const principal = {
+    accountId: job.ownerAccountId,
+    applicationId: job.applicationId,
+    credentialId: job.credentialId ?? undefined,
+    tier: callerTierOf(job),
+  };
+  if (!(await getDb().transaction((tx) => ownsPageLease(tx, page)))) return;
+  const fetchUsage = await consumeUsage({
+    principal,
+    operation: 'fetch_started',
+    idempotencyKey: `crawl-page:${page.id}:attempt:${page.attemptCount}`,
+  });
   if (!fetchUsage.accepted) {
     await getDb().transaction(async (tx) => {
-      if (!await ownsPageLease(tx, page)) return;
-      await tx.update(crawlPages).set({ status: 'failed', leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'fetch_quota_exceeded', lastErrorDetail: 'The monthly fetch quota has been exhausted', updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
-      await tx.update(crawlJobs).set({ errorCode: 'fetch_quota_exceeded', errorDetail: 'The monthly fetch quota has been exhausted', updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
+      if (!(await ownsPageLease(tx, page))) return;
+      await tx
+        .update(crawlPages)
+        .set({
+          status: 'failed',
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          lastErrorCode: 'fetch_quota_exceeded',
+          lastErrorDetail: 'The monthly fetch quota has been exhausted',
+          updatedAt: new Date(),
+        })
+        .where(eq(crawlPages.id, page.id));
+      await tx
+        .update(crawlJobs)
+        .set({
+          errorCode: 'fetch_quota_exceeded',
+          errorDetail: 'The monthly fetch quota has been exhausted',
+          updatedAt: new Date(),
+        })
+        .where(eq(crawlJobs.id, page.jobId));
       await finishJobIfComplete(tx, page.jobId);
     });
     return;
   }
   const started = await getDb().transaction(async (tx) => {
-    if (!await ownsPageLease(tx, page)) return false;
-    await tx.insert(fetchAttempts).values({ id: attemptId, crawlPageId: page.id, attempt: page.attemptCount, fetchMode: 'http', status: 'running' });
+    if (!(await ownsPageLease(tx, page))) return false;
+    await tx.insert(fetchAttempts).values({
+      id: attemptId,
+      crawlPageId: page.id,
+      attempt: page.attemptCount,
+      fetchMode: 'http',
+      status: 'running',
+    });
     return true;
   });
   if (!started) return;
   try {
-    const result = await safeFetch(page.url, { headers: { 'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)', accept: 'text/html,application/xhtml+xml' }, maxRedirects: 5, headersTimeoutMs: 15_000, signal: AbortSignal.timeout(30_000) });
+    const result = await safeFetch(page.url, {
+      headers: {
+        'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)',
+        accept: 'text/html,application/xhtml+xml',
+      },
+      maxRedirects: 5,
+      headersTimeoutMs: 15_000,
+      signal: AbortSignal.timeout(30_000),
+    });
     // A listing that answers 404/410 has been withdrawn by its source. Record
     // the removal instead of indexing the error page.
     if (result.status === 404 || result.status === 410) {
@@ -149,26 +290,44 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
       await recordGoneDocument(page, result.finalUrl, result.status, attemptId, startedAt);
       return;
     }
-    if (result.status >= 400) { result.response.destroy(); throw new Error(`http_status_${result.status}`); }
-    const contentType = Array.isArray(result.headers['content-type']) ? result.headers['content-type'][0] : result.headers['content-type'];
-    if (!contentType?.includes('text/html')) { result.response.destroy(); throw new Error('unsupported_content_type'); }
+    if (result.status >= 400) {
+      result.response.destroy();
+      throw new Error(`http_status_${result.status}`);
+    }
+    const contentType = Array.isArray(result.headers['content-type'])
+      ? result.headers['content-type'][0]
+      : result.headers['content-type'];
+    if (!contentType?.includes('text/html')) {
+      result.response.destroy();
+      throw new Error('unsupported_content_type');
+    }
     const chunks: Buffer[] = [];
     let bytes = 0;
     for await (const chunk of result.response) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       bytes += buffer.length;
-      if (bytes > maxBodyBytes) { result.response.destroy(); throw new Error('response_too_large'); }
+      if (bytes > maxBodyBytes) {
+        result.response.destroy();
+        throw new Error('response_too_large');
+      }
       chunks.push(buffer);
     }
     const html = Buffer.concat(chunks).toString('utf8');
     const extracted = extractDocument(html, result.finalUrl);
     const canonicalUrl = extracted.canonicalUrl || result.finalUrl;
-    const contentHash = createHash('sha256').update(extracted.mainContent || '').digest('hex');
+    const contentHash = createHash('sha256')
+      .update(extracted.mainContent || '')
+      .digest('hex');
     const textChunks = extracted.noindex ? [] : chunkText(extracted.mainContent || '');
     const observedAt = new Date();
     const postings = extracted.noindex
       ? []
-      : extractJobPostings(extracted.structuredData, canonicalUrl, observedAt.toISOString(), 'json_ld');
+      : extractJobPostings(
+          extracted.structuredData,
+          canonicalUrl,
+          observedAt.toISOString(),
+          'json_ld',
+        );
     let embeddings: number[][] | undefined;
     if (textChunks.length > 0) {
       try {
@@ -181,23 +340,46 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
       }
     }
     const committed = await getDb().transaction(async (tx) => {
-      if (!await ownsPageLease(tx, page)) return false;
+      if (!(await ownsPageLease(tx, page))) return false;
       const documentStatus = extracted.noindex ? 'blocked' : 'indexed';
-      const nextFetchAt = postings.length > 0
-        ? new Date(observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000)
-        : null;
+      const nextFetchAt =
+        postings.length > 0
+          ? new Date(observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000)
+          : null;
       const mutable = {
-        siteId: job.siteId, finalUrl: result.finalUrl, status: documentStatus, documentType: extracted.documentType,
-        contentHash, httpStatus: result.status, etag: header(result.headers.etag), lastModified: header(result.headers['last-modified']),
-        contentType, language: extracted.language, title: extracted.title, description: extracted.description,
-        mainContent: extracted.mainContent, structuredData: extracted.structuredData, fieldEvidence: extracted.evidence,
-        imageUrl: extracted.imageUrl, faviconUrl: extracted.faviconUrl, noindex: extracted.noindex, nofollow: extracted.nofollow,
-        publishedAt: extracted.publishedAt, modifiedAt: extracted.modifiedAt, publisherName: extracted.publisher,
-        fetchedAt: observedAt, indexedAt: extracted.noindex ? undefined : observedAt, nextFetchAt,
+        siteId: job.siteId,
+        finalUrl: result.finalUrl,
+        status: documentStatus,
+        documentType: extracted.documentType,
+        contentHash,
+        httpStatus: result.status,
+        etag: header(result.headers.etag),
+        lastModified: header(result.headers['last-modified']),
+        contentType,
+        language: extracted.language,
+        title: extracted.title,
+        description: extracted.description,
+        mainContent: extracted.mainContent,
+        structuredData: extracted.structuredData,
+        fieldEvidence: extracted.evidence,
+        imageUrl: extracted.imageUrl,
+        faviconUrl: extracted.faviconUrl,
+        noindex: extracted.noindex,
+        nofollow: extracted.nofollow,
+        publishedAt: extracted.publishedAt,
+        modifiedAt: extracted.modifiedAt,
+        publisherName: extracted.publisher,
+        fetchedAt: observedAt,
+        indexedAt: extracted.noindex ? undefined : observedAt,
+        nextFetchAt,
       };
-      const [document] = await tx.insert(searchDocuments)
+      const [document] = await tx
+        .insert(searchDocuments)
         .values({ id: crypto.randomUUID(), requestedUrl: page.url, canonicalUrl, ...mutable })
-        .onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: { ...mutable, updatedAt: observedAt } })
+        .onConflictDoUpdate({
+          target: searchDocuments.canonicalUrl,
+          set: { ...mutable, updatedAt: observedAt },
+        })
         .returning();
       await replaceDocumentChunks(tx, document.id, textChunks, embeddings, extractorVersion);
       await registerHosts(tx, [{ url: canonicalUrl, iconHintUrl: extracted.faviconUrl }]);
@@ -208,20 +390,60 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
         sourceType: job.siteId ? 'verified_site' : 'web',
         observedAt,
       });
-      await tx.update(crawlPages).set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
-      await tx.update(crawlJobs).set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
-      await tx.update(fetchAttempts).set({ status: 'succeeded', httpStatus: result.status, bytesReceived: bytes, durationMs: Date.now() - startedAt, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
+      await tx
+        .update(crawlPages)
+        .set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() })
+        .where(eq(crawlPages.id, page.id));
+      await tx
+        .update(crawlJobs)
+        .set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() })
+        .where(eq(crawlJobs.id, page.jobId));
+      await tx
+        .update(fetchAttempts)
+        .set({
+          status: 'succeeded',
+          httpStatus: result.status,
+          bytesReceived: bytes,
+          durationMs: Date.now() - startedAt,
+          finishedAt: new Date(),
+        })
+        .where(eq(fetchAttempts.id, attemptId));
       await finishJobIfComplete(tx, page.jobId);
       return true;
     });
-    if (committed && !extracted.noindex) await consumeUsage({ principal, operation: 'page_indexed', idempotencyKey: `crawl-page:${page.id}:indexed` });
+    if (committed && !extracted.noindex)
+      await consumeUsage({
+        principal,
+        operation: 'page_indexed',
+        idempotencyKey: `crawl-page:${page.id}:indexed`,
+      });
   } catch (error) {
     const retry = page.attemptCount < 3;
     const detail = error instanceof Error ? error.message.slice(0, 500) : 'unknown fetch failure';
     await getDb().transaction(async (tx) => {
-      if (!await ownsPageLease(tx, page)) return;
-      await tx.update(crawlPages).set({ status: retry ? 'retry' : 'failed', availableAt: sql`now() + (${2 ** page.attemptCount} * interval '1 minute')`, leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'fetch_failed', lastErrorDetail: detail, updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
-      await tx.update(fetchAttempts).set({ status: 'failed', durationMs: Date.now() - startedAt, errorCode: 'fetch_failed', errorDetail: detail, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
+      if (!(await ownsPageLease(tx, page))) return;
+      await tx
+        .update(crawlPages)
+        .set({
+          status: retry ? 'retry' : 'failed',
+          availableAt: sql`now() + (${2 ** page.attemptCount} * interval '1 minute')`,
+          leaseOwner: null,
+          leaseExpiresAt: null,
+          lastErrorCode: 'fetch_failed',
+          lastErrorDetail: detail,
+          updatedAt: new Date(),
+        })
+        .where(eq(crawlPages.id, page.id));
+      await tx
+        .update(fetchAttempts)
+        .set({
+          status: 'failed',
+          durationMs: Date.now() - startedAt,
+          errorCode: 'fetch_failed',
+          errorDetail: detail,
+          finishedAt: new Date(),
+        })
+        .where(eq(fetchAttempts.id, attemptId));
       if (!retry) await finishJobIfComplete(tx, page.jobId);
     });
   }
@@ -236,24 +458,72 @@ async function recordGoneDocument(
   startedAt: number,
 ): Promise<void> {
   await getDb().transaction(async (tx) => {
-    if (!await ownsPageLease(tx, page)) return;
-    const [document] = await tx.update(searchDocuments)
-      .set({ status: 'removed', httpStatus: status, finalUrl, fetchedAt: new Date(), nextFetchAt: null, updatedAt: new Date() })
-      .where(or(eq(searchDocuments.requestedUrl, page.url), eq(searchDocuments.canonicalUrl, page.url)))
+    if (!(await ownsPageLease(tx, page))) return;
+    const [document] = await tx
+      .update(searchDocuments)
+      .set({
+        status: 'removed',
+        httpStatus: status,
+        finalUrl,
+        fetchedAt: new Date(),
+        nextFetchAt: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        or(eq(searchDocuments.requestedUrl, page.url), eq(searchDocuments.canonicalUrl, page.url)),
+      )
       .returning({ id: searchDocuments.id });
     if (document) await closeJobPostingsForDocument(tx, document.id, 'http_gone');
-    await tx.update(crawlPages).set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, lastErrorCode: 'http_gone', updatedAt: new Date() }).where(eq(crawlPages.id, page.id));
-    await tx.update(crawlJobs).set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() }).where(eq(crawlJobs.id, page.jobId));
-    await tx.update(fetchAttempts).set({ status: 'succeeded', httpStatus: status, durationMs: Date.now() - startedAt, finishedAt: new Date() }).where(eq(fetchAttempts.id, attemptId));
+    await tx
+      .update(crawlPages)
+      .set({
+        status: 'succeeded',
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        lastErrorCode: 'http_gone',
+        updatedAt: new Date(),
+      })
+      .where(eq(crawlPages.id, page.id));
+    await tx
+      .update(crawlJobs)
+      .set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() })
+      .where(eq(crawlJobs.id, page.jobId));
+    await tx
+      .update(fetchAttempts)
+      .set({
+        status: 'succeeded',
+        httpStatus: status,
+        durationMs: Date.now() - startedAt,
+        finishedAt: new Date(),
+      })
+      .where(eq(fetchAttempts.id, attemptId));
     await finishJobIfComplete(tx, page.jobId);
   });
 }
 
-async function finishJobIfComplete(tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0], jobId: string) {
-  const [{ pending }] = await tx.select({ pending: sql<number>`count(*) filter (where ${crawlPages.status} not in ('succeeded', 'failed'))::int` }).from(crawlPages).where(eq(crawlPages.jobId, jobId));
+async function finishJobIfComplete(
+  tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0],
+  jobId: string,
+) {
+  const [{ pending }] = await tx
+    .select({
+      pending: sql<number>`count(*) filter (where ${crawlPages.status} not in ('succeeded', 'failed'))::int`,
+    })
+    .from(crawlPages)
+    .where(eq(crawlPages.jobId, jobId));
   if (pending === 0) {
-    const [{ failed }] = await tx.select({ failed: sql<number>`count(*) filter (where ${crawlPages.status} = 'failed')::int` }).from(crawlPages).where(eq(crawlPages.jobId, jobId));
-    await tx.update(crawlJobs).set({ status: failed > 0 ? 'partial' : 'succeeded', finishedAt: new Date(), updatedAt: new Date() }).where(eq(crawlJobs.id, jobId));
+    const [{ failed }] = await tx
+      .select({ failed: sql<number>`count(*) filter (where ${crawlPages.status} = 'failed')::int` })
+      .from(crawlPages)
+      .where(eq(crawlPages.jobId, jobId));
+    await tx
+      .update(crawlJobs)
+      .set({
+        status: failed > 0 ? 'partial' : 'succeeded',
+        finishedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(crawlJobs.id, jobId));
   }
 }
 
@@ -302,19 +572,42 @@ export async function enqueueJobRecrawls(): Promise<number> {
     for (const rows of batches.values()) {
       const [first] = rows;
       const urls = [...new Set(rows.map((row) => row.url))];
-      const [operation] = await tx.insert(crawlJobs).values({
-        id: crypto.randomUUID(), ownerAccountId: first.ownerAccountId, applicationId: first.applicationId,
-        credentialId: first.credentialId, siteId: first.siteId, kind: 'recrawl',
-        idempotencyKey: `job-recrawl:${new Date().toISOString()}:${crypto.randomUUID()}`,
-        requestedUrls: urls, pagesDiscovered: urls.length, callerTier: callerTierOf(first),
-      }).returning();
-      await tx.insert(crawlPages)
-        .values(urls.map((url) => ({ id: crypto.randomUUID(), jobId: operation.id, url, discoverySource: 'recrawl' })))
+      const [operation] = await tx
+        .insert(crawlJobs)
+        .values({
+          id: crypto.randomUUID(),
+          ownerAccountId: first.ownerAccountId,
+          applicationId: first.applicationId,
+          credentialId: first.credentialId,
+          siteId: first.siteId,
+          kind: 'recrawl',
+          idempotencyKey: `job-recrawl:${new Date().toISOString()}:${crypto.randomUUID()}`,
+          requestedUrls: urls,
+          pagesDiscovered: urls.length,
+          callerTier: callerTierOf(first),
+        })
+        .returning();
+      await tx
+        .insert(crawlPages)
+        .values(
+          urls.map((url) => ({
+            id: crypto.randomUUID(),
+            jobId: operation.id,
+            url,
+            discoverySource: 'recrawl',
+          })),
+        )
         .onConflictDoNothing();
     }
-    await tx.update(searchDocuments)
+    await tx
+      .update(searchDocuments)
       .set({ nextFetchAt: cycle, updatedAt: new Date() })
-      .where(sql`${searchDocuments.id} in (${sql.join(due.map((row) => sql`${row.documentId}`), sql`, `)})`);
+      .where(
+        sql`${searchDocuments.id} in (${sql.join(
+          due.map((row) => sql`${row.documentId}`),
+          sql`, `,
+        )})`,
+      );
   });
   return due.length;
 }
@@ -324,7 +617,9 @@ async function runIconRefresh(): Promise<void> {
     const { fetched, missing } = await refreshDueIcons(iconRefreshBatchSize);
     if (fetched + missing > 0) console.info('Site icons refreshed', { fetched, missing });
   } catch (error) {
-    console.error('Site icon refresh failed', { error: error instanceof Error ? error.message : 'unknown icon failure' });
+    console.error('Site icon refresh failed', {
+      error: error instanceof Error ? error.message : 'unknown icon failure',
+    });
   }
 }
 
@@ -334,7 +629,9 @@ async function runImageCacheSweep(): Promise<void> {
     const removed = await sweepImageCache();
     if (removed > 0) console.info('Image cache swept', { removed });
   } catch (error) {
-    console.error('Image cache sweep failed', { error: error instanceof Error ? error.message : 'unknown sweep failure' });
+    console.error('Image cache sweep failed', {
+      error: error instanceof Error ? error.message : 'unknown sweep failure',
+    });
   }
 }
 
@@ -368,7 +665,9 @@ async function runFeedLoop(isStopping: () => boolean): Promise<void> {
       idle = feeds.polled + feeds.failed === 0;
       if (!idle) console.info('Job feeds polled', feeds);
     } catch (error) {
-      console.error('Job feed polling failed', { error: error instanceof Error ? error.message : 'unknown feed failure' });
+      console.error('Job feed polling failed', {
+        error: error instanceof Error ? error.message : 'unknown feed failure',
+      });
     }
     // Rest in short steps so a shutdown is not held up by an idle wait.
     for (let waited = 0; idle && waited < feedIdleMs && !isStopping(); waited += 1000) {
@@ -377,7 +676,9 @@ async function runFeedLoop(isStopping: () => boolean): Promise<void> {
   }
 }
 
-function header(value: string | string[] | undefined): string | undefined { return Array.isArray(value) ? value[0] : value; }
+function header(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
 
 /** The side of the ecosystem the job's caller is on; anything unexpected is external. */
 function callerTierOf(job: { callerTier: string }): 'internal' | 'external' {
@@ -390,8 +691,12 @@ async function main() {
   const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
   let nextIconRefreshAt = 0;
-  process.once('SIGTERM', () => { stopping = true; });
-  process.once('SIGINT', () => { stopping = true; });
+  process.once('SIGTERM', () => {
+    stopping = true;
+  });
+  process.once('SIGINT', () => {
+    stopping = true;
+  });
   const feedLoop = runFeedLoop(() => stopping);
   while (!stopping) {
     if (Date.now() >= nextMaintenanceAt) {
@@ -412,4 +717,8 @@ async function main() {
   await closePostgres();
 }
 
-if (import.meta.main) main().catch((error: unknown) => { console.error(error instanceof Error ? error.message : error); process.exit(1); });
+if (import.meta.main)
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });

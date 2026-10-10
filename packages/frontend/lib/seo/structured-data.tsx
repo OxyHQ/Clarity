@@ -16,22 +16,22 @@ export function generateOrganizationSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'Organization',
-    'name': SITE_NAME,
-    'legalName': 'Oxy Technologies Inc.',
-    'url': SITE_URL,
-    'logo': LOGO_URL,
-    'foundingDate': '2024',
-    'description': 'Advanced AI chat assistant with contextual memory and multilingual support.',
-    'sameAs': [
+    name: SITE_NAME,
+    legalName: 'Oxy Technologies Inc.',
+    url: SITE_URL,
+    logo: LOGO_URL,
+    foundingDate: '2024',
+    description: 'Advanced AI chat assistant with contextual memory and multilingual support.',
+    sameAs: [
       'https://twitter.com/ClarityByOxy',
       'https://github.com/oxy',
       'https://linkedin.com/company/oxy',
     ],
-    'contactPoint': {
+    contactPoint: {
       '@type': 'ContactPoint',
-      'contactType': 'Customer Support',
-      'email': 'support@clarity.surf',
-      'availableLanguage': ['en', 'es', 'fr', 'de', 'pt', 'it', 'ja', 'zh', 'ko'],
+      contactType: 'Customer Support',
+      email: 'support@clarity.surf',
+      availableLanguage: ['en', 'es', 'fr', 'de', 'pt', 'it', 'ja', 'zh', 'ko'],
     },
   };
 }
@@ -43,30 +43,31 @@ export function generateWebApplicationSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
-    'name': SITE_NAME,
-    'url': SITE_URL,
-    'description': 'Clarity is an AI-powered search engine by Oxy that provides comprehensive answers with cited sources.',
-    'applicationCategory': 'UtilityApplication',
-    'operatingSystem': 'Web, iOS, Android',
-    'offers': {
+    name: SITE_NAME,
+    url: SITE_URL,
+    description:
+      'Clarity is an AI-powered search engine by Oxy that provides comprehensive answers with cited sources.',
+    applicationCategory: 'UtilityApplication',
+    operatingSystem: 'Web, iOS, Android',
+    offers: {
       '@type': 'Offer',
-      'price': '0',
-      'priceCurrency': 'USD',
-      'availability': 'https://schema.org/InStock',
+      price: '0',
+      priceCurrency: 'USD',
+      availability: 'https://schema.org/InStock',
     },
-    'aggregateRating': {
+    aggregateRating: {
       '@type': 'AggregateRating',
-      'ratingValue': '4.8',
-      'ratingCount': '1247',
-      'bestRating': '5',
-      'worstRating': '1',
+      ratingValue: '4.8',
+      ratingCount: '1247',
+      bestRating: '5',
+      worstRating: '1',
     },
-    'author': {
+    author: {
       '@type': 'Organization',
-      'name': 'Oxy Technologies',
+      name: 'Oxy Technologies',
     },
-    'screenshot': `${SITE_URL}/screenshots/chat-interface.png`,
-    'featureList': [
+    screenshot: `${SITE_URL}/screenshots/chat-interface.png`,
+    featureList: [
       'Advanced AI chat with memory',
       'Multiple AI models for every task',
       'Custom roles and personas',
@@ -84,32 +85,32 @@ export function generateSoftwareApplicationSchema() {
   return {
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
-    'name': SITE_NAME,
-    'applicationCategory': 'BusinessApplication',
-    'operatingSystem': 'Web Browser, iOS, Android',
-    'offers': [
+    name: SITE_NAME,
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web Browser, iOS, Android',
+    offers: [
       {
         '@type': 'Offer',
-        'name': 'Free Plan',
-        'price': '0',
-        'priceCurrency': 'USD',
+        name: 'Free Plan',
+        price: '0',
+        priceCurrency: 'USD',
       },
       {
         '@type': 'Offer',
-        'name': 'Pro Plan',
-        'price': '20',
-        'priceCurrency': 'USD',
-        'priceSpecification': {
+        name: 'Pro Plan',
+        price: '20',
+        priceCurrency: 'USD',
+        priceSpecification: {
           '@type': 'UnitPriceSpecification',
-          'billingDuration': 'P1M',
-          'billingIncrement': '1',
+          billingDuration: 'P1M',
+          billingIncrement: '1',
         },
       },
     ],
-    'aggregateRating': {
+    aggregateRating: {
       '@type': 'AggregateRating',
-      'ratingValue': '4.8',
-      'ratingCount': '1247',
+      ratingValue: '4.8',
+      ratingCount: '1247',
     },
   };
 }
@@ -121,12 +122,12 @@ export function generateFAQSchema(faqs: Array<{ question: string; answer: string
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
-    'mainEntity': faqs.map(faq => ({
+    mainEntity: faqs.map((faq) => ({
       '@type': 'Question',
-      'name': faq.question,
-      'acceptedAnswer': {
+      name: faq.question,
+      acceptedAnswer: {
         '@type': 'Answer',
-        'text': faq.answer,
+        text: faq.answer,
       },
     })),
   };
@@ -147,24 +148,24 @@ export function generateArticleSchema(article: {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    'headline': article.title,
-    'description': article.description,
-    'image': article.image || `${SITE_URL}/og-image-default.png`,
-    'datePublished': article.datePublished,
-    'dateModified': article.dateModified || article.datePublished,
-    'author': {
+    headline: article.title,
+    description: article.description,
+    image: article.image || `${SITE_URL}/og-image-default.png`,
+    datePublished: article.datePublished,
+    dateModified: article.dateModified || article.datePublished,
+    author: {
       '@type': 'Person',
-      'name': article.author,
+      name: article.author,
     },
-    'publisher': {
+    publisher: {
       '@type': 'Organization',
-      'name': SITE_NAME,
-      'logo': {
+      name: SITE_NAME,
+      logo: {
         '@type': 'ImageObject',
-        'url': LOGO_URL,
+        url: LOGO_URL,
       },
     },
-    'url': article.url,
+    url: article.url,
   };
 }
 
@@ -175,11 +176,11 @@ export function generateBreadcrumbSchema(items: Array<{ name: string; url: strin
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    'itemListElement': items.map((item, index) => ({
+    itemListElement: items.map((item, index) => ({
       '@type': 'ListItem',
-      'position': index + 1,
-      'name': item.name,
-      'item': item.url,
+      position: index + 1,
+      name: item.name,
+      item: item.url,
     })),
   };
 }
@@ -195,13 +196,13 @@ export function generateHowToSchema(howto: {
   return {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
-    'name': howto.name,
-    'description': howto.description,
-    'step': howto.steps.map((step, index) => ({
+    name: howto.name,
+    description: howto.description,
+    step: howto.steps.map((step, index) => ({
       '@type': 'HowToStep',
-      'position': index + 1,
-      'name': step.name,
-      'text': step.text,
+      position: index + 1,
+      name: step.name,
+      text: step.text,
       ...(step.image && { image: step.image }),
     })),
   };
@@ -226,22 +227,22 @@ export function generateProductSchema(product: {
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
-    'name': product.name,
-    'description': product.description,
-    'image': product.image || `${SITE_URL}/og-image-default.png`,
+    name: product.name,
+    description: product.description,
+    image: product.image || `${SITE_URL}/og-image-default.png`,
     ...(product.offers && {
       offers: {
         '@type': 'Offer',
-        'price': product.offers.price,
-        'priceCurrency': product.offers.priceCurrency,
-        'availability': 'https://schema.org/InStock',
+        price: product.offers.price,
+        priceCurrency: product.offers.priceCurrency,
+        availability: 'https://schema.org/InStock',
       },
     }),
     ...(product.rating && {
       aggregateRating: {
         '@type': 'AggregateRating',
-        'ratingValue': product.rating.value.toString(),
-        'ratingCount': product.rating.count.toString(),
+        ratingValue: product.rating.value.toString(),
+        ratingCount: product.rating.count.toString(),
       },
     }),
   };
@@ -261,11 +262,11 @@ export function generateVideoSchema(video: {
   return {
     '@context': 'https://schema.org',
     '@type': 'VideoObject',
-    'name': video.name,
-    'description': video.description,
-    'thumbnailUrl': video.thumbnailUrl,
-    'uploadDate': video.uploadDate,
-    'contentUrl': video.contentUrl,
+    name: video.name,
+    description: video.description,
+    thumbnailUrl: video.thumbnailUrl,
+    uploadDate: video.uploadDate,
+    contentUrl: video.contentUrl,
     ...(video.duration && { duration: video.duration }),
   };
 }

@@ -10,8 +10,7 @@ import {
   FileText,
   Settings,
   User,
-} from "lucide-react-native";
-
+} from 'lucide-react-native';
 
 const TOOL_ICON_REGISTRY: Record<string, any> = {
   webSearch: Search,

@@ -43,7 +43,7 @@ it is never stored in the repository, a user bearer or an inference-provider
 key. Redis, Stripe and browser-push settings are optional.
 
 ```bash
-bun run --filter @clarity/backend lint
+bun run lint            # Biome (lint + format check), whole repo — CI runs `bunx biome ci .`
 bun run --filter @clarity/backend test
 bun run build:backend
 ```

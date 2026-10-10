@@ -10,11 +10,10 @@ import marketRouter from './v1/market.js';
 
 const router = Router();
 
-
 router.get('/', (_req, res) => {
   res.json({
     message: 'AI Platform API v1',
-    version: '1.0.0'
+    version: '1.0.0',
   });
 });
 
@@ -75,7 +74,8 @@ router.get('/me', async (req: Request, res: Response) => {
 router.post('/resolve-model', async (_req: Request, res: Response) => {
   res.status(410).json({
     error: 'Endpoint removed',
-    message: 'Use /v1/chat/completions with Clarity model IDs. Direct inference routing is unavailable.',
+    message:
+      'Use /v1/chat/completions with Clarity model IDs. Direct inference routing is unavailable.',
   });
 });
 

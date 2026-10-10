@@ -106,7 +106,8 @@ export default function SubscribeScreen() {
 
           <View className={`gap-4 ${isLargeScreen ? 'flex-row flex-wrap justify-center' : ''}`}>
             {(plans || []).map((plan) => {
-              const isCurrent = plan.id === currentPlanId || (plan.isFree && currentPlanId === 'free');
+              const isCurrent =
+                plan.id === currentPlanId || (plan.isFree && currentPlanId === 'free');
               return (
                 <View
                   key={plan.id}
@@ -126,9 +127,7 @@ export default function SubscribeScreen() {
                     <Text className="text-sm text-muted-foreground mb-3">{plan.subtitle}</Text>
                   )}
                   <View className="flex-row items-baseline mb-4">
-                    <Text className="text-3xl font-bold text-foreground">
-                      ${plan.monthlyPrice}
-                    </Text>
+                    <Text className="text-3xl font-bold text-foreground">${plan.monthlyPrice}</Text>
                     <Text className="text-muted-foreground ml-1">/mo</Text>
                   </View>
                   {plan.creditsLabel && (
@@ -136,23 +135,27 @@ export default function SubscribeScreen() {
                   )}
                   {plan.features?.map((group) =>
                     group.items.map((item, i) => (
-                      <View key={`${group.category}-${i}`} className="flex-row items-start gap-2 mb-2">
+                      <View
+                        key={`${group.category}-${i}`}
+                        className="flex-row items-start gap-2 mb-2"
+                      >
                         <Check size={16} className="text-primary mt-0.5" />
                         <Text className="text-sm text-foreground flex-1">{item.label}</Text>
                       </View>
-                    ))
+                    )),
                   )}
                   <Button
                     className="mt-4"
-                    appearance={plan.isFeatured ? "solid" : "outline"} tone={plan.isFeatured ? "accent" : "neutral"}
+                    appearance={plan.isFeatured ? 'solid' : 'outline'}
+                    tone={plan.isFeatured ? 'accent' : 'neutral'}
                     disabled={isCurrent || checkoutMutation.isPending}
                     onPress={() => handleSelectPlan(plan)}
                   >
                     {isCurrent
-                      ? (t('subscribe.currentPlan') || 'Current plan')
+                      ? t('subscribe.currentPlan') || 'Current plan'
                       : plan.isFree
-                        ? (t('subscribe.free') || 'Free')
-                        : (t('subscribe.subscribe') || 'Subscribe')}
+                        ? t('subscribe.free') || 'Free'
+                        : t('subscribe.subscribe') || 'Subscribe'}
                   </Button>
                 </View>
               );

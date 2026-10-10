@@ -29,7 +29,9 @@ export interface CreditsInfo {
 }
 
 export function useCredits() {
-  return useAuthQuery<CreditsInfo>(queryKeys.credits.info, '/credits', undefined, { staleTime: 60_000 });
+  return useAuthQuery<CreditsInfo>(queryKeys.credits.info, '/credits', undefined, {
+    staleTime: 60_000,
+  });
 }
 
 // --- Credit usage chart ---
@@ -40,7 +42,12 @@ export interface DailyUsage {
 }
 
 export function useCreditsUsage(period: UsagePeriod = '24h') {
-  return useAuthQuery<DailyUsage[]>(queryKeys.credits.usage(period), '/credits/usage', { period }, { staleTime: 30_000 });
+  return useAuthQuery<DailyUsage[]>(
+    queryKeys.credits.usage(period),
+    '/credits/usage',
+    { period },
+    { staleTime: 30_000 },
+  );
 }
 
 // --- Analytics ---

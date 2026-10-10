@@ -56,7 +56,7 @@ suite('image cache on Postgres', () => {
 
   beforeEach(() => safeFetch.mockReset());
 
-  it('fetches an image once, then serves Clarity\'s copy', async () => {
+  it("fetches an image once, then serves Clarity's copy", async () => {
     safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[0]));
 
     const first = await readCachedImage(urls[0]);
@@ -73,7 +73,11 @@ suite('image cache on Postgres', () => {
     await getDb().delete(imageCache).where(eq(imageCache.key, keys[0]));
     safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[0]));
 
-    const results = await Promise.all([readCachedImage(urls[0]), readCachedImage(urls[0]), readCachedImage(urls[0])]);
+    const results = await Promise.all([
+      readCachedImage(urls[0]),
+      readCachedImage(urls[0]),
+      readCachedImage(urls[0]),
+    ]);
 
     expect(results.every((image) => image?.contentType === 'image/png')).toBe(true);
     expect(safeFetch).toHaveBeenCalledTimes(1);
@@ -100,7 +104,9 @@ suite('image cache on Postgres', () => {
   });
 
   it('refuses an image larger than the cap', async () => {
-    safeFetch.mockResolvedValueOnce(answer(200, Buffer.concat([JPEG, Buffer.alloc(MAX_IMAGE_BYTES)]), urls[3]));
+    safeFetch.mockResolvedValueOnce(
+      answer(200, Buffer.concat([JPEG, Buffer.alloc(MAX_IMAGE_BYTES)]), urls[3]),
+    );
 
     expect(await readCachedImage(urls[3])).toBeUndefined();
   });
@@ -111,7 +117,10 @@ suite('image cache on Postgres', () => {
 
     const later = Date.now() + IMAGE_REFRESH_MS + 1000;
     safeFetch.mockResolvedValueOnce(answer(500, 'down', urls[4]));
-    expect(await readCachedImage(urls[4], later)).toEqual({ contentType: 'image/jpeg', bytes: JPEG });
+    expect(await readCachedImage(urls[4], later)).toEqual({
+      contentType: 'image/jpeg',
+      bytes: JPEG,
+    });
     expect(safeFetch).toHaveBeenCalledTimes(2);
     const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[4]));
     expect(row.status).toBe('ready');
@@ -119,9 +128,15 @@ suite('image cache on Postgres', () => {
     // The kept copy is NOT treated as fresh for another refresh period: within
     // the miss window it is served as is, and once that passes it is retried.
     safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[4]));
-    expect(await readCachedImage(urls[4], later + 60_000)).toEqual({ contentType: 'image/jpeg', bytes: JPEG });
+    expect(await readCachedImage(urls[4], later + 60_000)).toEqual({
+      contentType: 'image/jpeg',
+      bytes: JPEG,
+    });
     expect(safeFetch).toHaveBeenCalledTimes(2);
-    expect(await readCachedImage(urls[4], later + IMAGE_MISS_TTL_MS + 60_000)).toEqual({ contentType: 'image/png', bytes: PNG });
+    expect(await readCachedImage(urls[4], later + IMAGE_MISS_TTL_MS + 60_000)).toEqual({
+      contentType: 'image/png',
+      bytes: PNG,
+    });
     expect(safeFetch).toHaveBeenCalledTimes(3);
   });
 
@@ -131,16 +146,21 @@ suite('image cache on Postgres', () => {
   });
 
   it('sweeps images nobody has asked for, and expired failures, but keeps the rest', async () => {
-    await getDb().update(imageCache)
+    await getDb()
+      .update(imageCache)
       .set({ lastAccessedAt: new Date(Date.now() - IMAGE_IDLE_TTL_MS - 60_000) })
       .where(eq(imageCache.key, keys[0]));
-    await getDb().update(imageCache)
+    await getDb()
+      .update(imageCache)
       .set({ fetchedAt: new Date(Date.now() - IMAGE_MISS_TTL_MS - 60_000) })
       .where(eq(imageCache.key, keys[2]));
 
     await sweepImageCache();
 
-    const left = await getDb().select({ key: imageCache.key }).from(imageCache).where(inArray(imageCache.key, keys));
+    const left = await getDb()
+      .select({ key: imageCache.key })
+      .from(imageCache)
+      .where(inArray(imageCache.key, keys));
     const leftKeys = new Set(left.map((row) => row.key));
     expect(leftKeys.has(keys[0])).toBe(false);
     expect(leftKeys.has(keys[2])).toBe(false);
@@ -151,13 +171,16 @@ suite('image cache on Postgres', () => {
 describe('public image URLs', () => {
   it('points at Clarity, never at the site', () => {
     const url = publicImageUrl('documents', 'doc-1', 'https://site.example/og.jpg');
-    expect(url).toBe(`https://api.clarity.surf/images/documents/doc-1/${imageVersion('https://site.example/og.jpg')}`);
+    expect(url).toBe(
+      `https://api.clarity.surf/images/documents/doc-1/${imageVersion('https://site.example/og.jpg')}`,
+    );
     expect(url).not.toContain('site.example');
   });
 
   it('changes when the source image does', () => {
-    expect(publicImageUrl('jobs', 'job-1', 'https://site.example/a.png'))
-      .not.toBe(publicImageUrl('jobs', 'job-1', 'https://site.example/b.png'));
+    expect(publicImageUrl('jobs', 'job-1', 'https://site.example/a.png')).not.toBe(
+      publicImageUrl('jobs', 'job-1', 'https://site.example/b.png'),
+    );
   });
 
   it('gives no URL when there is no public image', () => {

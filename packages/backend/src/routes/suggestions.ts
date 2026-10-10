@@ -21,7 +21,10 @@ const aiSuggestionSchema = z.object({
   description: z.string().optional().default(''),
   type: z.enum(['welcome', 'autocomplete']).catch('autocomplete'),
   category: z.string().optional().default('general'),
-  language: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/).optional(),
+  language: z
+    .string()
+    .regex(/^[a-z]{2}-[A-Z]{2}$/)
+    .optional(),
   triggerWords: z.array(z.string()).optional().default([]),
   tags: z.array(z.string()).optional().default([]),
   occupations: z.array(z.string()).optional().default([]),
@@ -62,12 +65,15 @@ function cacheSet(key: string, data: SearchSuggestion[], ttl: number): void {
 }
 
 // Periodic cleanup every 2 min
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, entry] of cache) {
-    if (entry.expiresAt < now) cache.delete(key);
-  }
-}, 2 * 60 * 1000);
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of cache) {
+      if (entry.expiresAt < now) cache.delete(key);
+    }
+  },
+  2 * 60 * 1000,
+);
 
 interface AliaMemoryProfile {
   preferences?: { language?: string; tone?: string; interests?: string[] };
@@ -182,7 +188,11 @@ router.post('/create', authenticateToken, async (req: Request, res: Response) =>
     }
 
     // Generate suggestionId
-    const suggestionId = `user-${title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').slice(0, 40)}-${Date.now().toString(36).slice(-4)}`;
+    const suggestionId = `user-${title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 40)}-${Date.now().toString(36).slice(-4)}`;
 
     const suggestion = await createSuggestion({
       suggestionId,
@@ -221,12 +231,11 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
     const userId = req.user.id;
 
     const requestedCount = Number(req.body?.count ?? 6);
-    const count = Number.isInteger(requestedCount)
-      ? Math.min(Math.max(requestedCount, 1), 12)
-      : 6;
+    const count = Number.isInteger(requestedCount) ? Math.min(Math.max(requestedCount, 1), 12) : 6;
     const requestedTypes = Array.isArray(req.body?.types) ? req.body.types : [];
-    const types = requestedTypes.filter((value: unknown): value is 'welcome' | 'autocomplete' =>
-      value === 'welcome' || value === 'autocomplete'
+    const types = requestedTypes.filter(
+      (value: unknown): value is 'welcome' | 'autocomplete' =>
+        value === 'welcome' || value === 'autocomplete',
     );
     if (types.length === 0) types.push('welcome', 'autocomplete');
 
@@ -244,7 +253,9 @@ router.post('/generate', authenticateToken, async (req: Request, res: Response) 
       occupation ? `job:${occupation}` : '',
       location ? `loc:${location}` : '',
       `tone:${tone}`,
-    ].filter(Boolean).join(' | ');
+    ]
+      .filter(Boolean)
+      .join(' | ');
 
     const responseText = await completeAsClarityAgent({
       userId,
@@ -292,8 +303,8 @@ Return ONLY a valid JSON array, no other text.`,
 
     // Validate each item with Zod, skip invalid ones
     const validated = rawParsed
-      .map(item => aiSuggestionSchema.safeParse(item))
-      .flatMap((result) => result.success ? [result.data] : []);
+      .map((item) => aiSuggestionSchema.safeParse(item))
+      .flatMap((result) => (result.success ? [result.data] : []));
 
     // Create suggestion documents
     const created = [];
@@ -351,8 +362,14 @@ router.patch('/:id', authenticateToken, async (req: Request, res: Response) => {
     }
 
     const allowedFields = [
-      'title', 'text', 'description', 'type', 'category',
-      'triggerWords', 'tags', 'expiresAt',
+      'title',
+      'text',
+      'description',
+      'type',
+      'category',
+      'triggerWords',
+      'tags',
+      'expiresAt',
     ];
 
     const patch: SuggestionPatch = {};

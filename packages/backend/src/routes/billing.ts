@@ -1,7 +1,13 @@
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { authenticateToken, oxyClient } from '../middleware/auth.js';
-import { getPlans, getFeatures, getPlanFeatures, getAllClarityModels, type PlanFeatureData } from '../lib/product-catalogue.js';
+import {
+  getPlans,
+  getFeatures,
+  getPlanFeatures,
+  getAllClarityModels,
+  type PlanFeatureData,
+} from '../lib/product-catalogue.js';
 import { ensureStripePriceId } from '../lib/stripe-prices.js';
 import { getUserEntitlements, invalidateEntitlementsCache } from '../lib/plan-access.js';
 import { proxyAliaJson } from '../lib/alia-agent-client.js';
@@ -66,8 +72,9 @@ async function getOrCreateStripeCustomer(userId: string): Promise<string> {
       const customer = await getStripe().customers.retrieve(customerId);
       if (!customer.deleted) return customerId;
     } catch (error: unknown) {
-      const isMissing = error instanceof Stripe.errors.StripeInvalidRequestError
-        && (error.statusCode === 404 || error.code === 'resource_missing');
+      const isMissing =
+        error instanceof Stripe.errors.StripeInvalidRequestError &&
+        (error.statusCode === 404 || error.code === 'resource_missing');
       if (!isMissing) throw error;
     }
   }
@@ -120,7 +127,8 @@ const createCheckoutSchema = z.object({
 
 router.post('/checkout/credits', authenticateToken, async (req: Request, res: Response) => {
   const parsed = createCheckoutSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.issues });
+  if (!parsed.success)
+    return res.status(400).json({ error: 'Invalid input', details: parsed.error.issues });
   await proxyAliaJson(req, res, '/billing/checkout/credits');
 });
 
@@ -136,7 +144,8 @@ const customCreditsSchema = z.object({
 
 router.post('/checkout/custom-credits', authenticateToken, async (req: Request, res: Response) => {
   const parsed = customCreditsSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.issues });
+  if (!parsed.success)
+    return res.status(400).json({ error: 'Invalid input', details: parsed.error.issues });
   await proxyAliaJson(req, res, '/billing/checkout/custom-credits');
 });
 
@@ -157,8 +166,10 @@ router.get('/plans', async (req: Request, res: Response) => {
       getPlanFeatures(),
     ]);
     // Filter features/plan-features client-side (API may return all)
-    const allFeatures = rawFeatures.filter(f => f.isActive !== false && f.isVisibleOnPricing !== false);
-    const allPlanFeatures = rawPlanFeatures.filter(pf => pf.enabled !== false);
+    const allFeatures = rawFeatures.filter(
+      (f) => f.isActive !== false && f.isVisibleOnPricing !== false,
+    );
+    const allPlanFeatures = rawPlanFeatures.filter((pf) => pf.enabled !== false);
 
     // Build lookup: planId -> featureId -> PlanFeature mapping
     const pfMap: Record<string, Record<string, PlanFeatureData>> = {};
@@ -174,7 +185,7 @@ router.get('/plans', async (req: Request, res: Response) => {
       modelMap[model.id] = { displayName: model.name, description: model.description };
     }
 
-    const plans = dbPlans.map(p => {
+    const plans = dbPlans.map((p) => {
       const planId = p.planId;
       const planMappings = pfMap[planId] || {};
 
@@ -209,13 +220,10 @@ router.get('/plans', async (req: Request, res: Response) => {
       // Insert "Models" group from modelIds (after Credits if present, else at start)
       const modelIds: string[] = p.modelIds || [];
       if (modelIds.length > 0) {
-        const modelItems = modelIds
-          .flatMap((id) => {
-            const model = modelMap[id];
-            return model
-              ? [{ label: model.displayName, description: model.description }]
-              : [];
-          });
+        const modelItems = modelIds.flatMap((id) => {
+          const model = modelMap[id];
+          return model ? [{ label: model.displayName, description: model.description }] : [];
+        });
 
         if (modelItems.length > 0) {
           const insertAt = features.length > 0 && features[0].category === 'Credits' ? 1 : 0;
@@ -256,7 +264,9 @@ const createSubscriptionSchema = z.object({
 router.post('/checkout/subscription', authenticateToken, async (req: Request, res: Response) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
-    const { planId, billingPeriod, successUrl, cancelUrl } = createSubscriptionSchema.parse(req.body);
+    const { planId, billingPeriod, successUrl, cancelUrl } = createSubscriptionSchema.parse(
+      req.body,
+    );
     const userId = req.user.id;
 
     const matchingPlans = await getPlans({ planId, isActive: true, isFree: false });
@@ -269,7 +279,8 @@ router.post('/checkout/subscription', authenticateToken, async (req: Request, re
 
     if (existingSubscription) {
       return res.status(409).json({
-        error: 'You already have an active subscription for this product. Please cancel it first or manage it from the billing page.',
+        error:
+          'You already have an active subscription for this product. Please cancel it first or manage it from the billing page.',
       });
     }
 
@@ -279,7 +290,10 @@ router.post('/checkout/subscription', authenticateToken, async (req: Request, re
     try {
       stripePriceId = await ensureStripePriceId(getStripe, plan.planId, billingPeriod);
     } catch (err: unknown) {
-      log.credits.error({ err, planId: plan.planId, billingPeriod }, 'Failed to ensure Stripe price for checkout');
+      log.credits.error(
+        { err, planId: plan.planId, billingPeriod },
+        'Failed to ensure Stripe price for checkout',
+      );
       return res.status(500).json({ error: 'Failed to configure plan pricing' });
     }
 
@@ -294,7 +308,9 @@ router.post('/checkout/subscription', authenticateToken, async (req: Request, re
       success_url: successUrl,
       cancel_url: cancelUrl,
       metadata: { userId, planId: plan.planId, billingPeriod, product: plan.product },
-      subscription_data: { metadata: { userId, planId: plan.planId, billingPeriod, product: plan.product } },
+      subscription_data: {
+        metadata: { userId, planId: plan.planId, billingPeriod, product: plan.product },
+      },
     });
 
     res.json({ sessionId: session.id, url: session.url });
@@ -303,7 +319,9 @@ router.post('/checkout/subscription', authenticateToken, async (req: Request, re
       return res.status(400).json({ error: 'Invalid input', details: error.issues });
     }
     log.credits.error({ err: error }, 'Error creating subscription checkout');
-    res.status(500).json({ error: getSafeErrorMessage(error, 'Failed to create subscription checkout') });
+    res
+      .status(500)
+      .json({ error: getSafeErrorMessage(error, 'Failed to create subscription checkout') });
   }
 });
 
@@ -319,9 +337,14 @@ router.get('/subscription', authenticateToken, async (req: Request, res: Respons
   }
 });
 
-const cancelSubscriptionSchema = z.object({
-  subscriptionId: z.string().refine(value => value.trim().length > 0).optional(),
-}).strict();
+const cancelSubscriptionSchema = z
+  .object({
+    subscriptionId: z
+      .string()
+      .refine((value) => value.trim().length > 0)
+      .optional(),
+  })
+  .strict();
 
 router.post('/subscription/cancel', authenticateToken, async (req: Request, res: Response) => {
   try {
@@ -331,7 +354,9 @@ router.post('/subscription/cancel', authenticateToken, async (req: Request, res:
     // yields the same response, without querying Stripe or exposing its details.
     const candidates = await findNonTerminalSubscriptions(req.user.id, subscriptionId);
     if (candidates.length > 1) {
-      return res.status(409).json({ error: 'Subscription selection is ambiguous; provide subscriptionId' });
+      return res
+        .status(409)
+        .json({ error: 'Subscription selection is ambiguous; provide subscriptionId' });
     }
     const subscription = candidates[0];
 
@@ -339,7 +364,9 @@ router.post('/subscription/cancel', authenticateToken, async (req: Request, res:
       return res.status(404).json({ error: 'No active subscription found' });
     }
     if (subscription.status === 'incomplete') {
-      return res.status(409).json({ error: 'Incomplete subscription cannot be canceled at period end' });
+      return res
+        .status(409)
+        .json({ error: 'Incomplete subscription cannot be canceled at period end' });
     }
     const product = (subscription.planSnapshot as { product?: unknown }).product;
     if (product !== 'clarity' && product !== 'codea') {
@@ -350,9 +377,14 @@ router.post('/subscription/cancel', authenticateToken, async (req: Request, res:
       cancel_at_period_end: true,
     });
 
-    const updated = await updateSubscription(subscription.stripeSubscriptionId, { cancelAtPeriodEnd: true });
+    const updated = await updateSubscription(subscription.stripeSubscriptionId, {
+      cancelAtPeriodEnd: true,
+    });
 
-    res.json({ message: 'Subscription will be canceled at end of billing period', subscription: updated ? serializeSubscription(updated) : null });
+    res.json({
+      message: 'Subscription will be canceled at end of billing period',
+      subscription: updated ? serializeSubscription(updated) : null,
+    });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Invalid input', details: error.issues });
@@ -381,11 +413,13 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
     }
 
     // The target plan fixes the product; subscription ordering never does.
-    const candidates = (await findActiveSubscriptions(userId)).filter(row =>
-      (row.planSnapshot as { product?: unknown }).product === targetPlan.product,
+    const candidates = (await findActiveSubscriptions(userId)).filter(
+      (row) => (row.planSnapshot as { product?: unknown }).product === targetPlan.product,
     );
     if (candidates.length > 1) {
-      return res.status(409).json({ error: 'Multiple active subscriptions for the target product' });
+      return res
+        .status(409)
+        .json({ error: 'Multiple active subscriptions for the target product' });
     }
     const subscription = candidates[0];
     if (!subscription) {
@@ -414,12 +448,17 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
     try {
       targetPriceId = await ensureStripePriceId(getStripe, targetPlan.planId, billingPeriod);
     } catch (err: unknown) {
-      log.credits.error({ err, planId: targetPlan.planId, billingPeriod }, 'Failed to ensure Stripe price');
+      log.credits.error(
+        { err, planId: targetPlan.planId, billingPeriod },
+        'Failed to ensure Stripe price',
+      );
       return res.status(500).json({ error: 'Failed to configure plan pricing' });
     }
 
     // Retrieve Stripe subscription to get item ID
-    const stripeSubscription = await getStripe().subscriptions.retrieve(subscription.stripeSubscriptionId);
+    const stripeSubscription = await getStripe().subscriptions.retrieve(
+      subscription.stripeSubscriptionId,
+    );
     const itemId = stripeSubscription.items.data[0]?.id;
     if (!itemId) {
       return res.status(500).json({ error: 'Could not find subscription item' });
@@ -452,13 +491,13 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
       cancelAtPeriodEnd: false,
       stripePriceId: targetPriceId,
       planSnapshot: {
-      planId: targetPlan.planId,
-      name: targetPlan.name,
-      product: targetPlan.product,
-      creditsPerMonth: targetPlan.creditsPerMonth,
-      price,
-      currency: targetPlan.currency,
-      billingPeriod,
+        planId: targetPlan.planId,
+        name: targetPlan.name,
+        product: targetPlan.product,
+        creditsPerMonth: targetPlan.creditsPerMonth,
+        price,
+        currency: targetPlan.currency,
+        billingPeriod,
       },
     });
     if (!updatedSubscription) throw new Error('Subscription disappeared during plan change');
@@ -466,8 +505,15 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
     invalidateEntitlementsCache(userId);
 
     const direction = isUpgrade ? 'upgrade' : 'downgrade';
-    log.credits.info({ userId, from: currentPlan.planId, to: targetPlan.planId, direction, billingPeriod }, 'Plan changed');
-    res.json({ message: 'Plan changed successfully', subscription: serializeSubscription(updatedSubscription), direction });
+    log.credits.info(
+      { userId, from: currentPlan.planId, to: targetPlan.planId, direction, billingPeriod },
+      'Plan changed',
+    );
+    res.json({
+      message: 'Plan changed successfully',
+      subscription: serializeSubscription(updatedSubscription),
+      direction,
+    });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Invalid input', details: error.issues });
@@ -497,7 +543,9 @@ router.post('/portal', authenticateToken, async (req: Request, res: Response) =>
     res.json({ url: session.url });
   } catch (error: unknown) {
     log.credits.error({ err: error }, 'Error creating portal session');
-    res.status(500).json({ error: getSafeErrorMessage(error, 'Failed to create billing portal session') });
+    res
+      .status(500)
+      .json({ error: getSafeErrorMessage(error, 'Failed to create billing portal session') });
   }
 });
 
@@ -525,7 +573,9 @@ router.post('/webhook', async (req: Request, res: Response) => {
     event = getStripe().webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err: unknown) {
     log.credits.error({ err }, 'Webhook verification failed');
-    return res.status(400).send(`Webhook Error: ${getSafeErrorMessage(err, 'Invalid webhook payload')}`);
+    return res
+      .status(400)
+      .send(`Webhook Error: ${getSafeErrorMessage(err, 'Invalid webhook payload')}`);
   }
 
   try {
@@ -558,8 +608,13 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Credit purchases are created and fulfilled by Alia. This endpoint only
   // mirrors Clarity product subscriptions for local product entitlements.
   if (session.mode === 'subscription' && session.subscription) {
-    log.credits.info({ subscriptionId: session.subscription }, 'checkout.session.completed, fetching and syncing');
-    const stripeSubscription = await getStripe().subscriptions.retrieve(session.subscription as string);
+    log.credits.info(
+      { subscriptionId: session.subscription },
+      'checkout.session.completed, fetching and syncing',
+    );
+    const stripeSubscription = await getStripe().subscriptions.retrieve(
+      session.subscription as string,
+    );
     await handleSubscriptionUpdate(stripeSubscription);
   }
 }
@@ -595,7 +650,9 @@ async function handleSubscriptionUpdate(stripeSubscription: Stripe.Subscription)
     stripePriceId: stripeSubscription.items.data[0]?.price.id ?? '',
     status: stripeSubscription.status,
     currentPeriodStart: periodStart ? new Date(periodStart * 1000) : new Date(),
-    currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    currentPeriodEnd: periodEnd
+      ? new Date(periodEnd * 1000)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
     planId: plan.planId,
     billingPeriod: isAnnual ? 'annual' : 'monthly',
