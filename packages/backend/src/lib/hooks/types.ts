@@ -24,7 +24,7 @@ export interface AfterChatContext extends ChatHookContext {
   latencyMs: number;
 }
 
-export type BeforeChatHook = (ctx: ChatHookContext) => Promise<ChatHookResult | void>;
+export type BeforeChatHook = (ctx: ChatHookContext) => Promise<ChatHookResult | undefined>;
 export type AfterChatHook = (ctx: AfterChatContext) => Promise<void>;
 
 export interface ChatHook {
