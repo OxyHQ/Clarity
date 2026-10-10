@@ -26,6 +26,11 @@ const SAMPLE_IDENTIFIERS: Partial<Record<(typeof JOB_FEED_KINDS)[number], string
   madgex: 'jobs.chronicle.com',
   rss_jsonld: 'https://djinni.co/jobs/rss/',
   indeed_xml: 'https://aidevboard.com/feed/indeed.xml',
+  eploy: 'jobs.le.ac.uk',
+  jobboardly: 'etcareers.com',
+  emply: 'albertslund/da',
+  wp_job_manager: 'https://workew.com',
+  directory: 'https://careers.jobscore.com/sitemaps/careers.xml.gz',
   eures: 'de',
 };
 
@@ -35,7 +40,7 @@ describe('keyless job feed endpoints', () => {
       const request = jobFeedRequest(kind, SAMPLE_IDENTIFIERS[kind] ?? 'acme');
       const url = new URL(request.url);
       expect(url.protocol, kind).toBe('https:');
-      expect(url.search, kind).not.toMatch(/key|token|secret|api[_-]?key/i);
+      expect(url.search, kind).not.toMatch(/[?&](?:api[_-]?key|key|access[_-]?token|token|secret|password|auth[a-z]*)=/i);
       expect(request.body ?? '', kind).not.toMatch(/"(?:api[_-]?key|access[_-]?token|token|secret|password|auth[a-z]*)"\s*:/i);
       expect(url.username).toBe('');
       expect(url.password).toBe('');

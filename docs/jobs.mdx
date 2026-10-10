@@ -439,6 +439,20 @@ never per viewer.
    | `softgarden` | subdomain | `<sub>.career.softgarden.de/jobs.feed.json` (embedded `JobPosting`) | one | — |
    | `jibe` | career site host | `<host>/api/jobs` | page | — |
    | `homerun` | subdomain | `feed.homerun.co/<sub>` (Atom) | one | — |
+   | `dvinci` | tenant | `<t>.dvinci-hr.com/jobPublication/list.json` | one | — |
+   | `hrmanager` | customer alias | `api.hr-manager.net/jobportal.svc/<alias>/positionlist/json/?incads=1` | one | — |
+   | `eploy` | career site host | `<host>/feeds/datafeed.ashx?Format=xml` | one | — |
+   | `jobscore` | company code | `careers.jobscore.com/jobs/<company>/feed.json` | one | — |
+   | `keka` | subdomain | `<sub>.keka.com/careers/api/jobs/default/active` | one | — |
+   | `hirehive` | subdomain | `<sub>.hirehive.com/api/v2/jobs` | page | — |
+   | `emply` | `<tenant>/<lang>` | `POST <tenant>.career.emply.com/api/integration/vacancy/get-page` | offset | — |
+   | `easycruit` | subdomain | `<sub>.easycruit.com/export/xml/vacancy/list.xml` | one | vacancy XML: description (optional) |
+   | `zvoove` | tenant | `<t>.recruit.zvoove.cloud/api/public/v1/Stelle/GetStellenFiltered` | page | sections, country, expiry (optional) |
+   | `jobsoid` | subdomain | `<sub>.jobsoid.com/api/v1/jobs` | one | — |
+   | `kalibrr` | company code | `kalibrr.com/kjs/job_board/search?company=<code>` | offset | — |
+   | `hiringthing` | subdomain | `<sub>.hiringthing.com/api/rss.xml` | one | — |
+   | `trakstar` | subdomain | `<sub>.hire.trakstar.com/jobfeeds/<sub>` | one | — |
+   | `crelate` | portal | `jobs.crelate.com/portal/<portal>/rss` | one | — |
 
    Aggregators and boards — one feed covers many employers:
 
@@ -458,6 +472,10 @@ never per viewer.
    | `freehire` | `freehire` or a slice (`source=workday&countries=us`) | `freehire.me/api/v1/agent/jobs/search` | offset (10,000-row window) |
    | `madgex` | board host | `<host>/jobsrss/` → each posting page's `JobPosting` | page |
    | `getonboard` | category slug | `getonbrd.com/api/v0/categories/<slug>/jobs` | page |
+   | `jobboardly` | board host | `<host>/jobs.xml` (Job Boardly boards) | one |
+   | `indeed_xml` | feed URL | any public Indeed-format XML dump — Workable's every-job feed (~166,000), Cavuno boards, AI Dev Jobs | streamed, 20,000 a poll |
+   | `wp_job_manager` | site URL | `<site>/wp-json/wp/v2/job-listings` (WordPress WP Job Manager boards: Laura.fi, Workew) | page |
+   | `directory` | sitemap URL | a sitemap of an ATS's customer career pages (JobScore) — registers those boards, ingests nothing | one |
    | `rss` | feed URL | any RSS or Atom job feed | one |
    | `rss_jsonld` | feed URL | an RSS/Atom feed whose items link to pages with `JobPosting` (Djinni, Cryptojobslist, Dribbble, …) | one |
    | `sitemap` | sitemap URL, optionally `#/path/prefix/` | any sitemap of posting pages that carry `JobPosting` (Werken voor Nederland, NYC Jobs, Chile's BNE, WA Government Jobs, …) | 200 entries |
@@ -498,6 +516,15 @@ never per viewer.
    backfill, and a source with tens of thousands of listings is covered over
    successive polls. A cursor the source rejects on resume restarts the walk;
    a failure deeper in a walk keeps its place.
+
+   **Dumps too large for memory are streamed.** A provider that declares a
+   stream element (`indeed_xml`) is read item by item and the download stops
+   once the poll's window is full (20,000 items); the next poll resumes at the
+   following item (`@<offset>`), so Workable's 842 MB feed is covered in about
+   nine polls without ever being held in memory. A smaller whole-board dump
+   past one poll's budget is worked through in turns the same way. Gzip bodies
+   are inflated, connection failures are retried, and jobs a feed marks
+   `hide_from_indeed_search` are skipped.
 
    **Pages a source only links to are read through their own `JobPosting`**
    (`sitemap`, `rss_jsonld`, `madgex`): the page is the listing and its URL is

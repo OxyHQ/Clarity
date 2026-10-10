@@ -344,11 +344,11 @@ function amount(raw: string, thousands: boolean): number | undefined {
  * ("£40,000 - 50,000 per year", "$40 – $45 per hour", "CHF 125'000 / year").
  * A bare `$` counts only with `dollar`, the currency of a country the listing
  * states. Anything less — "competitive", "$230K" with no interval, "£? - ?" —
- * is left absent rather than completed by guesswork. Trailing notes after `•`
- * or `+` are not part of the salary.
+ * is left absent rather than completed by guesswork.
  */
 export function salaryText(value: unknown, options: { dollar?: string } = {}): JobSalary | undefined {
-  const raw = text(value)?.split(/\s[•+|(]\s?/)[0]?.trim();
+  // Trailing notes ("• Offers Equity", ", pro-rata if part-time") are not part of the salary.
+  const raw = text(value)?.split(/\s[•+|(]\s?|,\s/)[0]?.trim();
   if (!raw) return undefined;
   const match = /^(?<pre>[A-Z]{3}|[$€£¥₹])?\s?(?<min>\d[\d,.'\s]*?)(?<mink>[kK])?\s*(?:(?:-|–|—|to)\s*(?<pre2>[A-Z]{3}|[$€£¥₹])?\s?(?<max>\d[\d,.'\s]*?)(?<maxk>[kK])?)?\s*(?<post>[A-Z]{3}|[$€£¥₹])?\s*(?<interval>(?:per|\/|a|an)\s*[a-z]+|annual(?:ly)?|monthly|weekly|daily|hourly|p\.?a\.?)?$/i
     .exec(raw.replace(/\s+/g, ' '));

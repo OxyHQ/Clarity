@@ -3,13 +3,15 @@ import { Readable } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const requested: string[] = [];
-let respond: (url: string) => { status: number; body: string } = () => ({ status: 404, body: '' });
+let respond: (url: string) => { status: number; body: string | string[] } = () => ({ status: 404, body: '' });
 
 vi.mock('@oxy.so/core/server', () => ({
   safeFetch: vi.fn(async (url: string) => {
     requested.push(url);
     const { status, body } = respond(url);
-    return { status, response: Object.assign(Readable.from([Buffer.from(body)]), { headers: { 'content-type': 'application/json' } }) };
+    // A body given as several strings arrives as that many chunks.
+    const chunks = (Array.isArray(body) ? body : [body]).map((part) => Buffer.from(part));
+    return { status, response: Object.assign(Readable.from(chunks), { headers: { 'content-type': 'application/json' } }) };
   }),
 }));
 
@@ -207,6 +209,28 @@ describe('feed polling', () => {
       : { status: 404, body: '' };
     await pollJobFeed({ ...feed(null), kind: 'bamboohr' }, { pageDelayMs: 0 });
     expect(presence.closedFor).toContain('gone:https://acme.bamboohr.com/careers/9');
+  });
+
+  it('streams a huge dump in windows, resuming where the last poll stopped, across chunk boundaries', async () => {
+    const job = (index: number) => `<job><title><![CDATA[Role ${index}]]></title><url>https://apply.workable.com/j/${index}</url><company>Acme ${index}</company></job>`;
+    const xml = `<?xml version="1.0"?><source><publisher>Workable</publisher>${Array.from({ length: 50 }, (_, index) => job(index)).join('')}</source>`;
+    // Split mid-element so items span chunks.
+    const chunks = xml.match(/[\s\S]{1,37}/g)!;
+    respond = () => ({ status: 200, body: chunks });
+    const provider = (await import('../registry.js')).JOB_FEED_PROVIDERS.indeed_xml;
+    const original = provider.stream;
+    (provider as { stream?: { element: string; listingsPerPoll: number } }).stream = { element: 'job', listingsPerPoll: 20 };
+    try {
+      const first = await pollJobFeed({ ...feed(null), kind: 'indeed_xml', identifier: 'https://feed.example/jobs.xml' }, { pageDelayMs: 0 });
+      expect(first).toMatchObject({ stored: 20, cursor: '@20' });
+      expect(ingested[0]).toBe('https://apply.workable.com/j/0');
+      ingested.length = 0;
+      const last = await pollJobFeed({ ...feed('@40'), kind: 'indeed_xml', identifier: 'https://feed.example/jobs.xml' }, { pageDelayMs: 0 });
+      expect(last).toMatchObject({ stored: 10, cursor: null });
+      expect(ingested[0]).toBe('https://apply.workable.com/j/40');
+    } finally {
+      (provider as { stream?: { element: string; listingsPerPoll: number } }).stream = original;
+    }
   });
 
   it('fails the poll when the newest page cannot be read', async () => {

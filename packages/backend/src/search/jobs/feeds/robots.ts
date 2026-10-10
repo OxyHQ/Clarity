@@ -100,7 +100,19 @@ export function robotsAllows(policy: RobotsPolicy, pathAndQuery: string): boolea
 
 const cache = new Map<string, { policy: RobotsPolicy; fetchedAt: number }>();
 
+/** Connection failures are retried this many times before an origin counts as unreachable. */
+const ROBOTS_ATTEMPTS = 3;
+
 async function fetchPolicy(origin: string): Promise<RobotsPolicy> {
+  for (let attempt = 1; attempt <= ROBOTS_ATTEMPTS; attempt += 1) {
+    const policy = await fetchPolicyOnce(origin);
+    if (!policy.unreachable || attempt === ROBOTS_ATTEMPTS) return policy;
+    await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+  }
+  return { rules: [], searchOptOut: false, unreachable: true };
+}
+
+async function fetchPolicyOnce(origin: string): Promise<RobotsPolicy> {
   try {
     const result = await safeFetch(`${origin}/robots.txt`, {
       headers: { 'User-Agent': FEED_USER_AGENT, accept: 'text/plain' },

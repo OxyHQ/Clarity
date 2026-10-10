@@ -1,6 +1,6 @@
 {
-  "id": "e269c7c0-4913-4284-a132-aa8a831aa559",
-  "prevId": "58dfaf61-f439-4c0d-acd5-09d5cf3259e8",
+  "id": "78ddb7ab-1225-45c8-9b0a-73673aeecf06",
+  "prevId": "f21956d5-2969-491c-bab7-a16bd75eb0ed",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1512,7 +1512,7 @@
       "checkConstraints": {
         "clarity_job_feeds_kind_check": {
           "name": "clarity_job_feeds_kind_check",
-          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap', 'indeed_xml')"
+          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap', 'indeed_xml', 'dvinci', 'hrmanager', 'eploy', 'jobscore', 'keka', 'hirehive', 'emply', 'easycruit', 'zvoove', 'jobsoid', 'kalibrr', 'hiringthing', 'trakstar', 'crelate', 'wp_job_manager', 'directory', 'jobboardly')"
         },
         "clarity_job_feeds_status_check": {
           "name": "clarity_job_feeds_status_check",

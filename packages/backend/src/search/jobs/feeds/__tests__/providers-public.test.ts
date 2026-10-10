@@ -282,4 +282,87 @@ describe('aggregator XML feeds', () => {
     expect(listings[1]).toMatchObject({ workplaceType: 'hybrid', employmentTypes: ['full_time'], salary: { min: 60_000, max: 75_000, currency: 'EUR', interval: 'year' } });
     expect(listings[1].locations[0].countryCode).toBe('DE');
   });
+
+  it('reads Workable\'s global feed variant and skips jobs hidden from aggregators', () => {
+    const xml = `<source><publisher>Workable</publisher>
+      <job><title>\n <![CDATA[System Engineer]]>\n </title><date><![CDATA[Wed, 28 Jul 2021 10:24:17 UTC]]></date>
+      <referencenumber><![CDATA[F44ED9E40A]]></referencenumber><url><![CDATA[https://apply.workable.com/j/F44ED9E40A]]></url>
+      <company><![CDATA[Tech Firefly]]></company><city>Hyderabad</city><state>Telangana</state><country>IN</country>
+      <remote><![CDATA[true]]></remote><website><![CDATA[https://techfirefly.com]]></website><cpc>0.42</cpc></job>
+      <job><title>Hidden</title><url>https://apply.workable.com/j/HIDDEN</url><company>Acme</company>
+      <hide_from_indeed_search>CONFIDENTIAL_JOB</hide_from_indeed_search></job></source>`;
+    const { listings } = parse('indeed_xml', 'https://www.workable.com/boards/workable.xml', xml);
+    expect(listings).toHaveLength(1);
+    expect(listings[0]).toMatchObject({ title: 'System Engineer', workplaceType: 'remote', employerUrl: 'https://techfirefly.com/' });
+    expect(listings[0].locations[0]).toMatchObject({ locality: 'Hyderabad', region: 'Telangana', countryCode: 'IN' });
+    expect(listings[0].publishedAt?.toISOString()).toBe('2021-07-28T10:24:17.000Z');
+    expect(JSON.stringify(listings[0])).not.toContain('0.42');
+  });
+});
+
+describe('regional ATS providers', () => {
+  it('reads d.vinci publications once per job opening, with the opening\'s locations and never the responsible user', () => {
+    const publication = (id: number, language: string) => ({
+      id, language, position: 'Storemanagerin', jobPublicationURL: `https://mey.dvinci-hr.com/${language}/jobs/${id}/x`,
+      applicationFormURL: `https://mey.dvinci-hr.com/${language}/jobs/${id}/apply`, tasks: '<ul><li>Verkaufen</li></ul>', profile: '<p>Freude</p>', weOffer: '<p>Rabatt</p>',
+      jobOpening: {
+        id: 50576, company: { name: 'Mey Handels GmbH' }, orgUnit: { name: 'Retail' }, categories: [{ name: 'Verkauf' }],
+        workingTimes: [{ internalName: 'FULL_TIME' }], contractPeriod: { internalName: 'UNLIMITED' },
+        locations: [{ name: 'Neumünster', country: { name: 'Germany', isoA2: 'DE' }, address: { country: { isoA2: 'DE' } } }],
+        responsibleUser: { firstName: 'Ramona', lastName: 'Göktas', email: 'ramona@mey.example', telephone: '+49 7431 706-0' },
+      },
+    });
+    const { listings } = parse('dvinci', 'mey', [publication(50584, 'de'), publication(50585, 'en')]);
+    expect(listings).toHaveLength(1);
+    expect(listings[0]).toMatchObject({ employerName: 'Mey Handels GmbH', employmentTypes: ['full_time'], department: 'Retail', qualifications: 'Freude', benefits: 'Rabatt' });
+    expect(listings[0].locations[0]).toMatchObject({ locality: 'Neumünster', countryCode: 'DE' });
+    expect(JSON.stringify(listings[0])).not.toMatch(/Ramona|Göktas|ramona@|706-0/);
+  });
+
+  it('reads JobScore pay in cents and its tracking-free listing URL', () => {
+    const [job] = parse('jobscore', 'allogene', { company_name: 'Allogene', jobs: [{
+      id: 'cgP6', title: 'Medical Director', detail_url: 'https://careers.jobscore.com/careers/allogene/jobs/md-cgP6?ref=rss&sid=68',
+      city: 'South San Francisco', state: 'CA', country: 'US', remote: 'Yes | Can telecommute', job_type: 'Full Time',
+      experience_level: 'Executive (SVP, VP, Director, etc.)', public_salary_minimum: 25500000, public_salary_maximum: 33500000,
+      public_compensation_interval: 'per year', currency_code: 'USD', hiring_team: [{ name: 'A Recruiter' }],
+    }] }).listings;
+    expect(job).toMatchObject({
+      canonicalUrl: 'https://careers.jobscore.com/careers/allogene/jobs/md-cgP6', workplaceType: 'remote', seniority: 'executive',
+      salary: { min: 255_000, max: 335_000, currency: 'USD', interval: 'year' },
+    });
+    expect(JSON.stringify(job)).not.toContain('A Recruiter');
+  });
+
+  it('reads HR Manager\'s Microsoft-style dates', () => {
+    const [job] = parse('hrmanager', 'regionh', { CustomerName: 'Region Hovedstaden', Items: [{
+      Id: 270919, Name: 'Sygeplejerske', CustomerName: 'Region Hovedstaden', AdvertisementUrlSecure: 'https://candidate.hr-manager.net/ApplicationInit.aspx?cid=342&ProjectId=270919',
+      Published: '/Date(1790841863000+0200)/', ApplicationDue: '/Date(1792015199000+0200)/', Advertisements: [{ Content: '<p>Kirurgi</p>' }],
+      DepartmentTree: { Address: 'Kongens Vænge 2', City: 'Hillerød', Country: 'Danmark' }, ProjectLeader: 'A Person',
+    }] }).listings;
+    expect(job.publishedAt?.toISOString()).toBe(new Date(1790841863000).toISOString());
+    expect(job.validThrough?.toISOString()).toBe(new Date(1792015199000).toISOString());
+    expect(job.description).toBe('Kirurgi');
+    expect(JSON.stringify(job)).not.toContain('A Person');
+  });
+
+  it('reads a board directory as boards to register, never as listings', () => {
+    const page = parse('directory', 'https://careers.jobscore.com/sitemaps/careers.xml.gz', `<urlset>
+      <url><loc>https://careers.jobscore.com/careers/hexagon</loc></url>
+      <url><loc>https://careers.jobscore.com/careers/hexagon/jobs/bdm-dCkN</loc></url>
+      <url><loc>https://careers.jobscore.com/careers/allogene</loc></url>
+      <url><loc>https://www.jobscore.com/pricing</loc></url></urlset>`);
+    expect(page.listings).toEqual([]);
+    expect(page.boardUrls).toHaveLength(4);
+  });
+
+  it('reads WP Job Manager listings from the API when they name the employer and from the page when they do not', () => {
+    const result = parse('wp_job_manager', 'https://workew.com', [
+      { id: 1, link: 'https://workew.com/job/ml-quora/', date_gmt: '2026-10-01T10:00:00', title: { rendered: 'ML Engineer' }, content: { rendered: '<p>Ads</p>' },
+        meta: { _company_name: 'Quora', _application: 'https://jobs.ashbyhq.com/quora/1/application', _job_location: 'Remote', _remote_position: '1' } },
+      { id: 2, link: 'https://laura.fi/avoimet-tyopaikat/x/2/', modified_gmt: '2026-10-09T21:14:45', title: { rendered: 'Sijainen' }, meta: {} },
+    ]);
+    expect(result.listings[0]).toMatchObject({ employerName: 'Quora', workplaceType: 'remote', applyUrl: 'https://jobs.ashbyhq.com/quora/1/application' });
+    expect(result.listings[0].publishedAt?.toISOString()).toBe('2026-10-01T10:00:00.000Z');
+    expect(result.references).toEqual([{ url: 'https://laura.fi/avoimet-tyopaikat/x/2/', lastModified: new Date('2026-10-09T21:14:45.000Z') }]);
+  });
 });

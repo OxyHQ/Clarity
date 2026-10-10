@@ -7,7 +7,7 @@ import type { JobFeedListingPage } from '../provider.js';
 import { jsonLdBlocks } from '../listing.js';
 
 /** Tracking parameters a feed appends to its links; the posting's own URL is the page without them. */
-const TRACKING = /^(?:utm_[a-z]+|trackid|ref|source|src)$/i;
+const TRACKING = /^(?:utm_[a-z]+|trackid|ref|source|src|sid|origin)$/i;
 
 export function withoutTracking(value: string): string {
   try {

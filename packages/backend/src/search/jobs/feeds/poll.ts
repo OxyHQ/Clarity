@@ -16,6 +16,8 @@
  * A feed is polled on its own interval and a failure is recorded on the row
  * rather than thrown, so one dead board cannot stop the others.
  */
+import { gunzipSync } from 'node:zlib';
+
 import { and, eq, inArray, lte, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
@@ -59,6 +61,7 @@ const DETAILS_PER_POLL = 150;
 const DETAIL_TTL_SECONDS = 3 * 24 * 60 * 60;
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const HEADERS_TIMEOUT_MS = 15_000;
+const STREAM_HEADERS_TIMEOUT_MS = 120_000;
 
 export interface JobFeedPollResult {
   polled: number;
@@ -67,9 +70,9 @@ export interface JobFeedPollResult {
   discovered: number;
 }
 
-/** A board found through a feed's listings, with the employer name its listings gave. */
+/** A board found through a feed's listings, with the employer name its listings gave when they gave one. */
 export interface DiscoveredFeed extends DiscoveredBoard {
-  label: string;
+  label?: string;
 }
 
 export interface JobFeedPollOutcome {
@@ -90,7 +93,25 @@ function gone(error: unknown): boolean {
   return error instanceof Error && /^feed responded (?:404|410)$/.test(error.message);
 }
 
+/** A connection that fails before any response (refused, reset, timed out) is worth one more try. */
+const FETCH_ATTEMPTS = 3;
+
+function transient(error: unknown): boolean {
+  return error instanceof Error && /ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|socket hang up|headers timeout|network/i.test(`${error.message} ${(error as { code?: string }).code ?? ''}`);
+}
+
 async function readBody(request: JobFeedRequest, maxBodyBytes = MAX_BODY_BYTES): Promise<string> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await readBodyOnce(request, maxBodyBytes);
+    } catch (error) {
+      if (!transient(error) || attempt >= FETCH_ATTEMPTS) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+    }
+  }
+}
+
+async function readBodyOnce(request: JobFeedRequest, maxBodyBytes: number): Promise<string> {
   const result = await safeFetch(request.url, {
     method: request.method,
     headers: {
@@ -114,7 +135,10 @@ async function readBody(request: JobFeedRequest, maxBodyBytes = MAX_BODY_BYTES):
     if (bytes > maxBodyBytes) { result.response.destroy(); throw new Error('feed body too large'); }
     chunks.push(buffer);
   }
-  return decodeBody(Buffer.concat(chunks), result.response.headers['content-type']);
+  const raw = Buffer.concat(chunks);
+  // Sitemaps are often served as .xml.gz without a Content-Encoding header.
+  const body = raw[0] === 0x1f && raw[1] === 0x8b ? gunzipSync(raw, { maxOutputLength: maxBodyBytes * 4 }) : raw;
+  return decodeBody(body, result.response.headers['content-type']);
 }
 
 /**
@@ -133,6 +157,91 @@ export function decodeBody(body: Buffer, contentType: string | string[] | undefi
     }
   }
   return body.toString('utf8');
+}
+
+/** An item never grows this large; a buffer that does means the element is not closing. */
+const MAX_STREAM_ITEM_CHARS = 8 * 1024 * 1024;
+
+interface StreamWindow {
+  /** Everything before the first item: the publisher and other feed-level fields. */
+  header: string;
+  items: string[];
+  /** The stream ended before the window filled: the walk wraps to the start. */
+  reachedEnd: boolean;
+}
+
+/**
+ * Reads items `offset` to `offset + take` of a streamed dump and stops the
+ * download there, so a poll never holds more than its own window in memory.
+ */
+async function readStreamWindow(request: JobFeedRequest, element: string, offset: number, take: number): Promise<StreamWindow> {
+  const crawlDelaySeconds = await assertRobotsAllow(request.url);
+  const wait = reserveOriginSlot(new URL(request.url).origin, crawlDelaySeconds * 1000);
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  let result: Awaited<ReturnType<typeof safeFetch>> | undefined;
+  for (let attempt = 1; !result; attempt += 1) {
+    try {
+      result = await safeFetch(request.url, {
+        method: request.method,
+        headers: { 'User-Agent': FEED_USER_AGENT, accept: request.accept },
+        maxRedirects: 3,
+        // A dump of hundreds of megabytes can take a while to start (Workable's: about 13 s).
+        headersTimeoutMs: STREAM_HEADERS_TIMEOUT_MS,
+      });
+    } catch (error) {
+      if (!transient(error) || attempt >= FETCH_ATTEMPTS) throw error;
+      await new Promise((resolve) => setTimeout(resolve, attempt * 1_000));
+    }
+  }
+  if (result.status !== 200) {
+    result.response.destroy();
+    throw new Error(`feed responded ${result.status}`);
+  }
+  const open = new RegExp(`<${element}[\\s>]`);
+  const close = `</${element}>`;
+  const decoder = new TextDecoder('utf-8');
+  const window: StreamWindow = { header: '', items: [], reachedEnd: true };
+  let buffer = '';
+  let index = 0;
+  let headerDone = false;
+  try {
+    for await (const chunk of result.response) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      if (consume(decoder.decode(bytes, { stream: true }))) return window;
+    }
+    consume(decoder.decode());
+    return window;
+  } finally {
+    result.response.destroy();
+  }
+
+  /** Takes every complete item out of the buffer; true once the window is full. */
+  function consume(text: string): boolean {
+    buffer += text;
+    for (;;) {
+      const start = buffer.search(open);
+      if (start < 0) break;
+      if (!headerDone) { window.header = buffer.slice(0, start).slice(0, 20_000); headerDone = true; }
+      const end = buffer.indexOf(close, start);
+      if (end < 0) {
+        if (buffer.length - start > MAX_STREAM_ITEM_CHARS) throw new Error(`a <${element}> item never closes`);
+        buffer = buffer.slice(start);
+        return false;
+      }
+      const item = buffer.slice(start, end + close.length);
+      buffer = buffer.slice(end + close.length);
+      if (index >= offset) window.items.push(item);
+      index += 1;
+      if (window.items.length >= take) { window.reachedEnd = false; return true; }
+    }
+    // Before the first item everything is header; after it, keep only what may still begin an item.
+    if (!headerDone) {
+      if (buffer.length > 20_000) { window.header = buffer.slice(0, 20_000); headerDone = true; buffer = buffer.slice(-(element.length + 2)); }
+    } else if (buffer.length > element.length + 2) {
+      buffer = buffer.slice(-(element.length + 2));
+    }
+    return false;
+  }
 }
 
 /**
@@ -179,7 +288,9 @@ export async function pollJobFeed(
 ): Promise<JobFeedPollOutcome> {
   const observedAt = new Date();
   const kind = feed.kind as JobFeedKind;
-  const { detail, listingPage, detailsPerPoll, pagesPerPoll, completeListing } = jobFeedProvider(kind);
+  const provider = jobFeedProvider(kind);
+  const { detail, listingPage, detailsPerPoll, pagesPerPoll, completeListing } = provider;
+  const listingBudget = provider.stream?.listingsPerPoll ?? MAX_LISTINGS_PER_POLL;
   /** Every listing URL the source listed this poll, ingested or not. */
   const listed = new Set<string>();
   const note = (url: string): void => {
@@ -218,7 +329,9 @@ export async function pollJobFeed(
     try {
       const body = await politeRead(request, pageDelayMs);
       const completed = detail.parse(body, listing, contextFor(request.url));
-      return completed ? { structuredData: [jobPostingLd(completed)] } : undefined;
+      // The listing is stored under the URL its board lists; a detail that
+      // names another URL for it does not move the document.
+      return completed ? { structuredData: [jobPostingLd({ ...completed, canonicalUrl: listing.canonicalUrl })] } : undefined;
     } catch (error) {
       if (gone(error)) {
         await closeGoneListing(canonicalUrl);
@@ -264,7 +377,7 @@ export async function pollJobFeed(
 
   const projectReferences = async (references: readonly JobFeedPageReference[]): Promise<void> => {
     for (const reference of references) {
-      if (seen.size >= MAX_LISTINGS_PER_POLL) return;
+      if (seen.size >= listingBudget) return;
       let canonicalUrl: string;
       try {
         canonicalUrl = canonicalizePublicUrl(reference.url);
@@ -291,7 +404,7 @@ export async function pollJobFeed(
 
   const project = async (listings: readonly ExtractedJobPosting[]): Promise<void> => {
     for (const listing of listings) {
-      if (seen.size >= MAX_LISTINGS_PER_POLL) return;
+      if (seen.size >= listingBudget) return;
       let canonicalUrl: string;
       try {
         canonicalUrl = canonicalizePublicUrl(listing.canonicalUrl);
@@ -329,10 +442,32 @@ export async function pollJobFeed(
     }
   };
 
+  if (provider.stream) {
+    const offset = Number(/^@(\d+)$/.exec(feed.cursor ?? '')?.[1] ?? 0);
+    const request = jobFeedRequest(kind, feed.identifier);
+    const window = await readStreamWindow(request, provider.stream.element, offset, provider.stream.listingsPerPoll);
+    const streamed = provider.parse(window.header + window.items.join('\n'), {
+      kind, identifier: feed.identifier, requestUrl: request.url, extractedAt: observedAt.toISOString(),
+      ...(feed.label ? { label: feed.label } : {}),
+    });
+    for (const listing of streamed.listings) note(listing.canonicalUrl);
+    await project(streamed.listings);
+    if (outcome.rejected > 0 && outcome.stored === 0) throw new Error('no listing in the feed could be projected');
+    // The end of the dump wraps the walk to its start for the next poll.
+    outcome.cursor = window.reachedEnd ? null : `@${offset + window.items.length}`;
+    return settle(offset === 0 && window.reachedEnd);
+  }
+
   const head = await readPage(feed, observedAt, 0);
   const noteAll = (page: JobFeedPage): void => {
     for (const listing of page.listings) note(listing.canonicalUrl);
     for (const reference of page.references ?? []) note(reference.url);
+    for (const url of page.boardUrls ?? []) {
+      const board = boardFromUrl(url);
+      if (!board || boards.has(`${board.kind}:${board.identifier}`)) continue;
+      boards.add(`${board.kind}:${board.identifier}`);
+      outcome.discovered.push(board);
+    }
   };
   noteAll(head);
   // A whole-board dump larger than one poll's budget is worked through in
@@ -503,12 +638,20 @@ export async function claimDueFeeds(limit: number): Promise<Array<typeof jobFeed
  */
 async function registerDiscoveredFeeds(from: typeof jobFeeds.$inferSelect, found: readonly DiscoveredFeed[]): Promise<number> {
   if (found.length === 0) return 0;
+  // Boards already registered are set aside first, so a directory of
+  // thousands advances through new ones poll after poll.
+  const existing = await getDb().select({ kind: jobFeeds.kind, identifier: jobFeeds.identifier }).from(jobFeeds)
+    .where(inArray(jobFeeds.identifier, [...new Set(found.map((board) => board.identifier))]));
+  const known = new Set(existing.map((row) => `${row.kind}:${row.identifier}`));
+  const fresh = found.filter((board) => !known.has(`${board.kind}:${board.identifier}`))
+    .slice(0, jobFeedProvider(from.kind as JobFeedKind).discoveriesPerPoll ?? DISCOVERIES_PER_POLL);
+  if (fresh.length === 0) return 0;
   const inserted = await getDb().insert(jobFeeds)
-    .values(found.slice(0, DISCOVERIES_PER_POLL).map((board) => ({
+    .values(fresh.map((board) => ({
       id: crypto.randomUUID(),
       kind: board.kind,
       identifier: board.identifier,
-      label: board.label.slice(0, 200),
+      ...(board.label ? { label: board.label.slice(0, 200) } : {}),
       discoveredFromFeedId: from.id,
     })))
     .onConflictDoNothing({ target: [jobFeeds.kind, jobFeeds.identifier] })

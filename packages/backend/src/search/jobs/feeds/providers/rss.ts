@@ -1,7 +1,7 @@
 /**
  * Generic RSS/Atom. A feed states far less than a board API, so most fields
- * stay absent — which is correct. The employer comes from the channel title
- * only when the item does not name one, and never from the item's prose.
+ * stay absent — which is correct. The employer comes from the item, else the
+ * feed's label, else the channel title — never from the item's prose.
  */
 import type { JobFeedProvider } from '../provider.js';
 import { XML_ACCEPT, date, elements, get, listing, markdown, page, tag, text, xmlText } from '../listing.js';
@@ -17,7 +17,7 @@ export const rss: JobFeedProvider = {
     const items = [...elements(body, 'item'), ...elements(body, 'entry')];
     return page(items.map((item) => listing({
       title: text(tag(item, 'title')),
-      employerName: text(tag(item, 'dc:creator')) ?? text(tag(item, 'author')) ?? employerFallback,
+      employerName: text(tag(item, 'dc:creator')) ?? text(tag(item, 'author')) ?? context.label ?? employerFallback,
       canonicalUrl: text(tag(item, 'link')) ?? /<link[^>]*href="([^"]+)"/i.exec(item)?.[1],
       context,
       description: markdown(tag(item, 'content:encoded') ?? tag(item, 'description') ?? tag(item, 'summary')),

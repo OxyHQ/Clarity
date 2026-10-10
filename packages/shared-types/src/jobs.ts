@@ -103,7 +103,24 @@ export type JobFeedKind =
   | 'rss'
   | 'rss_jsonld'
   | 'sitemap'
-  | 'indeed_xml';
+  | 'indeed_xml'
+  | 'dvinci'
+  | 'hrmanager'
+  | 'eploy'
+  | 'jobscore'
+  | 'keka'
+  | 'hirehive'
+  | 'emply'
+  | 'easycruit'
+  | 'zvoove'
+  | 'jobsoid'
+  | 'kalibrr'
+  | 'hiringthing'
+  | 'trakstar'
+  | 'crelate'
+  | 'wp_job_manager'
+  | 'directory'
+  | 'jobboardly';
 
 export interface JobFeed {
   id: string;

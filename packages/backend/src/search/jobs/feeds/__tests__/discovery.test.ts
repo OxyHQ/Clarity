@@ -47,3 +47,21 @@ describe('board discovery', () => {
     ]) expect(boardFromUrl(url), String(url)).toBeUndefined();
   });
 });
+
+describe('board discovery for regional ATS', () => {
+  it('recognizes their boards from posting URLs', () => {
+    const cases: Array<[string, string, string]> = [
+      ['https://mey.dvinci-hr.com/de/jobs/50584/x', 'dvinci', 'mey'],
+      ['https://careers.jobscore.com/careers/allogene/jobs/md-cgP6', 'jobscore', 'allogene'],
+      ['https://catalyx.hirehive.com/digital-lead-djqTn4', 'hirehive', 'catalyx'],
+      ['https://albertslund.career.emply.com/da/ad/x/4u6j6w', 'emply', 'albertslund/da'],
+      ['https://sandefjord.easycruit.com/vacancy/3654293/154765', 'easycruit', 'sandefjord'],
+      ['https://bhm.recruit.zvoove.cloud/stelle/x-35dce13c42464b5cbcd46595366e66e7', 'zvoove', 'bhm'],
+      ['https://www.kalibrr.com/c/ncs-philippines/jobs/273584/data-engineer-16', 'kalibrr', 'ncs-philippines'],
+      ['https://moengage.hire.trakstar.com/jobs/fk0zll7', 'trakstar', 'moengage'],
+      ['https://jobs.crelate.com/portal/ppswork/job/fahp', 'crelate', 'ppswork'],
+    ];
+    for (const [url, kind, identifier] of cases) expect(boardFromUrl(url), url).toEqual({ kind, identifier });
+    expect(boardFromUrl('https://demo.jobsoid.com/j/1')).toBeUndefined();
+  });
+});

@@ -20,7 +20,7 @@ export interface DiscoveredBoard {
 type Rule = (url: URL, segments: string[]) => DiscoveredBoard | undefined;
 
 /** The ATS's own service hosts, which are not any customer's board. */
-const SERVICE_LABELS: ReadonlySet<string> = new Set(['www', 'api', 'app', 'feed', 'jobs', 'help', 'support', 'status', 'blog', 'docs', 'cdn', 'static', 'mail']);
+const SERVICE_LABELS: ReadonlySet<string> = new Set(['www', 'api', 'app', 'feed', 'jobs', 'help', 'support', 'status', 'blog', 'docs', 'cdn', 'static', 'mail', 'demo', 'careers', 'hire']);
 
 /** `<label>.<suffix>` → label, when the host is exactly one customer label under the suffix. */
 function subdomain(host: string, suffix: string): string | undefined {
@@ -52,6 +52,9 @@ const RULES: Record<string, Rule> = {
   'careers-page.com': (_url, [slug, job]) => (slug && job === 'job' ? { kind: 'manatal', identifier: slug } : undefined),
   'jobs.polymer.co': (_url, [slug]) => (slug ? { kind: 'polymer', identifier: slug } : undefined),
   'careers.hireology.com': (_url, [slug]) => (slug && slug !== 'careers' ? { kind: 'hireology', identifier: slug } : undefined),
+  'careers.jobscore.com': (_url, [section, company]) => (section === 'careers' && company ? { kind: 'jobscore', identifier: company } : undefined),
+  'www.kalibrr.com': (_url, [c, code, jobs]) => (c === 'c' && code && jobs === 'jobs' ? { kind: 'kalibrr', identifier: code } : undefined),
+  'jobs.crelate.com': (_url, [portal, name]) => (portal === 'portal' && name ? { kind: 'crelate', identifier: name } : undefined),
 };
 
 const SUBDOMAIN_RULES: Array<[suffix: string, kind: JobFeedKind]> = [
@@ -65,7 +68,21 @@ const SUBDOMAIN_RULES: Array<[suffix: string, kind: JobFeedKind]> = [
   ['career.softgarden.de', 'softgarden'],
   ['softgarden.io', 'softgarden'],
   ['homerun.co', 'homerun'],
+  ['dvinci-hr.com', 'dvinci'],
+  ['hirehive.com', 'hirehive'],
+  ['keka.com', 'keka'],
+  ['easycruit.com', 'easycruit'],
+  ['recruit.zvoove.cloud', 'zvoove'],
+  ['jobsoid.com', 'jobsoid'],
+  ['hiringthing.com', 'hiringthing'],
+  ['hire.trakstar.com', 'trakstar'],
 ];
+
+/** `<tenant>.career.emply.com/<lang>/ad/...`: the board is the tenant in that language. */
+function emply(url: URL, segments: string[]): DiscoveredBoard | undefined {
+  const tenant = subdomain(url.hostname, 'career.emply.com');
+  return tenant && /^[a-z]{2}$/.test(segments[0] ?? '') ? { kind: 'emply', identifier: `${tenant}/${segments[0]}` } : undefined;
+}
 
 /** `/hcmUI/CandidateExperience/<lang>/sites/<site>/job/<id>` on an Oracle Cloud host. */
 function oracle(url: URL, segments: string[]): DiscoveredBoard | undefined {
@@ -91,7 +108,7 @@ export function boardFromUrl(value: string | undefined): DiscoveredBoard | undef
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
   const host = url.hostname.toLowerCase();
   const segments = url.pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
-  let board = RULES[host]?.(url, segments) ?? workday(url, segments) ?? oracle(url, segments);
+  let board = RULES[host]?.(url, segments) ?? workday(url, segments) ?? oracle(url, segments) ?? emply(url, segments);
   if (!board) {
     for (const [suffix, kind] of SUBDOMAIN_RULES) {
       const label = subdomain(host, suffix);

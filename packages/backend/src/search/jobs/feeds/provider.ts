@@ -47,6 +47,8 @@ export interface JobFeedPage {
   listings: ExtractedJobPosting[];
   /** Listing pages to read through the provider's `listingPage` reader. */
   references?: JobFeedPageReference[];
+  /** URLs a directory names; those that are boards Clarity reads are registered as feeds of their own. */
+  boardUrls?: string[];
   nextCursor?: string;
 }
 
@@ -120,4 +122,13 @@ export interface JobFeedProvider {
   terms?: string;
   /** Largest response accepted, for sources that publish one whole-board dump. */
   maxBodyBytes?: number;
+  /** New boards one poll may register, for directories that name thousands. */
+  discoveriesPerPoll?: number;
+  /**
+   * The source is a dump too large to hold in memory (Workable's runs to
+   * hundreds of megabytes): it is read as a stream of `<element>` items, a
+   * window of `listingsPerPoll` per poll, each poll resuming where the last
+   * stopped. `parse` receives the header plus that window's items.
+   */
+  stream?: { element: string; listingsPerPoll: number };
 }
