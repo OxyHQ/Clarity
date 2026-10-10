@@ -4,8 +4,8 @@ import {
   Pressable,
   ScrollView,
   TextInput,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
   ActivityIndicator,
 } from 'react-native';
 import { Text } from '@/components/ui/text';

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import type React from 'react';
+import { createContext, useContext, useState } from 'react';
 import { View, Pressable, Linking } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Image } from 'expo-image';

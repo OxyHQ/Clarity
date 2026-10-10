@@ -1,4 +1,4 @@
-import React from 'react';
+import type React from 'react';
 import { View, type ViewProps } from 'react-native';
 import { CloseButton, GlyphButton } from '@oxy.so/bloom/button';
 import { Text } from '@/components/ui/text';

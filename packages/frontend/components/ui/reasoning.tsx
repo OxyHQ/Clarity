@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { ClarityMarkdown } from '@/lib/sdk';
