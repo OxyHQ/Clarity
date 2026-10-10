@@ -29,22 +29,42 @@ import { remoteok } from './providers/remoteok.js';
 import { remotive } from './providers/remotive.js';
 import { rippling } from './providers/rippling.js';
 import { rss } from './providers/rss.js';
+import { sitemap } from './providers/sitemap.js';
 import { smartrecruiters } from './providers/smartrecruiters.js';
 import { teamtailor } from './providers/teamtailor.js';
 import { workable } from './providers/workable.js';
 import { workday } from './providers/workday.js';
+import { oracle } from './providers/oracle.js';
+import { phenom } from './providers/phenom.js';
+import { eightfold } from './providers/eightfold.js';
+import { successfactors } from './providers/successfactors.js';
+import { jobvite } from './providers/jobvite.js';
+import { hireology } from './providers/hireology.js';
+import { softgarden } from './providers/softgarden.js';
+import { jibe } from './providers/jibe.js';
+import { homerun } from './providers/homerun.js';
+import { eures } from './providers/eures.js';
+import { feinaactiva } from './providers/feinaactiva.js';
+import { karrierenrw } from './providers/karrierenrw.js';
+import { jobsadminch } from './providers/jobsadminch.js';
+import { madgex } from './providers/madgex.js';
+import { getonboard } from './providers/getonboard.js';
+import { rssjsonld } from './providers/rssjsonld.js';
 import { weworkremotely } from './providers/weworkremotely.js';
 import { workingnomads } from './providers/workingnomads.js';
 
 export const JOB_FEED_PROVIDERS: Readonly<Record<JobFeedKind, JobFeedProvider>> = Object.freeze({
   // Applicant tracking systems: one company's own board per feed.
   greenhouse, lever, lever_eu: leverEu, ashby, workable, recruitee, smartrecruiters, personio, breezy, gem, pinpoint,
-  teamtailor, manatal, rippling, bamboohr, polymer, workday,
+  teamtailor, manatal, rippling, bamboohr, polymer, workday, oracle, phenom, eightfold, successfactors, jobvite,
+  hireology, softgarden, jibe, homerun,
   // Aggregators and job boards: one feed covers many employers.
   remoteok, remotive, arbeitnow, aidevboard, jobicy, workingnomads, devitjobs, artificialintelligencejobs, freehire,
-  fourdayweek, jobtech, weworkremotely,
-  // Any RSS or Atom job feed.
-  rss,
+  fourdayweek, jobtech, weworkremotely, madgex, getonboard,
+  // Public employment services and public-sector portals.
+  eures, feinaactiva, karrierenrw, jobsadminch,
+  // Any RSS or Atom job feed, and any sitemap of pages carrying JobPosting.
+  rss, rss_jsonld: rssjsonld, sitemap,
 });
 
 export function jobFeedProvider(kind: JobFeedKind): JobFeedProvider {

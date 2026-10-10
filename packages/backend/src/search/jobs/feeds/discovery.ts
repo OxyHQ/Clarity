@@ -19,11 +19,14 @@ export interface DiscoveredBoard {
 
 type Rule = (url: URL, segments: string[]) => DiscoveredBoard | undefined;
 
-/** `<label>.<suffix>` → label, when the host is exactly one label under the suffix. */
+/** The ATS's own service hosts, which are not any customer's board. */
+const SERVICE_LABELS: ReadonlySet<string> = new Set(['www', 'api', 'app', 'feed', 'jobs', 'help', 'support', 'status', 'blog', 'docs', 'cdn', 'static', 'mail']);
+
+/** `<label>.<suffix>` → label, when the host is exactly one customer label under the suffix. */
 function subdomain(host: string, suffix: string): string | undefined {
   if (!host.endsWith(`.${suffix}`)) return undefined;
   const label = host.slice(0, -suffix.length - 1);
-  return label && !label.includes('.') && label !== 'www' ? label : undefined;
+  return label && !label.includes('.') && !SERVICE_LABELS.has(label) ? label : undefined;
 }
 
 /** Locale segments Workday puts before the site (`/en-US/<site>/job/...`). */
@@ -48,6 +51,7 @@ const RULES: Record<string, Rule> = {
   'www.careers-page.com': (_url, [slug, job]) => (slug && job === 'job' ? { kind: 'manatal', identifier: slug } : undefined),
   'careers-page.com': (_url, [slug, job]) => (slug && job === 'job' ? { kind: 'manatal', identifier: slug } : undefined),
   'jobs.polymer.co': (_url, [slug]) => (slug ? { kind: 'polymer', identifier: slug } : undefined),
+  'careers.hireology.com': (_url, [slug]) => (slug && slug !== 'careers' ? { kind: 'hireology', identifier: slug } : undefined),
 };
 
 const SUBDOMAIN_RULES: Array<[suffix: string, kind: JobFeedKind]> = [
@@ -58,7 +62,18 @@ const SUBDOMAIN_RULES: Array<[suffix: string, kind: JobFeedKind]> = [
   ['pinpointhq.com', 'pinpoint'],
   ['teamtailor.com', 'teamtailor'],
   ['bamboohr.com', 'bamboohr'],
+  ['career.softgarden.de', 'softgarden'],
+  ['softgarden.io', 'softgarden'],
+  ['homerun.co', 'homerun'],
 ];
+
+/** `/hcmUI/CandidateExperience/<lang>/sites/<site>/job/<id>` on an Oracle Cloud host. */
+function oracle(url: URL, segments: string[]): DiscoveredBoard | undefined {
+  if (!url.hostname.endsWith('.oraclecloud.com')) return undefined;
+  const index = segments.indexOf('sites');
+  const site = index >= 0 ? segments[index + 1] : undefined;
+  return segments[0] === 'hcmUI' && site ? { kind: 'oracle', identifier: `${url.hostname}/${site}` } : undefined;
+}
 
 function workday(url: URL, segments: string[]): DiscoveredBoard | undefined {
   const match = /^([a-z0-9-]+)\.wd(\d{1,3})\.myworkdayjobs\.com$/.exec(url.hostname);
@@ -76,7 +91,7 @@ export function boardFromUrl(value: string | undefined): DiscoveredBoard | undef
   if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
   const host = url.hostname.toLowerCase();
   const segments = url.pathname.split('/').filter(Boolean).map((segment) => decodeURIComponent(segment));
-  let board = RULES[host]?.(url, segments) ?? workday(url, segments);
+  let board = RULES[host]?.(url, segments) ?? workday(url, segments) ?? oracle(url, segments);
   if (!board) {
     for (const [suffix, kind] of SUBDOMAIN_RULES) {
       const label = subdomain(host, suffix);

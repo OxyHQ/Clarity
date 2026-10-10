@@ -85,7 +85,24 @@ export type JobFeedKind =
   | 'fourdayweek'
   | 'jobtech'
   | 'weworkremotely'
-  | 'rss';
+  | 'oracle'
+  | 'phenom'
+  | 'eightfold'
+  | 'successfactors'
+  | 'jobvite'
+  | 'hireology'
+  | 'softgarden'
+  | 'jibe'
+  | 'homerun'
+  | 'madgex'
+  | 'getonboard'
+  | 'eures'
+  | 'feinaactiva'
+  | 'karrierenrw'
+  | 'jobsadminch'
+  | 'rss'
+  | 'rss_jsonld'
+  | 'sitemap';
 
 export interface JobFeed {
   id: string;

@@ -413,6 +413,15 @@ never per viewer.
    | `bamboohr` | subdomain | `<co>.bamboohr.com/careers/list` | one | description, level, date |
    | `polymer` | organization slug | `api.polymer.co/v1/hire/organizations/<slug>/jobs` | page | description, type, department |
    | `workday` | `<tenant>.wd<N>/<site>[?facet=id]` | `POST <tenant>.wd<N>.myworkdayjobs.com/wday/cxs/<tenant>/<site>/jobs` | offset (2,000-row window) | description, locations, time type, req id, date |
+   | `oracle` | `<host>.oraclecloud.com/<siteNumber>` | `hcmRestApi/resources/latest/recruitingCEJobRequisitions` (finder `findReqs`) | offset | description, qualifications, responsibilities, work locations, end date (optional) |
+   | `phenom` | `<host>/<country>/<lang>` | `POST <host>/widgets` (`refineSearch`) | offset | description, requirements |
+   | `eightfold` | `<tenant>.eightfold.ai/<domain>` | `<tenant>.eightfold.ai/api/pcsx/search` | offset | description, time type |
+   | `successfactors` | career site host | `<host>/sitemal.xml` | one | — |
+   | `jobvite` | `<slug>/<companyId>` | `app.jobvite.com/CompanyJobs/Xml.aspx?c=<companyId>` | one | — |
+   | `hireology` | career site slug | `api.hireology.com/v2/public/careers/<slug>` | page | — |
+   | `softgarden` | subdomain | `<sub>.career.softgarden.de/jobs.feed.json` (embedded `JobPosting`) | one | — |
+   | `jibe` | career site host | `<host>/api/jobs` | page | — |
+   | `homerun` | subdomain | `feed.homerun.co/<sub>` (Atom) | one | — |
 
    Aggregators and boards — one feed covers many employers:
 
@@ -430,7 +439,20 @@ never per viewer.
    | `fourdayweek` | — | `4dayweek.io/api/v2/jobs` | page |
    | `jobtech` | optional occupation field | `jobsearch.api.jobtechdev.se/search` (Sweden, CC0) | offset (2,100-row window) |
    | `freehire` | `freehire` or a slice (`source=workday&countries=us`) | `freehire.me/api/v1/agent/jobs/search` | offset (10,000-row window) |
+   | `madgex` | board host | `<host>/jobsrss/` → each posting page's `JobPosting` | page |
+   | `getonboard` | category slug | `getonbrd.com/api/v0/categories/<slug>/jobs` | page |
    | `rss` | feed URL | any RSS or Atom job feed | one |
+   | `rss_jsonld` | feed URL | an RSS/Atom feed whose items link to pages with `JobPosting` (Djinni, Cryptojobslist, Dribbble, …) | one |
+   | `sitemap` | sitemap URL, optionally `#/path/prefix/` | any sitemap of posting pages that carry `JobPosting` (Werken voor Nederland, NYC Jobs, Chile's BNE, WA Government Jobs, …) | 200 entries |
+
+   Public employment services and public-sector portals:
+
+   | Kind | Identifier | Endpoint | Pages |
+   | --- | --- | --- | --- |
+   | `eures` | country code or NUTS region (`de1`, `frk2`, `hr`) | `POST europa.eu/eures/api/jv-searchengine/public/jv-search/search` (every EU/EEA public employment service; 10,000-row window, so large countries are registered per region) | page; detail adds salary, city, deadline (optional) |
+   | `feinaactiva` | — | `feinaactiva.gencat.cat/api/offers/offers-xml` (Catalonia, SOC) | one |
+   | `karrierenrw` | — | `api.karriere.nrw/v1.0/opennrw/suche` (North Rhine-Westphalia public sector) | page; detail (optional) |
+   | `jobsadminch` | — | `ohws.prospective.ch/public/v1/medium/1000624/jobs` (Swiss federal administration) | offset |
 
    **Every one is keyless.** Clarity registers with nobody to read a public
    board, so no source here holds a credential and none may ever be added that
@@ -460,8 +482,18 @@ never per viewer.
    successive polls. A cursor the source rejects on resume restarts the walk;
    a failure deeper in a walk keeps its place.
 
+   **Pages a source only links to are read through their own `JobPosting`**
+   (`sitemap`, `rss_jsonld`, `madgex`): the page is the listing and its URL is
+   canonical. A page is read again only when the source's last-modified date
+   moved past the stored copy or the cache aged out; a page that carries
+   `<meta name="robots" content="noindex">` is not indexed. Bodies are decoded
+   in the charset their Content-Type declares, and JSON-LD with raw line breaks
+   inside strings (common, and tolerated by browsers) is read rather than
+   dropped.
+
    **Summary-only sources are completed from their detail endpoint** (the
-   *Detail* column). A detail stays current for three days; until then a
+   *Detail* column). Where the summary is already a complete listing (marked
+   *optional*), it is stored as listed and enriched when its detail is read. A detail stays current for three days; until then a
    re-listed posting is re-observed from what was stored, so a board of
    thousands of jobs costs thousands of requests once, not on every poll. At
    most 150 details are fetched per poll; a posting waiting for its detail is
@@ -511,10 +543,13 @@ never per viewer.
    that already exists, so an operator's disable stands.
 
    **Feeds run in their own loop** beside the crawl loop, so a long walk never
-   holds up page crawling. Each round claims up to eight due feeds under
-   `FOR UPDATE SKIP LOCKED` (pushing them 30 minutes out while they are polled)
-   and polls four at a time, so several workers share the table without
-   polling one feed twice.
+   holds up page crawling. Each round claims up to eight due feeds — at most two
+   of any one kind, so a kind with hundreds of feeds never takes every slot —
+   under `FOR UPDATE SKIP LOCKED` (pushing them 30 minutes out while they are
+   polled) and polls four at a time, so several workers share the table
+   without polling one feed twice. An origin's Crawl-delay is honoured across
+   every feed that shares it (all EURES slices are europa.eu), and a source can
+   ask for fewer pages or details per poll than the default.
 
    Promotion, ranking and engagement fields a source carries (`is_featured`,
    `is_sticky`, `quality_score`, `ispromoted`, `cpc`, view and vote counters)

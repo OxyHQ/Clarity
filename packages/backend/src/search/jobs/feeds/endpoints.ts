@@ -34,7 +34,7 @@ export function assertJobFeedIdentifier(kind: JobFeedKind, identifier: string): 
   const { identifier: rule } = jobFeedProvider(kind);
   if (rule.shape === 'url') {
     const parsed = new URL(identifier);
-    if (parsed.protocol !== 'https:') throw new Error('An RSS feed identifier must be an https URL');
+    if (parsed.protocol !== 'https:') throw new Error(`A ${kind} feed identifier must be an https URL`);
     if (parsed.username || parsed.password) throw new Error('A feed URL may not carry credentials');
     return;
   }

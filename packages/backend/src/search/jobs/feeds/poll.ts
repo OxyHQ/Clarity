@@ -29,13 +29,16 @@ import { ingestJobPosting, storedJobDocument } from '../projection.js';
 import { parseJobFeedPage } from './adapters.js';
 import { boardFromUrl, type DiscoveredBoard } from './discovery.js';
 import { jobFeedRequest } from './endpoints.js';
-import type { JobFeedContext, JobFeedPage, JobFeedRequest } from './provider.js';
+import { noindex } from './listing.js';
+import type { JobFeedContext, JobFeedPage, JobFeedPageReference, JobFeedRequest } from './provider.js';
 import { jobFeedProvider } from './registry.js';
 import { FEED_USER_AGENT, assertRobotsAllow, robotsAllowUrl } from './robots.js';
 
 /** Feeds claimed per round, and how many of them are polled at once. */
 const FEEDS_PER_ROUND = 8;
 const POLL_CONCURRENCY = 4;
+/** Feeds of one kind per round, so a kind with hundreds of feeds never takes every slot. */
+const FEEDS_PER_KIND_PER_ROUND = 2;
 /**
  * A claimed feed is not due again for this long, so a second worker never
  * polls it concurrently and a worker that dies mid-poll only delays it.
@@ -103,13 +106,46 @@ async function readBody(request: JobFeedRequest, maxBodyBytes = MAX_BODY_BYTES):
     if (bytes > maxBodyBytes) { result.response.destroy(); throw new Error('feed body too large'); }
     chunks.push(buffer);
   }
-  return Buffer.concat(chunks).toString('utf8');
+  return decodeBody(Buffer.concat(chunks), result.response.headers['content-type']);
 }
 
-/** Reads a request the origin's robots.txt allows, after the pause it asks for. */
+/**
+ * The body in the charset its Content-Type declares (many public-sector sites
+ * still serve windows-1252), UTF-8 when it declares none or one the runtime
+ * does not know.
+ */
+export function decodeBody(body: Buffer, contentType: string | string[] | undefined): string {
+  const header = Array.isArray(contentType) ? contentType[0] : contentType;
+  const charset = /charset\s*=\s*"?([\w-]+)/i.exec(header ?? '')?.[1]?.toLowerCase();
+  if (charset && charset !== 'utf-8' && charset !== 'utf8') {
+    try {
+      return new TextDecoder(charset).decode(body);
+    } catch {
+      // An unknown label falls through to UTF-8.
+    }
+  }
+  return body.toString('utf8');
+}
+
+/**
+ * When each origin may next be requested. Feeds are polled concurrently and
+ * many share an origin (every EURES slice is europa.eu), so an origin's
+ * Crawl-delay is honoured across all of them, not per feed.
+ */
+const originSlots = new Map<string, number>();
+
+/** Reserves the origin's next request slot and returns how long to wait for it. */
+function reserveOriginSlot(origin: string, gapMs: number): number {
+  const now = Date.now();
+  const at = Math.max(now, originSlots.get(origin) ?? 0);
+  originSlots.set(origin, at + gapMs);
+  return at - now;
+}
+
+/** Reads a request the origin's robots.txt allows, after the pause the origin and this feed ask for. */
 async function politeRead(request: JobFeedRequest, pauseMs: number, maxBodyBytes?: number): Promise<string> {
   const crawlDelaySeconds = await assertRobotsAllow(request.url);
-  const wait = Math.max(pauseMs, crawlDelaySeconds * 1000);
+  const wait = Math.max(pauseMs, reserveOriginSlot(new URL(request.url).origin, crawlDelaySeconds * 1000));
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
   return readBody(request, maxBodyBytes);
 }
@@ -135,7 +171,7 @@ export async function pollJobFeed(
 ): Promise<JobFeedPollOutcome> {
   const observedAt = new Date();
   const kind = feed.kind as JobFeedKind;
-  const { detail } = jobFeedProvider(kind);
+  const { detail, listingPage, detailsPerPoll, pagesPerPoll } = jobFeedProvider(kind);
   const seen = new Set<string>();
   const outcome: JobFeedPollOutcome = { stored: 0, rejected: 0, cursor: null, discovered: [] };
   const boards = new Set<string>([`${feed.kind}:${feed.identifier}`]);
@@ -146,7 +182,7 @@ export async function pollJobFeed(
       outcome.discovered.push({ ...board, label: listing.employerName });
     }
   };
-  let detailBudget = DETAILS_PER_POLL;
+  let detailBudget = detailsPerPoll ?? DETAILS_PER_POLL;
 
   /**
    * The listing as it should be stored: as listed, or completed by its detail
@@ -161,20 +197,74 @@ export async function pollJobFeed(
       return { structuredData: stored.structuredData, fetchedAt: stored.fetchedAt };
     }
     const request = detail.request(listing, feed.identifier);
-    if (!request || detailBudget <= 0) return undefined;
+    if (!request || detailBudget <= 0) {
+      if (stored) return { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) };
+      return detail.optional ? { structuredData: [jobPostingLd(listing)] } : undefined;
+    }
     detailBudget -= 1;
     try {
       const body = await politeRead(request, pageDelayMs);
-      const context: JobFeedContext = {
-        kind, identifier: feed.identifier, requestUrl: request.url, extractedAt: observedAt.toISOString(),
-        ...(feed.label ? { label: feed.label } : {}),
-      };
-      const completed = detail.parse(body, listing, context);
+      const completed = detail.parse(body, listing, contextFor(request.url));
       return completed ? { structuredData: [jobPostingLd(completed)] } : undefined;
     } catch {
       // A detail that cannot be read now is retried next poll; a stale copy
       // is better than none in the meantime.
+      if (stored) return { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) };
+      return detail.optional ? { structuredData: [jobPostingLd(listing)] } : undefined;
+    }
+  };
+
+  const contextFor = (requestUrl: string): JobFeedContext => ({
+    kind, identifier: feed.identifier, requestUrl, extractedAt: observedAt.toISOString(),
+    ...(feed.label ? { label: feed.label } : {}),
+  });
+
+  /** A page the source only links to, read through its own JSON-LD unless what is stored is still current. */
+  const readReference = async (reference: JobFeedPageReference, canonicalUrl: string): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
+    if (!listingPage) return undefined;
+    const stored = await storedJobDocument(canonicalUrl);
+    const ttlMs = (listingPage.ttlSeconds ?? DETAIL_TTL_SECONDS) * 1000;
+    const unchanged = stored?.fetchedAt && reference.lastModified && reference.lastModified <= stored.fetchedAt;
+    if (stored?.fetchedAt && (unchanged || observedAt.getTime() - stored.fetchedAt.getTime() < ttlMs)) {
+      return { structuredData: stored.structuredData, fetchedAt: stored.fetchedAt };
+    }
+    if (detailBudget <= 0) return undefined;
+    detailBudget -= 1;
+    try {
+      const html = await politeRead({ url: canonicalUrl, method: 'GET', accept: 'text/html,application/xhtml+xml' }, pageDelayMs);
+      // A page that asks not to be indexed is not indexed.
+      if (noindex(html)) return undefined;
+      const read = listingPage.parse(html, reference, contextFor(canonicalUrl));
+      return read ? { structuredData: [jobPostingLd(read)] } : undefined;
+    } catch {
       return stored ? { structuredData: stored.structuredData, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) } : undefined;
+    }
+  };
+
+  const projectReferences = async (references: readonly JobFeedPageReference[]): Promise<void> => {
+    for (const reference of references) {
+      if (seen.size >= MAX_LISTINGS_PER_POLL) return;
+      let canonicalUrl: string;
+      try {
+        canonicalUrl = canonicalizePublicUrl(reference.url);
+      } catch {
+        outcome.rejected += 1;
+        continue;
+      }
+      if (seen.has(canonicalUrl)) continue;
+      seen.add(canonicalUrl);
+      if (!await robotsAllowUrl(canonicalUrl)) continue;
+      try {
+        const payload = await readReference(reference, canonicalUrl);
+        if (!payload) continue;
+        await ingestJobPosting({
+          canonicalUrl, structuredData: payload.structuredData, siteId: null, sourceType: 'feed', fieldSource: 'feed', observedAt,
+          ...(payload.fetchedAt ? { fetchedAt: payload.fetchedAt } : {}),
+        });
+        outcome.stored += 1;
+      } catch {
+        outcome.rejected += 1;
+      }
     }
   };
 
@@ -220,13 +310,14 @@ export async function pollJobFeed(
 
   const head = await readPage(feed, observedAt, 0);
   await project(head.listings);
+  await projectReferences(head.references ?? []);
   if (outcome.rejected > 0 && outcome.stored === 0) throw new Error('no listing in the feed could be projected');
 
   // A single-page source has nothing to resume. Otherwise continue the
   // backfill where the last poll stopped, or start it after the head page.
   let cursor = head.nextCursor ? (feed.cursor ?? head.nextCursor) : undefined;
   let pages = 1;
-  while (cursor && pages < PAGES_PER_POLL && seen.size < MAX_LISTINGS_PER_POLL) {
+  while (cursor && pages < (pagesPerPoll ?? PAGES_PER_POLL) && seen.size < MAX_LISTINGS_PER_POLL) {
     let next: JobFeedPage;
     try {
       next = await readPage(feed, observedAt, pageDelayMs, cursor);
@@ -239,7 +330,8 @@ export async function pollJobFeed(
     }
     pages += 1;
     await project(next.listings);
-    cursor = next.listings.length > 0 ? next.nextCursor : undefined;
+    await projectReferences(next.references ?? []);
+    cursor = next.listings.length > 0 || (next.references?.length ?? 0) > 0 ? next.nextCursor : undefined;
   }
   outcome.cursor = cursor ?? null;
   return outcome;
@@ -329,10 +421,17 @@ export function toJsonLd(listing: ExtractedJobPosting): Record<string, unknown> 
  * due window before it is polled, under SKIP LOCKED, so concurrent workers
  * never pick the same feed.
  */
-async function claimDueFeeds(limit: number): Promise<Array<typeof jobFeeds.$inferSelect>> {
+export async function claimDueFeeds(limit: number): Promise<Array<typeof jobFeeds.$inferSelect>> {
   return getDb().transaction(async (tx) => {
-    const due = await tx.select().from(jobFeeds)
+    // The longest-waiting feeds of each kind, at most a couple per kind.
+    const ranked = tx.select({
+      id: jobFeeds.id,
+      rank: sql<number>`row_number() over (partition by ${jobFeeds.kind} order by ${jobFeeds.nextPollAt})`.as('rank'),
+    }).from(jobFeeds)
       .where(and(eq(jobFeeds.enabled, true), lte(jobFeeds.nextPollAt, new Date())))
+      .as('ranked');
+    const due = await tx.select().from(jobFeeds)
+      .where(inArray(jobFeeds.id, tx.select({ id: ranked.id }).from(ranked).where(lte(ranked.rank, FEEDS_PER_KIND_PER_ROUND))))
       .orderBy(jobFeeds.nextPollAt)
       .limit(limit)
       .for('update', { skipLocked: true });

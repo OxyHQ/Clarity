@@ -22,6 +22,10 @@ describe('board discovery', () => {
       ['https://www.careers-page.com/manatal/job/QW3VVV8W', 'manatal', 'manatal'],
       ['https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/x_JR1', 'workday', 'nvidia.wd5/NVIDIAExternalCareerSite'],
       ['https://salesforce.wd12.myworkdayjobs.com/en-US/External_Career_Site/job/x', 'workday', 'salesforce.wd12/External_Career_Site'],
+      ['https://jpmc.fa.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1001/job/210594721', 'oracle', 'jpmc.fa.oraclecloud.com/CX_1001'],
+      ['https://careers.hireology.com/fairfieldinnsuites-princetonwv/665632/description', 'hireology', 'fairfieldinnsuites-princetonwv'],
+      ['https://johanniter.softgarden.io/job/54463808/x', 'softgarden', 'johanniter'],
+      ['https://moneybird.homerun.co/afstudeer-stage-software-developer', 'homerun', 'moneybird'],
     ];
     for (const [url, kind, identifier] of cases) expect(boardFromUrl(url), url).toEqual({ kind, identifier });
   });
@@ -30,6 +34,8 @@ describe('board discovery', () => {
     for (const url of [
       'https://apply.workable.com/j/81B46579FE',
       'https://www.recruitee.com/pricing',
+      'https://feed.homerun.co/moneybird',
+      'https://api.recruitee.com/x',
       'https://a.b.recruitee.com/o/x',
       'https://jobs.smartrecruiters.com/Ubisoft2/123',
       'https://stripe.com/jobs/search?gh_jid=1',

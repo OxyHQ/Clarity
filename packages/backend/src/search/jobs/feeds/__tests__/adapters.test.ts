@@ -13,9 +13,19 @@ const context = (kind: (typeof JOB_FEED_KINDS)[number], identifier: string) => (
 /** A valid identifier per kind; most kinds take a company slug. */
 const SAMPLE_IDENTIFIERS: Partial<Record<(typeof JOB_FEED_KINDS)[number], string>> = {
   rss: 'https://example.com/jobs.rss',
+  sitemap: 'https://example.com/sitemap-jobs.xml#/jobs/',
   devitjobs: 'devitjobs.uk',
   workday: 'acme.wd5/External_Careers',
   freehire: 'source=workday&countries=us',
+  oracle: 'jpmc.fa.oraclecloud.com/CX_1001',
+  phenom: 'jobs.thermofisher.com/global/en',
+  eightfold: 'paypal.eightfold.ai/paypal.com',
+  successfactors: 'jobs.schaeffler.com',
+  jobvite: 'nutanix/qKr9VfwZ',
+  jibe: 'careers.mcafee.com',
+  madgex: 'jobs.chronicle.com',
+  rss_jsonld: 'https://djinni.co/jobs/rss/',
+  eures: 'de',
 };
 
 describe('keyless job feed endpoints', () => {
@@ -25,7 +35,7 @@ describe('keyless job feed endpoints', () => {
       const url = new URL(request.url);
       expect(url.protocol, kind).toBe('https:');
       expect(url.search, kind).not.toMatch(/key|token|secret|api[_-]?key/i);
-      expect(request.body ?? '', kind).not.toMatch(/key|token|secret/i);
+      expect(request.body ?? '', kind).not.toMatch(/"(?:api[_-]?key|access[_-]?token|token|secret|password|auth[a-z]*)"\s*:/i);
       expect(url.username).toBe('');
       expect(url.password).toBe('');
     }

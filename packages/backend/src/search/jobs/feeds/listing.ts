@@ -214,13 +214,19 @@ export function place(parts: {
 /** A location label that names no place ("Remote", "Anywhere") — a workplace signal, not a location. */
 const PLACELESS = /^(?:fully\s+)?(?:remote|anywhere|worldwide|global|various|multiple locations|n\/?a)$/i;
 
-/** Distinct locations, first occurrence wins; labels that name no place are dropped. */
+/**
+ * Distinct locations, first occurrence wins; labels that name no place are
+ * dropped. Two spellings of one place ("Troy, MI, US" and "Troy, MI, United
+ * States") are one location when both state the same locality and country.
+ */
 export function places(values: Array<JobLocation | undefined>): JobLocation[] {
   const seen = new Set<string>();
   const output: JobLocation[] = [];
   for (const value of values) {
-    if (!value || seen.has(value.raw) || PLACELESS.test(value.raw.trim())) continue;
-    seen.add(value.raw);
+    if (!value || PLACELESS.test(value.raw.trim())) continue;
+    const keys = [value.raw, ...(value.locality && value.countryCode ? [`${value.locality.toLowerCase()}|${value.countryCode}`] : [])];
+    if (keys.some((key) => seen.has(key))) continue;
+    for (const key of keys) seen.add(key);
     output.push(value);
   }
   return output;
@@ -507,6 +513,71 @@ export function fromEmbeddedJsonLd(value: unknown, baseUrl: string, extractedAt:
   try { parsed = JSON.parse(value); } catch { return undefined; }
   const [posting] = extractJobPostings([parsed], baseUrl, extractedAt, 'feed');
   return posting;
+}
+
+/**
+ * Raw line breaks and tabs inside JSON strings, which many publishers' JSON-LD
+ * contains and every browser and search engine tolerates, escaped so the
+ * block parses. Nothing outside a string literal is touched.
+ */
+function escapeControlCharactersInStrings(json: string): string {
+  let output = '';
+  let inString = false;
+  let escaped = false;
+  for (const character of json) {
+    if (inString) {
+      if (escaped) { escaped = false; output += character; continue; }
+      if (character === '\\') { escaped = true; output += character; continue; }
+      if (character === '"') inString = false;
+      else if (character === '\n') { output += '\\n'; continue; }
+      else if (character === '\r') { output += '\\r'; continue; }
+      else if (character === '\t') { output += '\\t'; continue; }
+      else if (character < ' ') continue;
+    } else if (character === '"') {
+      inString = true;
+    }
+    output += character;
+  }
+  return output;
+}
+
+/** Every `application/ld+json` block in an HTML page, parsed; unparseable blocks are skipped. */
+export function jsonLdBlocks(html: string): unknown[] {
+  return [...html.matchAll(/<script\b[^>]*type\s*=\s*["']?application\/ld\+json["']?[^>]*>([\s\S]*?)<\/script>/gi)].flatMap((match) => {
+    const raw = match[1].trim();
+    for (const candidate of [raw, escapeControlCharactersInStrings(raw)]) {
+      try {
+        return [JSON.parse(candidate)];
+      } catch {
+        // Try the tolerant reading next; a block that fails both is skipped.
+      }
+    }
+    return [];
+  });
+}
+
+/**
+ * A page that asks search engines not to index it — `<meta name="robots">`
+ * (or `name="claritybot"`) containing `noindex` or `none`.
+ */
+export function noindex(html: string): boolean {
+  for (const [meta] of html.matchAll(/<meta\b[^>]*>/gi)) {
+    const name = /\bname\s*=\s*["']?([^"'\s>]+)/i.exec(meta)?.[1]?.toLowerCase();
+    if (name !== 'robots' && name !== 'claritybot') continue;
+    const content = /\bcontent\s*=\s*["']([^"']*)["']/i.exec(meta)?.[1]?.toLowerCase() ?? '';
+    if (/(?:^|[\s,])(?:noindex|none)(?:$|[\s,])/.test(content)) return true;
+  }
+  return false;
+}
+
+/** The URLs and last-modified dates of a sitemap `urlset`. */
+export function sitemapEntries(xml: string): Array<{ url: string; lastModified?: Date }> {
+  return elements(xml, 'url').flatMap((entry) => {
+    const loc = text(tag(entry, 'loc'));
+    if (!loc) return [];
+    const modified = date(text(tag(entry, 'lastmod')));
+    return [{ url: loc, ...(modified ? { lastModified: modified } : {}) }];
+  });
 }
 
 /** The element's raw content, XML-unescaped, markup inside it left intact. */

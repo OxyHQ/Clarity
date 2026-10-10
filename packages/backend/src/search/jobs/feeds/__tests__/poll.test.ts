@@ -9,7 +9,7 @@ vi.mock('@oxy.so/core/server', () => ({
   safeFetch: vi.fn(async (url: string) => {
     requested.push(url);
     const { status, body } = respond(url);
-    return { status, response: Readable.from([Buffer.from(body)]) };
+    return { status, response: Object.assign(Readable.from([Buffer.from(body)]), { headers: { 'content-type': 'application/json' } }) };
   }),
 }));
 
@@ -129,6 +129,27 @@ describe('feed polling', () => {
       { kind: 'greenhouse', identifier: 'dataiku', label: 'Dataiku' },
       { kind: 'lever', identifier: 'spotify', label: 'Spotify' },
     ]);
+  });
+
+  it('reads sitemap pages once, skips unchanged and noindex pages', async () => {
+    const page = (title: string, extra = '') => `<html><head>${extra}<script type="application/ld+json">${JSON.stringify({
+      '@type': 'JobPosting', title, hiringOrganization: { name: 'Gemeente' },
+    })}</script></head></html>`;
+    stored.set('https://jobs.example/v/unchanged', { structuredData: [{ '@type': 'JobPosting', title: 'Kept' }], fetchedAt: new Date('2026-10-05T00:00:00Z') });
+    respond = (url) => {
+      if (url.endsWith('/sitemap.xml')) {
+        return { status: 200, body: `<urlset>
+          <url><loc>https://jobs.example/v/new</loc><lastmod>2026-10-09</lastmod></url>
+          <url><loc>https://jobs.example/v/unchanged</loc><lastmod>2026-10-01</lastmod></url>
+          <url><loc>https://jobs.example/v/hidden</loc><lastmod>2026-10-08</lastmod></url></urlset>` };
+      }
+      if (url.endsWith('/hidden')) return { status: 200, body: page('Hidden', '<meta name="robots" content="noindex">') };
+      return { status: 200, body: page('New') };
+    };
+    const outcome = await pollJobFeed({ ...feed(null), kind: 'sitemap', identifier: 'https://jobs.example/sitemap.xml' }, { pageDelayMs: 0 });
+    expect(requested).toEqual(['https://jobs.example/sitemap.xml', 'https://jobs.example/v/new', 'https://jobs.example/v/hidden']);
+    expect(ingested.sort()).toEqual(['https://jobs.example/v/new', 'https://jobs.example/v/unchanged']);
+    expect(outcome.stored).toBe(2);
   });
 
   it('fails the poll when the newest page cannot be read', async () => {

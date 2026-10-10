@@ -35,10 +35,30 @@ export interface JobFeedContext {
   label?: string;
 }
 
+/** A listing page a source names but does not describe: a sitemap entry, a link on a list page. */
+export interface JobFeedPageReference {
+  url: string;
+  /** The source's own last-modified date; an unchanged page is not read again. */
+  lastModified?: Date;
+}
+
 /** One page of a source: its listings and, when the source has more, where the next page starts. */
 export interface JobFeedPage {
   listings: ExtractedJobPosting[];
+  /** Listing pages to read through the provider's `listingPage` reader. */
+  references?: JobFeedPageReference[];
   nextCursor?: string;
+}
+
+/**
+ * Reads one listing page a source only links to — usually the page's own
+ * `schema.org/JobPosting`. Pages share the detail budget and cache: a page
+ * read within `ttlSeconds`, or not modified since it was read, is re-observed
+ * from storage.
+ */
+export interface JobFeedListingPage {
+  parse(html: string, reference: JobFeedPageReference, context: JobFeedContext): ExtractedJobPosting | undefined;
+  ttlSeconds?: number;
 }
 
 export interface JobFeedIdentifier {
@@ -65,6 +85,12 @@ export interface JobFeedDetail {
   /** The listing completed with its detail, or undefined when the detail is not a live posting. */
   parse(body: string, listing: ExtractedJobPosting, context: JobFeedContext): ExtractedJobPosting | undefined;
   ttlSeconds?: number;
+  /**
+   * The summary is already a complete listing and the detail only enriches it:
+   * a summary whose detail is not fetched this poll is stored as listed instead
+   * of waiting.
+   */
+  optional?: boolean;
 }
 
 export interface JobFeedProvider {
@@ -74,6 +100,11 @@ export interface JobFeedProvider {
   request(identifier: string, cursor?: string): JobFeedRequest;
   parse(body: string, context: JobFeedContext): JobFeedPage;
   detail?: JobFeedDetail;
+  listingPage?: JobFeedListingPage;
+  /** Detail and listing-page reads per poll, when the source asks for slower pacing than the default. */
+  detailsPerPoll?: number;
+  /** List pages per poll, the newest included, when the source asks for slower pacing than the default. */
+  pagesPerPoll?: number;
   /**
    * The shortest poll interval the source's published terms allow. Registration
    * raises a shorter requested interval to this.

@@ -1,5 +1,5 @@
 {
-  "id": "c7188b32-de33-4baf-8b8f-b9f97ae2083a",
+  "id": "95175b77-86c3-458c-bf6f-273b818a35e3",
   "prevId": "7664cfa2-b6de-41dd-b9be-a6280ba5adae",
   "version": "7",
   "dialect": "postgresql",
@@ -1430,7 +1430,7 @@
       "checkConstraints": {
         "clarity_job_feeds_kind_check": {
           "name": "clarity_job_feeds_kind_check",
-          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'rss')"
+          "value": "\"clarity_job_feeds\".\"kind\" in ('greenhouse', 'lever', 'lever_eu', 'ashby', 'workable', 'recruitee', 'smartrecruiters', 'personio', 'breezy', 'gem', 'pinpoint', 'teamtailor', 'manatal', 'rippling', 'bamboohr', 'polymer', 'workday', 'remoteok', 'remotive', 'arbeitnow', 'aidevboard', 'jobicy', 'workingnomads', 'devitjobs', 'artificialintelligencejobs', 'freehire', 'fourdayweek', 'jobtech', 'weworkremotely', 'oracle', 'phenom', 'eightfold', 'successfactors', 'jobvite', 'hireology', 'softgarden', 'jibe', 'homerun', 'madgex', 'getonboard', 'eures', 'feinaactiva', 'karrierenrw', 'jobsadminch', 'rss', 'rss_jsonld', 'sitemap')"
         },
         "clarity_job_feeds_status_check": {
           "name": "clarity_job_feeds_status_check",
