@@ -8,7 +8,8 @@ import {
 } from '../clarity-service-auth.js';
 
 const CLIENT_ID = CLARITY_AGENT_MANIFEST.backendApplication.clientId;
-const CREDENTIAL_ID = CLARITY_AGENT_MANIFEST.backendApplication.credentialId;
+/** The backend credential retired with its key pair. */
+const RETIRED_CREDENTIAL_ID = CLARITY_AGENT_MANIFEST.backendApplication.credentialId;
 const ATTESTATION_ID = CLARITY_AGENT_MANIFEST.workloadIdentity.attestationId;
 
 /** What ECS puts in a task's environment; its presence is what makes attesting possible. */
@@ -22,7 +23,7 @@ function serviceToken(overrides: Record<string, unknown> = {}): string {
   const payload = {
     type: 'service',
     appId: CLARITY_AGENT_MANIFEST.backendApplication.applicationId,
-    credentialId: CREDENTIAL_ID,
+    credentialId: ATTESTATION_ID,
     ownerAccountId: CLARITY_AGENT_MANIFEST.projectAccountId,
     scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
     exp: Math.floor(Date.now() / 1000) + 3600,
@@ -60,17 +61,28 @@ describe('the pinned workload attestation handle', () => {
 });
 
 describe('Clarity service configuration', () => {
-  it('accepts the exact credential pair', () => {
+  /**
+   * The key pair is retired: the credential it authenticated is revoked. A
+   * secret still reaching the process is refused even where the role could
+   * attest, so a task definition that still injects one fails readiness
+   * instead of carrying the pair along unnoticed.
+   */
+  it.each([
+    ['beside the exact client id', { OXY_SERVICE_API_KEY: CLIENT_ID }],
+    ['beside the exact client id on ECS', { OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS }],
+    ['alone on ECS', ON_ECS],
+    ['alone', {}],
+  ])('refuses the retired secret %s', (_label, overrides) => {
     expect(
       hasExactClarityServiceConfiguration(
-        env({ OXY_SERVICE_API_KEY: CLIENT_ID, OXY_SERVICE_API_SECRET: 'a-secret' }),
+        env({ ...overrides, OXY_SERVICE_API_SECRET: 'a-retired-secret' }),
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('accepts a task that carries no secret but can attest its role', () => {
-    // The state this migration produces: the client id stays behind as a plain
-    // environment variable, only the secret is removed.
+    // A leftover client id is tolerated (it is only a public id) while it is
+    // still exactly Clarity's.
     expect(
       hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS })),
     ).toBe(true);
@@ -87,13 +99,8 @@ describe('Clarity service configuration', () => {
     );
   });
 
-  it('still pins the client id byte for byte, in either mode', () => {
+  it('still pins a leftover client id byte for byte', () => {
     const foreign = 'oxy_dk_0000000000000000000000000000000000000000000000';
-    expect(
-      hasExactClarityServiceConfiguration(
-        env({ OXY_SERVICE_API_KEY: foreign, OXY_SERVICE_API_SECRET: 'a-secret' }),
-      ),
-    ).toBe(false);
     // A foreign client id left behind is a deployment error even when nothing
     // would read it, so attestation does not excuse it.
     expect(
@@ -105,12 +112,6 @@ describe('Clarity service configuration', () => {
         env({ OXY_SERVICE_API_KEY: CLARITY_AGENT_MANIFEST.publicApplication.clientId, ...ON_ECS }),
       ),
     ).toBe(false);
-  });
-
-  it('refuses a secret with no client id to pin it to', () => {
-    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_SECRET: 'a-secret' }))).toBe(
-      false,
-    );
   });
 
   it('keeps enforcing the canonical Oxy origin in production', () => {
@@ -125,8 +126,10 @@ describe('Clarity service configuration', () => {
 });
 
 describe('Clarity service token claims', () => {
-  it('accepts a credential-minted token', () => {
-    expect(() => assertExactClarityServiceClaims(serviceToken())).not.toThrow();
+  it('refuses a token minted by the retired backend credential', () => {
+    expect(() =>
+      assertExactClarityServiceClaims(serviceToken({ credentialId: RETIRED_CREDENTIAL_ID })),
+    ).toThrow('canonical Clarity service identity');
   });
 
   it('accepts an attested token, which carries the handle in place of the credential id', () => {
@@ -140,7 +143,7 @@ describe('Clarity service token claims', () => {
    *
    * Widening `credentialId` is the moment the identity assertion could quietly
    * become "any attested service", which would let every workload in the
-   * account mint as Clarity. It accepts exactly two values and nothing else.
+   * account mint as Clarity. It accepts exactly one value and nothing else.
    */
   it('refuses another service’s attestation handle', () => {
     // Mention's task role, whose handle is a documented constant in oxy.
@@ -186,12 +189,7 @@ describe('Clarity service token claims', () => {
       { scopes: [] },
     ];
     for (const overrides of wrong) {
-      // An attested token gets no more latitude than a credential-minted one.
-      expect(() =>
-        assertExactClarityServiceClaims(
-          serviceToken({ ...overrides, credentialId: ATTESTATION_ID }),
-        ),
-      ).toThrow('canonical Clarity service identity');
+      // The right handle buys no latitude on any other claim.
       expect(() => assertExactClarityServiceClaims(serviceToken(overrides))).toThrow(
         'canonical Clarity service identity',
       );

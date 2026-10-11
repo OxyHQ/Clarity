@@ -44,15 +44,16 @@ named in the task definition: a task naming a missing parameter fails at start.
 - `DATABASE_URL`: dedicated Clarity PostgreSQL database
 - `CLARITY_ALIA_AGENT_ID`: real provisioned Clarity bot/agent record
 - `ALIA_API_URL`: Alia product API origin
-- `OXY_SERVICE_API_KEY`: exact public client ID of the Clarity backend app
-- `OXY_SERVICE_API_SECRET`: **no longer used in AWS.** Both ECS services run the
-  dedicated `oxy-clarity-task` role and attest it instead (oxy ADR 0026): the
-  task signs an STS `GetCallerIdentity` request, Oxy replays it and mints the
-  same service token. The token an attested mint returns carries the workload's
-  stable handle `wl_1553bb11eb957512b3cdc956` as `credentialId` in place of the
-  credential UUID; both are pinned in `clarity-agent-manifest.ts` and nothing
-  else is accepted. A local checkout has no role to attest and still needs an
-  untracked secret.
+- No Oxy key pair. Both ECS services run the dedicated `oxy-clarity-task` role
+  and attest it (oxy ADR 0026): the task signs an STS `GetCallerIdentity`
+  request, Oxy replays it and mints the service token. That token carries the
+  workload's stable handle `wl_1553bb11eb957512b3cdc956` as `credentialId`, and
+  it is the only value `clarity-service-auth.ts` accepts. The former backend
+  credential `01a0648b-8d74-7240-adba-80707fdfdf9c` and its
+  `/oxy/clarity/OXY_SERVICE_API_*` pair are retired: a process that still
+  receives `OXY_SERVICE_API_SECRET` fails readiness, and a leftover
+  `OXY_SERVICE_API_KEY` must still be exactly the backend client id. A local
+  checkout has no role to attest and cannot reach Oxy as Clarity.
 - Stripe secrets only when local product subscription checkout is enabled
 - VAPID secrets only when browser push is enabled
 - Redis/Valkey only for cache and burst limiting
@@ -67,8 +68,8 @@ The exact deployment identity is: project/payer
 `01a0646a-078f-7f53-848d-a0f82d9f7fa6`, bot account
 `01a0646a-078f-7120-a993-a03c180c81b0`, private Alia agent
 `01a0646a-078f-7642-95ef-439952f4f3f9`, backend app
-`01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`, and backend credential
-`01a0648b-8d74-7240-adba-80707fdfdf9c`. Match primary keys byte for byte and
+`01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`, and backend task role
+`arn:aws:iam::237343248947:role/oxy-clarity-task`. Match primary keys byte for byte and
 never discover or rebind them by name, list order or fallback. The public
 sign-in app `01a0646a-2382-74a3-a795-788924d55722` remains separate and has
 only `user:read`; it must never authenticate backend inference.

@@ -16,7 +16,7 @@ function serviceToken(overrides: Record<string, unknown> = {}): string {
   const payload = {
     type: 'service',
     appId: CLARITY_AGENT_MANIFEST.backendApplication.applicationId,
-    credentialId: CLARITY_AGENT_MANIFEST.backendApplication.credentialId,
+    credentialId: CLARITY_AGENT_MANIFEST.workloadIdentity.attestationId,
     ownerAccountId: CLARITY_AGENT_MANIFEST.projectAccountId,
     scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
     exp: Math.floor(Date.now() / 1000) + 3600,
@@ -28,16 +28,15 @@ function serviceToken(overrides: Record<string, unknown> = {}): string {
 const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
-  process.env.OXY_SERVICE_API_KEY = CLARITY_AGENT_MANIFEST.backendApplication.clientId;
-  process.env.OXY_SERVICE_API_SECRET = 'test-only-secret';
+  // An ECS task: it attests its role (oxy ADR 0026) and holds no key pair.
+  process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI = '/v2/credentials/test';
   vi.spyOn(OxyServer.prototype, 'serviceToken').mockResolvedValue(serviceToken());
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
   delete process.env.ALIA_API_URL;
-  delete process.env.OXY_SERVICE_API_KEY;
-  delete process.env.OXY_SERVICE_API_SECRET;
+  delete process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI;
   vi.restoreAllMocks();
 });
 

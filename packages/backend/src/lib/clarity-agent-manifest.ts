@@ -14,6 +14,12 @@ export const CLARITY_AGENT_MANIFEST = Object.freeze({
   }),
   backendApplication: Object.freeze({
     applicationId: '01a0648b-8d73-70ad-8e67-1c07ddc5eb6e',
+    /**
+     * RETIRED with its key pair: Oxy revokes this credential, and no token
+     * naming it is accepted (`clarity-service-auth.ts`). Kept because it is a
+     * reserved id Oxy's manifest still names, and `clientId` is still the only
+     * value a leftover `OXY_SERVICE_API_KEY` may hold.
+     */
     credentialId: '01a0648b-8d74-7240-adba-80707fdfdf9c',
     clientId: 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78',
     scopes: Object.freeze(['user:read', 'inference:invoke'] as const),
