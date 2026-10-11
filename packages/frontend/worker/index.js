@@ -1,5 +1,3 @@
-import { observeEdgeRequest } from '@oxy.so/telemetry/edge';
-
 /**
  * Clarity web Worker -- SPA routing with proper MIME-type handling.
  *
@@ -13,7 +11,6 @@ import { observeEdgeRequest } from '@oxy.so/telemetry/edge';
  * Advanced Mode again: `public/_worker.js` was only ever loaded by Pages, and
  * under a Worker that path is inert AND uploaded as a public asset.
  *
- * Runs before all assets so edge activity includes cached static responses.
  * Asset routing and headers remain owned by the ASSETS binding.
  */
 
@@ -52,7 +49,7 @@ function getExtension(pathname) {
   return lastDot === -1 ? '' : pathname.slice(lastDot).toLowerCase();
 }
 
-const assetWorker = {
+export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const pathname = url.pathname;
@@ -73,17 +70,5 @@ const assetWorker = {
     // For non-asset paths (SPA navigation routes), the platform's index.html
     // fallback is correct behavior. Return the response as-is.
     return assetResponse;
-  },
-};
-
-export default {
-  fetch(request, env, ctx) {
-    return observeEdgeRequest({
-      service: 'clarity',
-      request,
-      env,
-      ctx,
-      next: () => assetWorker.fetch(request, env),
-    });
   },
 };
