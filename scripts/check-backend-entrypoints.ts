@@ -182,8 +182,8 @@ async function main(): Promise<void> {
     ['[Process] Uncaught exception'],
   );
 
-  // 2. No database at all. EMPTY rather than unset, so dotenv cannot fill it
-  //    from a developer's packages/backend/.env.
+  // 2. No database at all. EMPTY rather than unset, so Bun's .env loading
+  //    cannot fill it from a developer's .env in the working directory.
   await expectFailure('server: missing DATABASE_URL', [SERVER], { DATABASE_URL: '', PORT: '0' }, [
     'DATABASE_URL is required',
   ]);
