@@ -60,29 +60,57 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
+      # Production builds only what the owner reviewed. Each image's
+      # Dockerfile, context, target and both .dockerignore files are hashed and
+      # compared with the ONE pin in .github/scripts/reviewed-images.json; a
+      # mismatch stops here, before anything is built or pushed. The build's
+      # file, context and labels are the guard's outputs, so it cannot build a
+      # different file than the one checked and no hash is spelled out here to
+      # drift from the pin. CI runs the same check on every pull request
+      # (`reviewed-image.py check`, Lint & Test).
+      - name: Refuse unreviewed API image build inputs
+        id: reviewed
+        run: python3 -B .github/scripts/reviewed-image.py guard --recipe clarity-api
+
       - name: Build and push immutable image
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          context: .
-          file: packages/backend/Dockerfile
+          context: ${{ steps.reviewed.outputs.context }}
+          file: ${{ steps.reviewed.outputs.dockerfile }}
           platforms: linux/arm64
           push: true
           tags: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.DEPLOY_SHA }}
+          labels: |-
+            org.opencontainers.image.revision=${{ env.DEPLOY_SHA }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            io.oxy.source.tree=${{ steps.reviewed.outputs.source_tree }}
+            io.oxy.build-inputs.sha256=${{ steps.reviewed.outputs.build_inputs_sha256 }}
           cache-from: type=gha,scope=clarity-backend
           cache-to: type=gha,mode=max,scope=clarity-backend
           provenance: true
           sbom: true
 
-      # The web-discovery sidecar in clarity-api's task (packages/searxng).
+      # The web-discovery sidecar in clarity-api's task (packages/searxng). It
+      # runs in production too, so it is a reviewed recipe of its own.
+      - name: Refuse unreviewed SearXNG image build inputs
+        id: reviewed-searxng
+        run: python3 -B .github/scripts/reviewed-image.py guard --recipe clarity-searxng
+
       - name: Build and push SearXNG image
         id: searxng
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
-          context: packages/searxng
+          context: ${{ steps.reviewed-searxng.outputs.context }}
+          file: ${{ steps.reviewed-searxng.outputs.dockerfile }}
           platforms: linux/arm64
           push: true
           tags: ${{ env.ECR_REGISTRY }}/${{ env.SEARXNG_ECR_REPOSITORY }}:${{ env.DEPLOY_SHA }}
+          labels: |-
+            org.opencontainers.image.revision=${{ env.DEPLOY_SHA }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            io.oxy.source.tree=${{ steps.reviewed-searxng.outputs.source_tree }}
+            io.oxy.build-inputs.sha256=${{ steps.reviewed-searxng.outputs.build_inputs_sha256 }}
           cache-from: type=gha,scope=clarity-searxng
           cache-to: type=gha,mode=max,scope=clarity-searxng
           provenance: true
