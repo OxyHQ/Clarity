@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { OxyServer } from '@oxy.so/core/server';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest';
 
 import {
   AliaAgentConfigurationError,
@@ -26,11 +26,17 @@ function serviceToken(overrides: Record<string, unknown> = {}): string {
 }
 
 const originalFetch = globalThis.fetch;
+/**
+ * The spy itself, rather than `serviceTokenSpy`:
+ * this file also runs under `bun test` (see the `test:bun` script), whose `vi`
+ * has no `mocked`.
+ */
+let serviceTokenSpy: MockInstance<OxyServer['serviceToken']>;
 
 beforeEach(() => {
   // An ECS task: it attests its role (oxy ADR 0026) and holds no key pair.
   process.env.AWS_CONTAINER_CREDENTIALS_RELATIVE_URI = '/v2/credentials/test';
-  vi.spyOn(OxyServer.prototype, 'serviceToken').mockResolvedValue(serviceToken());
+  serviceTokenSpy = vi.spyOn(OxyServer.prototype, 'serviceToken').mockResolvedValue(serviceToken());
 });
 
 afterEach(() => {
@@ -249,7 +255,7 @@ describe('Clarity Alia agent boundary', () => {
   it('proxies only the selected Alia path with the exact service identity and delegated user', async () => {
     process.env.ALIA_API_URL = 'https://alia.example.test';
     const mintedServiceToken = serviceToken();
-    vi.mocked(OxyServer.prototype.serviceToken).mockResolvedValue(mintedServiceToken);
+    serviceTokenSpy.mockResolvedValue(mintedServiceToken);
     const fetchMock = vi.fn(
       async () =>
         new globalThis.Response('{"ok":true}', {
@@ -304,7 +310,7 @@ describe('Clarity Alia agent boundary', () => {
   });
 
   it('fails closed if Oxy mints a token for another payer or broader scopes', async () => {
-    vi.mocked(OxyServer.prototype.serviceToken).mockResolvedValue(
+    serviceTokenSpy.mockResolvedValue(
       serviceToken({
         ownerAccountId: 'wrong-project',
         scopes: ['user:read', 'inference:invoke', 'accounts:read'],

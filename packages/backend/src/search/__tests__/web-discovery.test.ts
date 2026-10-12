@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { restoreFetch, stubFetch } from '../../__tests__/support/global-fetch.js';
 
 import { discoverWeb } from '../web-discovery.js';
 
@@ -14,12 +15,12 @@ function answer(results: unknown[], status = 200): Response {
 beforeEach(() => {
   process.env.CLARITY_SEARXNG_URL = 'http://127.0.0.1:8080/';
   upstream.mockReset();
-  vi.stubGlobal('fetch', upstream);
+  stubFetch(upstream);
 });
 
 afterEach(() => {
   delete process.env.CLARITY_SEARXNG_URL;
-  vi.unstubAllGlobals();
+  restoreFetch();
 });
 
 describe('discoverWeb', () => {

@@ -27,6 +27,7 @@ jobs:
       pull-requests: read
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
     steps:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
@@ -40,6 +41,15 @@ jobs:
               - 'bunfig.toml'
               - 'app.json'
               - 'tsconfig*.json'
+              - '.github/**'
+            backend:
+              - 'packages/backend/**'
+              - 'packages/shared-types/**'
+              - 'packages/sdk/**'
+              - 'package.json'
+              - 'bun.lock'
+              - 'bunfig.toml'
+              - '.dockerignore'
               - '.github/**'
 
   lint-and-test:
@@ -105,6 +115,15 @@ jobs:
       - name: Run API tests
         run: bun run --filter @clarity/backend test
 
+      # Production runs the backend on Bun (packages/backend/Dockerfile), so the
+      # unit suite also runs under Bun's runtime and test runner, not only under
+      # vitest on Node. `--isolate` gives each file its own module registry, as
+      # vitest does. The *.postgres / *-integration suites stay on vitest
+      # (vi.hoisted, importOriginal, shared-database serialisation); the image
+      # smoke covers PostgreSQL under Bun.
+      - name: Run API tests under Bun
+        run: bun run --filter @clarity/backend test:bun
+
       - name: Run frontend tests
         run: bun run --filter @clarity/frontend test
 
@@ -112,6 +131,62 @@ jobs:
       # separate job paid a full runner setup and install for it.
       - name: Build API
         run: bun run build:backend
+
+      # EXECUTES the built artefacts under bun, the image's runtime and command,
+      # with boot forced to fail, asserting a non-zero exit, plus a real boot
+      # and SIGTERM shutdown as the control. An uncaught exception at boot whose
+      # exit is deferred to an unref'd timer can exit 0 on either runtime.
+      - name: The built backend exits non-zero when boot fails
+        run: bun run check:backend-entrypoints
+
+  # The production image as ECS runs it, on the architecture it ships for.
+  build-backend-image:
+    name: Build backend image
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    needs: changes
+    if: >-
+      !cancelled() &&
+      (github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true')
+    # A throwaway database for the image smoke; nothing else uses it.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: clarity
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d clarity"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      # Reads the deploy's layer cache; never writes it.
+      - name: Build ARM64 backend image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: packages/backend/Dockerfile
+          platforms: linux/arm64
+          load: true
+          push: false
+          tags: clarity-backend:ci
+          cache-from: type=gha,scope=clarity-backend
+
+      - name: Smoke the backend image under its Bun runtime
+        env:
+          IMAGE: clarity-backend:ci
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5433/clarity
+        run: bash .github/scripts/smoke-backend-image.sh
 
   build-frontend:
     name: Build frontend

@@ -104,8 +104,10 @@ jobs:
           COMPANION_CONTAINER_NAME: clarity-worker
           IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}@${{ steps.build.outputs.digest }}
           SIDECAR_IMAGES_JSON: '{"searxng":"${{ env.ECR_REGISTRY }}/${{ env.SEARXNG_ECR_REPOSITORY }}@${{ steps.searxng.outputs.digest }}"}'
-          PRE_DEPLOY_TASK_COMMAND_JSON: '["node","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=pre"]'
-          POST_DEPLOY_TASK_COMMAND_JSON: '["node","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=post"]'
+          # `bun`: the runtime packages/backend/Dockerfile ships. Reverting to a
+          # Node image means reverting these two lines with it.
+          PRE_DEPLOY_TASK_COMMAND_JSON: '["bun","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=pre"]'
+          POST_DEPLOY_TASK_COMMAND_JSON: '["bun","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=post"]'
         run: bash .github/scripts/deploy-ecs-service.sh
 
       - name: Smoke API

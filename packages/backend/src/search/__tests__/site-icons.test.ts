@@ -1,11 +1,17 @@
 import { Readable } from 'node:stream';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const safeFetch = vi.hoisted(() => vi.fn());
+/*
+ * This file runs under vitest AND under `bun test` (see the `test:bun` script).
+ * bun:test has no `vi.hoisted` and does not hoist `vi.mock`, so the mock is a
+ * plain constant, registered before the modules under test are imported, and
+ * those imports are dynamic so neither runner can hoist them above it.
+ */
+const safeFetch = vi.fn();
 vi.mock('@oxy.so/core/server', () => ({ safeFetch }));
 
-import { isPublicHostname } from '../../routes/favicons.js';
-import { fetchSiteIcon, hostOf, siteIconUrl, sniffImageType } from '../site-icons.js';
+const { isPublicHostname } = await import('../../routes/favicons.js');
+const { fetchSiteIcon, hostOf, siteIconUrl, sniffImageType } = await import('../site-icons.js');
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const ICO = Buffer.from([0x00, 0x00, 0x01, 0x00, 0x01, 0x00]);
