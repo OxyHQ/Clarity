@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { createHash } from 'node:crypto';
 import { startPlatformActivity } from './lib/platform-activity.js';
-import { and, eq, gt, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
 import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
@@ -230,6 +230,7 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
     tier: callerTierOf(job),
   };
   if (!(await getDb().transaction((tx) => ownsPageLease(tx, page)))) return;
+  if (await completeIfAlreadyFetched(page, job)) return;
   const fetchUsage = await consumeUsage({
     principal,
     operation: 'fetch_started',
@@ -498,6 +499,54 @@ async function recordGoneDocument(
       })
       .where(eq(fetchAttempts.id, attemptId));
     await finishJobIfComplete(tx, page.jobId);
+  });
+}
+
+/**
+ * Finish a `/resolve` page whose URL was fetched AFTER it was requested, without
+ * fetching it again.
+ *
+ * A resolve only queues URLs Clarity had no document for, but a page can sit in
+ * the queue long enough for the same URL to be fetched through another request;
+ * on 2026-10-12 most of the oldest resolve backlog pointed at URLs already
+ * indexed. Fetching them again cost a fetch, the extraction and the embeddings
+ * for a document the reader can already get. Only a document newer than the
+ * request counts, so the reader never gets anything older than what they asked
+ * after. Explicit indexing (`/index/urls`) and recrawls still always fetch.
+ */
+async function completeIfAlreadyFetched(
+  page: typeof crawlPages.$inferSelect,
+  job: typeof crawlJobs.$inferSelect,
+): Promise<boolean> {
+  if (job.kind !== 'urls' || !job.idempotencyKey?.startsWith('resolve:')) return false;
+  return getDb().transaction(async (tx) => {
+    if (!(await ownsPageLease(tx, page))) return true;
+    const [document] = await tx
+      .select({ id: searchDocuments.id })
+      .from(searchDocuments)
+      .where(
+        and(
+          or(
+            eq(searchDocuments.canonicalUrl, page.url),
+            eq(searchDocuments.requestedUrl, page.url),
+            eq(searchDocuments.finalUrl, page.url),
+          ),
+          ne(searchDocuments.status, 'discovered'),
+          gte(searchDocuments.fetchedAt, page.createdAt),
+        ),
+      )
+      .limit(1);
+    if (!document) return false;
+    await tx
+      .update(crawlPages)
+      .set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() })
+      .where(eq(crawlPages.id, page.id));
+    await tx
+      .update(crawlJobs)
+      .set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() })
+      .where(eq(crawlJobs.id, page.jobId));
+    await finishJobIfComplete(tx, page.jobId);
+    return true;
   });
 }
 

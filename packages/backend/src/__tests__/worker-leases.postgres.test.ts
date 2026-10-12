@@ -58,6 +58,7 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
       expired?: boolean;
       account?: string;
       jobStatus?: string;
+      idempotencyKey?: string;
     } = {},
   ) {
     const jobId = crypto.randomUUID();
@@ -70,7 +71,7 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
         applicationId: owner,
         kind: 'urls',
         status: options.jobStatus ?? 'queued',
-        idempotencyKey: jobId,
+        idempotencyKey: options.idempotencyKey ?? jobId,
         pagesDiscovered: 1,
       });
     const status = options.status ?? 'queued';
@@ -365,5 +366,66 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
           ),
         ),
     ).toHaveLength(0);
+  });
+
+  describe('a resolve whose URL was fetched after it was asked for', () => {
+    const html = () => ({
+      status: 200,
+      headers: { 'content-type': 'text/html' },
+      response: Readable.from([
+        '<html><head><title>Fresh</title></head><body>Article</body></html>',
+      ]),
+    });
+
+    async function documentFor(url: string, fetchedAt: Date) {
+      await getDb().insert(searchDocuments).values({
+        id: crypto.randomUUID(),
+        requestedUrl: url,
+        canonicalUrl: url,
+        status: 'indexed',
+        documentType: 'article',
+        fetchedAt,
+        indexedAt: fetchedAt,
+      });
+    }
+
+    async function claimed(id: string) {
+      const claim = await leaseNextPage();
+      if (claim?.id !== id) throw new Error('Expected the test page to be leased');
+      return claim;
+    }
+
+    it('completes without fetching when another request fetched it since', async () => {
+      const queued = await page({ idempotencyKey: `resolve:${crypto.randomUUID()}` });
+      await documentFor(queued.url, new Date());
+
+      await processPage(await claimed(queued.id));
+
+      expect(safeFetch).not.toHaveBeenCalled();
+      const [done] = await getDb().select().from(crawlPages).where(eq(crawlPages.id, queued.id));
+      expect(done).toMatchObject({ status: 'succeeded', leaseOwner: null });
+      const [job] = await getDb().select().from(crawlJobs).where(eq(crawlJobs.id, queued.jobId));
+      expect(job).toMatchObject({ status: 'succeeded', pagesCompleted: 1 });
+    });
+
+    it('still fetches when the stored copy is older than the request', async () => {
+      const queued = await page({ idempotencyKey: `resolve:${crypto.randomUUID()}` });
+      await documentFor(queued.url, new Date(Date.now() - 60 * 60 * 1000));
+      safeFetch.mockResolvedValue({ ...html(), finalUrl: queued.url });
+
+      await processPage(await claimed(queued.id));
+
+      expect(safeFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('never skips an explicit index request, which asks for a fresh fetch', async () => {
+      const queued = await page({ idempotencyKey: `bulk-${crypto.randomUUID()}` });
+      await documentFor(queued.url, new Date());
+      safeFetch.mockResolvedValue({ ...html(), finalUrl: queued.url });
+
+      await processPage(await claimed(queued.id));
+
+      expect(safeFetch).toHaveBeenCalledTimes(1);
+    });
   });
 });
