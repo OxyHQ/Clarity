@@ -6,6 +6,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { restoreFetch, stubFetch } from '../../../__tests__/support/global-fetch.js';
 
 import type { ClarityResourcePrincipal } from '../../../middleware/resource-auth.js';
+import type { FetchFunction } from '../../../lib/fetch-function.js';
 
 /**
  * The `/v1/market` boundary, driven over real HTTP.
@@ -70,7 +71,7 @@ const json = (body: unknown) =>
     headers: { 'content-type': 'application/json' },
   });
 
-const coinGecko: typeof fetch = async (input) => {
+const coinGecko: FetchFunction = async (input) => {
   const url = String(input);
   if (url.includes('/search?'))
     return json({ coins: [{ id: 'bitcoin', name: 'Bitcoin', symbol: 'btc' }] });
@@ -79,7 +80,7 @@ const coinGecko: typeof fetch = async (input) => {
     return json({ bitcoin: { usd: 78_420, usd_24h_change: -0.7 } });
   return new Response(null, { status: 502 });
 };
-const upstream = vi.fn<typeof fetch>(coinGecko);
+const upstream = vi.fn<FetchFunction>(coinGecko);
 
 let baseUrl: string;
 let server: Server;

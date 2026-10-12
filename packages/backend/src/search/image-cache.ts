@@ -3,7 +3,13 @@ import { and, eq, lt, or, sql } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
 import { imageCache } from '../db/schema/index.js';
-import { fetchBounded, hostOf, publicApiBase, sniffImageType } from './site-icons.js';
+import {
+  RENDERABLE_IMAGE_ACCEPT,
+  STORED_IMAGE_RENDITION,
+  renderStoredImage,
+  type RenderedImage,
+} from './image-render.js';
+import { fetchBounded, hostOf, publicApiBase } from './site-icons.js';
 
 /**
  * Remote images served from Clarity: a document's preview image and a job's
@@ -12,9 +18,13 @@ import { fetchBounded, hostOf, publicApiBase, sniffImageType } from './site-icon
  * The API never hands a consumer a site's own image URL. It hands out
  * `GET /images/<kind>/<id>/<version>` (routes/images.ts), and Clarity fetches
  * the image itself — through `safeFetch`, SSRF-checked on every hop, capped in
- * size, kept only when its BYTES are an image — and serves its copy. A reader's
- * browser therefore never asks the site for anything, and the site never learns
- * who read what.
+ * size — and serves its own rendition of it. A reader's browser therefore never
+ * asks the site for anything, and the site never learns who read what.
+ *
+ * What is kept is NEVER the site's original: only the compressed WebP
+ * rendition `image-render.ts` makes (the `w1280` rung of Oxy's image ladder),
+ * and smaller rungs are rendered from it when asked for. Bytes that do not
+ * decode as an image yield no rendition, so they are never kept either.
  *
  * The copy is a cache with its own expiry, not an archive:
  *  - filled lazily, the first time anyone asks for the image;
@@ -39,10 +49,8 @@ const ACCESS_TOUCH_MS = 24 * 60 * 60 * 1000;
 /** Rows deleted per sweep statement, so one sweep never holds a long lock. */
 const SWEEP_BATCH = 500;
 
-export interface CachedImage {
-  contentType: string;
-  bytes: Buffer;
-}
+/** What the cache serves: always a rendition, never a site's bytes. */
+export type CachedImage = RenderedImage;
 
 /** The cache key of an image: the SHA-256 of its source URL. */
 export function imageKey(sourceUrl: string): string {
@@ -72,14 +80,11 @@ export function publicImageUrl(
 }
 
 async function download(sourceUrl: string): Promise<CachedImage | undefined> {
-  const fetched = await fetchBounded(
-    sourceUrl,
-    'image/avif,image/webp,image/*;q=0.8',
-    MAX_IMAGE_BYTES,
-  ).catch(() => undefined);
+  const fetched = await fetchBounded(sourceUrl, RENDERABLE_IMAGE_ACCEPT, MAX_IMAGE_BYTES).catch(
+    () => undefined,
+  );
   if (!fetched || fetched.bytes.length === 0) return undefined;
-  const contentType = sniffImageType(fetched.bytes);
-  return contentType ? { contentType, bytes: fetched.bytes } : undefined;
+  return renderStoredImage(fetched.bytes);
 }
 
 /** Fetches in progress in this process, so concurrent misses share one download. */
@@ -98,6 +103,7 @@ async function fetchAndStore(
         contentType: image.contentType,
         bytes: image.bytes,
         byteSize: image.bytes.length,
+        rendition: STORED_IMAGE_RENDITION,
       }
     : { status: 'missing', contentType: null, bytes: null, byteSize: 0 };
   await getDb()
@@ -123,15 +129,16 @@ async function fetchAndStore(
           },
     });
   if (image) return image;
-  // The refresh failed: serve the previous copy if there is one.
+  // The refresh failed: serve the previous copy if there is one — re-rendered
+  // first if an older pipeline kept it.
   const [kept] = await getDb()
-    .select({ contentType: imageCache.contentType, bytes: imageCache.bytes })
+    .select({ bytes: imageCache.bytes, rendition: imageCache.rendition })
     .from(imageCache)
     .where(and(eq(imageCache.key, key), eq(imageCache.status, 'ready')))
     .limit(1);
-  return kept?.contentType && kept.bytes
-    ? { contentType: kept.contentType, bytes: kept.bytes }
-    : undefined;
+  if (!kept?.bytes) return undefined;
+  if (kept.rendition < STORED_IMAGE_RENDITION) return rerender(key, kept.bytes, at, true);
+  return { contentType: 'image/webp', bytes: kept.bytes };
 }
 
 /**
@@ -149,13 +156,18 @@ export async function readCachedImage(
   if (row) {
     const age = now - row.fetchedAt.getTime();
     if (row.status === 'ready' && row.contentType && row.bytes && age < IMAGE_REFRESH_MS) {
+      if (row.rendition < STORED_IMAGE_RENDITION) {
+        // Kept by an older pipeline — possibly the site's original. Never
+        // served as is: rendered now, and the rendition replaces it.
+        return rerender(key, row.bytes, now, true);
+      }
       if (now - row.lastAccessedAt.getTime() > ACCESS_TOUCH_MS) {
         await getDb()
           .update(imageCache)
           .set({ lastAccessedAt: new Date(now) })
           .where(eq(imageCache.key, key));
       }
-      return { contentType: row.contentType, bytes: row.bytes };
+      return { contentType: 'image/webp', bytes: row.bytes };
     }
     if (row.status === 'missing' && age < IMAGE_MISS_TTL_MS) return undefined;
   }
@@ -166,6 +178,61 @@ export async function readCachedImage(
     inFlight.set(key, flight);
   }
   return flight;
+}
+
+/**
+ * Replace a row kept by an older pipeline with the current rendition of its
+ * bytes. Bytes that no longer render (a format `Bun.Image` cannot decode) are
+ * dropped and the row remembered as missing — the original is never kept.
+ */
+async function rerender(
+  key: string,
+  bytes: Buffer,
+  now: number,
+  /** A read touches the row's access time; the worker's sweep must not. */
+  read: boolean,
+): Promise<CachedImage | undefined> {
+  const image = await renderStoredImage(bytes);
+  await getDb()
+    .update(imageCache)
+    .set(
+      image
+        ? {
+            contentType: image.contentType,
+            bytes: image.bytes,
+            byteSize: image.bytes.length,
+            rendition: STORED_IMAGE_RENDITION,
+            ...(read ? { lastAccessedAt: new Date(now) } : {}),
+          }
+        : {
+            status: 'missing',
+            contentType: null,
+            bytes: null,
+            byteSize: 0,
+            rendition: STORED_IMAGE_RENDITION,
+            fetchedAt: new Date(now),
+          },
+    )
+    .where(eq(imageCache.key, key));
+  return image;
+}
+
+/**
+ * Re-render up to `limit` rows kept by an older pipeline (original bytes from
+ * before renditions existed, or an older rendition). Run by the worker in
+ * small batches, so the backlog drains without one long statement or a burst
+ * of reads; returns how many rows it rewrote.
+ */
+export async function upgradeImageRenditions(limit: number, now = Date.now()): Promise<number> {
+  const rows = await getDb()
+    .select({ key: imageCache.key, bytes: imageCache.bytes })
+    .from(imageCache)
+    .where(and(eq(imageCache.status, 'ready'), lt(imageCache.rendition, STORED_IMAGE_RENDITION)))
+    .limit(limit);
+  for (const row of rows) {
+    if (row.bytes) await rerender(row.key, row.bytes, now, false);
+  }
+  return rows.length;
 }
 
 /**

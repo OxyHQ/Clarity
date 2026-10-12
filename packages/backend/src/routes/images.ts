@@ -4,13 +4,17 @@ import { eq } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
 import { jobPostings, searchDocuments } from '../db/schema/index.js';
 import { imageVersion, readCachedImage, type ImageKind } from '../search/image-cache.js';
+import { imageAtVariant, requestedImageVariant } from '../search/image-render.js';
 
 /**
  * `GET /images/documents/:id/:version` — a document's preview image.
  * `GET /images/jobs/:id/:version` — a job posting's employer logo.
  *
- * Clarity's copy of a remote image (search/image-cache.ts). Public and
- * credential-free, because an `<img>` sends no bearer, like `/favicons`.
+ * Clarity's rendition of a remote image (search/image-cache.ts): WebP, never
+ * the site's original. `?variant=w320|w640|w1280` picks a rung of Oxy's image
+ * ladder (`@oxy.so/utils/image`), the same names Oxy's CDN serves post media
+ * at; anything else gets the stored `w1280`. Public and credential-free,
+ * because an `<img>` sends no bearer, like `/favicons`.
  *
  * The image to serve is looked up from Clarity's OWN row by id; nothing in the
  * request names a URL, so this cannot be pointed at an arbitrary address. The
@@ -66,7 +70,10 @@ function serve(kind: ImageKind) {
       notFound(res);
       return;
     }
-    const image = await readCachedImage(sourceUrl);
+    const stored = await readCachedImage(sourceUrl);
+    const image = stored
+      ? await imageAtVariant(stored, requestedImageVariant(req.query.variant))
+      : undefined;
     if (!image) {
       notFound(res);
       return;
