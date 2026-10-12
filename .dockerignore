@@ -1,8 +1,12 @@
-node_modules
-dist
-.env
-.env.*
-*.log
+# Patterns match from the context root only, so a bare `.env` would leave
+# packages/backend/.env free to reach the builder stage via
+# `COPY packages/backend/`. `**/` covers every depth, the root included.
+# The build reads no .env.example, so none is let back in.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/*.log
 signal-data
 .git
 .github

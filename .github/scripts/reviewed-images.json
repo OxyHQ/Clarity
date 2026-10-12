@@ -7,7 +7,7 @@
       "dockerfile": "packages/backend/Dockerfile",
       "context": ".",
       "target": null,
-      "buildInputsSha256": "02032ed7cf70b3e73c10e5dd54f19503d80030ee1076b82348469c5b17f77d52"
+      "buildInputsSha256": "79b807e7d65c66964190be59c74b6747e9271d62b8074b8fe6fd2329f74c6947"
     },
     {
       "name": "clarity-searxng",
@@ -15,7 +15,7 @@
       "dockerfile": "packages/searxng/Dockerfile",
       "context": "packages/searxng",
       "target": null,
-      "buildInputsSha256": "e95ca896f8c45642a04d4e16071eb0f0dc2b9911f3d03ce05c40f5fa6c983dbc"
+      "buildInputsSha256": "09517750de02acdf72d9fc6a2ee9c19e8e0480445dda5da3919c657b6c5964e8"
     }
   ]
 }

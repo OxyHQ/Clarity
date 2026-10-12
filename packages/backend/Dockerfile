@@ -2,15 +2,21 @@
 # Clarity API - Production Dockerfile
 # ============================================
 # Multi-stage build: Bun for installs, Node for runtime
+#
+# Base images are pinned by digest: the digest is what the build uses, and the
+# tag beside it is only for the reader (node:22-bookworm-slim = Node 22.23.3,
+# resolved 2026-10-12; both are multi-arch indexes that include linux/arm64).
+# A re-pushed tag cannot change the image. Bumping one means a new digest, which
+# changes this file, so the reviewed-image pin fails until the owner re-reviews.
 
 # --- Stage 1: Builder ---
-FROM node:22-bookworm-slim AS builder
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS builder
 
 # Bun comes from its own published image at the version `packageManager` and CI
 # pin. The previous `curl | bash` install failed OPEN: a failed download left
 # `bash` reading nothing and exiting 0, `ln -s` happily created a dangling
 # symlink, and the build only died four lines later with `bun: not found`.
-COPY --from=oven/bun:1.4.3 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /build
 
@@ -43,9 +49,9 @@ RUN bun run --filter @clarity/shared-types build && \
 # Only the API's closure (--filter): the frontend's Expo / React Native tree is
 # never loaded by the server and used to be most of this image. Same Debian base
 # as the runtime, so anything native matches.
-FROM node:22-bookworm-slim AS production-deps
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS production-deps
 
-COPY --from=oven/bun:1.4.3 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
@@ -61,7 +67,7 @@ COPY packages/frontend/package.json ./packages/frontend/
 RUN bun install --frozen-lockfile --production --filter @clarity/backend
 
 # --- Stage 3: Production Runtime ---
-FROM node:22-bookworm-slim AS runtime
+FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 AS runtime
 
 # curl serves the image health check below; Bun stays in the runtime as before.
 RUN apt-get update && \
@@ -69,7 +75,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=oven/bun:1.4.3 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.3@sha256:ec06c3b6cea04192ae6770c434f668ca41d343ad19fa6472216c7b48be39c598 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
