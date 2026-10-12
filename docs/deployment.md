@@ -32,6 +32,17 @@ starting either service. Ordinary releases then use the workflow's `pre` and
 or parked at zero; infrastructure creation and intentional scaling are not
 silently treated as successful application deployments.
 
+The image runs on Bun: `packages/backend/Dockerfile` builds and runs on
+`oven/bun:1.4.3-slim`, its CMD is `bun packages/backend/dist/index.js`, the
+migrator one-shots in `deploy-aws.yml` run `bun packages/backend/dist/db/migrate.js`,
+and `clarity-worker`'s command in oxy-infra (`terraform-uswest2/app-clarity.tf`)
+runs `bun packages/backend/dist/worker.js`. CI's `Build backend image` job boots
+the built ARM64 image against Postgres (`.github/scripts/smoke-backend-image.sh`)
+and `check:backend-entrypoints` executes the built bundles under Bun. The image
+has no Node: its `node` is a symlink to Bun. To return to Node, revert the change
+that made the switch; the restored Node image still carries Bun, so the
+worker's `bun` command keeps working across that revert.
+
 ## Required secrets and bindings
 
 Every runtime secret lives only in SSM Parameter Store under `/oxy/clarity/`

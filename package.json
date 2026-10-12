@@ -19,6 +19,7 @@
     "build:backend": "bun run --filter @clarity/shared-types build && bun run --filter @clarity/backend build",
     "start:frontend": "bun run --filter @clarity/frontend start",
     "start:backend": "bun run --filter @clarity/backend start",
+    "check:backend-entrypoints": "bun scripts/check-backend-entrypoints.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",

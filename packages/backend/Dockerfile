@@ -1,16 +1,24 @@
 # ============================================
 # Clarity API - Production Dockerfile
 # ============================================
-# Multi-stage build: Bun for installs, Node for runtime
+# Multi-stage build on one pinned Bun image: installs, the bundle and the
+# runtime all use oven/bun:1.4.3-slim (Debian bookworm/glibc, the libc the
+# Node image had), at the version `packageManager` and CI pin. One image serves
+# the API (`clarity-api`), the crawler worker (`clarity-worker`, whose command
+# oxy-infra sets) and every one-shot the deploy runs (the migrator).
+#
+# The API ran on node:22-bookworm-slim until 2026-10, with Bun copied in beside
+# it. Bun runs the same esbuild bundle (ESM, platform=node) unchanged.
+#
+# Rolling back to Node is reverting the PR that made this change: it restores
+# the node:22-bookworm-slim runtime AND the `node` migrator commands in
+# .github/workflows/deploy-aws.yml, which must always name a runtime this image
+# ships. The worker command in oxy-infra (terraform-uswest2/app-clarity.tf)
+# runs `bun` and survives that revert: the Node runtime it restores still
+# copies Bun in at /usr/local/bin/bun.
 
 # --- Stage 1: Builder ---
-FROM node:22-bookworm-slim AS builder
-
-# Bun comes from its own published image at the version `packageManager` and CI
-# pin. The previous `curl | bash` install failed OPEN: a failed download left
-# `bash` reading nothing and exiting 0, `ln -s` happily created a dangling
-# symlink, and the build only died four lines later with `bun: not found`.
-COPY --from=oven/bun:1.4.3 /usr/local/bin/bun /usr/local/bin/bun
+FROM oven/bun:1.4.3-slim AS builder
 
 WORKDIR /build
 
@@ -41,11 +49,9 @@ RUN bun run --filter @clarity/shared-types build && \
 
 # --- Stage 2: Production dependencies ---
 # Only the API's closure (--filter): the frontend's Expo / React Native tree is
-# never loaded by the server and used to be most of this image. Same Debian base
-# as the runtime, so anything native matches.
-FROM node:22-bookworm-slim AS production-deps
-
-COPY --from=oven/bun:1.4.3 /usr/local/bin/bun /usr/local/bin/bun
+# never loaded by the server and used to be most of this image. Same image as
+# the runtime, so anything native is installed for the Bun and libc that run it.
+FROM oven/bun:1.4.3-slim AS production-deps
 
 WORKDIR /app
 
@@ -61,32 +67,32 @@ COPY packages/frontend/package.json ./packages/frontend/
 RUN bun install --frozen-lockfile --production --filter @clarity/backend
 
 # --- Stage 3: Production Runtime ---
-FROM node:22-bookworm-slim AS runtime
+FROM oven/bun:1.4.3-slim AS runtime
 
-# curl serves the image health check below; Bun stays in the runtime as before.
+# curl serves the image health check below; ca-certificates gives outbound TLS
+# (Stripe, Oxy, Alia, crawled sites) the system trust store as well.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-COPY --from=oven/bun:1.4.3 /usr/local/bin/bun /usr/local/bin/bun
 
 WORKDIR /app
 
 # The non-root user owns /app (it writes temp files there) and everything
 # copied into it. Each COPY sets the owner itself: a trailing `chown -R`
 # rewrote every file into a second layer and shipped node_modules twice.
-RUN chown node:node /app
+# `bun` is the image's own unprivileged user, uid/gid 1000 like Node's `node`.
+RUN chown bun:bun /app
 
-COPY --from=production-deps --chown=node:node /app/ ./
+COPY --from=production-deps --chown=bun:bun /app/ ./
 
 # Copy built output from builder
-COPY --from=builder --chown=node:node /build/packages/shared-types/dist ./packages/shared-types/dist
-COPY --from=builder --chown=node:node /build/packages/backend/dist ./packages/backend/dist
-COPY --from=builder --chown=node:node /build/packages/backend/drizzle ./packages/backend/drizzle
+COPY --from=builder --chown=bun:bun /build/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder --chown=bun:bun /build/packages/backend/dist ./packages/backend/dist
+COPY --from=builder --chown=bun:bun /build/packages/backend/drizzle ./packages/backend/drizzle
 
 # Security hardening: Run as non-root user
-USER node
+USER bun
 
 ENV NODE_ENV=production
 EXPOSE 3001
@@ -95,4 +101,10 @@ EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3001/health/live || exit 1
 
-CMD ["node", "packages/backend/dist/index.js"]
+# The image's entrypoint execs this command, so Bun is PID 1 and receives
+# SIGTERM itself; src/index.ts registers the graceful-shutdown handler. Every
+# command that overrides this one (the migrator in deploy-aws.yml, the worker in
+# oxy-infra) names `bun` too. The base image puts a `node` on PATH, but it is a
+# symlink to bun (/usr/local/bun-node-fallback-bin/node): there is no Node in
+# this image, so `node <file>` would run Bun while claiming otherwise.
+CMD ["bun", "packages/backend/dist/index.js"]

@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { restoreFetch, stubFetch } from '../../__tests__/support/global-fetch.js';
 
 vi.mock('../../lib/clarity-service-auth.js', () => ({
   getClarityServiceToken: vi.fn(async () => 'clarity-service-token'),
@@ -100,10 +101,10 @@ describe('authenticateResource reads the tier Oxy answers', () => {
   beforeEach(() => {
     process.env.CLARITY_INTROSPECTION_CACHE_HMAC_KEY = 'test-hmac-key';
     upstream.mockReset();
-    vi.stubGlobal('fetch', upstream);
+    stubFetch(upstream);
   });
 
-  afterEach(() => vi.unstubAllGlobals());
+  afterEach(() => restoreFetch());
 
   it.each([
     ['internal', { tier: 'internal' }, 'internal'],

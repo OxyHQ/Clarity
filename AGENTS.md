@@ -48,7 +48,9 @@ bun install --frozen-lockfile
 bun run lint            # Biome: lint + format check (CI: bunx biome ci .)
 bun run lint:fix        # apply Biome safe fixes + formatting; `bun run format` formats only
 bun run --filter @clarity/backend test
+bun run --filter @clarity/backend test:bun   # unit suite under Bun, the production runtime
 bun run build:backend
+TEST_DATABASE_URL=postgresql://.../clarity_ci bun run check:backend-entrypoints
 ```
 
 Database commands require an explicit database and phase:
