@@ -170,6 +170,42 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
     });
     expect(updated.find((row) => row.url === urls[2]).priority).toBe(0);
   });
+  it('puts a waiting reader ahead of background warming, and never lowers it', async () => {
+    const priorities = async () =>
+      new Map(
+        (
+          await getDb()
+            .select({ url: crawlPages.url, priority: crawlPages.priority })
+            .from(crawlPages)
+            .innerJoin(crawlJobs, eq(crawlJobs.id, crawlPages.jobId))
+            .where(eq(crawlJobs.ownerAccountId, owner))
+        ).map((row) => [row.url, row.priority]),
+      );
+
+    // Background warming (no wait) queues both at the background tier.
+    await resolve([urls[0], urls[1]]);
+    expect(await priorities()).toEqual(
+      new Map([
+        [urls[0], 1],
+        [urls[1], 1],
+      ]),
+    );
+
+    // A reader waits on one of them: it moves ahead of the background work.
+    // The wait is short and nothing crawls here, so it runs to its deadline.
+    await resolve([urls[0]], 50);
+    expect((await priorities()).get(urls[0])).toBe(2);
+    expect((await priorities()).get(urls[1])).toBe(1);
+
+    // A later background resolve of the same URL does not demote it.
+    await resolve([urls[0]]);
+    expect((await priorities()).get(urls[0])).toBe(2);
+
+    // A new URL a reader waits on starts at the waiting tier.
+    await resolve([urls[2]], 50);
+    expect((await priorities()).get(urls[2])).toBe(2);
+  });
+
   it('can retry a failed operation instead of reusing it forever', async () => {
     const first = await bodyOf(await resolve([urls[0]]));
     await getDb()

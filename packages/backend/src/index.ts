@@ -2,9 +2,6 @@ import express from 'express';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import http from 'node:http';
 import cors from 'cors';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
 import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
@@ -36,12 +33,9 @@ import newsRouter from './routes/news.js';
 // Socket.io
 import { initSocket } from './socket.js';
 
-// Fix for ES Modules __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load .env from the api directory (not the monorepo root)
-dotenv.config({ path: join(__dirname, '../.env') });
+// Bun loads `.env` from the working directory before any module runs; the
+// package scripts (`bun run dev`, `bun run start`) run from packages/backend,
+// so that is packages/backend/.env, the file dotenv used to be pointed at.
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);

@@ -39,6 +39,7 @@ import { z } from 'zod';
 
 import { log } from './logger.js';
 import { getRedisClient, withRedisTimeout } from './redis.js';
+import type { FetchFunction } from './fetch-function.js';
 
 const COINGECKO_API = 'https://api.coingecko.com/api/v3';
 const FAIRCOIN_EXPLORER_API = 'https://explorer.fairco.in/api';
@@ -119,7 +120,7 @@ function redisQuoteCache(): MarketQuoteCache | null {
 export interface MarketQuoteOptions {
   /** ISO quote currency. CoinGecko quotes many; the FairCoin explorer quotes USD only. */
   currency?: string;
-  fetch?: typeof fetch;
+  fetch?: FetchFunction;
   /** Omit for the shared Redis cache; pass `null` to bypass caching entirely. */
   cache?: MarketQuoteCache | null;
   now?: Date;
@@ -202,7 +203,7 @@ async function writeCache(
   }
 }
 
-async function fetchJson<T>(url: string, schema: z.ZodType<T>, doFetch: typeof fetch): Promise<T> {
+async function fetchJson<T>(url: string, schema: z.ZodType<T>, doFetch: FetchFunction): Promise<T> {
   let payload: unknown;
   try {
     const response = await doFetch(url, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
@@ -270,7 +271,7 @@ const simplePriceSchema = z.record(z.string(), z.record(z.string(), z.unknown())
  */
 async function resolveCoin(
   asset: string,
-  doFetch: typeof fetch,
+  doFetch: FetchFunction,
 ): Promise<{ id: string; name: string; symbol: string }> {
   const body = await fetchJson(
     `${COINGECKO_API}/search?query=${encodeURIComponent(asset)}`,
@@ -299,7 +300,7 @@ function seriesPoints(prices: number[][]): MarketSeriesPoint[] {
 async function cryptoQuote(
   asset: string,
   currency: string,
-  doFetch: typeof fetch,
+  doFetch: FetchFunction,
   now: Date,
 ): Promise<MarketQuote> {
   const coin = await resolveCoin(asset, doFetch);
@@ -381,7 +382,7 @@ const fairCoinHistorySchema = z.object({
   history: z.array(z.object({ price_usd: z.number(), timestamp: z.string() })),
 });
 
-async function fairCoinQuote(currency: string, doFetch: typeof fetch): Promise<MarketQuote> {
+async function fairCoinQuote(currency: string, doFetch: FetchFunction): Promise<MarketQuote> {
   if (currency !== FAIRCOIN_CURRENCY) {
     throw new MarketDataError(
       400,

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { getClarityServiceToken } from './clarity-service-auth.js';
+import type { FetchFunction } from './fetch-function.js';
 
 export const CLARITY_EMBEDDING_MODEL = 'qwen/qwen3-embedding-0.6b';
 export const CLARITY_EMBEDDING_DIMENSION = 1024;
@@ -32,7 +33,7 @@ const embeddingResponseSchema = z
 
 interface EmbeddingClientOptions {
   baseUrl?: string;
-  fetch?: typeof fetch;
+  fetch?: FetchFunction;
   getToken?: () => Promise<string>;
   signal?: AbortSignal;
 }

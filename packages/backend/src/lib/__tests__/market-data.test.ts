@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { getMarketQuote, MarketDataError, type MarketQuoteCache } from '../market-data.js';
+import type { FetchFunction } from '../fetch-function.js';
 
 /**
  * What Clarity serves for a market quote.
@@ -51,7 +52,7 @@ function coinGecko(
   options: { daily?: number[][]; coins?: unknown[]; price?: unknown; failing?: RegExp } = {},
 ) {
   const daily = options.daily ?? dailySeries(800);
-  return vi.fn<typeof fetch>(async (input) => {
+  return vi.fn<FetchFunction>(async (input) => {
     const url = String(input);
     if (options.failing?.test(url)) return new Response(null, { status: 502 });
     if (url.includes('/search?')) return json({ coins: options.coins ?? [BITCOIN] });
@@ -195,7 +196,7 @@ describe('crypto quotes', () => {
   });
 
   it('treats a 200 that carries no history as an outage, not a flat chart', async () => {
-    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+    const fetchMock = vi.fn<FetchFunction>(async (input) => {
       const url = String(input);
       if (url.includes('/search?')) return json({ coins: [BITCOIN] });
       if (url.includes('market_chart')) return json({ status: { error_code: 429 } });
@@ -226,7 +227,7 @@ const FAIRCOIN_PRICE = {
 };
 
 function fairCoinExplorer(options: { price?: unknown; failing?: RegExp } = {}) {
-  return vi.fn<typeof fetch>(async (input) => {
+  return vi.fn<FetchFunction>(async (input) => {
     const url = String(input);
     if (options.failing?.test(url)) return new Response(null, { status: 502 });
     if (url.includes('/price/history')) {

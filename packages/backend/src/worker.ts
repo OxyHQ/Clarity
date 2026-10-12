@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { createHash } from 'node:crypto';
 import { startPlatformActivity } from './lib/platform-activity.js';
-import { and, eq, gt, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
 import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
@@ -18,7 +18,7 @@ import {
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
-import { sweepImageCache } from './search/image-cache.js';
+import { sweepImageCache, upgradeImageRenditions } from './search/image-cache.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
@@ -29,6 +29,13 @@ const jobMaintenanceIntervalMs = 15 * 60 * 1000;
 /** Site icons: a small batch every half minute, between pages. */
 const iconRefreshIntervalMs = 30 * 1000;
 const iconRefreshBatchSize = 10;
+/**
+ * Cached images still on an older rendition (search/image-cache.ts): a small
+ * batch every half minute, so ~19k legacy originals (4.3 GB, 2026-10-12) are
+ * re-rendered in hours without a burst of reads on the shared database.
+ */
+const imageRenditionIntervalMs = 30 * 1000;
+const imageRenditionBatchSize = 25;
 const jobRecrawlBatchSize = 50;
 
 /** Reclaim crashed workers before counting concurrency. A stale claim never owns a write. */
@@ -230,6 +237,7 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
     tier: callerTierOf(job),
   };
   if (!(await getDb().transaction((tx) => ownsPageLease(tx, page)))) return;
+  if (await completeIfAlreadyFetched(page, job)) return;
   const fetchUsage = await consumeUsage({
     principal,
     operation: 'fetch_started',
@@ -501,6 +509,54 @@ async function recordGoneDocument(
   });
 }
 
+/**
+ * Finish a `/resolve` page whose URL was fetched AFTER it was requested, without
+ * fetching it again.
+ *
+ * A resolve only queues URLs Clarity had no document for, but a page can sit in
+ * the queue long enough for the same URL to be fetched through another request;
+ * on 2026-10-12 most of the oldest resolve backlog pointed at URLs already
+ * indexed. Fetching them again cost a fetch, the extraction and the embeddings
+ * for a document the reader can already get. Only a document newer than the
+ * request counts, so the reader never gets anything older than what they asked
+ * after. Explicit indexing (`/index/urls`) and recrawls still always fetch.
+ */
+async function completeIfAlreadyFetched(
+  page: typeof crawlPages.$inferSelect,
+  job: typeof crawlJobs.$inferSelect,
+): Promise<boolean> {
+  if (job.kind !== 'urls' || !job.idempotencyKey?.startsWith('resolve:')) return false;
+  return getDb().transaction(async (tx) => {
+    if (!(await ownsPageLease(tx, page))) return true;
+    const [document] = await tx
+      .select({ id: searchDocuments.id })
+      .from(searchDocuments)
+      .where(
+        and(
+          or(
+            eq(searchDocuments.canonicalUrl, page.url),
+            eq(searchDocuments.requestedUrl, page.url),
+            eq(searchDocuments.finalUrl, page.url),
+          ),
+          ne(searchDocuments.status, 'discovered'),
+          gte(searchDocuments.fetchedAt, page.createdAt),
+        ),
+      )
+      .limit(1);
+    if (!document) return false;
+    await tx
+      .update(crawlPages)
+      .set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() })
+      .where(eq(crawlPages.id, page.id));
+    await tx
+      .update(crawlJobs)
+      .set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() })
+      .where(eq(crawlJobs.id, page.jobId));
+    await finishJobIfComplete(tx, page.jobId);
+    return true;
+  });
+}
+
 async function finishJobIfComplete(
   tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0],
   jobId: string,
@@ -623,6 +679,18 @@ async function runIconRefresh(): Promise<void> {
   }
 }
 
+/** Re-render a batch of cached images still on an older rendition. */
+async function runImageRenditionUpgrade(): Promise<void> {
+  try {
+    const upgraded = await upgradeImageRenditions(imageRenditionBatchSize);
+    if (upgraded > 0) console.info('Cached images re-rendered', { upgraded });
+  } catch (error) {
+    console.error('Image rendition upgrade failed', {
+      error: error instanceof Error ? error.message : 'unknown upgrade failure',
+    });
+  }
+}
+
 /** Delete the cached images nobody has asked for lately (search/image-cache.ts). */
 async function runImageCacheSweep(): Promise<void> {
   try {
@@ -691,6 +759,7 @@ async function main() {
   const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
   let nextIconRefreshAt = 0;
+  let nextImageRenditionAt = 0;
   process.once('SIGTERM', () => {
     stopping = true;
   });
@@ -707,6 +776,10 @@ async function main() {
     if (Date.now() >= nextIconRefreshAt) {
       nextIconRefreshAt = Date.now() + iconRefreshIntervalMs;
       await runIconRefresh();
+    }
+    if (Date.now() >= nextImageRenditionAt) {
+      nextImageRenditionAt = Date.now() + imageRenditionIntervalMs;
+      await runImageRenditionUpgrade();
     }
     const page = await leaseNextPage();
     if (page) await processPage(page);

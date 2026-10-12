@@ -378,8 +378,14 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   const urls = input.urls.map(canonicalizePublicUrl);
   let byUrl = await fetchedDocuments(urls);
   const missing = [...new Set(urls.filter((url) => !byUrl.has(url)))];
+  // A caller that waits has a person waiting on the answer (a composer, a
+  // freshly published post); one that does not is warming in the background.
   const operations = missing.length
-    ? await resolveIndexOperations(req, missing)
+    ? await resolveIndexOperations(
+        req,
+        missing,
+        input.waitMs ? RESOLVE_WAITING_PRIORITY : RESOLVE_BACKGROUND_PRIORITY,
+      )
     : new Map<string, typeof crawlJobs.$inferSelect>();
   if (missing.length && operations.size === 0 && byUrl.size === 0) {
     sendError(
@@ -1041,8 +1047,28 @@ router.get('/quotas', requireResourceScope('clarity:usage:read'), async (req, re
   });
 });
 
+/**
+ * Crawl priority by who is asking. The worker claims the highest first.
+ *
+ * - 0: bulk indexing (`/index/urls`, job confirmation) — nobody is reading yet.
+ * - 1: a resolve that does not wait — an application warming previews for
+ *   content it just stored (Mention resolves the links of every post it
+ *   ingests, federated ones included).
+ * - 2: a resolve that waits — a person is looking at the empty card.
+ *
+ * With only 0 and 1, background warming and waiting readers shared one FIFO
+ * tier: on 2026-10-12 a waiting reader's URL queued behind ~91k background
+ * resolves at ~2k pages an hour, so every wait ran to its deadline.
+ */
+export const RESOLVE_BACKGROUND_PRIORITY = 1;
+export const RESOLVE_WAITING_PRIORITY = 2;
+
 /** Reuse pending work by URL, including overlapping and reordered read batches. */
-export async function resolveIndexOperations(req: Request, urls: string[]) {
+export async function resolveIndexOperations(
+  req: Request,
+  urls: string[],
+  priority: number = RESOLVE_BACKGROUND_PRIORITY,
+) {
   const principal = req.resourcePrincipal;
   if (!principal) throw new Error('Resource principal missing after authentication');
   return getDb().transaction(async (tx) => {
@@ -1090,15 +1116,17 @@ export async function resolveIndexOperations(req: Request, urls: string[]) {
       ([, operation]) => !TERMINAL_OPERATIONS.has(operation.status),
     );
     if (live.length) {
-      // Current readers should not wait behind historical bulk ingestion. Keep
-      // availableAt and attempts untouched: promotion never bypasses backoff.
+      // Current readers should not wait behind historical bulk ingestion, and a
+      // waiting reader not behind background warming (see the priorities above).
+      // Only ever raised. Keep availableAt and attempts untouched: promotion
+      // never bypasses backoff.
       await tx
         .update(crawlPages)
-        .set({ priority: 1 })
+        .set({ priority })
         .where(
           and(
             inArray(crawlPages.status, ['queued', 'retry']),
-            sql`${crawlPages.priority} < 1`,
+            sql`${crawlPages.priority} < ${priority}`,
             or(
               ...live.map(([url, operation]) =>
                 and(eq(crawlPages.jobId, operation.id), eq(crawlPages.url, url)),

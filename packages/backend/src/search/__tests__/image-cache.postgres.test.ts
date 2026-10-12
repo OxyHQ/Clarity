@@ -5,6 +5,25 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 const safeFetch = vi.hoisted(() => vi.fn());
 vi.mock('@oxy.so/core/server', () => ({ safeFetch }));
 
+/*
+ * This suite runs on vitest under Node, which has no `Bun.Image`, so the
+ * renderer is a stand-in with the real one's contract: image bytes yield a WebP
+ * rendition that is NOT the input, anything else yields nothing. The real
+ * renderer is exercised under Bun in image-render.test.ts.
+ */
+vi.mock('../image-render.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../image-render.js')>();
+  const isImage = (bytes: Uint8Array) =>
+    (bytes[0] === 0x89 && bytes[1] === 0x50) || (bytes[0] === 0xff && bytes[1] === 0xd8);
+  return {
+    ...actual,
+    renderStoredImage: async (bytes: Uint8Array) =>
+      isImage(bytes)
+        ? { contentType: 'image/webp', bytes: Buffer.concat([Buffer.from('webp:'), bytes]) }
+        : undefined,
+  };
+});
+
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
 import { imageCache } from '../../db/schema/index.js';
 import {
@@ -17,7 +36,9 @@ import {
   publicImageUrl,
   readCachedImage,
   sweepImageCache,
+  upgradeImageRenditions,
 } from '../image-cache.js';
+import { STORED_IMAGE_RENDITION } from '../image-render.js';
 
 /**
  * The image cache against real Postgres: an image is fetched once and then
@@ -30,12 +51,21 @@ const suite = databaseUrl ? describe : describe.skip;
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 5, 6, 7, 8]);
+const GIF = Buffer.from('GIF89a-not-renderable');
+/** What the stand-in renderer makes of `bytes`. */
+const rendered = (bytes: Buffer) => ({
+  contentType: 'image/webp',
+  bytes: Buffer.concat([Buffer.from('webp:'), bytes]),
+});
 const urls = [
   'https://images-a.example/cover.png',
   'https://images-b.example/broken.png',
   'https://images-c.example/page.html',
   'https://images-d.example/huge.jpg',
   'https://images-e.example/refresh.jpg',
+  'https://images-f.example/legacy.png',
+  'https://images-g.example/legacy.gif',
+  'https://images-h.example/legacy-unread.png',
 ];
 const keys = urls.map(imageKey);
 
@@ -62,11 +92,19 @@ suite('image cache on Postgres', () => {
     const first = await readCachedImage(urls[0]);
     const second = await readCachedImage(urls[0]);
 
-    expect(first).toEqual({ contentType: 'image/png', bytes: PNG });
-    expect(second).toEqual({ contentType: 'image/png', bytes: PNG });
+    expect(first).toEqual(rendered(PNG));
+    expect(second).toEqual(rendered(PNG));
     expect(safeFetch).toHaveBeenCalledTimes(1);
     const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[0]));
-    expect(row).toMatchObject({ status: 'ready', sourceUrl: urls[0], byteSize: PNG.length });
+    expect(row).toMatchObject({
+      status: 'ready',
+      sourceUrl: urls[0],
+      contentType: 'image/webp',
+      byteSize: rendered(PNG).bytes.length,
+      rendition: STORED_IMAGE_RENDITION,
+    });
+    // The site's own bytes are never what is kept.
+    expect(Buffer.compare(Buffer.from(row.bytes as Buffer), PNG)).not.toBe(0);
   });
 
   it('shares one download between concurrent misses', async () => {
@@ -79,7 +117,7 @@ suite('image cache on Postgres', () => {
       readCachedImage(urls[0]),
     ]);
 
-    expect(results.every((image) => image?.contentType === 'image/png')).toBe(true);
+    expect(results.every((image) => image?.contentType === 'image/webp')).toBe(true);
     expect(safeFetch).toHaveBeenCalledTimes(1);
   });
 
@@ -117,10 +155,7 @@ suite('image cache on Postgres', () => {
 
     const later = Date.now() + IMAGE_REFRESH_MS + 1000;
     safeFetch.mockResolvedValueOnce(answer(500, 'down', urls[4]));
-    expect(await readCachedImage(urls[4], later)).toEqual({
-      contentType: 'image/jpeg',
-      bytes: JPEG,
-    });
+    expect(await readCachedImage(urls[4], later)).toEqual(rendered(JPEG));
     expect(safeFetch).toHaveBeenCalledTimes(2);
     const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[4]));
     expect(row.status).toBe('ready');
@@ -128,16 +163,91 @@ suite('image cache on Postgres', () => {
     // The kept copy is NOT treated as fresh for another refresh period: within
     // the miss window it is served as is, and once that passes it is retried.
     safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[4]));
-    expect(await readCachedImage(urls[4], later + 60_000)).toEqual({
-      contentType: 'image/jpeg',
-      bytes: JPEG,
-    });
+    expect(await readCachedImage(urls[4], later + 60_000)).toEqual(rendered(JPEG));
     expect(safeFetch).toHaveBeenCalledTimes(2);
-    expect(await readCachedImage(urls[4], later + IMAGE_MISS_TTL_MS + 60_000)).toEqual({
-      contentType: 'image/png',
-      bytes: PNG,
-    });
+    expect(await readCachedImage(urls[4], later + IMAGE_MISS_TTL_MS + 60_000)).toEqual(
+      rendered(PNG),
+    );
     expect(safeFetch).toHaveBeenCalledTimes(3);
+  });
+
+  /** A row as the cache held it before renditions: the site's original bytes. */
+  async function legacyRow(index: number, bytes: Buffer, lastAccessedAt = new Date()) {
+    await getDb().insert(imageCache).values({
+      key: keys[index],
+      sourceUrl: urls[index],
+      status: 'ready',
+      contentType: 'image/png',
+      bytes,
+      byteSize: bytes.length,
+      fetchedAt: new Date(),
+      lastAccessedAt,
+    });
+  }
+
+  it('never serves an original kept before renditions: it renders it on read', async () => {
+    await legacyRow(5, PNG);
+
+    expect(await readCachedImage(urls[5])).toEqual(rendered(PNG));
+    expect(safeFetch).not.toHaveBeenCalled();
+    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[5]));
+    expect(row).toMatchObject({ rendition: STORED_IMAGE_RENDITION, contentType: 'image/webp' });
+    expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(PNG).bytes);
+  });
+
+  it('fetches again an original that cannot be rendered, never keeping it', async () => {
+    // An image CDN that negotiated AVIF for the old pipeline's `Accept` serves
+    // a renderable format to today's, so the URL is fetched afresh.
+    await legacyRow(6, GIF);
+    safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[6]));
+
+    expect(await readCachedImage(urls[6])).toEqual(rendered(PNG));
+    expect(safeFetch).toHaveBeenCalledTimes(1);
+    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
+    expect(row).toMatchObject({ status: 'ready', rendition: STORED_IMAGE_RENDITION });
+    expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(PNG).bytes);
+  });
+
+  it('remembers the miss when the old copy cannot render and the site is down', async () => {
+    await getDb().delete(imageCache).where(eq(imageCache.key, keys[6]));
+    await legacyRow(6, GIF);
+    safeFetch.mockResolvedValue(answer(500, 'down', urls[6]));
+
+    expect(await readCachedImage(urls[6])).toBeUndefined();
+    expect(await readCachedImage(urls[6])).toBeUndefined();
+    expect(safeFetch).toHaveBeenCalledTimes(1);
+    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
+    expect(row).toMatchObject({ status: 'missing', bytes: null });
+  });
+
+  it('upgrades kept originals in batches without counting it as a read', async () => {
+    const idleSince = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    await legacyRow(7, JPEG, idleSince);
+
+    let upgraded = 0;
+    for (let round = 0; round < 5 && upgraded === 0; round++) {
+      const batch = await upgradeImageRenditions(1000);
+      if (batch === 0) break;
+      const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[7]));
+      if (row.rendition === STORED_IMAGE_RENDITION) upgraded = 1;
+    }
+    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[7]));
+    expect(row.rendition).toBe(STORED_IMAGE_RENDITION);
+    expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(JPEG).bytes);
+    // Upgraded, not read: an idle image still expires on schedule.
+    expect(row.lastAccessedAt.getTime()).toBe(idleSince.getTime());
+  });
+
+  it('deletes, in the batch upgrade, an original that cannot be rendered', async () => {
+    await getDb().delete(imageCache).where(eq(imageCache.key, keys[6]));
+    await legacyRow(6, GIF);
+
+    for (let round = 0; round < 5; round++) {
+      if ((await upgradeImageRenditions(1000)) === 0) break;
+    }
+    const left = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
+    expect(left).toEqual([]);
+    expect(safeFetch).not.toHaveBeenCalled();
   });
 
   it('never fetches a non-HTTP(S) URL', async () => {

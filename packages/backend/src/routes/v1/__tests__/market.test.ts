@@ -3,8 +3,10 @@ import type { AddressInfo } from 'node:net';
 import type { NextFunction, Request, Response } from 'express';
 import express from 'express';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { restoreFetch, stubFetch } from '../../../__tests__/support/global-fetch.js';
 
 import type { ClarityResourcePrincipal } from '../../../middleware/resource-auth.js';
+import type { FetchFunction } from '../../../lib/fetch-function.js';
 
 /**
  * The `/v1/market` boundary, driven over real HTTP.
@@ -20,18 +22,34 @@ import type { ClarityResourcePrincipal } from '../../../middleware/resource-auth
 const rateLimit = vi.fn((_req: Request, _res: Response, next: NextFunction) => next());
 let principal: ClarityResourcePrincipal;
 
-vi.mock('../../../middleware/resource-auth.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../../middleware/resource-auth.js')>();
-  return {
-    ...actual,
-    authenticateResource: (req: Request, _res: Response, next: NextFunction) => {
-      req.resourcePrincipal = principal;
-      next();
-    },
-    requireResourceRequestRate: (req: Request, res: Response, next: NextFunction) =>
-      rateLimit(req, res, next),
-  };
-});
+type ResourceAuth = typeof import('../../../middleware/resource-auth.js');
+/*
+ * This file runs under vitest AND under `bun test` (see the `test:bun` script).
+ * bun:test hands the factory no `importOriginal`, and importing the module from
+ * inside its own factory deadlocks there, so under Bun the real exports are
+ * copied BEFORE the mock is registered. Under vitest `vi.mock` is hoisted above
+ * this line, but its factory only runs at the dynamic import below, by which
+ * point `bunActual` is initialised (to undefined).
+ */
+const bunActual: ResourceAuth | undefined =
+  'Bun' in globalThis ? { ...(await import('../../../middleware/resource-auth.js')) } : undefined;
+
+vi.mock(
+  '../../../middleware/resource-auth.js',
+  async (importOriginal?: () => Promise<ResourceAuth>) => {
+    const actual = bunActual ?? (await importOriginal?.());
+    if (!actual) throw new Error('no original resource-auth module to extend');
+    return {
+      ...actual,
+      authenticateResource: (req: Request, _res: Response, next: NextFunction) => {
+        req.resourcePrincipal = principal;
+        next();
+      },
+      requireResourceRequestRate: (req: Request, res: Response, next: NextFunction) =>
+        rateLimit(req, res, next),
+    };
+  },
+);
 
 const { default: marketRouter } = await import('../market.js');
 
@@ -53,7 +71,7 @@ const json = (body: unknown) =>
     headers: { 'content-type': 'application/json' },
   });
 
-const coinGecko: typeof fetch = async (input) => {
+const coinGecko: FetchFunction = async (input) => {
   const url = String(input);
   if (url.includes('/search?'))
     return json({ coins: [{ id: 'bitcoin', name: 'Bitcoin', symbol: 'btc' }] });
@@ -62,7 +80,7 @@ const coinGecko: typeof fetch = async (input) => {
     return json({ bitcoin: { usd: 78_420, usd_24h_change: -0.7 } });
   return new Response(null, { status: 502 });
 };
-const upstream = vi.fn<typeof fetch>(coinGecko);
+const upstream = vi.fn<FetchFunction>(coinGecko);
 
 let baseUrl: string;
 let server: Server;
@@ -70,7 +88,7 @@ let server: Server;
 beforeAll(async () => {
   // No REDIS_URL means no cache, so every case reaches the stubbed upstream.
   delete process.env.REDIS_URL;
-  vi.stubGlobal('fetch', upstream);
+  stubFetch(upstream);
   const app = express();
   app.use('/v1/market', marketRouter);
   server = app.listen(0);
@@ -79,7 +97,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  vi.unstubAllGlobals();
+  restoreFetch();
   await new Promise((resolve) => server.close(resolve));
 });
 

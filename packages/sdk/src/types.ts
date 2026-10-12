@@ -80,6 +80,13 @@ export interface Document {
   authors: Author[];
   publishedAt?: string;
   modifiedAt?: string;
+  /**
+   * The page's preview image as Clarity serves it (`GET /images/documents/…`):
+   * always a compressed WebP rendition, never the site's own bytes. Append
+   * `?variant=w320|w640|w1280` (the rungs of `@oxy.so/utils/image`, e.g. with
+   * its `withImageVariant` / `contentImageSources`) for the size a surface
+   * shows it at; without one it is the `w1280` rendition.
+   */
   imageUrl?: string;
   /**
    * The site's favicon as Clarity serves it (`GET /favicons/:host`), present once

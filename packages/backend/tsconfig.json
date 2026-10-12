@@ -14,7 +14,7 @@
     "rootDir": "..",
     "declaration": false,
     "sourceMap": false,
-    "types": ["node"],
+    "types": ["node", "bun"],
     "incremental": true,
     "isolatedModules": true,
     "paths": {
