@@ -137,7 +137,26 @@ async function fetchAndStore(
     .where(and(eq(imageCache.key, key), eq(imageCache.status, 'ready')))
     .limit(1);
   if (!kept?.bytes) return undefined;
-  if (kept.rendition < STORED_IMAGE_RENDITION) return rerender(key, kept.bytes, at, true);
+  if (kept.rendition < STORED_IMAGE_RENDITION) {
+    const rendered = await rerender(key, kept.bytes, at, true);
+    if (rendered) return rendered;
+    // The old copy is gone and the site just failed: remember the miss, so a
+    // broken site still costs one fetch per window.
+    await getDb()
+      .insert(imageCache)
+      .values({
+        key,
+        sourceUrl,
+        status: 'missing',
+        contentType: null,
+        bytes: null,
+        byteSize: 0,
+        fetchedAt: now,
+        lastAccessedAt: now,
+      })
+      .onConflictDoNothing();
+    return undefined;
+  }
   return { contentType: 'image/webp', bytes: kept.bytes };
 }
 
@@ -158,18 +177,22 @@ export async function readCachedImage(
     if (row.status === 'ready' && row.contentType && row.bytes && age < IMAGE_REFRESH_MS) {
       if (row.rendition < STORED_IMAGE_RENDITION) {
         // Kept by an older pipeline — possibly the site's original. Never
-        // served as is: rendered now, and the rendition replaces it.
-        return rerender(key, row.bytes, now, true);
+        // served as is: rendered now, and the rendition replaces it. Bytes
+        // that do not render were dropped; they are fetched again below.
+        const rendered = await rerender(key, row.bytes, now, true);
+        if (rendered) return rendered;
+      } else {
+        if (now - row.lastAccessedAt.getTime() > ACCESS_TOUCH_MS) {
+          await getDb()
+            .update(imageCache)
+            .set({ lastAccessedAt: new Date(now) })
+            .where(eq(imageCache.key, key));
+        }
+        return { contentType: 'image/webp', bytes: row.bytes };
       }
-      if (now - row.lastAccessedAt.getTime() > ACCESS_TOUCH_MS) {
-        await getDb()
-          .update(imageCache)
-          .set({ lastAccessedAt: new Date(now) })
-          .where(eq(imageCache.key, key));
-      }
-      return { contentType: 'image/webp', bytes: row.bytes };
+    } else if (row.status === 'missing' && age < IMAGE_MISS_TTL_MS) {
+      return undefined;
     }
-    if (row.status === 'missing' && age < IMAGE_MISS_TTL_MS) return undefined;
   }
 
   let flight = inFlight.get(key);
@@ -182,8 +205,12 @@ export async function readCachedImage(
 
 /**
  * Replace a row kept by an older pipeline with the current rendition of its
- * bytes. Bytes that no longer render (a format `Bun.Image` cannot decode) are
- * dropped and the row remembered as missing — the original is never kept.
+ * bytes. Bytes that do not render are DELETED, not remembered as a miss: the
+ * old pipeline asked for AVIF, which many image CDNs (imgix, Hearst, Le Monde,
+ * NRK) then served even for a `.jpg` URL, and `Bun.Image` cannot decode it on
+ * Linux. The same URL fetched with today's `Accept` returns a format it can, so
+ * the next read fetches it afresh instead of showing no image for a miss
+ * window. The original is never kept either way.
  */
 async function rerender(
   key: string,
@@ -193,27 +220,23 @@ async function rerender(
   read: boolean,
 ): Promise<CachedImage | undefined> {
   const image = await renderStoredImage(bytes);
+  // Only a row still holding the legacy bytes: a concurrent fetch may have
+  // replaced it with a rendition already.
+  const legacy = and(eq(imageCache.key, key), lt(imageCache.rendition, STORED_IMAGE_RENDITION));
+  if (!image) {
+    await getDb().delete(imageCache).where(legacy);
+    return undefined;
+  }
   await getDb()
     .update(imageCache)
-    .set(
-      image
-        ? {
-            contentType: image.contentType,
-            bytes: image.bytes,
-            byteSize: image.bytes.length,
-            rendition: STORED_IMAGE_RENDITION,
-            ...(read ? { lastAccessedAt: new Date(now) } : {}),
-          }
-        : {
-            status: 'missing',
-            contentType: null,
-            bytes: null,
-            byteSize: 0,
-            rendition: STORED_IMAGE_RENDITION,
-            fetchedAt: new Date(now),
-          },
-    )
-    .where(eq(imageCache.key, key));
+    .set({
+      contentType: image.contentType,
+      bytes: image.bytes,
+      byteSize: image.bytes.length,
+      rendition: STORED_IMAGE_RENDITION,
+      ...(read ? { lastAccessedAt: new Date(now) } : {}),
+    })
+    .where(legacy);
   return image;
 }
 
@@ -221,7 +244,7 @@ async function rerender(
  * Re-render up to `limit` rows kept by an older pipeline (original bytes from
  * before renditions existed, or an older rendition). Run by the worker in
  * small batches, so the backlog drains without one long statement or a burst
- * of reads; returns how many rows it rewrote.
+ * of reads; returns how many rows it rewrote or dropped.
  */
 export async function upgradeImageRenditions(limit: number, now = Date.now()): Promise<number> {
   const rows = await getDb()

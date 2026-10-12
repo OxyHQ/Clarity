@@ -195,12 +195,29 @@ suite('image cache on Postgres', () => {
     expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(PNG).bytes);
   });
 
-  it('drops an original that cannot be rendered instead of keeping it', async () => {
+  it('fetches again an original that cannot be rendered, never keeping it', async () => {
+    // An image CDN that negotiated AVIF for the old pipeline's `Accept` serves
+    // a renderable format to today's, so the URL is fetched afresh.
     await legacyRow(6, GIF);
+    safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[6]));
+
+    expect(await readCachedImage(urls[6])).toEqual(rendered(PNG));
+    expect(safeFetch).toHaveBeenCalledTimes(1);
+    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
+    expect(row).toMatchObject({ status: 'ready', rendition: STORED_IMAGE_RENDITION });
+    expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(PNG).bytes);
+  });
+
+  it('remembers the miss when the old copy cannot render and the site is down', async () => {
+    await getDb().delete(imageCache).where(eq(imageCache.key, keys[6]));
+    await legacyRow(6, GIF);
+    safeFetch.mockResolvedValue(answer(500, 'down', urls[6]));
 
     expect(await readCachedImage(urls[6])).toBeUndefined();
+    expect(await readCachedImage(urls[6])).toBeUndefined();
+    expect(safeFetch).toHaveBeenCalledTimes(1);
     const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
-    expect(row).toMatchObject({ status: 'missing', bytes: null, byteSize: 0 });
+    expect(row).toMatchObject({ status: 'missing', bytes: null });
   });
 
   it('upgrades kept originals in batches without counting it as a read', async () => {
@@ -219,6 +236,18 @@ suite('image cache on Postgres', () => {
     expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(JPEG).bytes);
     // Upgraded, not read: an idle image still expires on schedule.
     expect(row.lastAccessedAt.getTime()).toBe(idleSince.getTime());
+  });
+
+  it('deletes, in the batch upgrade, an original that cannot be rendered', async () => {
+    await getDb().delete(imageCache).where(eq(imageCache.key, keys[6]));
+    await legacyRow(6, GIF);
+
+    for (let round = 0; round < 5; round++) {
+      if ((await upgradeImageRenditions(1000)) === 0) break;
+    }
+    const left = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
+    expect(left).toEqual([]);
+    expect(safeFetch).not.toHaveBeenCalled();
   });
 
   it('never fetches a non-HTTP(S) URL', async () => {
