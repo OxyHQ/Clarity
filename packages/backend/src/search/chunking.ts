@@ -43,6 +43,13 @@ export async function embedChunks(texts: readonly string[]): Promise<number[][]>
  * `mainContent`, chunked by `extractorVersion`, with every one of its
  * `chunkCount` chunks embedded by the current model — so re-chunking and
  * re-embedding it would reproduce what is stored.
+ *
+ * Two statements, not one with correlated subqueries: Drizzle renders the
+ * columns of a single-table select unqualified, so a subquery comparing
+ * `searchChunks.documentId` with `searchDocuments.id` became
+ * `"document_id" = "id"`, which Postgres binds to the CHUNK's own id. That
+ * matched nothing, so every call sequentially scanned the whole chunks table
+ * twice and reported the document stale, re-embedding it on every feed poll.
  */
 export async function documentChunksCurrent(
   executor: ClarityExecutor,
@@ -51,27 +58,25 @@ export async function documentChunksCurrent(
   chunkCount: number,
   extractorVersion: string,
 ): Promise<boolean> {
-  const [row] = await executor
-    .select({
-      mainContent: searchDocuments.mainContent,
-      embedded: sql<number>`(
-      select count(*)::int from ${searchChunks}
-      where ${searchChunks.documentId} = ${searchDocuments.id}
-        and ${searchChunks.extractorVersion} = ${extractorVersion}
-        and ${searchChunks.embeddingModel} = ${CLARITY_EMBEDDING_MODEL}
-        and ${searchChunks.embedding} is not null
-    )`,
-      total: sql<number>`(select count(*)::int from ${searchChunks} where ${searchChunks.documentId} = ${searchDocuments.id})`,
-    })
+  const [document] = await executor
+    .select({ id: searchDocuments.id, mainContent: searchDocuments.mainContent })
     .from(searchDocuments)
     .where(eq(searchDocuments.canonicalUrl, canonicalUrl))
     .limit(1);
-  return (
-    Boolean(row) &&
-    row.mainContent === mainContent &&
-    row.embedded === chunkCount &&
-    row.total === chunkCount
-  );
+  if (!document || document.mainContent !== mainContent) return false;
+
+  const [chunks] = await executor
+    .select({
+      total: sql<number>`count(*)::int`,
+      embedded: sql<number>`(count(*) filter (
+        where ${searchChunks.extractorVersion} = ${extractorVersion}
+          and ${searchChunks.embeddingModel} = ${CLARITY_EMBEDDING_MODEL}
+          and ${searchChunks.embedding} is not null
+      ))::int`,
+    })
+    .from(searchChunks)
+    .where(eq(searchChunks.documentId, document.id));
+  return chunks?.embedded === chunkCount && chunks.total === chunkCount;
 }
 
 /** Replaces a document's chunks. Missing embeddings leave it lexically searchable. */
