@@ -600,9 +600,19 @@ export const imageCache = pgTable(
     byteSize: integer('byte_size').notNull().default(0),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
     lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }).notNull().defaultNow(),
+    /**
+     * Which `image-render.ts` pipeline produced `bytes`. 0 is a row from before
+     * renditions existed, which may hold a site's original; anything below
+     * `STORED_IMAGE_RENDITION` is re-rendered on read and by the worker.
+     */
+    rendition: integer('rendition').notNull().default(0),
   },
   (table) => [
     index('clarity_image_cache_last_accessed_idx').on(table.lastAccessedAt),
+    // The worker's upgrade sweep reads only rows still on an older rendition.
+    index('clarity_image_cache_rendition_idx')
+      .on(table.rendition)
+      .where(sql`${table.status} = 'ready'`),
     check('clarity_image_cache_status_check', sql`${table.status} in ('ready', 'missing')`),
     check(
       'clarity_image_cache_ready_check',

@@ -5,6 +5,7 @@ import {
   CLARITY_EMBEDDING_MODEL,
   createOxyEmbeddings,
 } from '../oxy-embeddings.js';
+import type { FetchFunction } from '../fetch-function.js';
 
 describe('createOxyEmbeddings', () => {
   it('calls the exact Oxy embedding route and restores vector order', async () => {
@@ -15,7 +16,7 @@ describe('createOxyEmbeddings', () => {
     );
     let requestedUrl: string | URL | Request | undefined;
     let requestedInit: RequestInit | undefined;
-    const request = vi.fn<typeof fetch>(async (url, init) => {
+    const request = vi.fn<FetchFunction>(async (url, init) => {
       requestedUrl = url;
       requestedInit = init;
       return new Response(
@@ -85,7 +86,7 @@ describe('createOxyEmbeddings', () => {
 
   it('does not authenticate or call Oxy for an empty batch', async () => {
     const getToken = vi.fn(async () => 'service-token');
-    const request = vi.fn<typeof fetch>();
+    const request = vi.fn<FetchFunction>();
     await expect(createOxyEmbeddings([], { getToken, fetch: request })).resolves.toEqual([]);
     expect(getToken).not.toHaveBeenCalled();
     expect(request).not.toHaveBeenCalled();

@@ -5,8 +5,12 @@
  */
 const realFetch = globalThis.fetch;
 
-export function stubFetch(stub: typeof fetch): void {
-  globalThis.fetch = stub;
+import type { FetchFunction } from '../../lib/fetch-function.js';
+
+export function stubFetch(stub: FetchFunction): void {
+  // The one place a bare call stands in for the global: no code under test
+  // reaches for `fetch.preconnect`.
+  globalThis.fetch = stub as typeof fetch;
 }
 
 export function restoreFetch(): void {

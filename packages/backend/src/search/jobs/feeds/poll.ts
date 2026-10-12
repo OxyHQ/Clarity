@@ -167,7 +167,9 @@ export function decodeBody(body: Buffer, contentType: string | string[] | undefi
   const charset = /charset\s*=\s*"?([\w-]+)/i.exec(header ?? '')?.[1]?.toLowerCase();
   if (charset && charset !== 'utf-8' && charset !== 'utf8') {
     try {
-      return new TextDecoder(charset).decode(body);
+      // A header's label is whatever the server sent; TextDecoder validates it
+      // at runtime and throws on one it does not know (caught below).
+      return new TextDecoder(charset as ConstructorParameters<typeof TextDecoder>[0]).decode(body);
     } catch {
       // An unknown label falls through to UTF-8.
     }

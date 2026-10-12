@@ -18,7 +18,7 @@ import {
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
-import { sweepImageCache } from './search/image-cache.js';
+import { sweepImageCache, upgradeImageRenditions } from './search/image-cache.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
@@ -29,6 +29,13 @@ const jobMaintenanceIntervalMs = 15 * 60 * 1000;
 /** Site icons: a small batch every half minute, between pages. */
 const iconRefreshIntervalMs = 30 * 1000;
 const iconRefreshBatchSize = 10;
+/**
+ * Cached images still on an older rendition (search/image-cache.ts): a small
+ * batch every half minute, so ~19k legacy originals (4.3 GB, 2026-10-12) are
+ * re-rendered in hours without a burst of reads on the shared database.
+ */
+const imageRenditionIntervalMs = 30 * 1000;
+const imageRenditionBatchSize = 25;
 const jobRecrawlBatchSize = 50;
 
 /** Reclaim crashed workers before counting concurrency. A stale claim never owns a write. */
@@ -672,6 +679,18 @@ async function runIconRefresh(): Promise<void> {
   }
 }
 
+/** Re-render a batch of cached images still on an older rendition. */
+async function runImageRenditionUpgrade(): Promise<void> {
+  try {
+    const upgraded = await upgradeImageRenditions(imageRenditionBatchSize);
+    if (upgraded > 0) console.info('Cached images re-rendered', { upgraded });
+  } catch (error) {
+    console.error('Image rendition upgrade failed', {
+      error: error instanceof Error ? error.message : 'unknown upgrade failure',
+    });
+  }
+}
+
 /** Delete the cached images nobody has asked for lately (search/image-cache.ts). */
 async function runImageCacheSweep(): Promise<void> {
   try {
@@ -740,6 +759,7 @@ async function main() {
   const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
   let nextIconRefreshAt = 0;
+  let nextImageRenditionAt = 0;
   process.once('SIGTERM', () => {
     stopping = true;
   });
@@ -756,6 +776,10 @@ async function main() {
     if (Date.now() >= nextIconRefreshAt) {
       nextIconRefreshAt = Date.now() + iconRefreshIntervalMs;
       await runIconRefresh();
+    }
+    if (Date.now() >= nextImageRenditionAt) {
+      nextImageRenditionAt = Date.now() + imageRenditionIntervalMs;
+      await runImageRenditionUpgrade();
     }
     const page = await leaseNextPage();
     if (page) await processPage(page);

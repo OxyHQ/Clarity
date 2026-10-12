@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { restoreFetch, stubFetch } from '../../__tests__/support/global-fetch.js';
 
 import type { MarketQuotesResponse } from '@clarity/shared-types';
+import type { FetchFunction } from '../../lib/fetch-function.js';
 
 /**
  * The PUBLIC `/market` boundary, driven over real HTTP.
@@ -45,7 +46,7 @@ const json = (body: unknown) =>
  * for FAIR, with its OWN `source` and `updatedAt` — the two fields the card
  * has to show beside a pool-indexed price.
  */
-const upstreams: typeof fetch = async (input) => {
+const upstreams: FetchFunction = async (input) => {
   const url = String(input);
   if (url.includes('/search?'))
     return json({ coins: [{ id: 'bitcoin', name: 'Bitcoin', symbol: 'btc' }] });
@@ -68,7 +69,7 @@ const upstreams: typeof fetch = async (input) => {
   }
   return new Response(null, { status: 502 });
 };
-const upstream = vi.fn<typeof fetch>(upstreams);
+const upstream = vi.fn<FetchFunction>(upstreams);
 
 let baseUrl: string;
 let server: Server;
