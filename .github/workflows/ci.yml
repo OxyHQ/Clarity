@@ -95,8 +95,12 @@ jobs:
       # the gate can fail, not that it stopped looking.
       - name: Prove the reviewed-image gate can fail
         run: python3 -B -m unittest discover -s .github/scripts -p test_reviewed_image.py
+      # The shared fixture suite builds an `OxyHQ/Example` config but, unlike
+      # test_reviewed_image.py, does not clear GITHUB_REPOSITORY, which Actions
+      # sets; reviewed-image.py then refuses the fixture. Unset it here, as on
+      # a workstation, until the shared file is fixed fleet-wide.
       - name: Prove the base-image digest bump
-        run: python3 -B -m unittest discover -s .github/scripts -p test_bump_base_digests.py
+        run: env -u GITHUB_REPOSITORY python3 -B -m unittest discover -s .github/scripts -p test_bump_base_digests.py
       - name: Verify the production image's build inputs are reviewed
         run: python3 -B .github/scripts/reviewed-image.py check
 
