@@ -10,3 +10,7 @@
 Dockerfile* @NateIsern
 .dockerignore @NateIsern
 *.dockerignore @NateIsern
+/.github/scripts/bump-base-digests.py @NateIsern
+/.github/scripts/test_bump_base_digests.py @NateIsern
+/.github/scripts/smoke-backend-image.sh @NateIsern
+/.github/scripts/smoke-searxng-image.sh @NateIsern
