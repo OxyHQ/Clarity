@@ -51,6 +51,16 @@ assert_no_app_writes() {
 
 echo "Runtime: $(run "$IMAGE" bun --version)"
 
+# Control: `docker diff` must see a write the runtime user CAN make, or an
+# empty diff below would prove nothing.
+docker run --name "$MIGRATOR" "$IMAGE" sh -c 'echo probe > /tmp/diff-control'
+if ! docker diff "$MIGRATOR" | grep -qx 'A /tmp/diff-control'; then
+  docker diff "$MIGRATOR"
+  echo "::error::docker diff did not report a file the container wrote; the /app write checks would be blind"
+  exit 1
+fi
+docker rm "$MIGRATOR" >/dev/null
+
 # 0. The runtime user, what it can write, and what ships in node_modules.
 identity=$(run "$IMAGE" id -un):$(run "$IMAGE" id -u)
 if [ "$identity" != bun:1000 ]; then
@@ -133,8 +143,10 @@ docker run --name "$MIGRATOR" --network host -e DATABASE_URL "$IMAGE" \
 assert_no_app_writes "$MIGRATOR" "The migrator (--phase=all)"
 docker rm "$MIGRATOR" >/dev/null
 for phase in pre post; do
-  run -e DATABASE_URL "$IMAGE" \
+  docker run --name "$MIGRATOR" --network host -e DATABASE_URL "$IMAGE" \
     bun packages/backend/dist/db/migrate.js --target-database=clarity --phase="$phase"
+  assert_no_app_writes "$MIGRATOR" "The migrator (--phase=$phase)"
+  docker rm "$MIGRATOR" >/dev/null
 done
 run -e DATABASE_URL -e CLARITY_ALIA_AGENT_ID="$AGENT_ID" "$IMAGE" \
   bun packages/backend/dist/db/attest-fresh-install.js --confirm=FRESH_INSTALL_NO_DATA_TO_MIGRATE
