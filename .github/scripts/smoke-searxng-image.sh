@@ -51,14 +51,16 @@ assert_serving() {
   local label="$1"
   wait_healthy || fail "$label: /healthz never answered 200"
 
-  # PID 1 is granian, and every uid/gid on it is 977 (real, effective, saved, fs).
+  # PID 1 is the granian server, and every uid/gid on it is 977 (real,
+  # effective, saved, fs).
   local uids gids cmd
   uids=$(docker exec "$NAME" awk '/^Uid:/{print $2,$3,$4,$5}' /proc/1/status)
   gids=$(docker exec "$NAME" awk '/^Gid:/{print $2,$3,$4,$5}' /proc/1/status)
   cmd=$(docker exec "$NAME" cat /proc/1/cmdline | tr '\0' ' ')
   [ "$uids" = "977 977 977 977" ] || fail "$label: PID 1 uids are '$uids', expected 977"
   [ "$gids" = "977 977 977 977" ] || fail "$label: PID 1 gids are '$gids', expected 977"
-  case "$cmd" in *granian*) ;; *) fail "$label: PID 1 is '$cmd', expected granian" ;; esac
+  # Granian retitles itself to GRANIAN_PROCESS_NAME (`searxng`, set upstream).
+  case "$cmd" in searxng*|*granian*) ;; *) fail "$label: PID 1 is '$cmd', expected granian (titled searxng)" ;; esac
 
   # The settings were written where this image put them, the secret is no
   # longer the placeholder, and nothing was written into either VOLUME.
