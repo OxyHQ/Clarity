@@ -43,6 +43,21 @@ has no Node: its `node` is a symlink to Bun. To return to Node, revert the chang
 that made the switch; the restored Node image still carries Bun, so the
 worker's `bun` command keeps working across that revert.
 
+The runtime user `bun` (uid 1000) can write nothing under `/app`. The code and
+`node_modules` are root-owned, and the only file any command writes is the
+migrator's scratch journal under `os.tmpdir()` (`/tmp`). The same smoke asserts
+this with `find -writable` and with `docker diff` after the migrator, the worker
+and the API have run. It also asserts that the runtime `node_modules` carries
+no Expo, React Native or devDependency.
+
+The SearXNG sidecar image (`packages/searxng`) runs as upstream's `searxng`
+user (uid 977). It keeps its settings in `/var/lib/searxng`, outside the
+image's VOLUMEs, so a runtime that mounts a VOLUME as an empty root-owned
+directory cannot stop it from starting. CI's `Build SearXNG image` job
+(`.github/scripts/smoke-searxng-image.sh`) proves this on fresh, root-owned
+tmpfs and root-owned bind-mounted volumes. Moving it out of the API's task is
+proposed in `docs/searxng-own-service.md`.
+
 ## Required secrets and bindings
 
 Every runtime secret lives only in SSM Parameter Store under `/oxy/clarity/`
