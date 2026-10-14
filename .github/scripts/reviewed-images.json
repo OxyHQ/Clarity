@@ -3,13 +3,19 @@
   "recipes": [
     {
       "name": "clarity-api",
-      "services": ["clarity-api", "clarity-worker"],
       "ecrRepository": "oxy/clarity",
       "dockerfile": "packages/backend/Dockerfile",
-      "dockerfileSha256": "217e119146ee838972eb738b2950c891fa5bb7d389228bcf7b8fbb7132d8a051",
+      "context": ".",
       "target": null,
-      "tagSuffix": "",
-      "cacheScope": "clarity-backend"
+      "buildInputsSha256": "70286334b5b2070475772d4303913dd73ef6b42110bd7c471ebc2ed386fa5ccf"
+    },
+    {
+      "name": "clarity-searxng",
+      "ecrRepository": "oxy/clarity-searxng",
+      "dockerfile": "packages/searxng/Dockerfile",
+      "context": "packages/searxng",
+      "target": null,
+      "buildInputsSha256": "bc333caf4bff96a686d43a078292f03ea8f5d1351f1b515eaee053c0b9088c7f"
     }
   ]
 }
