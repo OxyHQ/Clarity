@@ -1,3 +1,4 @@
+import { openAccountDialog } from '@oxy.so/services';
 import { useState, useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -56,7 +57,8 @@ export default function ResetPasswordScreen() {
       });
 
       toast.success(t('resetPassword.successMessage'));
-      router.replace('/login');
+      router.replace('/');
+      openAccountDialog('signin');
     } catch (error: unknown) {
       console.error('Reset password error:', error);
       const err = error as { message?: string };
