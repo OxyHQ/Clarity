@@ -4,3 +4,4 @@ export { resolveFaviconForImageUrl, resolveFaviconUrl } from './favicon.js';
 export type { FaviconOptions } from './favicon.js';
 export type * from './types.js';
 export * from './vocabularies.js';
+export type { Experience, ExperienceInput, ExperienceEmploymentType } from './experience.js';

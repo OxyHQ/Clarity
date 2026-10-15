@@ -175,7 +175,10 @@
     },
     "packages/sdk": {
       "name": "@clarity.surf/sdk",
-      "version": "0.4.0",
+      "version": "0.5.0",
+      "dependencies": {
+        "zod": "^4.4.3",
+      },
       "devDependencies": {
         "typescript": "~6.0.3",
         "vitest": "^4.1.10",
