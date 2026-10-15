@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
-import { canAttestWorkloadIdentity, OxyServer } from '@oxy.so/core/server';
+import {
+  canAttestWorkloadIdentity,
+  OxyServer,
+  type ServiceTokenAudience,
+} from '@oxy.so/core/server';
 
 import { CLARITY_AGENT_MANIFEST } from './clarity-agent-manifest.js';
 
@@ -175,9 +179,7 @@ export function hasExactClarityServiceConfiguration(env: NodeJS.ProcessEnv = pro
   }
 }
 
-export async function getClarityServiceToken(
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<string> {
+function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
   const config = serviceConfiguration(env);
   /** The fingerprint keys the cached client on the origin it was built for. */
   const fingerprint = createHash('sha256').update(`attestation\0${config.baseUrl}`).digest('hex');
@@ -187,7 +189,29 @@ export async function getClarityServiceToken(
     client = new OxyServer({ baseURL: config.baseUrl });
     clientFingerprint = fingerprint;
   }
-  const token = await client.serviceToken();
+  return client;
+}
+
+export async function getClarityServiceToken(
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  const token = await clarityServiceClient(env).serviceToken();
+  assertExactClarityServiceClaims(token);
+  return token;
+}
+
+/**
+ * Clarity's service token for another resource server: `kaana.ai` is the
+ * credential `https://kaana.ai/v1` accepts (Kaana ADR 0002, decision 6). The
+ * same attested identity and the same exact claims as
+ * {@link getClarityServiceToken}, minted for its own audience and cached apart
+ * by `OxyServer`, so an `oxy-api` token never reaches Kaana nor the reverse.
+ */
+export async function getClarityServiceTokenFor(
+  audience: ServiceTokenAudience,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<string> {
+  const token = await clarityServiceClient(env).serviceTokenFor(audience);
   assertExactClarityServiceClaims(token);
   return token;
 }

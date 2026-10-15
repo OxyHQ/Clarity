@@ -230,8 +230,8 @@ document chunks are not touched. A changed listing is rewritten in full, its
 signatures by difference, and `cluster_id` and cluster elections only where
 they actually change. The listing's document follows the same rule through its
 own `content_hash`, and chunks are rewritten only when they would store
-something new — the same unembedded chunks are never re-inserted while the
-embedding route is down.
+something new — the same unembedded chunks are never re-inserted while
+embeddings are off or failing ([embeddings capability](index#embeddings-capability)).
 
 Filterable columns cover employer identity, locations (raw JSON plus country /
 region / locality arrays), workplace type, employment types, salary (source
@@ -322,8 +322,9 @@ Authorization: Bearer <oxy_sk credential>   # scope clarity:search
 Free text runs lexical, semantic or hybrid (reciprocal-rank fusion, the default)
 relevance, so `frontend engineer working on React Native mobile apps` can match
 a role titled *Mobile Software Engineer*. Omitting `query` browses by filters
-and freshness. When the embedding route is unavailable, hybrid degrades to
-lexical and says so in `degraded`; explicit `semantic` fails with `503`.
+and freshness. When embeddings are off or the call fails, hybrid degrades to
+lexical and says so in `degraded`; explicit `semantic` fails with `503`
+([embeddings capability](index#embeddings-capability)).
 
 Filters: `locations` (country name/code, city, region, or macro-region),
 `workplaceTypes`, `employmentTypes`, `seniorities`, `employers` (name or domain),

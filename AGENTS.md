@@ -41,6 +41,11 @@ named Alia bot/agent. Chat flows `Clarity -> Alia -> Oxy inference -> Kaana`.
 - `jobs` means employment. Asynchronous crawl/index work is an *operation*
   (`clarity.operations`, `/v1/operations/:id`).
 
+Search embeddings are the one direct Kaana call: `@kaana.ai/sdk` to
+`https://kaana.ai/v1` with the `kaana.ai` service token, only when
+`CLARITY_EMBEDDINGS_ENABLED=true` (`src/lib/kaana-embeddings.ts`). Never a
+hand-built Kaana URL, `/internal/`, or an `oxy.so` inference route.
+
 Platform credentials such as Stripe, VAPID, Valkey and Oxy identity are not
 inference-provider credentials. Keep that distinction in architecture gates.
 

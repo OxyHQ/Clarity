@@ -6,9 +6,10 @@ import { jobFeeds, jobPostings, searchDocuments } from '../../../../db/schema/in
 import { ingestJobPosting, pruneInactiveJobDocuments } from '../../projection.js';
 import { closeAbsentListings, recordFeedPresence } from '../presence.js';
 
-vi.mock('../../../../lib/oxy-embeddings.js', () => ({
+vi.mock('../../../../lib/kaana-embeddings.js', () => ({
   CLARITY_EMBEDDING_MODEL: 'test-embedding-model',
-  createOxyEmbeddings: vi.fn(async (texts: string[]) =>
+  embeddingsEnabled: vi.fn(() => true),
+  createEmbeddings: vi.fn(async (texts: string[]) =>
     texts.map(() => Array.from({ length: 1024 }, () => 0.1)),
   ),
 }));

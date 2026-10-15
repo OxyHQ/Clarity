@@ -9,7 +9,11 @@ import { eq, sql } from 'drizzle-orm';
 
 import type { ClarityExecutor } from '../db/index.js';
 import { searchChunks, searchDocuments } from '../db/schema/index.js';
-import { CLARITY_EMBEDDING_MODEL, createOxyEmbeddings } from '../lib/oxy-embeddings.js';
+import {
+  CLARITY_EMBEDDING_MODEL,
+  createEmbeddings,
+  embeddingsEnabled,
+} from '../lib/kaana-embeddings.js';
 
 const CHUNK_STRIDE = 1600;
 const CHUNK_LENGTH = 2000;
@@ -30,12 +34,41 @@ export function chunkText(text: string): TextChunk[] {
   return result;
 }
 
-export async function embedChunks(texts: readonly string[]): Promise<number[][]> {
+/**
+ * The chunks' embeddings, or `undefined` when there are none to have: no chunk,
+ * no embeddings capability (nothing is called), or a failed call (reported by
+ * the client, rate-limited). Without embeddings the document stays lexically
+ * searchable and its chunks are `unembedded`, so a later pass embeds them.
+ */
+export async function embedChunks(texts: readonly string[]): Promise<number[][] | undefined> {
+  if (texts.length === 0 || !embeddingsEnabled()) return undefined;
   const embeddings: number[][] = [];
-  for (let start = 0; start < texts.length; start += EMBEDDING_BATCH) {
-    embeddings.push(...(await createOxyEmbeddings(texts.slice(start, start + EMBEDDING_BATCH))));
+  try {
+    for (let start = 0; start < texts.length; start += EMBEDDING_BATCH) {
+      embeddings.push(...(await createEmbeddings(texts.slice(start, start + EMBEDDING_BATCH))));
+    }
+  } catch {
+    return undefined;
   }
   return embeddings;
+}
+
+/**
+ * A search query's embedding, or `undefined` when hybrid or semantic ranking
+ * cannot have one: no embeddings capability (nothing is called) or a failed
+ * call. The caller ranks lexically and says so, or refuses a semantic search.
+ */
+export async function embedQuery(
+  query: string,
+  signal?: AbortSignal,
+): Promise<number[] | undefined> {
+  if (!embeddingsEnabled()) return undefined;
+  try {
+    const [embedding] = await createEmbeddings([query], signal ? { signal } : {});
+    return embedding;
+  } catch {
+    return undefined;
+  }
 }
 
 export type DocumentChunkState = 'current' | 'unembedded' | 'stale';
