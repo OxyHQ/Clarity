@@ -136,7 +136,6 @@ describe('architecture gates', () => {
     // only the deploy, and comments are stripped so the explanation in the
     // workflow cannot trip the gate.
     const ciOnlySecrets = [
-      'ADD_TO_PROJECT_TOKEN',
       'CLOUDFLARE_ACCOUNT_ID',
       'CLOUDFLARE_API_TOKEN',
       'GITHUB_TOKEN',
