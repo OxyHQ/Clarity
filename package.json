@@ -70,7 +70,7 @@
     "@oxy.so/protocol": "1.2.2",
     "@oxy.so/services": "11.2.0",
     "@oxy.so/mcp": "1.1.0",
-    "@oxy.so/bloom": "10.4.0"
+    "@oxy.so/bloom": "10.6.1"
   },
   "dependencies": {
     "@oxy.so/core": "4.5.0",
