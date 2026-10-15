@@ -42,14 +42,14 @@
       "expo-asset",
       "expo-notifications",
       [
-"react-native-audio-api",
-{
-"iosMicrophonePermission": "Allow Clarity to hear what you dictate and say to Alia.",
-"iosBackgroundMode": false,
-"androidForegroundService": false,
-"androidPermissions": ["android.permission.RECORD_AUDIO"]
-}
-],
+        "react-native-audio-api",
+        {
+          "iosMicrophonePermission": "Allow Clarity to hear what you dictate and say to Alia.",
+          "iosBackgroundMode": false,
+          "androidForegroundService": false,
+          "androidPermissions": ["android.permission.RECORD_AUDIO"]
+        }
+      ],
       [
         "expo-splash-screen",
         {
