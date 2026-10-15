@@ -3,9 +3,14 @@ name: Reconcile API DNS
 on:
   workflow_dispatch:
 
+# Talks only to Cloudflare; the GITHUB_TOKEN needs nothing.
+permissions:
+  contents: read
+
 jobs:
   reconcile:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Create the DNS-only API record when missing
         env:

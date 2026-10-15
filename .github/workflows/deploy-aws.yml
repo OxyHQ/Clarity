@@ -9,6 +9,8 @@ on:
 permissions:
   id-token: write
   contents: read
+  # require-current-main.sh reads CI's runs for the commits after this one.
+  actions: read
 
 concurrency:
   group: deploy-clarity-backend
@@ -38,6 +40,8 @@ jobs:
           fetch-depth: 2
 
       - name: Verify current main before building
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/require-current-main.sh
 
       - name: Configure AWS credentials
@@ -117,6 +121,8 @@ jobs:
           sbom: true
 
       - name: Verify current main before production changes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: bash .github/scripts/require-current-main.sh
 
       # API and crawler worker together: pre-migration, then BOTH rollouts at
