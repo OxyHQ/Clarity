@@ -1,3 +1,4 @@
+import { experienceSchema, experienceListSchema, type ExperienceInput } from './experience.js';
 import { resolveFaviconUrl } from './favicon.js';
 import type {
   ClarityErrorBody,
@@ -60,11 +61,11 @@ export class ClarityClient {
   private readonly baseUrl: string;
   private readonly fetcher: typeof fetch;
 
-  constructor(private readonly options: ClarityClientOptions) {
+  constructor(private readonly options: ClarityClientOptions = {}) {
     const authMethods = [options.apiKey, options.accessToken, options.getAccessToken].filter(
       Boolean,
     );
-    if (authMethods.length !== 1)
+    if (authMethods.length > 1)
       throw new Error('Configure exactly one of apiKey, accessToken or getAccessToken');
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
     this.fetcher = options.fetch ?? globalThis.fetch;
@@ -196,6 +197,33 @@ export class ClarityClient {
       this.request<JobsCapability>('GET', '/v1/jobs/capability', undefined, options),
   };
 
+  /** Public work history, independently owned by Clarity; writes require a user session. */
+  readonly experience = {
+    list: (userId: string, options?: RequestOptions) =>
+      this.request<unknown>(
+        'GET',
+        `/api/experience/users/${encodeURIComponent(userId)}`,
+        undefined,
+        options,
+        true,
+      ).then((value) => experienceListSchema.parse(value)),
+    create: (input: ExperienceInput, options?: RequestOptions) =>
+      this.request<unknown>('POST', '/api/experience', input, options).then((value) =>
+        experienceSchema.parse(value),
+      ),
+    update: (id: string, input: ExperienceInput, options?: RequestOptions) =>
+      this.request<unknown>(
+        'PUT',
+        `/api/experience/${encodeURIComponent(id)}`,
+        input,
+        options,
+      ).then((value) => experienceSchema.parse(value)),
+    delete: (id: string, options?: RequestOptions) =>
+      this.request<void>('DELETE', `/api/experience/${encodeURIComponent(id)}`, undefined, options),
+    clear: (options?: RequestOptions) =>
+      this.request<void>('DELETE', '/api/experience', undefined, options),
+  };
+
   readonly usage = {
     get: (cursor?: string, options?: RequestOptions) =>
       this.request<Page<UsageBucket>>('GET', `/v1/usage${query({ cursor })}`, undefined, options),
@@ -216,6 +244,7 @@ export class ClarityClient {
     path: string,
     body?: unknown,
     options: RequestOptions = {},
+    publicRead = false,
   ): Promise<T> {
     const safe = method === 'GET';
     const attempts = safe ? SAFE_RETRY_DELAYS_MS.length + 1 : 1;
@@ -231,13 +260,19 @@ export class ClarityClient {
         const response = await this.fetcher(`${this.baseUrl}${path}`, {
           method,
           headers: {
-            authorization: `Bearer ${await this.token()}`,
+            ...(!publicRead ||
+            this.options.apiKey ||
+            this.options.accessToken ||
+            this.options.getAccessToken
+              ? { authorization: `Bearer ${await this.token()}` }
+              : {}),
             ...(body === undefined ? {} : { 'content-type': 'application/json' }),
             ...(options.idempotencyKey ? { 'idempotency-key': options.idempotencyKey } : {}),
           },
           body: body === undefined ? undefined : JSON.stringify(body),
           signal: controller.signal,
         });
+        if (response.status === 204) return undefined as T;
         if (response.ok) return (await response.json()) as T;
         if (safe && attempt + 1 < attempts && (response.status === 429 || response.status >= 500)) {
           await delay(retryDelay(response, attempt), options.signal);

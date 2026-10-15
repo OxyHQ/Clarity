@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { View } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { Button } from '@oxy.so/bloom/button';
@@ -9,6 +10,7 @@ import { ChevronRight } from 'lucide-react-native';
 export function AccountSection() {
   const { user, showBottomSheet } = useOxy();
   const { t } = useTranslation();
+  const router = useRouter();
 
   const displayName = user?.name?.displayName || t('common.user');
 
@@ -27,6 +29,16 @@ export function AccountSection() {
         </View>
       </View>
 
+      {user?.kind === 'personal' ? (
+        <Button
+          appearance="outline"
+          tone="neutral"
+          onPress={() => router.push('/(app)/settings/experience')}
+          trailingIcon={bloomIcon(ChevronRight)}
+        >
+          {t('settings.experience')}
+        </Button>
+      ) : null}
       {/* Manage Account */}
       <Button
         appearance="outline"

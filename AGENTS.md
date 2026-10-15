@@ -28,9 +28,12 @@ named Alia bot/agent. Chat flows `Clarity -> Alia -> Oxy inference -> Kaana`.
   must identify the exact backend app, credential, project payer and exact
   `user:read` + `inference:invoke` scope set.
 - Clarity Jobs indexes PUBLIC job postings. No applicant tracking, CV store,
-  candidate profile or application data, and no route that could disclose a
+  candidate profile or application data in Jobs, and no route that could disclose a
   named user to an employer. Never present Clarity as the employer or source of
   a listing it only indexed.
+- Clarity Experience owns user-published personal work history, edited through
+  the user session from Clarity or Mention. Keep its storage and APIs separate
+  from Jobs, search, ranking and employer-facing candidate discovery.
 - No commercial signal — payment, subscription tier, ad spend, licensing tier,
   Mercaria or Mention engagement — may reach job ranking, in any weighting.
   `src/search/jobs/__tests__/ranking-contract.test.ts` enforces this
