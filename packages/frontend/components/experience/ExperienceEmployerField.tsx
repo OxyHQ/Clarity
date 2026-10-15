@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useOxy } from '@oxy.so/services';
 import { useSupervision } from '@oxy.so/services/ui';
 import { useAuth } from '@oxy.so/services/ui/client';
 import {
@@ -8,6 +9,7 @@ import {
   createOrganizationSchema,
   type Organization,
   type OrganizationType,
+  type SafetyOrganizationIdentity,
 } from '@oxy.so/contracts';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { Button } from '@oxy.so/bloom/button';
@@ -24,6 +26,9 @@ import {
 import { TextField, TextFieldInput, TextFieldLabel } from '@oxy.so/bloom/text-field';
 import { useTranslation } from '@/hooks/useTranslation';
 
+export type ExperienceEmployer = SafetyOrganizationIdentity &
+  Partial<Pick<Organization, 'avatar' | 'websiteUrl' | 'countryCode'>>;
+
 /** Selection and neutral creation both address Oxy's one organization directory. */
 export function ExperienceEmployerField({
   value,
@@ -33,14 +38,15 @@ export function ExperienceEmployerField({
   onChange,
 }: {
   value: string;
-  initialEmployer?: Organization;
+  initialEmployer?: ExperienceEmployer;
   disabled: boolean;
   invalid: boolean;
-  onChange: (organization: Organization | null) => void;
+  onChange: (organization: ExperienceEmployer | null) => void;
 }) {
   const { t } = useTranslation();
   const { user, isAuthenticated, canUsePrivateApi, oxyServices } = useAuth();
   const supervision = useSupervision();
+  const { activeSessionId } = useOxy();
   const ordinary =
     supervision.data !== undefined &&
     (!supervision.data.self || supervision.data.self.status === 'ended');
@@ -58,18 +64,43 @@ export function ExperienceEmployerField({
     return () => clearTimeout(timer);
   }, [query]);
   const results = useInfiniteQuery({
-    queryKey: ['oxy', 'organizations', 'search', debounced, user?.id, isAuthenticated],
-    queryFn: ({ pageParam }) =>
-      oxyServices.organizations.search({
+    queryKey: [
+      'oxy',
+      'organizations',
+      'search',
+      debounced,
+      user?.id,
+      activeSessionId,
+      isAuthenticated,
+      ordinary,
+    ],
+    queryFn: async ({
+      pageParam,
+    }): Promise<{ items: ExperienceEmployer[]; nextCursor: string | null }> => {
+      if (supervision.data === undefined || !canUsePrivateApi)
+        throw new Error('A current personal session is required');
+      if (!ordinary) {
+        const result = await oxyServices.safety.organizations({ query: debounced, limit: 20 });
+        return { items: result.items.map((item) => item.organization), nextCursor: null };
+      }
+      return oxyServices.organizations.search({
         query: debounced,
         limit: 20,
         ...(pageParam ? { cursor: pageParam } : {}),
-      }),
+      });
+    },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
-    enabled: !value && debounced.length >= 2 && !disabled,
+    enabled:
+      supervision.data !== undefined &&
+      canUsePrivateApi &&
+      !value &&
+      debounced.length >= 2 &&
+      !disabled,
+    retry: false,
+    gcTime: 0,
   });
-  function select(organization: Organization) {
+  function select(organization: ExperienceEmployer) {
     setSelected(organization);
     setQuery(organization.name);
     setCreating(false);
@@ -135,7 +166,7 @@ export function ExperienceEmployerField({
             <TextFieldInput
               label={label}
               value={query}
-              maxLength={200}
+              maxLength={ordinary ? 200 : 100}
               onChangeText={(text) => {
                 setQuery(text);
                 setCreating(false);
@@ -182,7 +213,7 @@ export function ExperienceEmployerField({
                         title={organization.name}
                         subtitle={[
                           ordinary ? organization.websiteUrl : undefined,
-                          organization.countryCode,
+                          ordinary ? organization.countryCode : undefined,
                         ]
                           .filter(Boolean)
                           .join(' · ')}
