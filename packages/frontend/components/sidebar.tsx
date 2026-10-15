@@ -11,6 +11,7 @@ import {
   ArrowLeft,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
+import { AliaAvatarIcon } from '@alia.onl/sdk/avatar';
 import type { SidebarNavItem, SidebarTree, SidebarIcon, SidebarProps } from '@oxy.so/bloom/sidebar';
 import {
   RiSearchLine,
@@ -283,7 +284,7 @@ export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void })
     { key: 'discover', label: t('sidebar.discover'), icon: RiEarthLine, onPress: handleDiscover },
     { key: 'jobs', label: t('sidebar.jobs'), icon: Briefcase, onPress: handleJobs },
     { key: 'history', label: t('sidebar.history'), icon: RiTimeLine, onPress: handleHistory },
-    { key: 'ask-alia', label: t('sidebar.askAlia'), icon: RiSparklingLine, onPress: onAskAlia },
+    { key: 'ask-alia', label: t('sidebar.askAlia'), icon: AliaAvatarIcon, onPress: onAskAlia },
   ];
 
   const selected = React.useMemo(() => {

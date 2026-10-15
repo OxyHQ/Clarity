@@ -42,10 +42,12 @@
       "expo-asset",
       "expo-notifications",
       [
-        "expo-speech-recognition",
+        "react-native-audio-api",
         {
-          "microphonePermission": "Allow Clarity to hear what you dictate and say to Alia.",
-          "speechRecognitionPermission": "Allow Clarity to turn your speech into text."
+          "iosMicrophonePermission": "Allow Clarity to hear what you dictate and say to Alia.",
+          "iosBackgroundMode": false,
+          "androidForegroundService": false,
+          "androidPermissions": ["android.permission.RECORD_AUDIO"]
         }
       ],
       [

@@ -8,6 +8,7 @@ import {
   type NativeSyntheticEvent as RNSyntheticEvent,
   type TextInputContentSizeChangeEventData,
 } from 'react-native';
+import { useTheme } from '@oxy.so/bloom/theme';
 import { cn } from '@/lib/utils';
 
 type ChatTextInputProps = React.ComponentPropsWithoutRef<typeof TextInput> & {
@@ -44,6 +45,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
     },
     ref,
   ) => {
+    const { colors } = useTheme();
     const inputRef = React.useRef<TextInput>(null);
     // Stable DOM id for the wrapper so the web paste handler can resolve the
     // element via document.getElementById (react-native-web renders the RN `id`
@@ -149,7 +151,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
             props.editable === false && 'opacity-50 web:cursor-not-allowed',
             className,
           )}
-          placeholderClassName={cn('text-muted-foreground', props.placeholderClassName)}
+          placeholderTextColor={colors.textSecondary}
           onKeyPress={handleKeyPress}
           onContentSizeChange={handleContentSizeChange}
           scrollEnabled={fillContainer || props.multiline}
