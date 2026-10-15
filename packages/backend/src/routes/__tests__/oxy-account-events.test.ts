@@ -3,14 +3,14 @@ import type { AddressInfo } from 'node:net';
 import express from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CLARITY_AGENT_MANIFEST } from '../../lib/clarity-agent-manifest.js';
-const mocks = vi.hoisted(() => ({ verify: vi.fn(), erase: vi.fn() }));
+const mocks = { verify: vi.fn(), erase: vi.fn() };
 vi.mock('../../middleware/auth.js', () => ({
   oxyClient: { accountEvents: { verify: mocks.verify } },
 }));
 vi.mock('../../db/experience-repository.js', () => ({
   eraseDeletedAccountExperience: mocks.erase,
 }));
-import router from '../oxy-account-events.js';
+const { default: router } = await import('../oxy-account-events.js');
 let server: Server;
 let base: string;
 beforeAll(async () => {

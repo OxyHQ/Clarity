@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-const mock = vi.hoisted(() => ({
+const mock = {
   cursor: vi.fn(),
   commit: vi.fn(),
   token: vi.fn(),
   claims: vi.fn(),
   list: vi.fn(),
   verify: vi.fn(),
-}));
+};
 vi.mock('../db/experience-repository.js', () => ({
   readAccountEventCursor: mock.cursor,
   commitAccountEventPage: mock.commit,
@@ -15,7 +15,7 @@ vi.mock('../middleware/auth.js', () => ({
   oxyClient: { serviceToken: mock.token, accountEvents: { list: mock.list, verify: mock.verify } },
 }));
 vi.mock('../lib/clarity-service-auth.js', () => ({ assertExactClarityServiceClaims: mock.claims }));
-import { reconcileAccountEvents } from '../lib/account-event-reconciliation.js';
+const { reconcileAccountEvents } = await import('../lib/account-event-reconciliation.js');
 import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
 const applicationId = CLARITY_AGENT_MANIFEST.backendApplication.applicationId;
 beforeEach(() => {

@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import express from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const repository = vi.hoisted(() => ({
+const repository = {
   listExperience: vi.fn(),
   createExperience: vi.fn(),
   updateExperience: vi.fn(),
@@ -12,7 +12,7 @@ const repository = vi.hoisted(() => ({
   organization: vi.fn(),
   account: vi.fn(),
   profileAccess: vi.fn(),
-}));
+};
 vi.mock('../../db/experience-repository.js', () => ({
   ...repository,
   ExperienceAccountErasedError: class extends Error {},
@@ -39,7 +39,7 @@ vi.mock('../../middleware/auth.js', () => ({
     next();
   },
 }));
-import router from '../experience.js';
+const { default: router } = await import('../experience.js');
 const input = {
   title: 'Designer',
   employerOxyAccountId: 'organization-apple',
