@@ -8,7 +8,7 @@ import {
   type NativeSyntheticEvent,
   type NativeScrollEvent,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import Animated, {
   FadeIn,
@@ -41,7 +41,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useColorScheme } from '@/lib/useColorScheme';
 
 interface LandingPageProps {
-  returnTo?: string;
+  returnTo?: Href;
 }
 
 // ---------------------------------------------------------------------------

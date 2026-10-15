@@ -3,7 +3,7 @@ import { View, ActivityIndicator, Linking, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import Head from 'expo-router/head';
 import { AuthContainer, AuthLogo } from '@/components/auth';
-import { useAuth, useOxy } from '@oxy.so/services';
+import { OxySignInButton, useAuth, useOxy } from '@oxy.so/services';
 import { useApiClient } from '@/lib/api/use-api-client';
 import { Button } from '@oxy.so/bloom/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -146,10 +146,6 @@ export default function AuthorizeScreen() {
     if (!isOxyAuth) {
       setStatus('needLogin');
       setMessage(t('authorize.needLogin', { app: appConfig.displayName }));
-      setTimeout(() => {
-        const returnTo = `/authorize?app=${channelType}&token=${token}&channel=${channelType}`;
-        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
-      }, 1500);
       return;
     }
 
@@ -206,12 +202,8 @@ export default function AuthorizeScreen() {
     } else {
       // OAuth flow for Codea/Cowork
       if (!isAuthenticated) {
-        const urlParams = new URLSearchParams();
-        Object.entries(params).forEach(([key, value]) => {
-          if (value) urlParams.set(key, value as string);
-        });
-        const returnTo = `/authorize?${urlParams.toString()}`;
-        router.replace(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+        setStatus('needLogin');
+        setMessage(t('authorize.needLogin', { app: appConfig.displayName }));
         return;
       }
       setStatus('authorize');
@@ -334,9 +326,7 @@ export default function AuthorizeScreen() {
                     {t('authorize.authRequired')}
                   </Text>
                   <Text className="text-muted-foreground text-center">{message}</Text>
-                  <Text className="text-sm text-muted-foreground text-center">
-                    {t('authorize.redirectingToLogin')}
-                  </Text>
+                  <OxySignInButton />
                 </View>
               </View>
             </CardContent>
