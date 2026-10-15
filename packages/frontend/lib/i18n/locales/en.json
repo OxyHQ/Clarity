@@ -175,7 +175,7 @@
       "format": "Format",
       "blocked": "Blocked",
       "warning": "Warning",
-      "noThreats": "All clear \u2014 no threats detected yet"
+      "noThreats": "All clear — no threats detected yet"
     },
     "sections": {
       "account": "Account",
@@ -206,7 +206,8 @@
       "sky": "Sky",
       "orange": "Orange",
       "mint": "Mint"
-    }
+    },
+    "experience": "Experience"
   },
   "nav": {
     "chat": "Chat",
@@ -413,7 +414,10 @@
     "empty": "No news yet. Check back soon.",
     "error": "News couldn't be loaded.",
     "retry": "Try again",
-    "sources": { "one": "{{count}} source", "other": "{{count}} sources" }
+    "sources": {
+      "one": "{{count}} source",
+      "other": "{{count}} sources"
+    }
   },
   "billing": {
     "title": "Billing",
@@ -617,7 +621,7 @@
     "title": "Choose your plan",
     "back": "Back",
     "monthly": "Monthly",
-    "annuallySave": "Annual \u00b7 Save 20%",
+    "annuallySave": "Annual · Save 20%",
     "perMonth": "/mo",
     "perMonthBilledYearly": "/mo billed yearly",
     "perYear": "/yr",
@@ -679,7 +683,7 @@
     "inputDisabledPlaceholder": "Usage limit reached",
     "limitReachedBanner": "Usage limit reached. Upgrade or wait to continue.",
     "warningMessage": "Spending more than usual today. At this rate, credits last ~{{days}} days.",
-    "criticalMessage": "High usage \u2014 credits may run out in ~{{days}} day(s).",
+    "criticalMessage": "High usage — credits may run out in ~{{days}} day(s).",
     "switchModel": "Switch",
     "modelLockedTitle": "Model locked",
     "modelLockedDesc": "Upgrade your plan to use this model.",
@@ -1008,7 +1012,7 @@
     "failedToDelete": "Failed to delete memory",
     "deleteMemory": "Delete Memory",
     "deleteConfirmation": "Are you sure you want to delete this memory? This action cannot be undone.",
-    "aiSearchEnabled": "AI search enabled \u2014 finds semantically related memories",
+    "aiSearchEnabled": "AI search enabled — finds semantically related memories",
     "semanticUnavailable": "Semantic search unavailable, using text search",
     "failedDuplicates": "Failed to check for duplicates",
     "updated": "Updated",
@@ -1053,7 +1057,7 @@
     "failedToReadFile": "Failed to read file",
     "fileTooLarge": "File too large (max 5MB)",
     "duplicateMemories": "Duplicate Memories",
-    "noDuplicates": "No duplicates found \u2014 your memory is clean!",
+    "noDuplicates": "No duplicates found — your memory is clean!",
     "foundDuplicates": "Found {{count}} potential duplicate(s)",
     "identicalValue": "Identical value",
     "similarKey": "Similar key",
@@ -1237,5 +1241,79 @@
     "conversationViews": "Conversation views",
     "addAttachment": "Add attachment",
     "searchModes": "Search modes"
+  },
+  "profile": {
+    "experience": {
+      "add": "Add experience",
+      "edit": "Edit experience",
+      "editRole": "Edit {{title}}",
+      "empty": "No experience yet",
+      "emptyOwner": "Add your roles and share your professional journey.",
+      "emptyVisitor": "This person hasn’t added any experience yet.",
+      "loadError": "Experience could not be loaded. Please try again.",
+      "saveError": "Your changes could not be saved. Please try again.",
+      "deleteError": "This experience could not be deleted. Please try again.",
+      "present": "Present",
+      "years_one": "{{count}} yr",
+      "years_other": "{{count}} yrs",
+      "months_one": "{{count}} mo",
+      "months_other": "{{count}} mos",
+      "current": "I currently work here",
+      "publicHint": "Your experience appears according to your Oxy profile privacy settings. Changes also appear in Mention.",
+      "dateHint": "Enter dates as year-month, for example 2022-10.",
+      "companyHint": "Search the shared organization directory and select your employer.",
+      "companySearchError": "The organization directory is unavailable. Please try again.",
+      "unspecified": "Not specified",
+      "deleteTitle": "Delete this experience?",
+      "deleteDescription": "This role will be removed from your Mention and Clarity profiles.",
+      "fields": {
+        "title": "Title *",
+        "employmentType": "Employment type",
+        "location": "Location",
+        "startDate": "Start date *",
+        "endDate": "End date *",
+        "description": "Description",
+        "employerOxyAccountId": "Company or organization *"
+      },
+      "validation": {
+        "title": "Enter a title (up to 200 characters).",
+        "location": "Use up to 300 characters.",
+        "startDate": "Enter a valid month in YYYY-MM format, no later than this month.",
+        "endDate": "Enter a valid month in YYYY-MM format, on or after the start date.",
+        "description": "Use up to 5,000 characters.",
+        "employerOxyAccountId": "Select an available organization from the directory."
+      },
+      "employment": {
+        "full-time": "Full-time",
+        "part-time": "Part-time",
+        "self-employed": "Self-employed",
+        "freelance": "Freelance",
+        "contract": "Contract",
+        "internship": "Internship",
+        "apprenticeship": "Apprenticeship",
+        "seasonal": "Seasonal"
+      },
+      "limitReached": "You can add up to 100 roles. Remove an existing role before adding another.",
+      "unavailableEmployer": "Organization unavailable",
+      "loadingEmployer": "Loading organization…",
+      "employerLoadError": "Organization details could not be loaded. Your experience is still shown.",
+      "changeEmployer": "Change organization",
+      "addOrganization": "Organization missing? Add it",
+      "createOrganization": "Add to directory",
+      "neutralOrganizationHint": "This adds an unclaimed organization to the shared directory. It does not grant you ownership or verify your employment.",
+      "organizationType": "Organization type",
+      "website": "Website (optional)",
+      "country": "Country code (optional, e.g. US)",
+      "organizationInvalid": "Check the name, website URL and two-letter country code.",
+      "organizationCreateError": "The organization could not be added. Please try again.",
+      "organizationTypes": {
+        "business": "Business",
+        "nonprofit": "Nonprofit",
+        "public_body": "Public body",
+        "community": "Community",
+        "other": "Other"
+      },
+      "sessionRequired": "Sign in with your personal account to manage experience."
+    }
   }
 }

@@ -48,10 +48,11 @@ COPY packages/frontend/package.json ./packages/frontend/
 # without them, and CI's image build proves it on every change here.
 RUN bun install --frozen-lockfile --ignore-scripts
 
-# Copy shared-types + API source, plus the SDK's vocabulary module the API
+# Copy shared-types + API source, plus the SDK's canonical contracts the API
 # bundles from source (see packages/backend/build.ts).
 COPY packages/shared-types/ ./packages/shared-types/
 COPY packages/sdk/src/vocabularies.ts ./packages/sdk/src/vocabularies.ts
+COPY packages/sdk/src/experience.ts ./packages/sdk/src/experience.ts
 COPY packages/backend/ ./packages/backend/
 
 # Build shared-types first (backend imports its compiled declarations),

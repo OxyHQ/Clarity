@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { View, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -11,7 +10,7 @@ import {
   useCreateSubscriptionCheckout,
   type SubscriptionPlan,
 } from '@/lib/hooks/use-billing';
-import { useAuth } from '@oxy.so/services';
+import { OxySignInButton, useAuth } from '@oxy.so/services';
 import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';
@@ -29,13 +28,6 @@ export default function SubscribeScreen() {
   const { data: plans, isLoading: plansLoading } = useSubscriptionPlans('clarity');
   const { data: subscription } = useSubscription('clarity');
   const checkoutMutation = useCreateSubscriptionCheckout();
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/login');
-    }
-  }, [authLoading, isAuthenticated]);
 
   const handleSelectPlan = async (plan: SubscriptionPlan) => {
     if (plan.isFree) return;
@@ -60,6 +52,14 @@ export default function SubscribeScreen() {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <OxySignInButton />
       </View>
     );
   }

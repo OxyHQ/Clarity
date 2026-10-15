@@ -1309,3 +1309,53 @@ export const places = pgTable(
     ),
   ],
 );
+
+/** User-published work history. Never indexed or joined into Clarity Jobs. */
+export const experience = pgTable(
+  'clarity_experience',
+  {
+    id: text('id').primaryKey(),
+    oxyUserId: text('oxy_user_id').notNull(),
+    title: text('title').notNull(),
+    employerOxyAccountId: text('employer_oxy_account_id').notNull(),
+    employmentType: text('employment_type'),
+    location: text('location'),
+    startDate: text('start_date').notNull(),
+    endDate: text('end_date'),
+    description: text('description'),
+    ...timestampColumns(),
+  },
+  (table) => [
+    index('clarity_experience_user_start_idx').on(table.oxyUserId, table.startDate),
+    check(
+      'clarity_experience_start_month_check',
+      sql`${table.startDate} ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])$'`,
+    ),
+    check(
+      'clarity_experience_end_month_check',
+      sql`${table.endDate} is null or ${table.endDate} ~ '^(19|20)[0-9]{2}-(0[1-9]|1[0-2])$'`,
+    ),
+    check(
+      'clarity_experience_period_check',
+      sql`${table.endDate} is null or ${table.endDate} >= ${table.startDate}`,
+    ),
+    check(
+      'clarity_experience_employment_type_check',
+      sql`${table.employmentType} is null or ${table.employmentType} in ('full-time', 'part-time', 'self-employed', 'freelance', 'contract', 'internship', 'apprenticeship', 'seasonal')`,
+    ),
+  ],
+);
+
+/** Minimal deletion tombstone prevents late sessions from recreating erased history. */
+export const experienceErasures = pgTable('clarity_experience_erasures', {
+  oxyUserId: text('oxy_user_id').primaryKey(),
+  eventId: text('event_id').notNull(),
+  erasedAt: timestamp('erased_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** Durable position in Oxy's signed account-lifecycle reconciliation feed. */
+export const accountEventCursors = pgTable('clarity_account_event_cursors', {
+  applicationId: text('application_id').primaryKey(),
+  cursor: text('cursor'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

@@ -322,7 +322,23 @@ describe('architecture gates', () => {
     expect(index).toContain("app.use('/bots', botsRouter)");
     expect(index).toContain('app.use(requireRuntimeReady)');
     expect(index).not.toMatch(/seedSuggestions|seed-suggestions/);
+    // Agent-runtime webhooks remain Alia-owned. Oxy's narrowly mounted signed
+    // account-erasure event is an identity lifecycle boundary, not an agent tool.
     expect(index).not.toContain("app.use('/webhooks'");
+    expect(index).toContain("app.use('/webhooks/oxy/account-events', oxyAccountEventsRouter)");
+    expect(
+      index.indexOf("app.use('/webhooks/oxy/account-events', oxyAccountEventsRouter)"),
+    ).toBeLessThan(index.indexOf('app.use(requireRuntimeReady)'));
+    const accountEvents = readFileSync(
+      join(packageRoot, 'src', 'routes', 'oxy-account-events.ts'),
+      'utf8',
+    );
+    expect(accountEvents).toContain('oxyClient.accountEvents.verify');
+    expect(accountEvents).toContain(
+      'audience: CLARITY_AGENT_MANIFEST.backendApplication.applicationId',
+    );
+    expect(accountEvents).not.toContain('proxyAliaJson');
+    expect(accountEvents).toContain('eraseDeletedAccountExperience(event.userId, event.eventId)');
 
     for (const route of ['memory.ts', 'audit.ts', 'triggers.ts', 'bots.ts']) {
       const source = readFileSync(join(packageRoot, 'src', 'routes', route), 'utf8');
