@@ -83,10 +83,13 @@ describe('createEmbeddings', () => {
       Authorization: 'Bearer clarity-kaana-token',
       'Content-Type': 'application/json',
     });
+    // Literals, not the constants: the model line and dimension are the ones
+    // Kaana declares in its catalogue (configs/public-catalogue.json) and the
+    // `vector(1024)` columns store, so a change here is a deliberate migration.
     expect(JSON.parse(String(init?.body))).toEqual({
-      model: CLARITY_EMBEDDING_MODEL,
+      model: 'qwen/qwen3-embedding-8b',
       input: ['one', 'two'],
-      dimensions: CLARITY_EMBEDDING_DIMENSION,
+      dimensions: 1024,
       encoding_format: 'float',
     });
   });

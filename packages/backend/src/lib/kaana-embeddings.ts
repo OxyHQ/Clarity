@@ -27,7 +27,13 @@ import { Kaana, KaanaError } from '@kaana.ai/sdk';
 import { getClarityServiceTokenFor } from './clarity-service-auth.js';
 import { createLogger } from './logger.js';
 
-export const CLARITY_EMBEDDING_MODEL = 'qwen/qwen3-embedding-0.6b';
+/**
+ * The model line Kaana declares and serves for embeddings: Qwen3 Embedding 8B,
+ * at Kaana's fixed 1024 dimensions (the model's MRL output, 32 to 4096). Every
+ * stored vector is keyed to this id (`clarity_search_chunks.embedding_model`),
+ * so changing it re-embeds rather than mixing two models' vectors.
+ */
+export const CLARITY_EMBEDDING_MODEL = 'qwen/qwen3-embedding-8b';
 export const CLARITY_EMBEDDING_DIMENSION = 1024;
 
 /** `@kaana.ai/contracts` `MAX_EMBEDDING_INPUTS`. */
