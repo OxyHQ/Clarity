@@ -198,6 +198,13 @@ describe('Experience HTTP API', () => {
     ).toBe(401);
     expect(repository.listExperience).not.toHaveBeenCalled();
   });
+  it('refuses an explicitly empty Authorization header before reading any profile', async () => {
+    expect(
+      (await request('/users/owner', 'GET', undefined, undefined, { authorization: '' })).status,
+    ).toBe(401);
+    expect(repository.profileAccess).not.toHaveBeenCalled();
+    expect(repository.listExperience).not.toHaveBeenCalled();
+  });
   it('requires a personal user session for every write', async () => {
     for (const method of ['POST', 'PUT', 'DELETE']) {
       expect(

@@ -64,7 +64,7 @@ router.get('/users/:userId', async (req, res) => {
   }
   const authorization = req.get('authorization');
   const bearer = authorization?.match(/^Bearer ([^\s]+)$/i);
-  if (authorization && !bearer) {
+  if (authorization !== undefined && !bearer) {
     error(res, 401, 'unauthorized', 'A valid user session is required');
     return;
   }
