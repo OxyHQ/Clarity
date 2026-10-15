@@ -68,6 +68,8 @@ async function main(): Promise<void> {
             fieldEvidence: {
               import: { format: manifest.format, version: manifest.version, sourceId: record.id },
             },
+            // Not what any writer's fingerprint describes any more.
+            contentHash: null,
             fetchedAt: importedAt,
             indexedAt: importedAt,
             updatedAt: new Date(),

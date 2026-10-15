@@ -6,9 +6,16 @@
  * vanish from a page are CLOSED, never deleted, so provenance and duplicate
  * grouping stay reconstructible.
  */
-import { and, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
 
-import type { JobFieldSource, JobLocation, JobSourceType } from '@clarity/shared-types';
+import { and, eq, inArray, ne, notInArray, or, sql } from 'drizzle-orm';
+
+import type {
+  JobEvidence,
+  JobFieldSource,
+  JobLocation,
+  JobSourceType,
+} from '@clarity/shared-types';
 
 import { getDb, type ClarityExecutor } from '../../db/index.js';
 import {
@@ -18,12 +25,13 @@ import {
   searchDocuments,
 } from '../../db/schema/index.js';
 import {
+  chunksNeedReplacing,
   chunkText,
-  documentChunksCurrent,
+  documentChunkState,
   embedChunks,
   replaceDocumentChunks,
 } from '../chunking.js';
-import { canonicalSourceRank, jobClusterSignatures } from './dedupe.js';
+import { canonicalSourceRank, jobClusterSignatures, type JobSignature } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
 import {
   JOB_RECRAWL_INTERVAL_SECONDS,
@@ -97,6 +105,29 @@ export function clearAbsent<T extends Record<string, unknown>>(
   ) as { [K in keyof T]: Exclude<T[K], undefined> | null };
 }
 
+/**
+ * Field provenance without the time of extraction. A field re-extracted with
+ * the same value from the same surface keeps the evidence it was stored with:
+ * `extractedAt` is when the stored value was extracted, and `lastSeenAt` when
+ * the listing was last confirmed.
+ */
+function withoutExtractionTimes(
+  evidence: Record<string, JobEvidence>,
+): Record<string, Omit<JobEvidence, 'extractedAt'>> {
+  return Object.fromEntries(
+    Object.entries(evidence).map(([field, { source, selector }]) => [field, { source, selector }]),
+  );
+}
+
+/**
+ * SHA-256 of what a projection would store, excluding when it was observed.
+ * Two projections with the same fingerprint write identical content, so the
+ * second one only needs to record the sighting.
+ */
+function fingerprint(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
+}
+
 export async function projectJobPostings(
   tx: ClarityExecutor,
   input: JobProjectionInput,
@@ -118,9 +149,7 @@ export async function projectJobPostings(
       documentStatus: input.documentStatus,
       sourceType: input.sourceType,
     });
-    const values = {
-      documentId: input.documentId,
-      sourceKey: posting.sourceKey,
+    const content = {
       canonicalUrl: posting.canonicalUrl,
       applyUrl: posting.applyUrl,
       title: posting.title,
@@ -173,41 +202,69 @@ export async function projectJobPostings(
       directApply: posting.directApply,
       publishedAt: posting.publishedAt,
       validThrough: posting.validThrough,
-      status,
-      closureReason: null,
-      closedAt: null,
       sourceType: input.sourceType,
       sourceDomain: urlDomain(posting.canonicalUrl) ?? '',
       submittedByApplicationId: input.submittedByApplicationId,
-      fieldEvidence: posting.evidence,
-      searchVector: sql`to_tsvector('simple', ${textIndexSource(posting)})`,
+    };
+    const searchText = textIndexSource(posting);
+    const signatures = jobClusterSignatures(posting);
+    const contentHash = fingerprint({
+      content,
+      evidence: withoutExtractionTimes(posting.evidence),
+      searchText,
+      signatures,
+    });
+    const observation = {
+      status,
+      closureReason: null,
+      closedAt: null,
       lastSeenAt: input.observedAt,
+      updatedAt: new Date(),
+    };
+
+    // A listing re-delivered unchanged — most of every feed poll — only
+    // records the sighting. Its description, evidence and search vector are
+    // left in place, so TOAST is not rewritten, and its signatures and
+    // cluster are already what this content produces.
+    const [seen] = await tx
+      .update(jobPostings)
+      .set(observation)
+      .where(
+        and(
+          eq(jobPostings.documentId, input.documentId),
+          eq(jobPostings.sourceKey, posting.sourceKey),
+          eq(jobPostings.contentHash, contentHash),
+        ),
+      )
+      .returning({ id: jobPostings.id, clusterId: jobPostings.clusterId });
+    if (seen) {
+      ids.push(seen.id);
+      // A closed copy reopening can change which copy its cluster shows.
+      if (seen.clusterId) await electCanonical(tx, seen.clusterId);
+      continue;
+    }
+
+    const values = {
+      ...content,
+      documentId: input.documentId,
+      sourceKey: posting.sourceKey,
+      fieldEvidence: posting.evidence,
+      searchVector: sql`to_tsvector('simple', ${searchText})`,
+      contentHash,
+      ...observation,
     };
     const [row] = await tx
       .insert(jobPostings)
       .values({ id: crypto.randomUUID(), firstSeenAt: input.observedAt, ...values })
       .onConflictDoUpdate({
         target: [jobPostings.documentId, jobPostings.sourceKey],
-        set: { ...clearAbsent(values), updatedAt: new Date() },
+        set: clearAbsent(values),
       })
-      .returning({ id: jobPostings.id });
+      .returning({ id: jobPostings.id, clusterId: jobPostings.clusterId });
     ids.push(row.id);
 
-    await tx.delete(jobPostingSignatures).where(eq(jobPostingSignatures.jobPostingId, row.id));
-    const signatures = jobClusterSignatures(posting);
-    if (signatures.length > 0) {
-      await tx
-        .insert(jobPostingSignatures)
-        .values(
-          signatures.map((signature) => ({
-            jobPostingId: row.id,
-            signature: signature.value,
-            kind: signature.kind,
-          })),
-        )
-        .onConflictDoNothing();
-    }
-    await assignCluster(tx, row.id);
+    await storeSignatures(tx, row.id, signatures);
+    await assignCluster(tx, row.id, row.clusterId);
   }
 
   // Listings that vanished from this page were withdrawn: close them and let
@@ -248,18 +305,48 @@ export async function closeJobPostingsForDocument(
   return closed.length;
 }
 
+/** Makes a listing's stored signatures exactly `signatures`, writing only the difference. */
+async function storeSignatures(
+  tx: ClarityExecutor,
+  jobPostingId: string,
+  signatures: readonly JobSignature[],
+): Promise<void> {
+  const values = signatures.map((signature) => signature.value);
+  await tx
+    .delete(jobPostingSignatures)
+    .where(
+      and(
+        eq(jobPostingSignatures.jobPostingId, jobPostingId),
+        values.length > 0 ? notInArray(jobPostingSignatures.signature, values) : undefined,
+      ),
+    );
+  if (signatures.length === 0) return;
+  await tx
+    .insert(jobPostingSignatures)
+    .values(
+      signatures.map((signature) => ({
+        jobPostingId,
+        signature: signature.value,
+        kind: signature.kind,
+      })),
+    )
+    .onConflictDoNothing();
+}
+
 /**
  * Joins a listing to every cluster its signatures reach, merging those clusters
  * into one. Clusters are pure grouping metadata: no listing row is altered
  * beyond its `cluster_id`, so a wrong grouping is undone by clearing it.
+ *
+ * Only rows whose `cluster_id` actually changes are written. Most listings
+ * belong to no cluster, and re-projecting one used to rewrite its row to set
+ * `cluster_id` to the null it already was.
  */
-async function assignCluster(tx: ClarityExecutor, jobPostingId: string): Promise<void> {
-  const [current] = await tx
-    .select({ clusterId: jobPostings.clusterId })
-    .from(jobPostings)
-    .where(eq(jobPostings.id, jobPostingId))
-    .limit(1);
-  const previousClusterId = current?.clusterId ?? null;
+async function assignCluster(
+  tx: ClarityExecutor,
+  jobPostingId: string,
+  previousClusterId: string | null,
+): Promise<void> {
   const related = await tx.execute<{ id: string; clusterId: string | null }>(sql`
     select distinct other.id as id, other.cluster_id as "clusterId"
     from ${jobPostingSignatures} mine
@@ -273,11 +360,12 @@ async function assignCluster(tx: ClarityExecutor, jobPostingId: string): Promise
   ].sort();
 
   if (memberIds.size === 1 && clusterIds.length === 0) {
+    if (!previousClusterId) return;
     await tx
       .update(jobPostings)
       .set({ clusterId: null, updatedAt: new Date() })
       .where(eq(jobPostings.id, jobPostingId));
-    if (previousClusterId) await electCanonical(tx, previousClusterId);
+    await electCanonical(tx, previousClusterId);
     return;
   }
 
@@ -289,7 +377,12 @@ async function assignCluster(tx: ClarityExecutor, jobPostingId: string): Promise
   await tx
     .update(jobPostings)
     .set({ clusterId, updatedAt: new Date() })
-    .where(inArray(jobPostings.id, [...memberIds]));
+    .where(
+      and(
+        inArray(jobPostings.id, [...memberIds]),
+        sql`${jobPostings.clusterId} is distinct from ${clusterId}`,
+      ),
+    );
   if (clusterIds.length > 1) {
     await tx
       .update(jobPostings)
@@ -346,6 +439,7 @@ async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<v
     const seen = left.firstSeenAt.getTime() - right.firstSeenAt.getTime();
     return seen !== 0 ? seen : left.id < right.id ? -1 : 1;
   });
+  // Re-electing an unchanged cluster writes nothing.
   await tx
     .update(jobClusters)
     .set({
@@ -353,7 +447,15 @@ async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<v
       memberCount: members.length,
       updatedAt: new Date(),
     })
-    .where(eq(jobClusters.id, clusterId));
+    .where(
+      and(
+        eq(jobClusters.id, clusterId),
+        or(
+          sql`${jobClusters.canonicalJobPostingId} is distinct from ${ordered[0].id}`,
+          ne(jobClusters.memberCount, members.length),
+        ),
+      ),
+    );
 }
 
 /** Job documents deleted per retention pass, so one pass never holds long locks. */
@@ -461,7 +563,7 @@ export async function ingestJobPosting(
   // and its embedded chunks are exactly what this payload would produce, the
   // chunks are kept and nothing is re-embedded; the listing is still
   // re-projected below, so lastSeenAt and every column stay current.
-  const chunksCurrent = await documentChunksCurrent(
+  const chunkState = await documentChunkState(
     getDb(),
     input.canonicalUrl,
     body,
@@ -469,7 +571,7 @@ export async function ingestJobPosting(
     INGEST_EXTRACTOR_VERSION,
   );
   let embeddings: number[][] | undefined;
-  if (!chunksCurrent) {
+  if (chunkState !== 'current') {
     try {
       embeddings = await embedChunks(chunks.map((chunk) => chunk.text));
     } catch {
@@ -478,10 +580,7 @@ export async function ingestJobPosting(
   }
 
   return getDb().transaction(async (tx) => {
-    const mutable = {
-      siteId: input.siteId,
-      status: 'indexed',
-      documentType: 'job',
+    const content = {
       title: primary.title,
       // A removed description or date clears the stored one; siteId is kept when absent.
       description: primary.description
@@ -492,24 +591,46 @@ export async function ingestJobPosting(
       fieldEvidence: primary.evidence,
       publisherName: primary.employerName,
       publishedAt: primary.publishedAt ?? null,
+    };
+    const contentHash = fingerprint({
+      ...content,
+      fieldEvidence: withoutExtractionTimes(primary.evidence),
+    });
+    const observation = {
+      siteId: input.siteId,
+      status: 'indexed',
+      documentType: 'job',
       fetchedAt: input.fetchedAt ?? input.observedAt,
       indexedAt: input.observedAt,
       nextFetchAt: new Date(input.observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000),
+      updatedAt: input.observedAt,
     };
-    const [document] = await tx
-      .insert(searchDocuments)
-      .values({
-        id: crypto.randomUUID(),
-        requestedUrl: input.canonicalUrl,
-        canonicalUrl: input.canonicalUrl,
-        ...mutable,
-      })
-      .onConflictDoUpdate({
-        target: searchDocuments.canonicalUrl,
-        set: { ...mutable, updatedAt: input.observedAt },
-      })
-      .returning();
-    if (!chunksCurrent)
+    // The same payload again leaves the document's text, structured data and
+    // evidence — its TOASTed columns — where they are.
+    let [document] = await tx
+      .update(searchDocuments)
+      .set(observation)
+      .where(
+        and(
+          eq(searchDocuments.canonicalUrl, input.canonicalUrl),
+          eq(searchDocuments.contentHash, contentHash),
+        ),
+      )
+      .returning({ id: searchDocuments.id });
+    if (!document) {
+      const mutable = { ...content, ...observation, contentHash };
+      [document] = await tx
+        .insert(searchDocuments)
+        .values({
+          id: crypto.randomUUID(),
+          requestedUrl: input.canonicalUrl,
+          canonicalUrl: input.canonicalUrl,
+          ...mutable,
+        })
+        .onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: mutable })
+        .returning({ id: searchDocuments.id });
+    }
+    if (chunksNeedReplacing(chunkState, embeddings !== undefined))
       await replaceDocumentChunks(tx, document.id, chunks, embeddings, INGEST_EXTRACTOR_VERSION);
     const jobPostingIds = await projectJobPostings(tx, {
       documentId: document.id,

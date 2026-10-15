@@ -7,7 +7,13 @@ import { safeFetch } from '@oxy.so/core/server';
 import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
 import { crawlJobs, crawlPages, fetchAttempts, searchDocuments } from './db/schema/index.js';
 import { extractDocument } from './search/extractor.js';
-import { chunkText, embedChunks, replaceDocumentChunks } from './search/chunking.js';
+import {
+  chunksNeedReplacing,
+  chunkText,
+  documentChunkState,
+  embedChunks,
+  replaceDocumentChunks,
+} from './search/chunking.js';
 import { extractJobPostings } from './search/jobs/extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/lifecycle.js';
 import {
@@ -337,8 +343,17 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
           observedAt.toISOString(),
           'json_ld',
         );
+    // A recrawl usually finds the page unchanged; its chunks are then kept as
+    // they are rather than deleted and re-inserted on every fetch.
+    const chunkState = await documentChunkState(
+      getDb(),
+      canonicalUrl,
+      extracted.mainContent || '',
+      textChunks.length,
+      extractorVersion,
+    );
     let embeddings: number[][] | undefined;
-    if (textChunks.length > 0) {
+    if (textChunks.length > 0 && chunkState !== 'current') {
       try {
         embeddings = await embedChunks(textChunks.map((item) => item.text));
       } catch (error) {
@@ -389,8 +404,9 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
           target: searchDocuments.canonicalUrl,
           set: { ...mutable, updatedAt: observedAt },
         })
-        .returning();
-      await replaceDocumentChunks(tx, document.id, textChunks, embeddings, extractorVersion);
+        .returning({ id: searchDocuments.id });
+      if (chunksNeedReplacing(chunkState, embeddings !== undefined))
+        await replaceDocumentChunks(tx, document.id, textChunks, embeddings, extractorVersion);
       await registerHosts(tx, [{ url: canonicalUrl, iconHintUrl: extracted.faviconUrl }]);
       await projectJobPostings(tx, {
         documentId: document.id,
