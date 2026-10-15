@@ -53,8 +53,8 @@ fallback.
 | Public sign-in client ID | `oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a` |
 
 The agent's `oxyAccountId` is the exact bot-account ID and its application
-binding is the backend service application, whose credential has exactly
-`user:read` and `inference:invoke`. The separate public application has only
+binding is the backend service application. Its agent token requests exactly
+`user:read` and `inference:invoke`, independently of scopes granted to the workload for other product operations. The separate public application has only
 `user:read`. Clarity's agent grant is exactly `web`, `artifacts`, and `memory`;
 it has no browser, shell, files, messaging, automation, delegation, MCP,
 integration or agent-management grant.

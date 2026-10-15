@@ -187,7 +187,10 @@ export async function getClarityServiceToken(
     client = new OxyServer({ baseURL: config.baseUrl });
     clientFingerprint = fingerprint;
   }
-  const token = await client.serviceToken();
+  // The workload may gain unrelated product scopes; Alia still receives exactly this manifest tuple.
+  const token = await client.serviceToken(undefined, undefined, {
+    scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+  });
   assertExactClarityServiceClaims(token);
   return token;
 }

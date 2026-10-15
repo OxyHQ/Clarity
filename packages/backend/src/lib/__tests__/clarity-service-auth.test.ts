@@ -185,6 +185,7 @@ describe('Clarity service token claims', () => {
       { type: 'user' },
       { scopes: ['user:read'] },
       { scopes: ['user:read', 'inference:invoke', 'files:read'] },
+      { scopes: ['user:read', 'inference:invoke', 'safety:decide'] },
       { scopes: ['user:read', 'user:read'] },
       { scopes: [] },
     ];
