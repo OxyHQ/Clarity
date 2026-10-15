@@ -3,6 +3,7 @@ import { Slot, usePathname } from 'expo-router';
 import { AliaChatSheet, type AliaChatSheetRef } from '@alia.onl/sdk';
 import { VoiceSession } from '@alia.onl/sdk/voice';
 import { openAccountDialog, useOxy } from '@oxy.so/services';
+import { SupervisedSurfaceGate } from '@/components/supervised-surface-gate';
 import { AppShell } from '@oxy.so/bloom/app-shell';
 import { useSearchSidebarConfig, useSettingsSidebarConfig } from '@/components/sidebar';
 import { AppErrorBoundary } from '@/components/error-boundary';
@@ -92,7 +93,7 @@ function SettingsShell() {
   );
 }
 
-export default function AppLayout() {
+function OrdinaryAppLayout() {
   const pathname = usePathname();
   const isSettingsRoute = pathname.startsWith('/settings');
 
@@ -109,5 +110,13 @@ export default function AppLayout() {
         {isSettingsRoute ? <SettingsShell /> : <SearchShell />}
       </GestureHandlerRootView>
     </AppErrorBoundary>
+  );
+}
+
+export default function AppLayout() {
+  return (
+    <SupervisedSurfaceGate experience>
+      <OrdinaryAppLayout />
+    </SupervisedSurfaceGate>
   );
 }

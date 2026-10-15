@@ -27,7 +27,8 @@
     "user": "User",
     "done": "Done",
     "authorize": "Authorize",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try Again",
+    "retry": "Inténtalo de nuevo"
   },
   "login": {
     "title": "Sign in or sign up",
@@ -1315,5 +1316,12 @@
       },
       "sessionRequired": "Inicia sesión con tu cuenta personal para gestionar tu experiencia."
     }
+  },
+  "supervisedAccess": {
+    "title": "Tu cuenta de Clarity",
+    "limited": "Con supervisión, puedes gestionar tu experiencia aquí. Las demás secciones de Clarity todavía no están disponibles para tu cuenta.",
+    "error": "No pudimos comprobar la configuración de tu cuenta. Inténtalo de nuevo.",
+    "manage": "Ajustes de supervisión",
+    "experienceHint": "Puedes gestionar tu propia experiencia laboral. La privacidad y la supervisión de Oxy determinan quién puede verla."
   }
 }

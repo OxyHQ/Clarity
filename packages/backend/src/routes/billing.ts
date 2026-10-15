@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import Stripe from 'stripe';
-import { authenticateToken, oxyClient } from '../middleware/auth.js';
+import { authenticateToken, optionalAuth, oxyClient } from '../middleware/auth.js';
 import {
   getPlans,
   getFeatures,
@@ -155,7 +155,7 @@ router.get('/credit-price', authenticateToken, async (req: Request, res: Respons
   await proxyAliaJson(req, res, '/billing/credit-price');
 });
 
-router.get('/plans', async (req: Request, res: Response) => {
+router.get('/plans', optionalAuth, async (req: Request, res: Response) => {
   try {
     const product = req.query.product as string | undefined;
     const planFilter: Record<string, unknown> = { isActive: true };

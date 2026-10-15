@@ -1,12 +1,11 @@
-import { createHmac } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
 import { z } from 'zod';
 
 import { getClarityServiceToken } from '../lib/clarity-service-auth.js';
 import { consumeRequestRate } from '../search/quotas.js';
 
-const introspectionSchema = z.object({
-  active: z.boolean(),
+const activeIntrospectionSchema = z.object({
+  active: z.literal(true),
   accountId: z.string().min(1),
   applicationId: z.string().min(1),
   credentialId: z.string().min(1).optional(),
@@ -24,7 +23,11 @@ const introspectionSchema = z.object({
   expiresAt: z.string().datetime().optional(),
 });
 
-export type ClarityResourcePrincipal = z.infer<typeof introspectionSchema>;
+const introspectionSchema = z.discriminatedUnion('active', [
+  activeIntrospectionSchema,
+  z.object({ active: z.literal(false) }),
+]);
+export type ClarityResourcePrincipal = z.infer<typeof activeIntrospectionSchema>;
 
 declare global {
   namespace Express {
@@ -34,20 +37,11 @@ declare global {
   }
 }
 
-const POSITIVE_CACHE_TTL_MS = 30_000;
-const cache = new Map<string, { principal: ClarityResourcePrincipal; expiresAt: number }>();
-
 function bearerToken(req: Request): string | undefined {
   const authorization = req.header('authorization');
   if (!authorization?.startsWith('Bearer ')) return undefined;
   const token = authorization.slice('Bearer '.length);
   return token.length > 0 ? token : undefined;
-}
-
-function cacheKey(token: string): string {
-  const hmacKey = process.env.CLARITY_INTROSPECTION_CACHE_HMAC_KEY;
-  if (!hmacKey) throw new Error('CLARITY_INTROSPECTION_CACHE_HMAC_KEY is required');
-  return createHmac('sha256', hmacKey).update(token).digest('hex');
 }
 
 export async function authenticateResource(
@@ -68,15 +62,8 @@ export async function authenticateResource(
   }
 
   try {
-    const key = cacheKey(token);
-    const cached = cache.get(key);
-    if (cached && cached.expiresAt > Date.now()) {
-      req.resourcePrincipal = cached.principal;
-      next();
-      return;
-    }
-    cache.delete(key);
-
+    // Revalidate every request: enrollment, owner/credential revocation and
+    // scope changes must not outlive a cached positive authorization.
     const serviceToken = await getClarityServiceToken();
     const baseUrl = process.env.OXY_API_URL || 'https://api.oxy.so';
     const response = await fetch(`${baseUrl.replace(/\/$/, '')}/auth/resources/introspect`, {
@@ -113,13 +100,6 @@ export async function authenticateResource(
       );
       return;
     }
-    const credentialExpiry = principal.expiresAt
-      ? Date.parse(principal.expiresAt)
-      : Number.POSITIVE_INFINITY;
-    cache.set(key, {
-      principal,
-      expiresAt: Math.min(Date.now() + POSITIVE_CACHE_TTL_MS, credentialExpiry),
-    });
     req.resourcePrincipal = principal;
     next();
   } catch {

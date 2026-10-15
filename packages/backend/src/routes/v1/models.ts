@@ -1,3 +1,4 @@
+import { optionalAuth } from '../../middleware/auth.js';
 import { Router } from 'express';
 import { log } from '../../lib/logger.js';
 import {
@@ -10,6 +11,7 @@ import {
 } from '../../lib/chat-core.js';
 
 const router = Router();
+router.use(optionalAuth);
 
 function getRequiredPlan(creditMultiplier: number): string | null {
   if (creditMultiplier <= 1.0) return null;

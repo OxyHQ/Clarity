@@ -99,7 +99,6 @@ describe('authenticateResource reads the tier Oxy answers', () => {
   };
 
   beforeEach(() => {
-    process.env.CLARITY_INTROSPECTION_CACHE_HMAC_KEY = 'test-hmac-key';
     upstream.mockReset();
     stubFetch(upstream);
   });
@@ -121,5 +120,38 @@ describe('authenticateResource reads the tier Oxy answers', () => {
 
     expect(next.spy).toHaveBeenCalledTimes(1);
     expect(req.resourcePrincipal?.tier).toBe(expected);
+  });
+  it.each(['user-session', 'oxy_sk_existing', 'service-owner-token'])(
+    'revalidates %s after enrollment/revocation and never serves a warm authorization',
+    async (token) => {
+      upstream.mockResolvedValueOnce(
+        new Response(JSON.stringify({ ...introspection, tier: 'internal' }), { status: 200 }),
+      );
+      const first = nextSpy();
+      await authenticateResource(request(undefined, token), response(), first);
+      expect(first.spy).toHaveBeenCalledTimes(1);
+      upstream.mockResolvedValueOnce(
+        new Response(JSON.stringify({ active: false, scopes: [], permissions: [] }), {
+          status: 200,
+        }),
+      );
+      const second = nextSpy(),
+        denied = response();
+      await authenticateResource(request(undefined, token), denied, second);
+      expect(second.spy).not.toHaveBeenCalled();
+      expect(denied.statusCode).toBe(401);
+      expect(upstream).toHaveBeenCalledTimes(2);
+    },
+  );
+  it('does not retain a prior authorization during an introspection outage', async () => {
+    upstream.mockResolvedValueOnce(new Response(JSON.stringify(introspection), { status: 200 }));
+    await authenticateResource(request(undefined, 'same-token'), response(), nextSpy());
+    upstream.mockRejectedValueOnce(new Error('Oxy unavailable'));
+    const next = nextSpy(),
+      denied = response();
+    await authenticateResource(request(undefined, 'same-token'), denied, next);
+    expect(denied.statusCode).toBe(503);
+    expect(next.spy).not.toHaveBeenCalled();
+    expect(upstream).toHaveBeenCalledTimes(2);
   });
 });

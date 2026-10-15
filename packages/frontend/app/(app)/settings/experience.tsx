@@ -1,6 +1,8 @@
 import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
+import { useOxy } from '@oxy.so/services';
+import { useSupervision } from '@oxy.so/services/ui';
 import { useAuth } from '@oxy.so/services/ui/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@oxy.so/bloom/button';
@@ -14,12 +16,17 @@ import { useTranslation } from '@/hooks/useTranslation';
 
 export default function SettingsExperienceScreen() {
   const { user, canUsePrivateApi, isAuthenticated, oxyServices } = useAuth();
+  const { activeSessionId } = useOxy();
+  const supervision = useSupervision();
+  const showEmployerMedia =
+    supervision.data !== undefined &&
+    (!supervision.data.self || supervision.data.self.status === 'ended');
   const { t } = useTranslation();
   const experience = useExperienceClient();
   const client = useQueryClient();
   const [editing, setEditing] = useState<Experience | 'new' | null>(null);
   const allowed = canUsePrivateApi && user?.kind === 'personal';
-  const queryKey = ['experience', user?.id, isAuthenticated, canUsePrivateApi];
+  const queryKey = ['experience', user?.id, activeSessionId, isAuthenticated, canUsePrivateApi];
   const query = useQuery({
     queryKey,
     queryFn: () => experience.list(user?.id ?? ''),
@@ -31,7 +38,7 @@ export default function SettingsExperienceScreen() {
     ...new Set((query.data?.items ?? []).map((entry) => entry.employerOxyAccountId)),
   ].sort();
   const employers = useQuery({
-    queryKey: ['oxy', 'organizations', 'batch', ids, user?.id],
+    queryKey: ['oxy', 'organizations', 'batch', ids, user?.id, activeSessionId],
     queryFn: () => oxyServices.organizations.batch({ ids }),
     enabled: allowed && ids.length > 0,
   });
@@ -45,9 +52,13 @@ export default function SettingsExperienceScreen() {
   );
   return (
     <View className="flex-1 bg-background">
-      <SettingsHeader title={t('settings.experience')} showBack />
+      <SettingsHeader title={t('settings.experience')} showBack showMenu={showEmployerMedia} />
       <ScrollView className="flex-1" contentContainerClassName="p-5 gap-5 max-w-2xl w-full">
-        <Text className="text-muted-foreground">{t('profile.experience.publicHint')}</Text>
+        <Text className="text-muted-foreground">
+          {t(
+            showEmployerMedia ? 'profile.experience.publicHint' : 'supervisedAccess.experienceHint',
+          )}
+        </Text>
         {!allowed ? (
           <Text className="text-muted-foreground">{t('profile.experience.sessionRequired')}</Text>
         ) : (
@@ -75,7 +86,7 @@ export default function SettingsExperienceScreen() {
                     className="flex-row items-start gap-3 border-b border-border pb-5"
                   >
                     <Avatar
-                      source={company?.avatar}
+                      source={showEmployerMedia ? company?.avatar : undefined}
                       name={company?.name ?? t('profile.experience.unavailableEmployer')}
                       size={40}
                       shape="squircle"
