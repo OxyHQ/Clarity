@@ -42,6 +42,13 @@
       "expo-asset",
       "expo-notifications",
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Clarity to hear what you dictate and say to Alia.",
+          "speechRecognitionPermission": "Allow Clarity to turn your speech into text."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/icon-512.png",

@@ -273,7 +273,21 @@
     "settings": "Settings",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
-    "jobs": "Empleo"
+    "jobs": "Empleo",
+    "askAlia": "Preguntar a Alia"
+  },
+  "askAlia": {
+    "clientContext": "La persona usa Clarity, una aplicación de búsqueda e investigación con IA con citas de fuentes, investigación profunda, un feed Descubrir y un índice público de empleos.",
+    "onConversation": "Está leyendo una de sus conversaciones de Clarity.",
+    "onDiscover": "Está explorando el feed Descubrir.",
+    "onJobs": "Está explorando el índice de empleos.",
+    "onHistory": "Está viendo su historial de búsquedas.",
+    "onHome": "Está en la pantalla de inicio de Clarity, a punto de iniciar una búsqueda.",
+    "suggestion": {
+      "search": "Ayúdame a encontrar una fuente fiable sobre un tema",
+      "research": "¿Cuál es la mejor forma de investigar una pregunta complicada?",
+      "jobs": "Ayúdame a acotar la búsqueda de empleo"
+    }
   },
   "jobs": {
     "title": "Empleo",

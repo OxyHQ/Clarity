@@ -208,7 +208,7 @@ export function useSettingsSidebarConfig(): SidebarProps {
    Main search sidebar config — Clarity's real data/handlers
    ================================================================ */
 
-export function useSearchSidebarConfig(): SidebarProps {
+export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void }): SidebarProps {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
@@ -283,6 +283,7 @@ export function useSearchSidebarConfig(): SidebarProps {
     { key: 'discover', label: t('sidebar.discover'), icon: RiEarthLine, onPress: handleDiscover },
     { key: 'jobs', label: t('sidebar.jobs'), icon: Briefcase, onPress: handleJobs },
     { key: 'history', label: t('sidebar.history'), icon: RiTimeLine, onPress: handleHistory },
+    { key: 'ask-alia', label: t('sidebar.askAlia'), icon: RiSparklingLine, onPress: onAskAlia },
   ];
 
   const selected = React.useMemo(() => {

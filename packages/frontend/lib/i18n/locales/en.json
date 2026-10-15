@@ -273,7 +273,21 @@
     "settings": "Settings",
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
-    "jobs": "Jobs"
+    "jobs": "Jobs",
+    "askAlia": "Ask Alia"
+  },
+  "askAlia": {
+    "clientContext": "The person is using Clarity, an AI search and research app with source citations, deep research, a Discover feed and a public jobs index.",
+    "onConversation": "They are reading one of their Clarity conversations.",
+    "onDiscover": "They are browsing the Discover feed.",
+    "onJobs": "They are browsing the jobs index.",
+    "onHistory": "They are looking at their search history.",
+    "onHome": "They are on the Clarity home screen, about to start a search.",
+    "suggestion": {
+      "search": "Help me find a reliable source on a topic",
+      "research": "What is the best way to research a complicated question?",
+      "jobs": "Help me narrow down a job search"
+    }
   },
   "jobs": {
     "title": "Jobs",
