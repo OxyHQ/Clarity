@@ -7,7 +7,12 @@ ECS, ALB, DNS targets, SSM bindings and IAM, are owned by `oxy-infra`.
 
 The frontend is deployed to a Cloudflare Worker by `.github/workflows/deploy.yml`
 and is reachable at `https://clarity.surf`. That workflow remains independent of
-the backend workflow. The API origin is `https://api.clarity.surf`.
+the backend workflow. Like it, it runs only after Clarity's `CI` workflow
+succeeds on a push to `main`, and only when something the web build reads
+(`packages/frontend`, `packages/shared-types`, `packages/sdk`, the root
+manifests and config, or the workflow itself) changed since the last commit it
+deployed (`.github/scripts/deploy-scope.sh`). The API origin is
+`https://api.clarity.surf`.
 
 It is a Worker rather than a Pages project because a Pages project always serves
 `<project>.pages.dev` and Cloudflare offers no way to switch that off, which put
@@ -20,7 +25,9 @@ script returns a real 404 for a missing hashed bundle instead of `text/html` a
 browser would reject.
 
 `.github/workflows/deploy-aws.yml` runs only after Clarity's `CI` workflow
-succeeds for the current `main` commit. It builds one digest-pinned image,
+succeeds on a push to `main`, and releases that commit unless a newer `main`
+commit has a CI run of its own that will release it instead
+(`require-current-main.sh`). It builds one digest-pinned image,
 applies `pre` migrations, rolls out and verifies the API, applies `post`
 migrations, performs external health checks, then deploys the worker. Concurrent
 production rollouts are serialized and never cancelled in progress.

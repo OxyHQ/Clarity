@@ -11,19 +11,89 @@ on:
         description: Successful push CI run for this exact main SHA
         required: true
         type: string
-  push:
+  # After CI passes on a push to main, never alongside it. Until 2026-10 this ran
+  # on every push with no path filter, in parallel with CI, so a commit whose CI
+  # went red still reached clarity.surf and every backend-only merge rebuilt and
+  # re-uploaded the web app. The `scope` job below owns the guards and the path
+  # scope `push` cannot give a `workflow_run`.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
+permissions:
+  contents: read
+
+env:
+  # The commit under release: the one CI tested on `workflow_run`, the
+  # dispatched (reviewed) main SHA on a manual release. Not `github.sha` alone,
+  # which on `workflow_run` is whatever main's head was when CI finished.
+  RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
 jobs:
-  deploy-frontend:
+  # Decides, OUTSIDE the release lane, whether `deploy-frontend` runs at all:
+  # the trigger guards, which commit to release (`gate`), and whether anything
+  # the web app is built from changed since the last commit this workflow
+  # released (`target`). See .github/scripts/deploy-scope.sh.
+  scope:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       actions: read
-    if: github.ref == 'refs/heads/main' && vars.OXY_1519_ROLLOUT_HOLD != 'true'
-    name: Deploy the web app to Cloudflare
-    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.frontend.outputs.frontend }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.RELEASE_SHA }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - name: Release only the newest CI-green main commit
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/deploy-scope.sh gate
+      # What the web build reads: the frontend, the two workspaces it builds
+      # first (shared-types, sdk), the root manifests and config, and this
+      # workflow. test-deploy-scope.sh reads this line.
+      - name: Decide whether anything the web app ships changed
+        id: frontend
+        if: steps.gate.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FRONTEND_PATHS: '^(packages/(frontend|shared-types|sdk)/|package\.json$|bun\.lock$|bunfig\.toml$|app\.json$|tsconfig[^/]*\.json$|\.github/workflows/deploy\.yml$)'
+        run: bash .github/scripts/deploy-scope.sh target frontend include "$FRONTEND_PATHS" clarity-release-frontend-
+
+  deploy-frontend:
+    needs: scope
+    permissions:
+      contents: read
+      actions: read
+    if: >-
+      github.ref == 'refs/heads/main' && vars.OXY_1519_ROLLOUT_HOLD != 'true' &&
+      needs.scope.outputs.frontend == 'true'
+    name: Deploy the web app to Cloudflare
+    runs-on: ubuntu-latest
+    # One Worker upload at a time, never cancelled mid-upload. On the job, so
+    # only a run `scope` judged releasable enters the lane.
+    concurrency:
+      group: deploy-clarity-frontend
+      cancel-in-progress: false
+    # Install, web export and upload; without a bound a hang holds one of the
+    # org's 20 shared job slots for GitHub's 6-hour default.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ env.RELEASE_SHA }}
 
       - name: Verify manual release source and CI
         if: github.event_name == 'workflow_dispatch'
@@ -99,3 +169,15 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # The scope job's base for the next release: the last commit this workflow
+      # actually deployed, as an Actions cache key (its content is irrelevant).
+      # Only a successful upload reaches this step, and it runs on main only, so
+      # no pull request can move it. Lost or evicted, the next run releases.
+      - name: Write the release marker
+        run: printf '%s\n' "$RELEASE_SHA" >"$RUNNER_TEMP/release-marker"
+      - name: Record this release for the next scope decision
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/release-marker
+          key: clarity-release-frontend-${{ env.RELEASE_SHA }}
