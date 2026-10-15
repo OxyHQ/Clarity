@@ -16,6 +16,7 @@ import {
   pruneInactiveJobDocuments,
 } from './search/jobs/projection.js';
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
+import { answeredToAny } from './search/public-document.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
 import { sweepImageCache, upgradeImageRenditions } from './search/image-cache.js';
@@ -533,11 +534,7 @@ async function completeIfAlreadyFetched(
       .from(searchDocuments)
       .where(
         and(
-          or(
-            eq(searchDocuments.canonicalUrl, page.url),
-            eq(searchDocuments.requestedUrl, page.url),
-            eq(searchDocuments.finalUrl, page.url),
-          ),
+          answeredToAny([page.url]),
           ne(searchDocuments.status, 'discovered'),
           gte(searchDocuments.fetchedAt, page.createdAt),
         ),

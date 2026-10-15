@@ -119,6 +119,16 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
     expect((await resolve([urls[2]])).status).toBe(429);
     expect((await resolve([urls[0]])).status).toBe(202);
   });
+  it("never throttles one of Oxy's own applications on active crawls", async () => {
+    // No active-crawl quota, so its live operations are not even counted.
+    principal = { ...principal, tier: 'internal' };
+    for (const url of urls) expect((await resolve([url])).status).toBe(202);
+    const live = await getDb()
+      .select({ id: crawlJobs.id })
+      .from(crawlJobs)
+      .where(eq(crawlJobs.ownerAccountId, owner));
+    expect(live).toHaveLength(urls.length);
+  });
   it('replays explicit keys without confusing work borrowed from another batch', async () => {
     const borrowed = await bodyOf(await resolve([urls[0]]));
     const first = await bodyOf(await resolve([urls[0], urls[1]], 0, 'stable-client-key'));

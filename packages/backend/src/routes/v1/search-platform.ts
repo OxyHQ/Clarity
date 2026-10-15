@@ -18,6 +18,7 @@ import {
   requireResourceRequestRate,
   requireResourceScope,
   sendError,
+  type ClarityResourcePrincipal,
 } from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
@@ -29,6 +30,7 @@ import {
 } from '../../search/quotas.js';
 import { discoverWeb, recordDiscoveredPages } from '../../search/web-discovery.js';
 import {
+  answeredToAny,
   iconHostsOf,
   publicDocument,
   searchResult,
@@ -341,23 +343,12 @@ const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Each requested URL's document, if Clarity has fetched it. A crawl stores a
- * page under its canonical URL, which a redirect or a `<link rel=canonical>`
- * can make differ from the one asked for, so the requested and final URLs
- * find it too. A `discovered` document — known from a web search, never
+ * Each requested URL's document, if Clarity has fetched it, by any URL it
+ * answered to. A `discovered` document — known from a web search, never
  * fetched — does not count. Exported for its Postgres suite.
  */
 export async function fetchedDocuments(urls: readonly string[]): Promise<Map<string, DocumentRow>> {
-  const rows = await getDb()
-    .select()
-    .from(searchDocuments)
-    .where(
-      or(
-        inArray(searchDocuments.canonicalUrl, urls),
-        inArray(searchDocuments.requestedUrl, urls),
-        inArray(searchDocuments.finalUrl, urls),
-      ),
-    );
+  const rows = await getDb().select().from(searchDocuments).where(answeredToAny(urls));
   const byUrl = new Map<string, DocumentRow>();
   for (const url of urls) {
     const row = rows.find(
@@ -586,17 +577,7 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
       )
       .limit(1);
     if (existing) return existing;
-    const limit = await effectiveQuota(tx, principal, 'active_crawls');
-    const [current] = await tx
-      .select({ quantity: sql<number>`count(*)::int` })
-      .from(crawlJobs)
-      .where(
-        and(
-          eq(crawlJobs.ownerAccountId, principal.accountId),
-          inArray(crawlJobs.status, ['queued', 'running']),
-        ),
-      );
-    if (current.quantity >= limit) return undefined;
+    if (!(await withinActiveCrawlQuota(tx, principal))) return undefined;
     const [created] = await tx
       .insert(crawlJobs)
       .values({
@@ -1150,6 +1131,31 @@ export async function createIndexOperation(req: Request, urls: string[], idempot
   });
 }
 
+/**
+ * Whether the account may start another crawl. Caller holds the account's
+ * active-crawl quota lock. Oxy's own applications have no active-crawl quota,
+ * so their queued and running operations are never counted: for the account
+ * behind Oxy's resolve traffic that was ~185k rows (2026-10-15), read under
+ * the lock every one of its resolves waits on.
+ */
+async function withinActiveCrawlQuota(
+  tx: ClarityTransaction,
+  principal: ClarityResourcePrincipal,
+): Promise<boolean> {
+  const limit = await effectiveQuota(tx, principal, 'active_crawls');
+  if (!Number.isFinite(limit)) return true;
+  const [current] = await tx
+    .select({ quantity: sql<number>`count(*)::int` })
+    .from(crawlJobs)
+    .where(
+      and(
+        eq(crawlJobs.ownerAccountId, principal.accountId),
+        inArray(crawlJobs.status, ['queued', 'running']),
+      ),
+    );
+  return current.quantity < limit;
+}
+
 /** Caller holds the account's active-crawl quota lock. */
 async function insertIndexOperation(
   tx: ClarityTransaction,
@@ -1171,18 +1177,8 @@ async function insertIndexOperation(
     )
     .limit(1);
   if (existing) return existing;
-  const activeLimit = await effectiveQuota(tx, principal, 'active_crawls');
   const pagesLimit = await effectiveQuota(tx, principal, 'pages_per_crawl');
-  const [current] = await tx
-    .select({ quantity: sql<number>`count(*)::int` })
-    .from(crawlJobs)
-    .where(
-      and(
-        eq(crawlJobs.ownerAccountId, principal.accountId),
-        inArray(crawlJobs.status, ['queued', 'running']),
-      ),
-    );
-  if (current.quantity >= activeLimit || urls.length > pagesLimit) return undefined;
+  if (urls.length > pagesLimit || !(await withinActiveCrawlQuota(tx, principal))) return undefined;
   const [operation] = await tx
     .insert(crawlJobs)
     .values({

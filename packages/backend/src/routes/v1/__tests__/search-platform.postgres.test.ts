@@ -1,9 +1,10 @@
-import { inArray } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
 import { searchDocuments } from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
+import { answeredToAny } from '../../../search/public-document.js';
 import { recordDiscoveredPages } from '../../../search/web-discovery.js';
 import { fetchedDocuments, rankedSearch, type SearchInput } from '../search-platform.js';
 
@@ -148,5 +149,30 @@ suite('ranked search on Postgres', () => {
     // Known from a web search, never fetched: not a document to read yet.
     expect(found.has(discoveredUrl)).toBe(false);
     expect(found.has('https://nowhere.example/')).toBe(false);
+  });
+
+  it('looks a document up by any of its URLs through indexes alone', async () => {
+    // Every resolve and every resolve page the worker claims asks this. With
+    // one URL column unindexed the OR was a scan of the whole table, about
+    // half of the shared production instance (0026). Seq scans are priced out
+    // so the plan shows whether an index CAN serve every branch, whatever the
+    // size of this test table.
+    const plan = await getDb().transaction(async (tx) => {
+      await tx.execute(sql`set local enable_seqscan = off`);
+      const explained = await tx.execute<{ 'QUERY PLAN': string }>(
+        sql`explain ${tx
+          .select({ id: searchDocuments.id })
+          .from(searchDocuments)
+          .where(answeredToAny([redirectedUrl, urls[1]]))}`,
+      );
+      return explained.map((row) => row['QUERY PLAN']).join('\n');
+    });
+    expect(plan).not.toContain('Seq Scan');
+    for (const index of [
+      'clarity_search_documents_canonical_unique',
+      'clarity_search_documents_requested_url_idx',
+      'clarity_search_documents_final_url_idx',
+    ])
+      expect(plan).toContain(index);
   });
 });
