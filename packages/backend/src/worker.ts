@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { reconcileAccountEvents } from './lib/account-event-reconciliation.js';
 import { createHash } from 'node:crypto';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import { and, eq, gt, gte, lt, ne, notInArray, or, sql } from 'drizzle-orm';
@@ -755,6 +756,7 @@ async function main() {
   let stopping = false;
   const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
+  let nextAccountEventSyncAt = 0;
   let nextIconRefreshAt = 0;
   let nextImageRenditionAt = 0;
   process.once('SIGTERM', () => {
@@ -765,6 +767,16 @@ async function main() {
   });
   const feedLoop = runFeedLoop(() => stopping);
   while (!stopping) {
+    if (Date.now() >= nextAccountEventSyncAt) {
+      nextAccountEventSyncAt = Date.now() + 60_000;
+      try {
+        await reconcileAccountEvents();
+      } catch (error) {
+        console.error('Account event reconciliation failed; the durable cursor is unchanged', {
+          error: error instanceof Error ? error.message : 'unknown reconciliation failure',
+        });
+      }
+    }
     if (Date.now() >= nextMaintenanceAt) {
       nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
       await runJobMaintenance();

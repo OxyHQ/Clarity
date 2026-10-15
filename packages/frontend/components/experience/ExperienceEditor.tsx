@@ -41,7 +41,9 @@ export function ExperienceEditor({
 }) {
   const { t } = useTranslation();
   const control = useDialogControl();
-  useEffect(() => { control.open(); }, [control]);
+  useEffect(() => {
+    control.open();
+  }, [control]);
   const experience = useExperienceClient();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const { user, canUsePrivateApi } = useAuth();
@@ -132,114 +134,146 @@ export function ExperienceEditor({
       dismissOnBackdrop={!busy}
       title={confirmDelete ? t('profile.experience.deleteTitle') : title}
       label={confirmDelete ? t('profile.experience.deleteTitle') : title}
-      actions={confirmDelete ? [
-        { label: t('common.cancel'), color: 'cancel', disabled: busy, shouldCloseOnPress: false, onPress: () => setConfirmDelete(false) },
-        { label: t('common.delete'), color: 'destructive', disabled: busy || !canEdit, shouldCloseOnPress: false, onPress: () => remove.mutate() },
-      ] : undefined}
+      actions={
+        confirmDelete
+          ? [
+              {
+                label: t('common.cancel'),
+                color: 'cancel',
+                disabled: busy,
+                shouldCloseOnPress: false,
+                onPress: () => setConfirmDelete(false),
+              },
+              {
+                label: t('common.delete'),
+                color: 'destructive',
+                disabled: busy || !canEdit,
+                shouldCloseOnPress: false,
+                onPress: () => remove.mutate(),
+              },
+            ]
+          : undefined
+      }
       onClose={onClose}
     >
-      {confirmDelete ? <View className="gap-3">
-        <Text className="text-foreground">{t('profile.experience.deleteDescription')}</Text>
-        {remove.isError ? <Text accessibilityRole="alert" className="text-error-primary">{t('profile.experience.deleteError')}</Text> : null}
-      </View> : <>
-      <ScrollView
-        keyboardShouldPersistTaps="handled"
-        style={{ maxHeight: 560 }}
-        contentContainerStyle={{ paddingBottom: 8 }}
-      >
-        <View className="gap-4">
-          <Text className="text-muted-foreground text-sm">
-            {t('profile.experience.publicHint')}
-          </Text>
-          {textField('title', 200)}
-          <ExperienceEmployerField
-            initialEmployer={employer}
-            value={draft.employerOxyAccountId}
-            disabled={busy || !canEdit}
-            invalid={errors.includes('employerOxyAccountId')}
-            onChange={(organization) =>
-              field('employerOxyAccountId', organization?.accountId ?? '')
-            }
-          />
-          <View className="gap-1">
-            <TextFieldLabel>{t('profile.experience.fields.employmentType')}</TextFieldLabel>
-            <Select
-              value={draft.employmentType ?? ''}
-              disabled={busy}
-              onValueChange={(value) =>
-                field(
-                  'employmentType',
-                  value
-                    ? (EXPERIENCE_EMPLOYMENT_TYPES.find((type) => type === value) ?? null)
-                    : null,
-                )
-              }
-            >
-              <SelectTrigger label={t('profile.experience.fields.employmentType')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent
-                items={employmentOptions}
-                renderItem={(option) => (
-                  <SelectItem value={option.value} label={option.label}>
-                    <SelectItemText>{option.label}</SelectItemText>
-                  </SelectItem>
-                )}
-              />
-            </Select>
-          </View>
-          {textField('location', 300)}
-          {textField('startDate', 7)}
-          <View className="flex-row items-center justify-between gap-3">
-            <Text className="text-foreground text-base flex-1">
-              {t('profile.experience.current')}
-            </Text>
-            <Switch
-              accessibilityLabel={t('profile.experience.current')}
-              checked={draft.endDate === null}
-              disabled={busy}
-              onCheckedChange={(current) => field('endDate', current ? null : '')}
-            />
-          </View>
-          {draft.endDate !== null ? textField('endDate', 7) : null}
-          <Text className="text-muted-foreground text-sm">{t('profile.experience.dateHint')}</Text>
-          {textField('description', 5000)}
-          {save.isError || remove.isError ? (
-            <Text accessibilityRole="alert" className="text-error-primary text-sm">
-              {t(
-                remove.isError
-                  ? 'profile.experience.deleteError'
-                  : save.error instanceof ClarityError &&
-                      save.error.code === 'experience_limit_reached'
-                    ? 'profile.experience.limitReached'
-                    : save.error instanceof ClarityError && save.error.code === 'invalid_employer'
-                      ? 'profile.experience.validation.employerOxyAccountId'
-                      : 'profile.experience.saveError',
-              )}
+      {confirmDelete ? (
+        <View className="gap-3">
+          <Text className="text-foreground">{t('profile.experience.deleteDescription')}</Text>
+          {remove.isError ? (
+            <Text accessibilityRole="alert" className="text-error-primary">
+              {t('profile.experience.deleteError')}
             </Text>
           ) : null}
         </View>
-      </ScrollView>
-      <View className="flex-row flex-wrap items-center justify-end gap-2 pt-4">
-        {entry ? (
-          <Button
-            appearance="plain"
-            tone="danger"
-            onPress={() => setConfirmDelete(true)}
-            disabled={busy || !canEdit}
-            loading={remove.isPending}
+      ) : (
+        <>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            style={{ maxHeight: 560 }}
+            contentContainerStyle={{ paddingBottom: 8 }}
           >
-            {t('common.delete', { defaultValue: 'Delete' })}
-          </Button>
-        ) : null}
-        <Button appearance="plain" tone="neutral" onPress={() => control.close()} disabled={busy}>
-          {t('common.cancel', { defaultValue: 'Cancel' })}
-        </Button>
-        <Button onPress={submit} disabled={busy || !canEdit} loading={save.isPending}>
-          {t('common.save', { defaultValue: 'Save' })}
-        </Button>
-      </View>
-      </>}
+            <View className="gap-4">
+              <Text className="text-muted-foreground text-sm">
+                {t('profile.experience.publicHint')}
+              </Text>
+              {textField('title', 200)}
+              <ExperienceEmployerField
+                initialEmployer={employer}
+                value={draft.employerOxyAccountId}
+                disabled={busy || !canEdit}
+                invalid={errors.includes('employerOxyAccountId')}
+                onChange={(organization) =>
+                  field('employerOxyAccountId', organization?.accountId ?? '')
+                }
+              />
+              <View className="gap-1">
+                <TextFieldLabel>{t('profile.experience.fields.employmentType')}</TextFieldLabel>
+                <Select
+                  value={draft.employmentType ?? ''}
+                  disabled={busy}
+                  onValueChange={(value) =>
+                    field(
+                      'employmentType',
+                      value
+                        ? (EXPERIENCE_EMPLOYMENT_TYPES.find((type) => type === value) ?? null)
+                        : null,
+                    )
+                  }
+                >
+                  <SelectTrigger label={t('profile.experience.fields.employmentType')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    items={employmentOptions}
+                    renderItem={(option) => (
+                      <SelectItem value={option.value} label={option.label}>
+                        <SelectItemText>{option.label}</SelectItemText>
+                      </SelectItem>
+                    )}
+                  />
+                </Select>
+              </View>
+              {textField('location', 300)}
+              {textField('startDate', 7)}
+              <View className="flex-row items-center justify-between gap-3">
+                <Text className="text-foreground text-base flex-1">
+                  {t('profile.experience.current')}
+                </Text>
+                <Switch
+                  accessibilityLabel={t('profile.experience.current')}
+                  checked={draft.endDate === null}
+                  disabled={busy}
+                  onCheckedChange={(current) => field('endDate', current ? null : '')}
+                />
+              </View>
+              {draft.endDate !== null ? textField('endDate', 7) : null}
+              <Text className="text-muted-foreground text-sm">
+                {t('profile.experience.dateHint')}
+              </Text>
+              {textField('description', 5000)}
+              {save.isError || remove.isError ? (
+                <Text accessibilityRole="alert" className="text-error-primary text-sm">
+                  {t(
+                    remove.isError
+                      ? 'profile.experience.deleteError'
+                      : save.error instanceof ClarityError &&
+                          save.error.code === 'experience_limit_reached'
+                        ? 'profile.experience.limitReached'
+                        : save.error instanceof ClarityError &&
+                            save.error.code === 'invalid_employer'
+                          ? 'profile.experience.validation.employerOxyAccountId'
+                          : 'profile.experience.saveError',
+                  )}
+                </Text>
+              ) : null}
+            </View>
+          </ScrollView>
+          <View className="flex-row flex-wrap items-center justify-end gap-2 pt-4">
+            {entry ? (
+              <Button
+                appearance="plain"
+                tone="danger"
+                onPress={() => setConfirmDelete(true)}
+                disabled={busy || !canEdit}
+                loading={remove.isPending}
+              >
+                {t('common.delete', { defaultValue: 'Delete' })}
+              </Button>
+            ) : null}
+            <Button
+              appearance="plain"
+              tone="neutral"
+              onPress={() => control.close()}
+              disabled={busy}
+            >
+              {t('common.cancel', { defaultValue: 'Cancel' })}
+            </Button>
+            <Button onPress={submit} disabled={busy || !canEdit} loading={save.isPending}>
+              {t('common.save', { defaultValue: 'Save' })}
+            </Button>
+          </View>
+        </>
+      )}
     </Dialog>
   );
 }

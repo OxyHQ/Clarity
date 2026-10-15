@@ -1340,3 +1340,10 @@ export const experienceErasures = pgTable('clarity_experience_erasures', {
   eventId: text('event_id').notNull(),
   erasedAt: timestamp('erased_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/** Durable position in Oxy's signed account-lifecycle reconciliation feed. */
+export const accountEventCursors = pgTable('clarity_account_event_cursors', {
+  applicationId: text('application_id').primaryKey(),
+  cursor: text('cursor'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
