@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { Platform, TextInput, type TextStyle } from 'react-native';
+import { useTheme } from '@oxy.so/bloom/theme';
 import { cn } from '@/lib/utils';
 
 interface TextareaProps extends React.ComponentPropsWithoutRef<typeof TextInput> {
@@ -7,7 +8,8 @@ interface TextareaProps extends React.ComponentPropsWithoutRef<typeof TextInput>
 }
 
 const Textarea = React.forwardRef<TextInput, TextareaProps>(
-  ({ className, placeholderClassName, style, variant = 'default', ...props }, ref) => {
+  ({ className, style, variant = 'default', ...props }, ref) => {
+    const { colors } = useTheme();
     return (
       <TextInput
         ref={ref}
@@ -21,7 +23,7 @@ const Textarea = React.forwardRef<TextInput, TextareaProps>(
           props.editable === false && 'opacity-50 web:cursor-not-allowed',
           className,
         )}
-        placeholderClassName={cn('text-muted-foreground', placeholderClassName)}
+        placeholderTextColor={colors.textSecondary}
         multiline
         scrollEnabled={false}
         textAlignVertical="top"

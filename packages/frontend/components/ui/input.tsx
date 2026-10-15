@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { TextInput } from 'react-native';
+import { useTheme } from '@oxy.so/bloom/theme';
 import { cn } from '@/lib/utils';
 
 const Input = React.forwardRef<
@@ -7,7 +8,8 @@ const Input = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof TextInput> & {
     noFocus?: boolean;
   }
->(({ className, placeholderClassName, noFocus = false, ...props }, ref) => {
+>(({ className, noFocus = false, ...props }, ref) => {
+  const { colors } = useTheme();
   return (
     <TextInput
       ref={ref}
@@ -20,7 +22,7 @@ const Input = React.forwardRef<
         props.editable === false && 'opacity-50 web:cursor-not-allowed',
         className,
       )}
-      placeholderClassName={cn('text-muted-foreground', placeholderClassName)}
+      placeholderTextColor={colors.textSecondary}
       {...props}
     />
   );
