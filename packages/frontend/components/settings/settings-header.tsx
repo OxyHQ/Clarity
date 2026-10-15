@@ -12,10 +12,17 @@ interface SettingsHeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  showMenu?: boolean;
   onBack?: () => void;
 }
 
-export function SettingsHeader({ title, subtitle, showBack = false, onBack }: SettingsHeaderProps) {
+export function SettingsHeader({
+  title,
+  subtitle,
+  showBack = false,
+  showMenu = true,
+  onBack,
+}: SettingsHeaderProps) {
   const router = useRouter();
   const { t } = useTranslation();
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
@@ -36,7 +43,7 @@ export function SettingsHeader({ title, subtitle, showBack = false, onBack }: Se
       className="flex-row items-center gap-2 px-4 border-b border-border"
       style={{ paddingTop: insets.top, height: 56 + insets.top }}
     >
-      {!isLargeScreen && (
+      {showMenu && !isLargeScreen && (
         <GlyphButton
           icon={bloomIcon(Menu)}
           glyphSize={20}

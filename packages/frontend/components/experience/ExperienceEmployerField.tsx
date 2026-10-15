@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useSupervision } from '@oxy.so/services/ui';
 import { useAuth } from '@oxy.so/services/ui/client';
 import {
   ORGANIZATION_TYPES,
@@ -39,6 +40,10 @@ export function ExperienceEmployerField({
 }) {
   const { t } = useTranslation();
   const { user, isAuthenticated, canUsePrivateApi, oxyServices } = useAuth();
+  const supervision = useSupervision();
+  const ordinary =
+    supervision.data !== undefined &&
+    (!supervision.data.self || supervision.data.self.status === 'ended');
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState(initialEmployer);
   const [query, setQuery] = useState(initialEmployer?.name ?? '');
@@ -72,7 +77,8 @@ export function ExperienceEmployerField({
   }
   const create = useMutation({
     mutationFn: () => {
-      if (!canUsePrivateApi || disabled) throw new Error('A personal session is required');
+      if (!ordinary || !canUsePrivateApi || disabled)
+        throw new Error('A personal session is required');
       return oxyServices.organizations.create(
         createOrganizationSchema.parse({
           name: query.trim(),
@@ -101,13 +107,13 @@ export function ExperienceEmployerField({
           <Item
             leading={
               <Avatar
-                source={employer?.avatar}
+                source={ordinary ? employer?.avatar : undefined}
                 name={employer?.name ?? t('profile.experience.unavailableEmployer')}
                 size={32}
               />
             }
             title={employer?.name ?? t('profile.experience.unavailableEmployer')}
-            subtitle={employer?.websiteUrl ?? undefined}
+            subtitle={ordinary ? (employer?.websiteUrl ?? undefined) : undefined}
           />
           <Button
             appearance="plain"
@@ -167,10 +173,17 @@ export function ExperienceEmployerField({
                         key={organization.accountId}
                         disabled={disabled}
                         leading={
-                          <Avatar source={organization.avatar} name={organization.name} size={32} />
+                          <Avatar
+                            source={ordinary ? organization.avatar : undefined}
+                            name={organization.name}
+                            size={32}
+                          />
                         }
                         title={organization.name}
-                        subtitle={[organization.websiteUrl, organization.countryCode]
+                        subtitle={[
+                          ordinary ? organization.websiteUrl : undefined,
+                          organization.countryCode,
+                        ]
                           .filter(Boolean)
                           .join(' · ')}
                         onPress={() => select(organization)}
@@ -187,20 +200,22 @@ export function ExperienceEmployerField({
                       {t('common.loadMore', { defaultValue: 'Load more' })}
                     </Button>
                   ) : null}
-                  <Button
-                    appearance="plain"
-                    tone="neutral"
-                    size="sm"
-                    disabled={!canUsePrivateApi || disabled}
-                    onPress={() => setCreating(true)}
-                  >
-                    {t('profile.experience.addOrganization')}
-                  </Button>
+                  {ordinary ? (
+                    <Button
+                      appearance="plain"
+                      tone="neutral"
+                      size="sm"
+                      disabled={!canUsePrivateApi || disabled}
+                      onPress={() => setCreating(true)}
+                    >
+                      {t('profile.experience.addOrganization')}
+                    </Button>
+                  ) : null}
                 </>
               )}
             </View>
           ) : null}
-          {creating ? (
+          {creating && ordinary ? (
             <View className="gap-3 rounded-xl border border-border p-3">
               <Text className="text-foreground font-semibold">{query.trim()}</Text>
               <Text className="text-muted-foreground text-sm">

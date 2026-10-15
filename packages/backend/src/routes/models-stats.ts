@@ -1,9 +1,12 @@
+import { optionalAuth } from '../middleware/auth.js';
 import { Router } from 'express';
 import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
 
 import { getAllClarityModels, getClarityModel } from '../lib/clarity-models.js';
 
 const router = Router();
+// This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
+router.use(optionalAuth);
 
 function serialize(model: NonNullable<ReturnType<typeof getClarityModel>>) {
   return {

@@ -10,7 +10,7 @@ import {
   listExperience,
   updateExperience,
 } from '../db/experience-repository.js';
-import { authenticateToken, oxyClient } from '../middleware/auth.js';
+import { experienceAuth, experienceOptionalAuth, oxyClient } from '../middleware/auth.js';
 import { log } from '../lib/logger.js';
 
 const router = Router();
@@ -52,7 +52,7 @@ router.use((_req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
-router.get('/users/:userId', async (req, res) => {
+router.get('/users/:userId', experienceOptionalAuth, async (req, res) => {
   const userId = String(req.params.userId);
   if (!userId.trim() || userId.length > 128) {
     error(res, 400, 'bad_request', 'A valid Oxy user ID is required');
@@ -88,10 +88,26 @@ router.get('/users/:userId', async (req, res) => {
     error(res, 404, 'not_found', 'Experience is not available');
     return;
   }
+  // Privacy is not a rating. Work history has no trusted content-rating producer.
+  // Own management is derived only from the SDK-verified original session, never a caller flag.
+  const content = await oxyClient.safety.contentAccess(
+    {
+      resourceId: `experience:${userId}`,
+      authorAccountId: userId,
+      classification: 'unrated',
+      audience: 'public',
+      operation: req.user?.id === userId && !req.serviceApp ? 'manage_own' : 'read',
+    },
+    { accessToken: bearer?.[1] ?? null },
+  );
+  if (!content.allowed) {
+    error(res, 404, 'not_found', 'Experience is not available');
+    return;
+  }
   res.json({ items: await listExperience(userId), nextCursor: null });
 });
 
-router.use(authenticateToken);
+router.use(experienceAuth);
 router.use(async (req, res, next) => {
   if (!req.user?.id || req.serviceApp) {
     error(res, 401, 'unauthorized', 'An authenticated user session is required');

@@ -27,7 +27,8 @@
     "user": "User",
     "done": "Done",
     "authorize": "Authorize",
-    "tryAgain": "Try Again"
+    "tryAgain": "Try Again",
+    "retry": "Try again"
   },
   "login": {
     "title": "Sign in or sign up",
@@ -1315,5 +1316,12 @@
       },
       "sessionRequired": "Sign in with your personal account to manage experience."
     }
+  },
+  "supervisedAccess": {
+    "title": "Your Clarity account",
+    "limited": "With supervision, you can manage your experience here. Other Clarity sections are not available for your account yet.",
+    "error": "We could not check your account settings. Please try again.",
+    "manage": "Supervision settings",
+    "experienceHint": "You can manage your own work history. Your Oxy privacy and supervision settings control who can see it."
   }
 }

@@ -1,3 +1,4 @@
+import { optionalAuth } from '../middleware/auth.js';
 import { Router, type Request, type Response } from 'express';
 import { eq } from 'drizzle-orm';
 
@@ -26,6 +27,8 @@ import { imageAtVariant, requestedImageVariant } from '../search/image-render.js
  * so an old address heals.
  */
 const router = Router();
+// This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
+router.use(optionalAuth);
 
 const MAX_AGE_SECONDS = 24 * 60 * 60;
 const STALE_WHILE_REVALIDATE_SECONDS = 7 * 24 * 60 * 60;

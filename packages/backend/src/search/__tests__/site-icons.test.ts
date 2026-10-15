@@ -9,6 +9,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 const safeFetch = vi.fn();
 vi.mock('@oxy.so/core/server', () => ({ safeFetch }));
+// This suite exercises icon bytes/hostname parsing, not HTTP authentication.
+// Actual SDK bearer and policy handling is covered by experience-supervised.test.ts.
+vi.mock('../../middleware/auth.js', () => ({
+  optionalAuth: (_req: unknown, _res: unknown, next: () => void) => next(),
+}));
 
 const { isPublicHostname } = await import('../../routes/favicons.js');
 const { fetchSiteIcon, hostOf, siteIconUrl, sniffImageType } = await import('../site-icons.js');

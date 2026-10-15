@@ -35,7 +35,17 @@ export const oxyServiceAuth = oxyClient.middleware.service({
   debug: true,
 }) as unknown as RequestHandler;
 
-const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, { auth: { debug: true } });
+const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, {
+  auth: { debug: true, strictOptionalBearer: true },
+});
+
+/** Only the Experience domain is reviewed for supervised profile management. */
+export const experienceAuth = createOxyAuthMiddleware(oxyClient, {
+  auth: { supervisedAction: 'profile', loadUser: true },
+});
+export const experienceOptionalAuth = createOptionalOxyAuth(oxyClient, {
+  auth: { supervisedAction: 'profile', strictOptionalBearer: true, loadUser: true },
+});
 
 export function optionalAuth(req: Request, res: Response, next: NextFunction): void {
   oxyOptionalAuth(req, res, next);

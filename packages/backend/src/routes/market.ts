@@ -1,3 +1,4 @@
+import { optionalAuth } from '../middleware/auth.js';
 /**
  * The public market quote surface behind `clarity.surf`'s Finance page.
  *
@@ -34,6 +35,8 @@ import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
 import { sendError } from '../middleware/resource-auth.js';
 
 const router = Router();
+// This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
+router.use(optionalAuth);
 
 /**
  * Burst protection for an anonymous surface, keyed by address, never by user.

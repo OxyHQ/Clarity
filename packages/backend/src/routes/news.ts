@@ -1,3 +1,4 @@
+import { optionalAuth } from '../middleware/auth.js';
 /**
  * The public news surface behind `clarity.surf`'s Discover page.
  *
@@ -17,6 +18,8 @@ import { sendError } from '../middleware/resource-auth.js';
 import { listNewsStories } from '../search/news.js';
 
 const router = Router();
+// This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
+router.use(optionalAuth);
 
 /** Its own bucket: reading Discover must not rate-limit Jobs or Finance. */
 router.use(anonymousRateLimit('anon:news:'));
