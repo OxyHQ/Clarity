@@ -6,7 +6,7 @@ import {
   type ExperienceInput,
 } from '@clarity.surf/sdk/experience';
 import { getDb } from './index.js';
-import { experience, experienceErasures } from './schema/index.js';
+import { accountEventCursors, experience, experienceErasures } from './schema/index.js';
 
 type ExperienceRow = typeof experience.$inferSelect;
 function present(row: ExperienceRow): Experience {
@@ -125,4 +125,44 @@ export class ExperienceLimitError extends Error {
   constructor() {
     super('A profile can have at most 100 experience entries');
   }
+}
+
+/** An authenticated feed cursor is not advanced until every verified erasure commits. */
+export async function readAccountEventCursor(applicationId: string): Promise<string | null> {
+  const [row] = await getDb()
+    .select()
+    .from(accountEventCursors)
+    .where(eq(accountEventCursors.applicationId, applicationId))
+    .limit(1);
+  return row?.cursor ?? null;
+}
+
+export async function commitAccountEventPage(
+  applicationId: string,
+  expectedCursor: string | null,
+  nextCursor: string,
+  events: readonly { userId: string; eventId: string }[],
+): Promise<boolean> {
+  return getDb().transaction(async (tx) => {
+    await tx.insert(accountEventCursors).values({ applicationId }).onConflictDoNothing();
+    const [current] = await tx
+      .select()
+      .from(accountEventCursors)
+      .where(eq(accountEventCursors.applicationId, applicationId))
+      .for('update');
+    if (current.cursor !== expectedCursor) return false;
+    for (const event of events) {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${event.userId}, 0))`);
+      await tx
+        .insert(experienceErasures)
+        .values({ oxyUserId: event.userId, eventId: event.eventId })
+        .onConflictDoNothing();
+      await tx.delete(experience).where(eq(experience.oxyUserId, event.userId));
+    }
+    await tx
+      .update(accountEventCursors)
+      .set({ cursor: nextCursor, updatedAt: new Date() })
+      .where(eq(accountEventCursors.applicationId, applicationId));
+    return true;
+  });
 }

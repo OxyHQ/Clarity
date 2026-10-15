@@ -3,6 +3,8 @@ import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closePostgres, connectPostgres } from '../index.js';
 import {
+  commitAccountEventPage,
+  readAccountEventCursor,
   createExperience,
   deleteExperience,
   eraseDeletedAccountExperience,
@@ -17,6 +19,7 @@ const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
 const suite = databaseUrl ? describe : describe.skip;
 const owner = `experience-${crypto.randomUUID()}`;
 const other = `experience-other-${crypto.randomUUID()}`;
+const application = `experience-test-app-${crypto.randomUUID()}`;
 const input = {
   title: 'Designer',
   employerOxyAccountId: 'organization-apple',
@@ -32,7 +35,7 @@ suite('Experience PostgreSQL ownership and lifecycle', () => {
       const [existing] = await client`select to_regclass('public.clarity_experience') as name`;
       if (!existing.name) {
         const migration = await readFile(
-          new URL('../../../drizzle/0026_profile_experience.sql', import.meta.url),
+          new URL('../../../drizzle/0028_profile_experience.sql', import.meta.url),
           'utf8',
         );
         await client.unsafe(migration);
@@ -46,8 +49,37 @@ suite('Experience PostgreSQL ownership and lifecycle', () => {
     const client = postgres(databaseUrl, { max: 1 });
     await client`delete from clarity_experience where oxy_user_id in (${owner}, ${other})`;
     await client`delete from clarity_experience_erasures where oxy_user_id in (${owner}, ${other})`;
+    await client`delete from clarity_account_event_cursors where application_id = ${application}`;
     await client.end();
     await closePostgres();
+  });
+
+  it('checkpoints only committed erasures and prevents a stale worker from advancing the feed', async () => {
+    const profile = `reconcile-${crypto.randomUUID()}`;
+    const row = await createExperience(profile, input);
+    expect(await readAccountEventCursor(application)).toBeNull();
+    await expect(
+      commitAccountEventPage(application, null, 'cursor-one', [
+        { userId: profile, eventId: 'verified-event' },
+        { userId: 'fault-injected-profile', eventId: null as unknown as string },
+      ]),
+    ).rejects.toThrow();
+    expect(await readAccountEventCursor(application)).toBeNull();
+    expect(await listExperience(profile)).toEqual([row]);
+    expect(
+      await commitAccountEventPage(application, null, 'cursor-one', [
+        { userId: profile, eventId: 'verified-event' },
+      ]),
+    ).toBe(true);
+    expect(await listExperience(profile)).toEqual([]);
+    await expect(createExperience(profile, input)).rejects.toBeInstanceOf(
+      ExperienceAccountErasedError,
+    );
+    expect(await commitAccountEventPage(application, null, 'stale-cursor', [])).toBe(false);
+    expect(await readAccountEventCursor(application)).toBe('cursor-one');
+    const client = postgres(databaseUrl, { max: 1 });
+    await client`delete from clarity_experience_erasures where oxy_user_id = ${profile}`;
+    await client.end();
   });
   it('generates IDs, projects public fields and preserves ownership through replacements', async () => {
     const row = await createExperience(owner, { ...input, description: 'Details' });

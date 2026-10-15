@@ -60,8 +60,7 @@ workspace/OpenAPI migration can move the same schemas without duplicating them.
 | DELETE | `/api/experience` | 204 | `experience.clear()` |
 
 An anonymous client may read a public profile. A client configured with user
-credentials also sends them on reads so Oxy can authorize the owner or an
-approved follower of a private profile. Each request receives a canonical Oxy
+credentials also sends them on reads so Oxy can authorize the owner of a private profile. Each request receives a canonical Oxy
 profile-access decision before Clarity reads any history; denied and unavailable
 profiles disclose no entries. An Oxy outage fails closed. All writes require a
 human personal-account session; the owner is always the verified session's
@@ -104,10 +103,19 @@ an unrelated inference outage does not prevent deletion. This hook currently
 covers the new Experience domain; it does not claim to erase older Clarity
 conversation or billing domains.
 
+The existing Clarity worker also reconciles the signed Oxy feed every minute.
+Its application-scoped cursor lives in PostgreSQL. Each page is fully verified
+against the exact backend audience, then erasures and cursor advancement commit
+in one transaction. A failed verification/database write leaves the cursor
+unchanged; competing workers cannot overwrite a newer checkpoint. Each pass
+is bounded to ten pages of 100 events and resumes durably after a restart. This
+covers webhook outages beyond Oxy's push retry window without retaining copies
+of event payloads or relying on Alia availability.
+
 Before deployment:
 
 1. Deploy Oxy organization and profile-access APIs before exposing either editor.
-2. Apply `0026_profile_experience` using the documented pre-phase migration flow.
+2. Apply `0028_profile_experience` using the documented pre-phase migration flow.
 3. Register `https://api.clarity.surf/webhooks/oxy/account-events` as the account
    event delivery target for the exact Clarity backend application ID in
    `clarity-agent-manifest.ts` and verify a deletion/retry delivery in staging.
@@ -122,7 +130,7 @@ reads, forbidden writes, safe errors and verified account event intake.
 ## Migration and ownership boundary
 
 The provisional optional-company/name schema was never deployed. Migration
-`0026_profile_experience` creates the canonical reference-only table directly
+`0028_profile_experience` creates the canonical reference-only table directly
 on the current migration chain; no free-text company migration, dual write, or
 name-based identity merge exists. The owner key is the personal Oxy account ID,
 while `employerOxyAccountId` is the independent organization account ID. GoWay's

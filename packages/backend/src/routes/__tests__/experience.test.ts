@@ -11,6 +11,7 @@ const repository = vi.hoisted(() => ({
   eraseUserExperience: vi.fn(),
   organization: vi.fn(),
   account: vi.fn(),
+  profileAccess: vi.fn(),
 }));
 vi.mock('../../db/experience-repository.js', () => ({
   ...repository,
@@ -21,6 +22,7 @@ vi.mock('../../middleware/auth.js', () => ({
   oxyClient: {
     organizations: { get: repository.organization },
     users: { get: repository.account },
+    safety: { profileAccess: repository.profileAccess },
   },
   authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     const user = req.headers['test-user'];
@@ -74,6 +76,11 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 beforeEach(() => {
   vi.resetAllMocks();
+  repository.profileAccess.mockResolvedValue({
+    allowed: true,
+    reason: 'public',
+    policyVersion: '1',
+  });
   repository.organization.mockResolvedValue({ accountId: 'organization-apple', status: 'active' });
 });
 
@@ -134,6 +141,62 @@ describe('Experience HTTP API', () => {
     expect(await response.json()).toEqual({ items: [], nextCursor: null });
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(repository.listExperience).toHaveBeenCalledWith('owner');
+  });
+  it.each(['private', 'blocked', 'unavailable'])(
+    'never reads stored history after a denied %s profile decision',
+    async (reason) => {
+      repository.profileAccess.mockResolvedValue({ allowed: false, reason, policyVersion: '1' });
+      const response = await request('/users/owner');
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({
+        error: { code: 'not_found', message: 'Experience is not available' },
+      });
+      expect(repository.profileAccess).toHaveBeenCalledWith(
+        { subjectAccountId: 'owner' },
+        { accessToken: null },
+      );
+      expect(repository.listExperience).not.toHaveBeenCalled();
+    },
+  );
+  it('forwards only the optional original bearer to the central visibility decision', async () => {
+    repository.profileAccess.mockResolvedValue({
+      allowed: true,
+      reason: 'owner',
+      policyVersion: '1',
+    });
+    repository.listExperience.mockResolvedValue([]);
+    expect(
+      (
+        await request('/users/owner', 'GET', undefined, undefined, {
+          authorization: 'Bearer owner-session',
+        })
+      ).status,
+    ).toBe(200);
+    expect(repository.profileAccess).toHaveBeenCalledWith(
+      { subjectAccountId: 'owner' },
+      { accessToken: 'owner-session' },
+    );
+    expect(repository.listExperience).toHaveBeenCalledWith('owner');
+  });
+  it('fails closed during a visibility outage and never downgrades an invalid session to anonymous', async () => {
+    repository.profileAccess.mockRejectedValueOnce(new Error('Oxy unavailable'));
+    expect((await request('/users/owner')).status).toBe(503);
+    repository.profileAccess.mockRejectedValueOnce({ status: 401 });
+    expect(
+      (
+        await request('/users/owner', 'GET', undefined, undefined, {
+          authorization: 'Bearer invalid-session',
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await request('/users/owner', 'GET', undefined, undefined, {
+          authorization: 'Basic invalid',
+        })
+      ).status,
+    ).toBe(401);
+    expect(repository.listExperience).not.toHaveBeenCalled();
   });
   it('requires a personal user session for every write', async () => {
     for (const method of ['POST', 'PUT', 'DELETE']) {

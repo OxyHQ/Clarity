@@ -62,6 +62,32 @@ router.get('/users/:userId', async (req, res) => {
     error(res, 400, 'bad_request', 'This bounded profile list accepts no query parameters');
     return;
   }
+  const authorization = req.get('authorization');
+  const bearer = authorization?.match(/^Bearer ([^\s]+)$/i);
+  if (authorization && !bearer) {
+    error(res, 401, 'unauthorized', 'A valid user session is required');
+    return;
+  }
+  let access: Awaited<ReturnType<typeof oxyClient.safety.profileAccess>>;
+  try {
+    // Oxy derives the viewer from the original bearer. Explicit null is truly
+    // anonymous and never falls back to this backend's service identity.
+    access = await oxyClient.safety.profileAccess(
+      { subjectAccountId: userId },
+      { accessToken: bearer?.[1] ?? null },
+    );
+  } catch (err) {
+    if ([401, 403].includes(getErrorStatus(err) ?? 0)) {
+      error(res, 401, 'unauthorized', 'A valid user session is required');
+      return;
+    }
+    throw err;
+  }
+  if (!access.allowed) {
+    // Private, blocked and unavailable accounts have the same outward shape.
+    error(res, 404, 'not_found', 'Experience is not available');
+    return;
+  }
   res.json({ items: await listExperience(userId), nextCursor: null });
 });
 
