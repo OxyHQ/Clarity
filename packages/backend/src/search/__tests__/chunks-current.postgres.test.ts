@@ -3,12 +3,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
 import { searchDocuments } from '../../db/schema/index.js';
-import { chunkText, documentChunksCurrent, replaceDocumentChunks } from '../chunking.js';
+import {
+  chunksNeedReplacing,
+  chunkText,
+  documentChunkState,
+  replaceDocumentChunks,
+} from '../chunking.js';
 
 /**
- * `documentChunksCurrent` against real Postgres. The check decides whether a
- * feed poll re-embeds a listing, so a wrong `false` costs an embedding call and
- * a chunk rewrite on every poll, and a wrong `true` serves stale chunks.
+ * `documentChunkState` against real Postgres. The check decides whether a feed
+ * poll or a recrawl re-embeds a document and rewrites its chunks, so a wrong
+ * `stale` costs an embedding call and a chunk rewrite on every poll, and a
+ * wrong `current` serves stale chunks.
  */
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
 const suite = databaseUrl ? describe : describe.skip;
@@ -44,7 +50,7 @@ async function indexDocument(canonicalUrl: string, embedded: boolean) {
   );
 }
 
-suite('documentChunksCurrent on Postgres', () => {
+suite('documentChunkState on Postgres', () => {
   beforeAll(async () => {
     connectPostgres(databaseUrl);
     await getDb().delete(searchDocuments).where(inArray(searchDocuments.canonicalUrl, urls));
@@ -63,43 +69,52 @@ suite('documentChunksCurrent on Postgres', () => {
   it('is current when the text, the extractor and every chunk embedding match', async () => {
     expect(chunks.length).toBeGreaterThan(1);
     await expect(
-      documentChunksCurrent(getDb(), current, body, chunks.length, EXTRACTOR),
-    ).resolves.toBe(true);
+      documentChunkState(getDb(), current, body, chunks.length, EXTRACTOR),
+    ).resolves.toBe('current');
   });
 
   it('is stale when the text changed', async () => {
     await expect(
-      documentChunksCurrent(getDb(), current, `${body} edited`, chunks.length, EXTRACTOR),
-    ).resolves.toBe(false);
+      documentChunkState(getDb(), current, `${body} edited`, chunks.length, EXTRACTOR),
+    ).resolves.toBe('stale');
   });
 
   it('is stale when the chunk count differs', async () => {
     await expect(
-      documentChunksCurrent(getDb(), current, body, chunks.length + 1, EXTRACTOR),
-    ).resolves.toBe(false);
+      documentChunkState(getDb(), current, body, chunks.length + 1, EXTRACTOR),
+    ).resolves.toBe('stale');
   });
 
   it('is stale when the chunks came from another extractor version', async () => {
     await expect(
-      documentChunksCurrent(getDb(), current, body, chunks.length, `${EXTRACTOR}-next`),
-    ).resolves.toBe(false);
+      documentChunkState(getDb(), current, body, chunks.length, `${EXTRACTOR}-next`),
+    ).resolves.toBe('stale');
   });
 
-  it('is stale when the chunks were stored without embeddings', async () => {
+  it('is unembedded when the same chunks were stored without embeddings', async () => {
     await expect(
-      documentChunksCurrent(getDb(), lexical, body, chunks.length, EXTRACTOR),
-    ).resolves.toBe(false);
+      documentChunkState(getDb(), lexical, body, chunks.length, EXTRACTOR),
+    ).resolves.toBe('unembedded');
+  });
+
+  it('rewrites chunks only when that stores something new', () => {
+    expect(chunksNeedReplacing('stale', false)).toBe(true);
+    expect(chunksNeedReplacing('stale', true)).toBe(true);
+    // The same unembedded chunks again: nothing would change.
+    expect(chunksNeedReplacing('unembedded', false)).toBe(false);
+    expect(chunksNeedReplacing('unembedded', true)).toBe(true);
+    expect(chunksNeedReplacing('current', false)).toBe(false);
   });
 
   it('is stale when the document is not indexed', async () => {
     await expect(
-      documentChunksCurrent(
+      documentChunkState(
         getDb(),
         'https://chunks-current.example/absent',
         body,
         chunks.length,
         EXTRACTOR,
       ),
-    ).resolves.toBe(false);
+    ).resolves.toBe('stale');
   });
 });

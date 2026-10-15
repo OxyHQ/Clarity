@@ -41,9 +41,31 @@ export function staleAfterDays(sourceType: string | null | undefined): number {
   return sourceType === 'feed' ? JOB_FEED_STALE_AFTER_DAYS : JOB_STALE_AFTER_DAYS;
 }
 
-/** SQL for the same window, per row. */
-function staleInterval(): SQL {
-  return sql`(case when ${jobPostings.sourceType} = 'feed' then interval '${sql.raw(String(JOB_FEED_STALE_AFTER_DAYS))} days' else interval '${sql.raw(String(JOB_STALE_AFTER_DAYS))} days' end)`;
+/**
+ * SQL comparing `last_seen_at` with the same window, per row: `operator` is
+ * how `last_seen_at` relates to the row's cutoff (`<` stale, `>`/`>=` fresh).
+ *
+ * One branch per source type, each a constant cutoff, so every branch is a
+ * range on `(status, last_seen_at)`. A per-row `case` interval cannot bound an
+ * index, which made the stale sweep a sequential scan of the whole table
+ * (245k buffers, 4.7 s in production, every 15 minutes) to find nothing.
+ */
+function lastSeenAgainstWindow(operator: '<' | '>' | '>='): SQL {
+  const compare = sql.raw(operator);
+  const cutoff = (days: number) => sql`now() - interval '${sql.raw(String(days))} days'`;
+  return sql`(
+    (${jobPostings.sourceType} = 'feed' and ${jobPostings.lastSeenAt} ${compare} ${cutoff(JOB_FEED_STALE_AFTER_DAYS)})
+    or (${jobPostings.sourceType} <> 'feed' and ${jobPostings.lastSeenAt} ${compare} ${cutoff(JOB_STALE_AFTER_DAYS)})
+  )`;
+}
+
+/** An active listing with no declared expiry that has outlived its staleness window. */
+export function staleJobPredicate(): SQL {
+  return sql`(
+    ${jobPostings.status} = 'active'
+    and ${jobPostings.validThrough} is null
+    and ${lastSeenAgainstWindow('<')}
+  )`;
 }
 
 /** Target recrawl cadence for a listing that is still active. */
@@ -84,7 +106,7 @@ export function activeJobPredicate(): SQL {
     ${jobPostings.status} = 'active'
     and ${jobPostings.closedAt} is null
     and (${jobPostings.validThrough} is null or ${jobPostings.validThrough} > now())
-    and (${jobPostings.validThrough} is not null or ${jobPostings.lastSeenAt} > now() - ${staleInterval()})
+    and (${jobPostings.validThrough} is not null or ${lastSeenAgainstWindow('>')})
   )`;
 }
 
@@ -116,9 +138,7 @@ export async function sweepJobLifecycle(): Promise<JobLifecycleSweep> {
 
   const stale = await database.execute<{ id: string }>(sql`
     update ${jobPostings} set status = 'stale', updated_at = now()
-    where ${jobPostings.status} = 'active'
-      and ${jobPostings.validThrough} is null
-      and ${jobPostings.lastSeenAt} < now() - ${staleInterval()}
+    where ${staleJobPredicate()}
     returning ${jobPostings.id} as id`);
 
   const reactivated = await database.execute<{ id: string }>(sql`
@@ -126,7 +146,7 @@ export async function sweepJobLifecycle(): Promise<JobLifecycleSweep> {
     where ${jobPostings.status} in ('expired', 'stale')
       and ${jobPostings.closedAt} is null
       and (${jobPostings.validThrough} is null or ${jobPostings.validThrough} > now())
-      and (${jobPostings.validThrough} is not null or ${jobPostings.lastSeenAt} >= now() - ${staleInterval()})
+      and (${jobPostings.validThrough} is not null or ${lastSeenAgainstWindow('>=')})
     returning ${jobPostings.id} as id`);
 
   return {

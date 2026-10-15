@@ -73,7 +73,9 @@ Two rules hold everywhere:
   unparseable date — all dropped rather than guessed.
 - **Everything carries provenance.** Each normalized field records whether it
   came from JSON-LD (`json_ld`), an ingestion payload (`api`) or a registered
-  feed (`feed`), with the extraction timestamp, in `field_evidence`.
+  feed (`feed`), with the time the stored value was extracted, in
+  `field_evidence`. Re-extracting the same value does not move that time;
+  `lastSeenAt` records when the listing was last confirmed.
 
 ### Listing text is Markdown
 
@@ -217,6 +219,19 @@ GeoNames data is © GeoNames (https://www.geonames.org), licensed under
 `(document_id, source_key)` and derived from the document it points at. It is
 not an ATS and not a second source of truth. Re-crawling converges; it never
 appends.
+
+**A sighting is not a rewrite.** Feeds re-deliver every live listing on every
+poll, so re-observing an unchanged listing is the corpus's hottest write.
+`content_hash` fingerprints everything the projection stores except the
+sighting itself (`last_seen_at`, lifecycle status) and extraction times. When
+it matches, only the sighting is written: the description, evidence and search
+vector stay where they are in TOAST, and the listing's signatures, cluster and
+document chunks are not touched. A changed listing is rewritten in full, its
+signatures by difference, and `cluster_id` and cluster elections only where
+they actually change. The listing's document follows the same rule through its
+own `content_hash`, and chunks are rewritten only when they would store
+something new — the same unembedded chunks are never re-inserted while the
+embedding route is down.
 
 Filterable columns cover employer identity, locations (raw JSON plus country /
 region / locality arrays), workplace type, employment types, salary (source
@@ -569,7 +584,8 @@ never per viewer.
    then re-expressed as `JobPosting` before projection, so one normalizer
    defines every field and a listing arriving by feed deduplicates against the
    same listing arriving by crawl instead of racing it. A re-delivered listing
-   whose indexed text is unchanged keeps its chunks and is not re-embedded.
+   whose indexed text is unchanged keeps its chunks and is not re-embedded, and
+   an unchanged listing only records the sighting (see *The projection*).
 
    **Boards are discovered from listings.** When a listing's own URL or its
    application link points at an ATS board Clarity reads directly —

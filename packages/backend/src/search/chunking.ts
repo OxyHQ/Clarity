@@ -38,11 +38,17 @@ export async function embedChunks(texts: readonly string[]): Promise<number[][]>
   return embeddings;
 }
 
+export type DocumentChunkState = 'current' | 'unembedded' | 'stale';
+
 /**
- * True when the document at `canonicalUrl` already indexes exactly
- * `mainContent`, chunked by `extractorVersion`, with every one of its
- * `chunkCount` chunks embedded by the current model — so re-chunking and
- * re-embedding it would reproduce what is stored.
+ * How the chunks stored for the document at `canonicalUrl` compare with
+ * chunking `mainContent` by `extractorVersion` into `chunkCount` chunks:
+ *
+ * - `current`: the same text and extractor, and every chunk embedded by the
+ *   current model. Re-chunking and re-embedding would reproduce what is stored.
+ * - `unembedded`: the same chunks, but not all of them carry a current
+ *   embedding. Only fresh embeddings would change anything.
+ * - `stale`: anything else, including a document not indexed yet.
  *
  * Two statements, not one with correlated subqueries: Drizzle renders the
  * columns of a single-table select unqualified, so a subquery comparing
@@ -51,23 +57,26 @@ export async function embedChunks(texts: readonly string[]): Promise<number[][]>
  * matched nothing, so every call sequentially scanned the whole chunks table
  * twice and reported the document stale, re-embedding it on every feed poll.
  */
-export async function documentChunksCurrent(
+export async function documentChunkState(
   executor: ClarityExecutor,
   canonicalUrl: string,
   mainContent: string,
   chunkCount: number,
   extractorVersion: string,
-): Promise<boolean> {
+): Promise<DocumentChunkState> {
   const [document] = await executor
     .select({ id: searchDocuments.id, mainContent: searchDocuments.mainContent })
     .from(searchDocuments)
     .where(eq(searchDocuments.canonicalUrl, canonicalUrl))
     .limit(1);
-  if (!document || document.mainContent !== mainContent) return false;
+  if (!document || document.mainContent !== mainContent) return 'stale';
 
   const [chunks] = await executor
     .select({
       total: sql<number>`count(*)::int`,
+      extracted: sql<number>`(count(*) filter (
+        where ${searchChunks.extractorVersion} = ${extractorVersion}
+      ))::int`,
       embedded: sql<number>`(count(*) filter (
         where ${searchChunks.extractorVersion} = ${extractorVersion}
           and ${searchChunks.embeddingModel} = ${CLARITY_EMBEDDING_MODEL}
@@ -76,7 +85,18 @@ export async function documentChunksCurrent(
     })
     .from(searchChunks)
     .where(eq(searchChunks.documentId, document.id));
-  return chunks?.embedded === chunkCount && chunks.total === chunkCount;
+  if (!chunks || chunks.total !== chunkCount || chunks.extracted !== chunkCount) return 'stale';
+  return chunks.embedded === chunkCount ? 'current' : 'unembedded';
+}
+
+/**
+ * Whether replacing a document's chunks stores anything new. Chunks that are
+ * already right except for their embeddings are only worth rewriting with
+ * embeddings: while the embedding route failed, every feed poll deleted and
+ * re-inserted the same unembedded chunks of every listing it re-delivered.
+ */
+export function chunksNeedReplacing(state: DocumentChunkState, embedded: boolean): boolean {
+  return state === 'stale' || (state === 'unembedded' && embedded);
 }
 
 /** Replaces a document's chunks. Missing embeddings leave it lexically searchable. */

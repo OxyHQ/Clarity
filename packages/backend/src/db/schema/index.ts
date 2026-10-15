@@ -498,6 +498,12 @@ export const searchDocuments = pgTable(
     canonicalUrl: text('canonical_url').notNull(),
     status: text('status').notNull().default('discovered'),
     documentType: text('document_type').notNull().default('other'),
+    /**
+     * Fingerprint of the stored content, as its writer derived it: the crawl
+     * worker hashes the page text, job ingestion its whole payload. Every
+     * write of the content columns sets it (or clears it), because ingestion
+     * rewrites nothing but the observation while it still matches.
+     */
     contentHash: text('content_hash'),
     httpStatus: integer('http_status'),
     etag: text('etag'),
@@ -1059,6 +1065,12 @@ export const jobPostings = pgTable(
     fieldEvidence: jsonb('field_evidence').notNull().default(sql`'{}'::jsonb`),
 
     searchVector: tsvector('search_vector').notNull(),
+    /**
+     * Fingerprint of everything the projection stores except the sighting
+     * (`lastSeenAt`, lifecycle status) and extraction times. A listing
+     * re-observed with the same fingerprint only records the sighting.
+     */
+    contentHash: text('content_hash'),
     firstSeenAt: timestamp('first_seen_at', { withTimezone: true }).notNull().defaultNow(),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
     ...timestampColumns(),
