@@ -42,6 +42,7 @@ jobs:
             frontend:
               - 'packages/frontend/**'
               - 'packages/shared-types/**'
+              - 'packages/sdk/**'
               - 'package.json'
               - 'bun.lock'
               - 'bunfig.toml'
@@ -291,6 +292,7 @@ jobs:
       - name: Typecheck frontend
         run: |
           bun run build:shared-types
+          bun run build:sdk
           bun run --filter @clarity/frontend typecheck
 
       - name: Build frontend

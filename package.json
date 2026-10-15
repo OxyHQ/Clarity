@@ -15,7 +15,7 @@
     "build": "bun run --filter @clarity/shared-types build && bun run --filter @clarity.surf/sdk build && bun run --filter @clarity/backend build && bun run --filter @clarity/frontend build",
     "build:sdk": "bun run --filter @clarity.surf/sdk build",
     "build:shared-types": "bun run --filter @clarity/shared-types build",
-    "build:frontend": "bun run --filter @clarity/shared-types build && bun run --filter @clarity/frontend build",
+    "build:frontend": "bun run --filter @clarity/shared-types build && bun run --filter @clarity.surf/sdk build && bun run --filter @clarity/frontend build",
     "build:backend": "bun run --filter @clarity/shared-types build && bun run --filter @clarity/backend build",
     "start:frontend": "bun run --filter @clarity/frontend start",
     "start:backend": "bun run --filter @clarity/backend start",
