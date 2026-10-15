@@ -1,4 +1,4 @@
-import { and, eq, gt, gte, isNull, lt, lte, or, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
 import {
@@ -110,15 +110,17 @@ export async function consumeUsage(input: {
     let used: number | undefined;
     if (metric) {
       limit = await effectiveQuota(tx, input.principal, metric, now);
+      // The period's total is the rollup this transaction maintains below,
+      // under the same lock — never a sum over the events, which grows with
+      // every call (~350k a month for one internal caller, 20k buffers each).
       const [current] = await tx
-        .select({ quantity: sql<number>`coalesce(sum(${searchUsageEvents.quantity}), 0)::int` })
-        .from(searchUsageEvents)
+        .select({ quantity: sql<number>`coalesce(sum(${searchUsageRollups.quantity}), 0)::int` })
+        .from(searchUsageRollups)
         .where(
           and(
-            eq(searchUsageEvents.ownerAccountId, input.principal.accountId),
-            eq(searchUsageEvents.operation, input.operation),
-            gte(searchUsageEvents.occurredAt, periodStart),
-            lt(searchUsageEvents.occurredAt, periodEnd),
+            eq(searchUsageRollups.ownerAccountId, input.principal.accountId),
+            eq(searchUsageRollups.operation, input.operation),
+            eq(searchUsageRollups.periodStart, periodStart),
           ),
         );
       used = current.quantity;

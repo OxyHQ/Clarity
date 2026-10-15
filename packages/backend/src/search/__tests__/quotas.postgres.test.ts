@@ -85,6 +85,38 @@ suite('Clarity quota ledger on PostgreSQL', () => {
     ).toBe(2);
   });
 
+  it("charges the month's total across every application and credential of the account", async () => {
+    // The total is read from the rollups, one row per application, credential
+    // and month: a read of one row, or of every month, would admit this charge.
+    const account = { ...principal, accountId: `${accountId}-month` };
+    const now = new Date('2026-10-15T12:00:00.000Z');
+    const charge = (
+      who: Parameters<typeof consumeUsage>[0]['principal'],
+      quantity: number,
+      at = now,
+    ) => consumeUsage({ principal: who, operation: 'fetch_started', quantity, now: at });
+
+    const lastMonth = new Date('2026-09-30T23:59:59.000Z');
+    await expect(charge(account, 900, lastMonth)).resolves.toMatchObject({ used: 900 });
+    await expect(charge(account, 3_000)).resolves.toMatchObject({ accepted: true, used: 3_000 });
+    await expect(
+      charge({ ...account, applicationId: 'quota-app-2', credentialId: null }, 2_000),
+    ).resolves.toMatchObject({ accepted: true, used: 5_000 });
+    await expect(charge(account, 1)).resolves.toEqual({
+      accepted: false,
+      duplicate: false,
+      limit: SANDBOX_QUOTAS.fetch_month,
+      used: SANDBOX_QUOTAS.fetch_month,
+    });
+
+    await getDb()
+      .delete(searchUsageEvents)
+      .where(eq(searchUsageEvents.ownerAccountId, account.accountId));
+    await getDb()
+      .delete(searchUsageRollups)
+      .where(eq(searchUsageRollups.ownerAccountId, account.accountId));
+  });
+
   it('adds active staff grants to the sandbox limit', async () => {
     // The grant's start is set here, on the same clock the read uses: left to
     // the column default it is the DATABASE's now(), and a server a few

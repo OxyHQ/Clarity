@@ -1,5 +1,7 @@
+import { inArray, type SQL, sql } from 'drizzle-orm';
+
 import { getDb } from '../db/index.js';
-import type { searchDocuments } from '../db/schema/index.js';
+import { searchDocuments } from '../db/schema/index.js';
 import { excerpt } from './query-primitives.js';
 import { hostOf, hostsWithIcons, siteIconUrl } from './site-icons.js';
 import { publicImageUrl } from './image-cache.js';
@@ -12,6 +14,17 @@ import { publicImageUrl } from './image-cache.js';
 export type DocumentRow = typeof searchDocuments.$inferSelect;
 /** A document read without its page text, as lists that never show it do. */
 export type DocumentCardRow = Omit<DocumentRow, 'mainContent'> & { mainContent?: string | null };
+
+/**
+ * The documents that answered to any of these URLs. A crawl stores a page under
+ * its canonical URL, which a redirect or a `<link rel=canonical>` can make
+ * differ from the URL asked for, so the requested and final URLs find it too.
+ * Each column has its own index: a branch without one makes the whole OR a
+ * sequential scan of the table (126k buffers a call in production until 0026).
+ */
+export function answeredToAny(urls: readonly string[]): SQL {
+  return sql`(${inArray(searchDocuments.canonicalUrl, urls)} or ${inArray(searchDocuments.requestedUrl, urls)} or ${inArray(searchDocuments.finalUrl, urls)})`;
+}
 
 /** The hosts among these documents whose favicon Clarity serves. */
 export function iconHostsOf(rows: readonly DocumentCardRow[]): Promise<Set<string>> {

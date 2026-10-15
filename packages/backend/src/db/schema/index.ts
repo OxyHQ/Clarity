@@ -524,6 +524,13 @@ export const searchDocuments = pgTable(
   },
   (table) => [
     unique('clarity_search_documents_canonical_unique').on(table.canonicalUrl),
+    // A page is found by any of the URLs it answered to (`fetchedDocuments`,
+    // the worker's already-fetched and gone checks), so each one is indexed;
+    // only a redirected fetch has a final URL.
+    index('clarity_search_documents_requested_url_idx').on(table.requestedUrl),
+    index('clarity_search_documents_final_url_idx')
+      .on(table.finalUrl)
+      .where(sql`${table.finalUrl} is not null`),
     index('clarity_search_documents_site_status_idx').on(table.siteId, table.status),
     index('clarity_search_documents_published_idx').on(table.publishedAt),
     index('clarity_search_documents_title_trgm_idx').using(

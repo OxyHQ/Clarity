@@ -183,6 +183,13 @@
       "when": 1791803704626,
       "tag": "0025_image_renditions",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792040279141,
+      "tag": "0026_search_document_url_indexes",
+      "breakpoints": true
     }
   ]
 }
