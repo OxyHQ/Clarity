@@ -6,7 +6,11 @@ import { assertExactClarityServiceClaims } from './clarity-service-auth.js';
 /** Bounded catch-up alongside the worker's normal maintenance, independent of Alia. */
 export async function reconcileAccountEvents(): Promise<number> {
   const applicationId = CLARITY_AGENT_MANIFEST.backendApplication.applicationId;
-  assertExactClarityServiceClaims(await oxyClient.serviceToken());
+  assertExactClarityServiceClaims(
+    await oxyClient.serviceToken(undefined, undefined, {
+      scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+    }),
+  );
   let cursor = await readAccountEventCursor(applicationId);
   let processed = 0;
   for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {

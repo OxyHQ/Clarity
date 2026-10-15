@@ -86,3 +86,7 @@ UI/session hooks belong in frontend apps only. Backend code uses `@oxy.so/core/s
 ## Clarity
 
 Clarity uses `@oxy.so/services` on web and native via `OxyProvider` in `packages/frontend/app/_layout.tsx`, with `@oxy.so/core` on the API.
+
+## Exact service scope subsets
+
+The backend and erasure worker request the canonical `user:read` and `inference:invoke` subset when verifying Clarity's exact service identity. The returned token must still match the pinned application, workload attestation, project payer and exact scope tuple. Additional scopes granted to the workload for separate product operations never become Alia authority. Deploy the scoped-mint SDK and these callers before adding any such workload grant; the profile-access transport remains unchanged in this prerequisite release.
