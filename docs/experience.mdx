@@ -168,3 +168,10 @@ name-based identity merge exists. The owner key is the personal Oxy account ID,
 while `employerOxyAccountId` is the independent organization account ID. GoWay's
 place ID, Mercaria's storefront/location IDs and organization membership are
 separate resources and are never inferred from an employment entry.
+
+For supervised own-history editing, employer names and existing-company selection
+use Oxy `safety.organizations` with the signed-in personal session. Its strict
+identity projection contains only account ID, handle, name and organization type;
+Clarity never calls the anonymous full organization directory for this flow.
+Organization creation, claims, logos and website links remain unavailable there.
+Ordinary adult directory behavior is unchanged.

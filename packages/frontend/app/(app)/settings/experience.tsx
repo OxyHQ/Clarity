@@ -10,6 +10,7 @@ import { Avatar } from '@oxy.so/bloom/avatar';
 import { Loading } from '@oxy.so/bloom/loading';
 import type { Experience } from '@clarity.surf/sdk/experience';
 import { SettingsHeader } from '@/components/settings/settings-header';
+import type { ExperienceEmployer } from '@/components/experience/ExperienceEmployerField';
 import { ExperienceEditor } from '@/components/experience/ExperienceEditor';
 import { useExperienceClient } from '@/lib/api/use-experience-client';
 import { useTranslation } from '@/hooks/useTranslation';
@@ -38,12 +39,24 @@ export default function SettingsExperienceScreen() {
     ...new Set((query.data?.items ?? []).map((entry) => entry.employerOxyAccountId)),
   ].sort();
   const employers = useQuery({
-    queryKey: ['oxy', 'organizations', 'batch', ids, user?.id, activeSessionId],
-    queryFn: () => oxyServices.organizations.batch({ ids }),
-    enabled: allowed && ids.length > 0,
+    queryKey: ['oxy', 'organizations', 'batch', ids, user?.id, activeSessionId, showEmployerMedia],
+    queryFn: async (): Promise<{
+      items: { requestedAccountId: string; organization: ExperienceEmployer }[];
+      missingIds: string[];
+    }> => {
+      if (supervision.data === undefined) throw new Error('Current account protection is required');
+      return showEmployerMedia
+        ? oxyServices.organizations.batch({ ids })
+        : oxyServices.safety.organizations({ ids });
+    },
+    enabled: allowed && supervision.data !== undefined && ids.length > 0,
+    retry: false,
+    gcTime: 0,
   });
   const companies = new Map(
-    employers.data?.items.map((item) => [item.requestedAccountId, item.organization]),
+    supervision.data !== undefined && !employers.isError
+      ? employers.data?.items.map((item) => [item.requestedAccountId, item.organization])
+      : [],
   );
   useFocusEffect(
     useCallback(() => {
