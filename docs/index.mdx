@@ -28,9 +28,33 @@ provider credential, route scoring or direct provider endpoint. Stripe, VAPID,
 Valkey and Oxy session configuration are product/platform credentials and are
 not inference provider keys.
 
-Kaana is the sole hosted inference data plane. Its only canonical signed origin
-is `https://kaana.ai`; Clarity never addresses Kaana directly or through an
-`oxy.so` alias.
+Kaana is the sole hosted inference data plane. Its only canonical origin is
+`https://kaana.ai`; Clarity never addresses Kaana through an `oxy.so` alias.
+Chat reaches Kaana only through Alia. The one call Clarity makes to Kaana itself
+is search embeddings: `POST https://kaana.ai/v1/embeddings` through
+`@kaana.ai/sdk`, authenticated by Clarity's attested service token for the
+`kaana.ai` audience (Kaana ADR 0002). That is Kaana's public API, never its
+`/internal/` routes.
+
+## Embeddings capability
+
+Embeddings are off unless the deployment sets `CLARITY_EMBEDDINGS_ENABLED=true`,
+which asserts that Kaana serves Clarity's embedding model
+(`qwen/qwen3-embedding-0.6b`, 1024 dimensions) to Clarity's backend
+application. Kaana's model catalogue is declared, not live, so it cannot answer
+that question; the setting does.
+
+- **Off:** the route is never called. Indexing stores chunks without
+  embeddings, `POST /v1/search` and `POST /v1/jobs/search` rank lexically and
+  answer `degraded: { from: 'hybrid', to: 'lexical', reason:
+  'embedding_route_unavailable' }`, and `mode: 'semantic'` answers `503
+  semantic_unavailable`. The process logs once that embeddings are off.
+- **On:** chunks and queries are embedded. A failed call (Kaana error, timeout,
+  malformed answer) degrades exactly as above and is logged at most once every
+  five minutes with the number of failures since the last log line.
+- **Turning it on later:** chunks stored without embeddings are `unembedded`
+  (`documentChunkState`), so the next recrawl or feed delivery of each document
+  embeds them without rewriting anything else.
 
 ## Canonical product identity
 

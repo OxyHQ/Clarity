@@ -570,14 +570,8 @@ export async function ingestJobPosting(
     chunks.length,
     INGEST_EXTRACTOR_VERSION,
   );
-  let embeddings: number[][] | undefined;
-  if (chunkState !== 'current') {
-    try {
-      embeddings = await embedChunks(chunks.map((chunk) => chunk.text));
-    } catch {
-      embeddings = undefined;
-    }
-  }
+  const embeddings =
+    chunkState === 'current' ? undefined : await embedChunks(chunks.map((chunk) => chunk.text));
 
   return getDb().transaction(async (tx) => {
     const content = {

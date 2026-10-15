@@ -62,7 +62,7 @@
     "@react-native/babel-preset": "0.86.0",
     "@react-native/metro-babel-transformer": "0.86.0",
     "@react-native/metro-config": "0.86.0",
-    "@oxy.so/core": "4.8.0",
+    "@oxy.so/core": "4.9.1",
     "@oxy.so/contracts": "4.14.0",
     "lightningcss": "1.32.0",
     "lightningcss-linux-x64-gnu": "1.32.0",
@@ -74,7 +74,7 @@
     "react-native-css": "3.1.0-rc.0"
   },
   "dependencies": {
-    "@oxy.so/core": "4.8.0",
+    "@oxy.so/core": "4.9.1",
     "@oxy.so/contracts": "4.14.0",
     "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-query-persist-client": "^5.101.2",

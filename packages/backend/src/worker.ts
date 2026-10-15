@@ -353,17 +353,8 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
       textChunks.length,
       extractorVersion,
     );
-    let embeddings: number[][] | undefined;
-    if (textChunks.length > 0 && chunkState !== 'current') {
-      try {
-        embeddings = await embedChunks(textChunks.map((item) => item.text));
-      } catch (error) {
-        console.error('Embedding generation failed; document remains lexically searchable', {
-          crawlPageId: page.id,
-          error: error instanceof Error ? error.message : 'unknown embedding failure',
-        });
-      }
-    }
+    const embeddings =
+      chunkState === 'current' ? undefined : await embedChunks(textChunks.map((item) => item.text));
     const committed = await getDb().transaction(async (tx) => {
       if (!(await ownsPageLease(tx, page))) return false;
       const documentStatus = extracted.noindex ? 'blocked' : 'indexed';

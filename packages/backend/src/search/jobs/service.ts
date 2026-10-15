@@ -36,7 +36,7 @@ import type {
 
 import { getDb } from '../../db/index.js';
 import { jobClusters, jobPostings, searchChunks, searchDocuments } from '../../db/schema/index.js';
-import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
+import { embedQuery } from '../chunking.js';
 import {
   canonicalizePublicUrl,
   decodeSearchCursor,
@@ -381,9 +381,8 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   let embedding: number[] | undefined;
   let degraded: JobSearchResponse['degraded'];
   if (input.query && input.mode !== 'lexical') {
-    try {
-      [embedding] = await createOxyEmbeddings([input.query]);
-    } catch {
+    embedding = await embedQuery(input.query);
+    if (!embedding) {
       if (input.mode === 'semantic')
         throw new JobsError(
           503,

@@ -21,13 +21,13 @@ import {
   type ClarityResourcePrincipal,
 } from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
-import { createOxyEmbeddings } from '../../lib/oxy-embeddings.js';
 import {
   consumeUsage,
   effectiveQuota,
   SANDBOX_QUOTAS,
   type QuotaMetric,
 } from '../../search/quotas.js';
+import { embedQuery } from '../../search/chunking.js';
 import { discoverWeb, recordDiscoveredPages } from '../../search/web-discovery.js';
 import {
   answeredToAny,
@@ -145,11 +145,8 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
     | { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' }
     | undefined;
   if (input.mode !== 'lexical') {
-    try {
-      [queryEmbedding] = await createOxyEmbeddings([input.query], {
-        signal: AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS),
-      });
-    } catch {
+    queryEmbedding = await embedQuery(input.query, AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS));
+    if (!queryEmbedding) {
       if (input.mode === 'semantic') {
         sendError(
           res,

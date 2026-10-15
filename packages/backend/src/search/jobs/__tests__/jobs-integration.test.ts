@@ -19,14 +19,15 @@ import {
 } from '../projection.js';
 import { reportJobPosting } from '../reports.js';
 import { getJobPostingByUrl, jobCorpusStats, jobSearchSchema, searchJobs } from '../service.js';
-import { createOxyEmbeddings } from '../../../lib/oxy-embeddings.js';
+import { createEmbeddings, embeddingsEnabled } from '../../../lib/kaana-embeddings.js';
 
-/** A deterministic stand-in so the hybrid SQL runs without the Oxy route. */
+/** A deterministic stand-in so the hybrid SQL runs without Kaana. */
 const testEmbedding = Array.from({ length: 1024 }, (_, index) => ((index % 7) + 1) / 10);
 
-vi.mock('../../../lib/oxy-embeddings.js', () => ({
+vi.mock('../../../lib/kaana-embeddings.js', () => ({
   CLARITY_EMBEDDING_MODEL: 'test-embedding-model',
-  createOxyEmbeddings: vi.fn(async (texts: string[]) => texts.map(() => testEmbedding)),
+  embeddingsEnabled: vi.fn(() => true),
+  createEmbeddings: vi.fn(async (texts: string[]) => texts.map(() => testEmbedding)),
 }));
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
@@ -349,7 +350,7 @@ suite('Clarity Jobs corpus', () => {
   });
 
   it('degrades hybrid search to lexical when the embedding route is unavailable', async () => {
-    vi.mocked(createOxyEmbeddings).mockRejectedValueOnce(new Error('embedding route unavailable'));
+    vi.mocked(createEmbeddings).mockRejectedValueOnce(new Error('embedding route unavailable'));
     const results = await searchJobs(
       jobSearchSchema.parse({ query: 'Product Designer', mode: 'hybrid' }),
     );
@@ -360,10 +361,32 @@ suite('Clarity Jobs corpus', () => {
     });
     expect(results.data.map((job) => job.title)).toContain('Product Designer');
 
-    vi.mocked(createOxyEmbeddings).mockRejectedValueOnce(new Error('embedding route unavailable'));
+    vi.mocked(createEmbeddings).mockRejectedValueOnce(new Error('embedding route unavailable'));
     await expect(
       searchJobs(jobSearchSchema.parse({ query: 'Product Designer', mode: 'semantic' })),
     ).rejects.toMatchObject({ status: 503, code: 'semantic_unavailable' });
+  });
+
+  it('ranks lexically without calling the route when there is no embeddings capability', async () => {
+    vi.mocked(embeddingsEnabled).mockReturnValue(false);
+    vi.mocked(createEmbeddings).mockClear();
+    try {
+      const results = await searchJobs(
+        jobSearchSchema.parse({ query: 'Product Designer', mode: 'hybrid' }),
+      );
+      expect(results.degraded).toEqual({
+        from: 'hybrid',
+        to: 'lexical',
+        reason: 'embedding_route_unavailable',
+      });
+      expect(results.data.map((job) => job.title)).toContain('Product Designer');
+      await expect(
+        searchJobs(jobSearchSchema.parse({ query: 'Product Designer', mode: 'semantic' })),
+      ).rejects.toMatchObject({ status: 503, code: 'semantic_unavailable' });
+      expect(createEmbeddings).not.toHaveBeenCalled();
+    } finally {
+      vi.mocked(embeddingsEnabled).mockReturnValue(true);
+    }
   });
 
   it('indexes a first-party listing handed over through the ingestion boundary', async () => {

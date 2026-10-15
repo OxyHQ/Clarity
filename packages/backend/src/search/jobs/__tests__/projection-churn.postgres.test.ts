@@ -9,7 +9,7 @@ import {
   searchChunks,
   searchDocuments,
 } from '../../../db/schema/index.js';
-import { createOxyEmbeddings } from '../../../lib/oxy-embeddings.js';
+import { createEmbeddings, embeddingsEnabled } from '../../../lib/kaana-embeddings.js';
 import { extractJobPostings } from '../extract.js';
 import { staleJobPredicate, sweepJobLifecycle } from '../lifecycle.js';
 import {
@@ -24,9 +24,10 @@ import {
  * rewrite the listing's ~10 KB row and its TOAST, its signatures, its cluster
  * and every chunk of its document; these tests pin what it writes now.
  */
-vi.mock('../../../lib/oxy-embeddings.js', () => ({
+vi.mock('../../../lib/kaana-embeddings.js', () => ({
   CLARITY_EMBEDDING_MODEL: 'test-embedding-model',
-  createOxyEmbeddings: vi.fn(),
+  embeddingsEnabled: vi.fn(() => true),
+  createEmbeddings: vi.fn(),
 }));
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
@@ -237,9 +238,10 @@ suite('re-observing job listings on Postgres', () => {
   });
 
   beforeEach(() => {
-    // Production's embedding route has been failing; that is the case that
-    // churned the chunks table.
-    vi.mocked(createOxyEmbeddings).mockRejectedValue(new Error('embedding route unavailable'));
+    // An embedding route that fails on every call is the case that churned
+    // the chunks table.
+    vi.mocked(embeddingsEnabled).mockReturnValue(true);
+    vi.mocked(createEmbeddings).mockRejectedValue(new Error('embedding route unavailable'));
   });
 
   it('records only the sighting when an unchanged listing is delivered again', async () => {
@@ -314,14 +316,22 @@ suite('re-observing job listings on Postgres', () => {
     );
   });
 
-  it('embeds chunks stored without embeddings once the embedding route answers', async () => {
+  it('embeds chunks stored without embeddings once the embedding capability appears', async () => {
     const lexical = await snapshot(loneUrl);
     expect(lexical.embeddedChunks).toBe(0);
+    const content = { description: incompressibleText(11, 1_500) };
 
-    vi.mocked(createOxyEmbeddings).mockImplementation(async (texts: string[]) =>
+    // No capability: the route is never called and the unembedded chunks stay.
+    vi.mocked(embeddingsEnabled).mockReturnValue(false);
+    vi.mocked(createEmbeddings).mockClear();
+    await ingest(loneUrl, at(400), content);
+    expect(createEmbeddings).not.toHaveBeenCalled();
+    expect((await snapshot(loneUrl)).chunkIds).toEqual(lexical.chunkIds);
+
+    vi.mocked(embeddingsEnabled).mockReturnValue(true);
+    vi.mocked(createEmbeddings).mockImplementation(async (texts: readonly string[]) =>
       texts.map(() => Array.from({ length: 1024 }, () => 0.1)),
     );
-    const content = { description: incompressibleText(11, 1_500) };
     await ingest(loneUrl, at(420), content);
     const embedded = await snapshot(loneUrl);
     expect(embedded.embeddedChunks).toBe(embedded.chunkIds.length);
