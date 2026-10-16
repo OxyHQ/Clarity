@@ -1,3 +1,4 @@
+import { optionalAuth } from '../middleware/auth.js';
 import { Router } from 'express';
 import net from 'node:net';
 
@@ -14,6 +15,8 @@ import { readSiteIcon, registerHosts } from '../search/site-icons.js';
  * sandboxing CSP so an SVG cannot run anything even opened directly.
  */
 const router = Router();
+// This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
+router.use(optionalAuth);
 
 const ICON_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 const MISS_MAX_AGE_SECONDS = 5 * 60;

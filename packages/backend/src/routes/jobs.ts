@@ -1,3 +1,4 @@
+import { optionalAuth } from '../middleware/auth.js';
 /**
  * The public Clarity Jobs read surface behind `clarity.surf/jobs`.
  *
@@ -26,6 +27,8 @@ import {
 } from '../search/jobs/service.js';
 
 const router = Router();
+// This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
+router.use(optionalAuth);
 
 /** Burst protection for an anonymous surface, keyed by address, never by user. */
 router.use(anonymousRateLimit('anon:'));

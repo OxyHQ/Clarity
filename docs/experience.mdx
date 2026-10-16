@@ -42,6 +42,27 @@ accrued tenure stops at the present month. Consecutive, continuous roles for the
 same canonical employer group into one timeline; returning after another
 employer or a gap starts a separate tenure.
 
+Supervised accounts can manage their own experience with the original user
+session. Profile visibility is necessary but does not classify the free text:
+Clarity also asks Oxy for an `unrated` content decision. A supervised visitor
+cannot read someone else's history even when their profile is visible. Only a
+verified owner receives the `manage_own` operation; a request flag cannot grant
+it. Oxy derives the viewer from the original bearer, never a supplied viewer ID.
+
+The Clarity UI waits for completed session restoration and fresh supervision
+state before mounting product fetchers. Supervised accounts can open their own
+Experience and shared Supervision settings; other sections, including
+subscriptions, remain unavailable. Employer logos and website text are omitted
+on that limited surface. Unreviewed public API routes reject supplied supervised
+bearers, invalid sessions and authority outages instead of becoming anonymous.
+Resource credentials are introspected on every request, so enrollment or
+revocation cannot reuse a cached positive authorization.
+
+Roll out the separate exact-scope service-token caller first. Then deploy Oxy
+safety and the reviewed base scope, adopt the published Kids SDKs, and enable
+only Clarity's audited `profile` and `content` capabilities for Experience.
+No other Clarity feature is enabled for supervision by those grants.
+
 The canonical contract lives in `packages/sdk/src/experience.ts`, exported as
 `@clarity.surf/sdk/experience`: TypeScript types plus plain checks
 (`validateExperienceInput`, `validateExperience`, `validateExperienceList`).
@@ -147,3 +168,10 @@ name-based identity merge exists. The owner key is the personal Oxy account ID,
 while `employerOxyAccountId` is the independent organization account ID. GoWay's
 place ID, Mercaria's storefront/location IDs and organization membership are
 separate resources and are never inferred from an employment entry.
+
+For supervised own-history editing, employer names and existing-company selection
+use Oxy `safety.organizations` with the signed-in personal session. Its strict
+identity projection contains only account ID, handle, name and organization type;
+Clarity never calls the anonymous full organization directory for this flow.
+Organization creation, claims, logos and website links remain unavailable there.
+Ordinary adult directory behavior is unchanged.

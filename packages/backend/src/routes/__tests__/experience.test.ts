@@ -12,6 +12,7 @@ const repository = {
   organization: vi.fn(),
   account: vi.fn(),
   profileAccess: vi.fn(),
+  contentAccess: vi.fn(),
 };
 vi.mock('../../db/experience-repository.js', () => ({
   ...repository,
@@ -22,9 +23,18 @@ vi.mock('../../middleware/auth.js', () => ({
   oxyClient: {
     organizations: { get: repository.organization },
     users: { get: repository.account },
-    safety: { profileAccess: repository.profileAccess },
+    safety: { profileAccess: repository.profileAccess, contentAccess: repository.contentAccess },
   },
-  authenticateToken: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+  experienceOptionalAuth: (
+    req: express.Request,
+    _res: express.Response,
+    next: express.NextFunction,
+  ) => {
+    const user = req.headers['test-user'];
+    if (typeof user === 'string') req.user = { id: user, kind: 'personal' };
+    next();
+  },
+  experienceAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
     const user = req.headers['test-user'];
     if (typeof user === 'string')
       req.user = {
@@ -76,6 +86,11 @@ beforeAll(async () => {
 afterAll(() => new Promise<void>((resolve) => server.close(() => resolve())));
 beforeEach(() => {
   vi.resetAllMocks();
+  repository.contentAccess.mockResolvedValue({
+    allowed: true,
+    reason: 'allowed',
+    policyVersion: '2',
+  });
   repository.profileAccess.mockResolvedValue({
     allowed: true,
     reason: 'public',
