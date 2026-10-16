@@ -177,6 +177,16 @@ function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
   return client;
 }
 
+/**
+ * The attested Clarity client, for its Oxy Files calls (`files/oxy-files.ts`).
+ * Those calls mint their own token through the client, carrying whatever the
+ * workload is granted; they never pass through {@link assertExactClarityServiceClaims},
+ * which pins the AGENT identity Alia sees.
+ */
+export function getClarityFilesClient(env: NodeJS.ProcessEnv = process.env): OxyServer {
+  return clarityServiceClient(env);
+}
+
 export async function getClarityServiceToken(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {

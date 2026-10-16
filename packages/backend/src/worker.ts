@@ -26,7 +26,13 @@ import { answeredToAny } from './search/public-document.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
 import { sweepExpiredEffectReceipts } from './db/capability-receipt-repository.js';
-import { sweepImageCache, upgradeImageRenditions } from './search/image-cache.js';
+import { sweepImageCache } from './search/image-cache.js';
+import {
+  drainReferenceOutbox,
+  expireFileEvents,
+  reconcileDueReferences,
+  releaseIdleReferences,
+} from './files/references.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
@@ -38,12 +44,11 @@ const jobMaintenanceIntervalMs = 15 * 60 * 1000;
 const iconRefreshIntervalMs = 30 * 1000;
 const iconRefreshBatchSize = 10;
 /**
- * Cached images still on an older rendition (search/image-cache.ts): a small
- * batch every half minute, so ~19k legacy originals (4.3 GB, 2026-10-12) are
- * re-rendered in hours without a burst of reads on the shared database.
+ * Clarity's file references owed to Oxy (files/references.ts): drained every
+ * ten seconds, so a released image leaves Oxy's books promptly; the nightly
+ * reconciliation is checked on the same beat and runs when its day has come.
  */
-const imageRenditionIntervalMs = 30 * 1000;
-const imageRenditionBatchSize = 25;
+const oxyFilesIntervalMs = 10 * 1000;
 const jobRecrawlBatchSize = 50;
 
 /** Reclaim crashed workers before counting concurrency. A stale claim never owns a write. */
@@ -684,23 +689,38 @@ async function runIconRefresh(): Promise<void> {
   }
 }
 
-/** Re-render a batch of cached images still on an older rendition. */
-async function runImageRenditionUpgrade(): Promise<void> {
+/** Send owed reference changes to Oxy, and reconcile an entity type whose turn it is. */
+async function runOxyFiles(): Promise<void> {
   try {
-    const upgraded = await upgradeImageRenditions(imageRenditionBatchSize);
-    if (upgraded > 0) console.info('Cached images re-rendered', { upgraded });
+    const { sent, failed } = await drainReferenceOutbox();
+    if (sent > 0 || failed) console.info('Oxy file references sent', { sent, failed });
   } catch (error) {
-    console.error('Image rendition upgrade failed', {
-      error: error instanceof Error ? error.message : 'unknown upgrade failure',
+    console.error('Oxy file reference drain failed', {
+      error: error instanceof Error ? error.message : 'unknown drain failure',
+    });
+  }
+  try {
+    const reconciled = await reconcileDueReferences();
+    if (Object.keys(reconciled).length > 0)
+      console.info('Oxy file references reconciled', reconciled);
+  } catch (error) {
+    console.error('Oxy file reconciliation failed', {
+      error: error instanceof Error ? error.message : 'unknown reconciliation failure',
     });
   }
 }
 
-/** Delete the cached images nobody has asked for lately (search/image-cache.ts). */
+/**
+ * Release the images nobody has been shown in 30 days (Oxy collects them,
+ * ADR 0041 D5) and forget what the cache no longer needs (search/image-cache.ts).
+ */
 async function runImageCacheSweep(): Promise<void> {
   try {
+    const released = await releaseIdleReferences();
     const removed = await sweepImageCache();
-    if (removed > 0) console.info('Image cache swept', { removed });
+    const events = await expireFileEvents();
+    if (released + removed + events > 0)
+      console.info('Image uses released and cache swept', { released, removed, events });
   } catch (error) {
     console.error('Image cache sweep failed', {
       error: error instanceof Error ? error.message : 'unknown sweep failure',
@@ -777,7 +797,7 @@ async function main() {
   let nextMaintenanceAt = 0;
   let nextAccountEventSyncAt = 0;
   let nextIconRefreshAt = 0;
-  let nextImageRenditionAt = 0;
+  let nextOxyFilesAt = 0;
   process.once('SIGTERM', () => {
     stopping = true;
   });
@@ -806,9 +826,9 @@ async function main() {
       nextIconRefreshAt = Date.now() + iconRefreshIntervalMs;
       await runIconRefresh();
     }
-    if (Date.now() >= nextImageRenditionAt) {
-      nextImageRenditionAt = Date.now() + imageRenditionIntervalMs;
-      await runImageRenditionUpgrade();
+    if (Date.now() >= nextOxyFilesAt) {
+      nextOxyFilesAt = Date.now() + oxyFilesIntervalMs;
+      await runOxyFiles();
     }
     const page = await leaseNextPage();
     if (page) await processPage(page);

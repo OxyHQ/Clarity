@@ -1,6 +1,6 @@
 import { Readable } from 'node:stream';
-import { eq, inArray } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { and, eq, inArray, like } from 'drizzle-orm';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const safeFetch = vi.hoisted(() => vi.fn());
 vi.mock('@oxy.so/core/server', () => ({ safeFetch }));
@@ -25,276 +25,301 @@ vi.mock('../image-render.js', async (importOriginal) => {
 });
 
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
-import { imageCache } from '../../db/schema/index.js';
+import {
+  imageCache,
+  imageReferences,
+  legacyImageReads,
+  oxyFileReferenceOutbox,
+} from '../../db/schema/index.js';
+import { flushLegacyReads } from '../../files/legacy-reads.js';
+import { setOxyFilesForTesting } from '../../files/oxy-files.js';
+import { FakeOxyFiles, oxyError } from '../../files/__tests__/fake-oxy-files.js';
 import {
   IMAGE_IDLE_TTL_MS,
   IMAGE_MISS_TTL_MS,
   IMAGE_REFRESH_MS,
-  MAX_IMAGE_BYTES,
   imageKey,
   imageVersion,
   publicImageUrl,
-  readCachedImage,
+  resolveImage,
   sweepImageCache,
-  upgradeImageRenditions,
 } from '../image-cache.js';
-import { STORED_IMAGE_RENDITION } from '../image-render.js';
 
 /**
- * The image cache against real Postgres: an image is fetched once and then
- * served from Clarity, a failure is remembered briefly, a failed refresh keeps
- * the copy Clarity had, anything that is not an image is refused, and the sweep
- * deletes what nobody asks for.
+ * The image cache against real Postgres and a fake Oxy: an image is imported
+ * into Oxy once and redirected to from then on, its use by each entity is
+ * recorded (and owed to Oxy through the outbox), a failure is remembered
+ * briefly, Oxy being down is never remembered, a source Oxy will not fetch is
+ * fetched and uploaded by Clarity, a changed image moves every use, and a copy
+ * Clarity kept before the move is still served — and counted — during the soak.
  */
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
 const suite = databaseUrl ? describe : describe.skip;
 
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3, 4]);
+const PNG2 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9, 9, 9, 9]);
 const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 5, 6, 7, 8]);
-const GIF = Buffer.from('GIF89a-not-renderable');
-/** What the stand-in renderer makes of `bytes`. */
-const rendered = (bytes: Buffer) => ({
-  contentType: 'image/webp',
-  bytes: Buffer.concat([Buffer.from('webp:'), bytes]),
-});
-const urls = [
-  'https://images-a.example/cover.png',
-  'https://images-b.example/broken.png',
-  'https://images-c.example/page.html',
-  'https://images-d.example/huge.jpg',
-  'https://images-e.example/refresh.jpg',
-  'https://images-f.example/legacy.png',
-  'https://images-g.example/legacy.gif',
-  'https://images-h.example/legacy-unread.png',
-];
-const keys = urls.map(imageKey);
+const url = (name: string) => `https://ict-images.example/${name}`;
+const doc = (name: string) => ({ entityType: 'search_document' as const, entityId: `ict-${name}` });
 
 function answer(status: number, body: Buffer | string, finalUrl: string) {
   return { status, headers: {}, finalUrl, response: Readable.from([Buffer.from(body)]) };
 }
 
-suite('image cache on Postgres', () => {
+async function cleanup(): Promise<void> {
+  await getDb().delete(imageCache).where(like(imageCache.sourceUrl, '%ict-images.example%'));
+  await getDb().delete(imageReferences).where(like(imageReferences.entityId, 'ict-%'));
+  await getDb()
+    .delete(oxyFileReferenceOutbox)
+    .where(like(oxyFileReferenceOutbox.entityId, 'ict-%'));
+}
+
+async function outboxOf(entityId: string) {
+  return getDb()
+    .select({ op: oxyFileReferenceOutbox.op, file: oxyFileReferenceOutbox.oxyFileId })
+    .from(oxyFileReferenceOutbox)
+    .where(eq(oxyFileReferenceOutbox.entityId, entityId))
+    .orderBy(oxyFileReferenceOutbox.id);
+}
+
+suite('image cache on Postgres and Oxy Files', () => {
+  let oxy: FakeOxyFiles;
+
   beforeAll(async () => {
     connectPostgres(databaseUrl);
-    await getDb().delete(imageCache).where(inArray(imageCache.key, keys));
+    await cleanup();
   });
 
   afterAll(async () => {
-    await getDb().delete(imageCache).where(inArray(imageCache.key, keys));
+    await cleanup();
+    setOxyFilesForTesting(undefined);
     await closePostgres();
   });
 
-  beforeEach(() => safeFetch.mockReset());
-
-  it("fetches an image once, then serves Clarity's copy", async () => {
-    safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[0]));
-
-    const first = await readCachedImage(urls[0]);
-    const second = await readCachedImage(urls[0]);
-
-    expect(first).toEqual(rendered(PNG));
-    expect(second).toEqual(rendered(PNG));
-    expect(safeFetch).toHaveBeenCalledTimes(1);
-    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[0]));
-    expect(row).toMatchObject({
-      status: 'ready',
-      sourceUrl: urls[0],
-      contentType: 'image/webp',
-      byteSize: rendered(PNG).bytes.length,
-      rendition: STORED_IMAGE_RENDITION,
-    });
-    // The site's own bytes are never what is kept.
-    expect(Buffer.compare(Buffer.from(row.bytes as Buffer), PNG)).not.toBe(0);
+  beforeEach(() => {
+    safeFetch.mockReset();
+    oxy = new FakeOxyFiles();
+    setOxyFilesForTesting(oxy);
   });
 
-  it('shares one download between concurrent misses', async () => {
-    await getDb().delete(imageCache).where(eq(imageCache.key, keys[0]));
-    safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[0]));
+  afterEach(cleanup);
+
+  it('imports an image into Oxy once, with the use, and redirects to it after', async () => {
+    oxy.remote.set(url('a.png'), PNG);
+
+    const first = await resolveImage(doc('a'), url('a.png'));
+    const second = await resolveImage(doc('a'), url('a.png'));
+
+    expect(first).toEqual({ kind: 'oxy', oxyFileId: 'file-1' });
+    expect(second).toEqual(first);
+    expect(oxy.calls.filter((call) => call.startsWith('import'))).toEqual(['import:first']);
+    // Oxy registered the use in the import itself.
+    expect(oxy.referencesOf('search_document', 'ict-a')).toEqual(['file-1']);
+    const [row] = await getDb()
+      .select()
+      .from(imageCache)
+      .where(eq(imageCache.key, imageKey(url('a.png'))));
+    expect(row).toMatchObject({ status: 'ready', oxyFileId: 'file-1', bytes: null });
+    const [use] = await getDb()
+      .select()
+      .from(imageReferences)
+      .where(eq(imageReferences.entityId, 'ict-a'));
+    expect(use).toMatchObject({ oxyFileId: 'file-1', imageKey: imageKey(url('a.png')) });
+    // The trigger owes Oxy the same use (answered `exists` when drained).
+    expect(await outboxOf('ict-a')).toEqual([{ op: 'add', file: 'file-1' }]);
+  });
+
+  it('shares one import between concurrent misses, and records each entity', async () => {
+    oxy.remote.set(url('shared.png'), PNG);
 
     const results = await Promise.all([
-      readCachedImage(urls[0]),
-      readCachedImage(urls[0]),
-      readCachedImage(urls[0]),
+      resolveImage(doc('s1'), url('shared.png')),
+      resolveImage(doc('s2'), url('shared.png')),
+      resolveImage(doc('s3'), url('shared.png')),
     ]);
 
-    expect(results.every((image) => image?.contentType === 'image/webp')).toBe(true);
-    expect(safeFetch).toHaveBeenCalledTimes(1);
+    expect(results.every((r) => r.kind === 'oxy' && r.oxyFileId === 'file-1')).toBe(true);
+    expect(oxy.calls.filter((call) => call.startsWith('import'))).toHaveLength(1);
+    for (const id of ['ict-s1', 'ict-s2', 'ict-s3'])
+      expect(oxy.referencesOf('search_document', id)).toEqual(['file-1']);
   });
 
-  it('remembers a failed fetch for a while instead of refetching on every request', async () => {
-    safeFetch.mockResolvedValue(answer(404, 'nope', urls[1]));
+  it('remembers a failed source for a while, but never an unreachable Oxy', async () => {
+    expect(await resolveImage(doc('b'), url('broken.png'))).toEqual({ kind: 'none' });
+    expect(await resolveImage(doc('b'), url('broken.png'))).toEqual({ kind: 'none' });
+    expect(oxy.calls.filter((call) => call.startsWith('import'))).toHaveLength(1);
+    const later = Date.now() + IMAGE_MISS_TTL_MS + 1000;
+    await resolveImage(doc('b'), url('broken.png'), later);
+    expect(oxy.calls.filter((call) => call.startsWith('import'))).toHaveLength(2);
 
-    expect(await readCachedImage(urls[1])).toBeUndefined();
-    expect(await readCachedImage(urls[1])).toBeUndefined();
-    expect(safeFetch).toHaveBeenCalledTimes(1);
-
-    // Once the window passes, it is tried again.
-    expect(await readCachedImage(urls[1], Date.now() + IMAGE_MISS_TTL_MS + 1000)).toBeUndefined();
-    expect(safeFetch).toHaveBeenCalledTimes(2);
+    oxy.down = oxyError(503, 'SERVICE_UNAVAILABLE');
+    expect(await resolveImage(doc('c'), url('down.png'))).toEqual({ kind: 'unavailable' });
+    const rows = await getDb()
+      .select()
+      .from(imageCache)
+      .where(eq(imageCache.key, imageKey(url('down.png'))));
+    expect(rows).toEqual([]);
   });
 
-  it('refuses anything whose bytes are not an image, whatever the site calls it', async () => {
-    safeFetch.mockResolvedValueOnce(answer(200, '<html>not an image</html>', urls[2]));
+  it('fetches, renders and uploads a source Oxy will not fetch itself', async () => {
+    const plain = 'http://ict-images.example/plain.jpg';
+    safeFetch.mockResolvedValueOnce(answer(200, JPEG, plain));
 
-    expect(await readCachedImage(urls[2])).toBeUndefined();
-    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[2]));
-    expect(row.status).toBe('missing');
+    const answered = await resolveImage(doc('h'), plain);
+
+    expect(answered.kind).toBe('oxy');
+    expect(oxy.calls).toContain('upload:image/webp');
+    const stored = [...oxy.files.values()][0];
+    // The rendition, never the site's own bytes.
+    expect(stored.bytes.equals(Buffer.concat([Buffer.from('webp:'), JPEG]))).toBe(true);
+    expect(oxy.referencesOf('search_document', 'ict-h')).toEqual([stored.id]);
+
+    // A mislabelled https image (Oxy answers 415) takes the same path.
+    oxy.remote.set(url('label.png'), oxyError(415, 'UNSUPPORTED_MEDIA_TYPE'));
+    safeFetch.mockResolvedValueOnce(answer(200, PNG, url('label.png')));
+    expect((await resolveImage(doc('l'), url('label.png'))).kind).toBe('oxy');
   });
 
-  it('refuses an image larger than the cap', async () => {
-    safeFetch.mockResolvedValueOnce(
-      answer(200, Buffer.concat([JPEG, Buffer.alloc(MAX_IMAGE_BYTES)]), urls[3]),
-    );
+  it('restores a released file with a use, and re-imports one Oxy deleted', async () => {
+    oxy.remote.set(url('idle.png'), PNG);
+    const first = await resolveImage(doc('i'), url('idle.png'));
+    if (first.kind !== 'oxy') throw new Error('expected an Oxy file');
 
-    expect(await readCachedImage(urls[3])).toBeUndefined();
+    // Released after 30 idle days, then trashed by Oxy: the next request's use
+    // brings it back before the redirect.
+    await getDb().delete(imageReferences).where(eq(imageReferences.entityId, 'ict-i'));
+    oxy.refs.clear();
+    oxy.trash(first.oxyFileId);
+    expect(await resolveImage(doc('i'), url('idle.png'))).toEqual(first);
+    expect(oxy.files.get(first.oxyFileId)?.status).toBe('active');
+
+    // Purged: the use is refused, the row forgotten, the image imported again.
+    await getDb().delete(imageReferences).where(eq(imageReferences.entityId, 'ict-i'));
+    oxy.purge(first.oxyFileId);
+    const again = await resolveImage(doc('i'), url('idle.png'));
+    expect(again.kind).toBe('oxy');
+    expect(again).not.toEqual(first);
   });
 
-  it('refreshes a stale copy, and keeps it when the refresh fails', async () => {
-    safeFetch.mockResolvedValueOnce(answer(200, JPEG, urls[4]));
-    await readCachedImage(urls[4]);
+  it('revalidates a stale image and moves every use to a changed one', async () => {
+    oxy.remote.set(url('r.png'), PNG);
+    await resolveImage(doc('r1'), url('r.png'));
+    await resolveImage(doc('r2'), url('r.png'));
+
+    oxy.remote.set(url('r.png'), PNG2);
+    const later = Date.now() + IMAGE_REFRESH_MS + 1000;
+    const refreshed = await resolveImage(doc('r1'), url('r.png'), later);
+
+    expect(refreshed).toEqual({ kind: 'oxy', oxyFileId: 'file-2' });
+    expect(oxy.calls).toContain('import:revalidate');
+    const uses = await getDb()
+      .select({ id: imageReferences.entityId, file: imageReferences.oxyFileId })
+      .from(imageReferences)
+      .where(inArray(imageReferences.entityId, ['ict-r1', 'ict-r2']))
+      .orderBy(imageReferences.entityId);
+    expect(uses).toEqual([
+      { id: 'ict-r1', file: 'file-2' },
+      { id: 'ict-r2', file: 'file-2' },
+    ]);
+    expect(await outboxOf('ict-r2')).toEqual([
+      { op: 'add', file: 'file-1' },
+      { op: 'remove', file: 'file-1' },
+      { op: 'add', file: 'file-2' },
+    ]);
+  });
+
+  it('keeps the file it had when a refresh fails', async () => {
+    oxy.remote.set(url('keep.png'), PNG);
+    const first = await resolveImage(doc('k'), url('keep.png'));
+    oxy.remote.set(url('keep.png'), oxyError(502, 'SOURCE_FETCH_FAILED'));
 
     const later = Date.now() + IMAGE_REFRESH_MS + 1000;
-    safeFetch.mockResolvedValueOnce(answer(500, 'down', urls[4]));
-    expect(await readCachedImage(urls[4], later)).toEqual(rendered(JPEG));
-    expect(safeFetch).toHaveBeenCalledTimes(2);
-    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[4]));
-    expect(row.status).toBe('ready');
-
-    // The kept copy is NOT treated as fresh for another refresh period: within
-    // the miss window it is served as is, and once that passes it is retried.
-    safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[4]));
-    expect(await readCachedImage(urls[4], later + 60_000)).toEqual(rendered(JPEG));
-    expect(safeFetch).toHaveBeenCalledTimes(2);
-    expect(await readCachedImage(urls[4], later + IMAGE_MISS_TTL_MS + 60_000)).toEqual(
-      rendered(PNG),
-    );
-    expect(safeFetch).toHaveBeenCalledTimes(3);
+    expect(await resolveImage(doc('k'), url('keep.png'), later)).toEqual(first);
   });
 
-  /** A row as the cache held it before renditions: the site's original bytes. */
-  async function legacyRow(index: number, bytes: Buffer, lastAccessedAt = new Date()) {
-    await getDb().insert(imageCache).values({
-      key: keys[index],
-      sourceUrl: urls[index],
-      status: 'ready',
-      contentType: 'image/png',
-      bytes,
-      byteSize: bytes.length,
-      fetchedAt: new Date(),
-      lastAccessedAt,
+  it('serves and counts a copy Clarity kept before the move, and hides a blocked one', async () => {
+    const legacy = url('legacy.png');
+    await getDb()
+      .insert(imageCache)
+      .values({
+        key: imageKey(legacy),
+        sourceUrl: legacy,
+        status: 'ready',
+        contentType: 'image/webp',
+        bytes: Buffer.from('webp:kept'),
+        byteSize: 9,
+        rendition: 1,
+      });
+    const day = new Date().toISOString().slice(0, 10);
+    await getDb()
+      .delete(legacyImageReads)
+      .where(and(eq(legacyImageReads.day, day), eq(legacyImageReads.surface, 'images')));
+
+    const served = await resolveImage(doc('legacy'), legacy);
+
+    expect(served).toEqual({
+      kind: 'legacy',
+      image: { contentType: 'image/webp', bytes: Buffer.from('webp:kept') },
     });
-  }
+    expect(oxy.calls).toEqual([]);
+    await flushLegacyReads();
+    const [count] = await getDb()
+      .select()
+      .from(legacyImageReads)
+      .where(and(eq(legacyImageReads.day, day), eq(legacyImageReads.surface, 'images')));
+    expect(count.reads).toBeGreaterThanOrEqual(1);
 
-  it('never serves an original kept before renditions: it renders it on read', async () => {
-    await legacyRow(5, PNG);
-
-    expect(await readCachedImage(urls[5])).toEqual(rendered(PNG));
-    expect(safeFetch).not.toHaveBeenCalled();
-    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[5]));
-    expect(row).toMatchObject({ rendition: STORED_IMAGE_RENDITION, contentType: 'image/webp' });
-    expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(PNG).bytes);
-  });
-
-  it('fetches again an original that cannot be rendered, never keeping it', async () => {
-    // An image CDN that negotiated AVIF for the old pipeline's `Accept` serves
-    // a renderable format to today's, so the URL is fetched afresh.
-    await legacyRow(6, GIF);
-    safeFetch.mockResolvedValueOnce(answer(200, PNG, urls[6]));
-
-    expect(await readCachedImage(urls[6])).toEqual(rendered(PNG));
-    expect(safeFetch).toHaveBeenCalledTimes(1);
-    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
-    expect(row).toMatchObject({ status: 'ready', rendition: STORED_IMAGE_RENDITION });
-    expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(PNG).bytes);
-  });
-
-  it('remembers the miss when the old copy cannot render and the site is down', async () => {
-    await getDb().delete(imageCache).where(eq(imageCache.key, keys[6]));
-    await legacyRow(6, GIF);
-    safeFetch.mockResolvedValue(answer(500, 'down', urls[6]));
-
-    expect(await readCachedImage(urls[6])).toBeUndefined();
-    expect(await readCachedImage(urls[6])).toBeUndefined();
-    expect(safeFetch).toHaveBeenCalledTimes(1);
-    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
-    expect(row).toMatchObject({ status: 'missing', bytes: null });
-  });
-
-  it('upgrades kept originals in batches without counting it as a read', async () => {
-    const idleSince = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-    await legacyRow(7, JPEG, idleSince);
-
-    let upgraded = 0;
-    for (let round = 0; round < 5 && upgraded === 0; round++) {
-      const batch = await upgradeImageRenditions(1000);
-      if (batch === 0) break;
-      const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[7]));
-      if (row.rendition === STORED_IMAGE_RENDITION) upgraded = 1;
-    }
-    const [row] = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[7]));
-    expect(row.rendition).toBe(STORED_IMAGE_RENDITION);
-    expect(Buffer.from(row.bytes as Buffer)).toEqual(rendered(JPEG).bytes);
-    // Upgraded, not read: an idle image still expires on schedule.
-    expect(row.lastAccessedAt.getTime()).toBe(idleSince.getTime());
-  });
-
-  it('deletes, in the batch upgrade, an original that cannot be rendered', async () => {
-    await getDb().delete(imageCache).where(eq(imageCache.key, keys[6]));
-    await legacyRow(6, GIF);
-
-    for (let round = 0; round < 5; round++) {
-      if ((await upgradeImageRenditions(1000)) === 0) break;
-    }
-    const left = await getDb().select().from(imageCache).where(eq(imageCache.key, keys[6]));
-    expect(left).toEqual([]);
-    expect(safeFetch).not.toHaveBeenCalled();
-  });
-
-  it('never fetches a non-HTTP(S) URL', async () => {
-    expect(await readCachedImage('file:///etc/passwd')).toBeUndefined();
-    expect(safeFetch).not.toHaveBeenCalled();
-  });
-
-  it('sweeps images nobody has asked for, and expired failures, but keeps the rest', async () => {
+    const blocked = url('blocked.png');
     await getDb()
-      .update(imageCache)
-      .set({ lastAccessedAt: new Date(Date.now() - IMAGE_IDLE_TTL_MS - 60_000) })
-      .where(eq(imageCache.key, keys[0]));
-    await getDb()
-      .update(imageCache)
-      .set({ fetchedAt: new Date(Date.now() - IMAGE_MISS_TTL_MS - 60_000) })
-      .where(eq(imageCache.key, keys[2]));
+      .insert(imageCache)
+      .values({ key: imageKey(blocked), sourceUrl: blocked, status: 'blocked', oxyFileId: 'x' });
+    expect(await resolveImage(doc('blocked'), blocked)).toEqual({ kind: 'none' });
+  });
 
-    await sweepImageCache();
+  it('sweeps expired failures, idle legacy copies and long-unused mappings only', async () => {
+    const now = Date.now();
+    const old = new Date(now - IMAGE_IDLE_TTL_MS - 62 * 24 * 60 * 60 * 1000);
+    const rows = [
+      { name: 'miss-old', status: 'missing', fetchedAt: old, lastAccessedAt: old },
+      {
+        name: 'legacy-idle',
+        status: 'ready',
+        contentType: 'image/webp',
+        bytes: Buffer.from('x'),
+        lastAccessedAt: old,
+      },
+      { name: 'oxy-unused', status: 'ready', oxyFileId: 'f-unused', lastAccessedAt: old },
+      { name: 'oxy-used', status: 'ready', oxyFileId: 'f-used', lastAccessedAt: old },
+      { name: 'oxy-fresh', status: 'ready', oxyFileId: 'f-fresh' },
+    ];
+    for (const { name, ...row } of rows)
+      await getDb()
+        .insert(imageCache)
+        .values({ key: imageKey(url(name)), sourceUrl: url(name), ...row });
+    await getDb()
+      .insert(imageReferences)
+      .values({
+        entityType: 'search_document',
+        entityId: 'ict-used',
+        oxyFileId: 'f-used',
+        imageKey: imageKey(url('oxy-used')),
+      });
+
+    await sweepImageCache(now);
 
     const left = await getDb()
       .select({ key: imageCache.key })
       .from(imageCache)
-      .where(inArray(imageCache.key, keys));
-    const leftKeys = new Set(left.map((row) => row.key));
-    expect(leftKeys.has(keys[0])).toBe(false);
-    expect(leftKeys.has(keys[2])).toBe(false);
-    expect(leftKeys.has(keys[4])).toBe(true);
-  });
-});
-
-describe('public image URLs', () => {
-  it('points at Clarity, never at the site', () => {
-    const url = publicImageUrl('documents', 'doc-1', 'https://site.example/og.jpg');
-    expect(url).toBe(
-      `https://api.clarity.surf/images/documents/doc-1/${imageVersion('https://site.example/og.jpg')}`,
-    );
-    expect(url).not.toContain('site.example');
-  });
-
-  it('changes when the source image does', () => {
-    expect(publicImageUrl('jobs', 'job-1', 'https://site.example/a.png')).not.toBe(
-      publicImageUrl('jobs', 'job-1', 'https://site.example/b.png'),
+      .where(like(imageCache.sourceUrl, '%ict-images.example%'));
+    expect(new Set(left.map((row) => row.key))).toEqual(
+      new Set([imageKey(url('oxy-used')), imageKey(url('oxy-fresh'))]),
     );
   });
 
-  it('gives no URL when there is no public image', () => {
-    expect(publicImageUrl('documents', 'doc-1', null)).toBeUndefined();
-    expect(publicImageUrl('documents', 'doc-1', 'data:image/png;base64,AAAA')).toBeUndefined();
+  it('hands out a stable, versioned Clarity address', () => {
+    expect(publicImageUrl('documents', 'd1', url('v.png'))).toBe(
+      `https://api.clarity.surf/images/documents/d1/${imageVersion(url('v.png'))}`,
+    );
+    expect(publicImageUrl('jobs', 'j1', 'ftp://nope')).toBeUndefined();
   });
 });

@@ -4,27 +4,33 @@ import { eq } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
 import { jobPostings, searchDocuments } from '../db/schema/index.js';
-import { imageVersion, readCachedImage, type ImageKind } from '../search/image-cache.js';
+import { oxyFileUrl } from '../files/oxy-files.js';
+import { entityTypeOf, imageVersion, resolveImage, type ImageKind } from '../search/image-cache.js';
 import { imageAtVariant, requestedImageVariant } from '../search/image-render.js';
 
 /**
  * `GET /images/documents/:id/:version` — a document's preview image.
  * `GET /images/jobs/:id/:version` — a job posting's employer logo.
  *
- * Clarity's rendition of a remote image (search/image-cache.ts): WebP, never
- * the site's original. `?variant=w320|w640|w1280` picks a rung of Oxy's image
- * ladder (`@oxy.so/utils/image`), the same names Oxy's CDN serves post media
- * at; anything else gets the stored `w1280`. Public and credential-free,
- * because an `<img>` sends no bearer, like `/favicons`.
+ * STABLE addresses: every API response, stored link preview and SDK consumer
+ * keeps using them while the images themselves moved into Oxy Files (ADR
+ * 0041). The answer is a `302` to the image's Clarity-owned Oxy file on Oxy's
+ * CDN, at the requested rung (`?variant=w320|w640|w1280`, the names of Oxy's
+ * image ladder; anything else, or nothing, gets `w1280`) — never the bare
+ * original, which Oxy keeps as the site served it. Redirecting rather than
+ * handing consumers Oxy URLs is deliberate: the first request is what imports
+ * an image (search/image-cache.ts), and a use is recorded only when an image is
+ * served, which is what lets Clarity release one nobody looks at.
  *
- * The image to serve is looked up from Clarity's OWN row by id; nothing in the
- * request names a URL, so this cannot be pointed at an arbitrary address. The
- * `version` segment is a digest of the source URL, so a re-crawled page with a
- * NEW image URL gets a new address. The bytes behind one URL can still change
- * (a site replaces its image in place, and Clarity refetches it), so the answer
- * is not immutable: it is cached for a day, revalidated with the `ETag` Express
- * derives from the bytes themselves (a 304 when they have not changed), and a stale version gets a short life
- * so an old address heals.
+ * During the soak a copy Clarity kept itself is still served directly (and
+ * counted, docs/oxy-files.md).
+ *
+ * Public and credential-free, because an `<img>` sends no bearer, like
+ * `/favicons`. The image is looked up from Clarity's OWN row by id; nothing in
+ * the request names a URL, so this cannot be pointed at an arbitrary address.
+ * The `version` segment is a digest of the source URL, so a re-crawled page
+ * with a NEW image URL gets a new address, and a stale version gets a short
+ * life so an old address heals.
  */
 const router = Router();
 // This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
@@ -73,14 +79,19 @@ function serve(kind: ImageKind) {
       notFound(res);
       return;
     }
-    const stored = await readCachedImage(sourceUrl);
-    const image = stored
-      ? await imageAtVariant(stored, requestedImageVariant(req.query.variant))
-      : undefined;
-    if (!image) {
+    const answer = await resolveImage({ entityType: entityTypeOf(kind), entityId: id }, sourceUrl);
+    if (answer.kind === 'unavailable') {
+      res.setHeader('Cache-Control', 'no-store');
+      res.status(503).json({
+        error: { code: 'image_unavailable', message: 'The image cannot be served right now' },
+      });
+      return;
+    }
+    if (answer.kind === 'none') {
       notFound(res);
       return;
     }
+    const variant = requestedImageVariant(req.query.variant);
     const current = imageVersion(sourceUrl) === version;
     res.setHeader(
       'Cache-Control',
@@ -88,6 +99,15 @@ function serve(kind: ImageKind) {
         ? `public, max-age=${MAX_AGE_SECONDS}, stale-while-revalidate=${STALE_WHILE_REVALIDATE_SECONDS}`
         : `public, max-age=${STALE_VERSION_MAX_AGE_SECONDS}`,
     );
+    if (answer.kind === 'oxy') {
+      res.redirect(302, oxyFileUrl(answer.oxyFileId, variant));
+      return;
+    }
+    const image = await imageAtVariant(answer.image, variant);
+    if (!image) {
+      notFound(res);
+      return;
+    }
     res.setHeader('Content-Type', image.contentType);
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader(

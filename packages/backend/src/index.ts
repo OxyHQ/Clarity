@@ -19,6 +19,8 @@ import feedbackRouter from './routes/feedback.js';
 import suggestionsRouter from './routes/suggestions.js';
 import notificationsRouter from './routes/notifications.js';
 import oxyAccountEventsRouter from './routes/oxy-account-events.js';
+import oxyFileEventsRouter from './routes/oxy-file-events.js';
+import { flushLegacyReads } from './files/legacy-reads.js';
 import experienceRouter from './routes/experience.js';
 import jobsRouter from './routes/jobs.js';
 import marketRouter from './routes/market.js';
@@ -124,6 +126,9 @@ app.use(
 
 // Account deletion authenticates the signed event itself, independently of runtime readiness.
 app.use('/webhooks/oxy/account-events', oxyAccountEventsRouter);
+// Oxy's file events (ADR 0041 D9): the signature is over the raw body, so this
+// is mounted before `express.json()`, like the account events above.
+app.use('/webhooks/oxy/files', oxyFileEventsRouter);
 
 // Internal routes - restricted to known origins
 const PRODUCTION_ORIGINS = ['https://clarity.surf'];
@@ -303,6 +308,15 @@ if (!database) {
         });
       });
 
+      // Legacy image reads (files/legacy-reads.ts) are counted in memory and
+      // written once a minute, and once more on shutdown.
+      const legacyReadFlush = setInterval(() => {
+        flushLegacyReads().catch((err) =>
+          log.general.warn({ err }, 'Legacy image read counts could not be written yet'),
+        );
+      }, 60_000);
+      legacyReadFlush.unref();
+
       // Graceful shutdown handler
       let shuttingDown = false;
       const shutdown = async (signal: string) => {
@@ -337,6 +351,10 @@ if (!database) {
           log.general.info('Redis connections closed');
 
           await activity?.stop();
+          clearInterval(legacyReadFlush);
+          await flushLegacyReads().catch((err) =>
+            log.general.warn({ err }, 'Legacy image read counts lost at shutdown'),
+          );
           await closePostgres();
           log.general.info('PostgreSQL connection closed');
 
