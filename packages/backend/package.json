@@ -22,7 +22,9 @@
     "db:attest-cutover": "bun src/db/attest-cutover.ts",
     "db:attest-fresh-install": "bun src/db/attest-fresh-install.ts",
     "import:oxy-link-previews": "bun src/scripts/import-oxy-link-previews.ts",
-    "places:import": "bun src/scripts/import-geonames-places.ts"
+    "places:import": "bun src/scripts/import-geonames-places.ts",
+    "images:migrate-to-oxy": "bun src/scripts/migrate-images-to-oxy.ts",
+    "images:storage-status": "bun src/scripts/image-storage-status.ts"
   },
   "dependencies": {
     "@clarity/shared-types": "workspace:*",
