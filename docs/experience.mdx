@@ -42,12 +42,22 @@ accrued tenure stops at the present month. Consecutive, continuous roles for the
 same canonical employer group into one timeline; returning after another
 employer or a gap starts a separate tenure.
 
-The canonical Zod 4 contract lives in `packages/sdk/src/experience.ts`, exported
-as `@clarity.surf/sdk/experience`. Both the backend request validators and SDK
-response parsers use that one source, and TypeScript types are inferred from it.
-This additive domain uses the existing SDK workspace rather than creating a
-second separately published contracts package. A future product-wide contracts
-workspace/OpenAPI migration can move the same schemas without duplicating them.
+The canonical contract lives in `packages/sdk/src/experience.ts`, exported as
+`@clarity.surf/sdk/experience`: TypeScript types plus plain checks
+(`validateExperienceInput`, `validateExperience`, `validateExperienceList`).
+The backend request validators, the SDK response parsers and both editors (Clarity
+Settings and Mention's profile) run that one implementation. Each issue carries a
+`code`: `invalid_type` and `unrecognized_keys` are a malformed body (400
+`bad_request`), `invalid_value` a field to correct (422 `validation_failed`).
+
+The checks are plain TypeScript, not Zod, so that a browser bundle reading or
+editing work history downloads no schema library. Zod 4 kept every locale with
+any schema in a web export, and a second lazy consumer hoists it into Mention's
+startup chunk. SDK 0.6.0 replaced the 0.5.0 Zod schemas; `packages/sdk/tests/
+experience-parity.test.ts` holds the new checks to a frozen copy of those schemas,
+answer for answer, including the 400/422 split. This additive domain uses the existing
+SDK workspace rather than creating a second separately published contracts
+package.
 
 ## HTTP and SDK
 
@@ -119,7 +129,8 @@ Before deployment:
 3. Register `https://api.clarity.surf/webhooks/oxy/account-events` as the account
    event delivery target for the exact Clarity backend application ID in
    `clarity-agent-manifest.ts` and verify a deletion/retry delivery in staging.
-4. Release SDK 0.5.0 and install its registry version in Mention. No public SDK
+4. Release the SDK (0.5.0; 0.6.0 replaced its Zod schemas with plain checks)
+   and install its registry version in Mention. No public SDK
    release or production database change is performed by this source change.
 
 Tests cover real PostgreSQL ownership isolation, replacement and removal,

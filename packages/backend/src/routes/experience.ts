@@ -1,6 +1,6 @@
 import { getErrorStatus } from '@oxy.so/core';
 import { Router, type ErrorRequestHandler, type Request, type Response } from 'express';
-import { experienceInputSchema, type ExperienceErrorCode } from '@clarity.surf/sdk/experience';
+import { validateExperienceInput, type ExperienceErrorCode } from '@clarity.surf/sdk/experience';
 import {
   ExperienceLimitError,
   ExperienceAccountErasedError,
@@ -109,9 +109,9 @@ router.use(async (req, res, next) => {
 router.post('/', async (req, res) => {
   const userId = authenticatedUserId(req, res);
   if (!userId) return;
-  const result = experienceInputSchema.safeParse(req.body);
+  const result = validateExperienceInput(req.body);
   if (!result.success) {
-    const malformed = result.error.issues.some(
+    const malformed = result.issues.some(
       (issue) => issue.code === 'invalid_type' || issue.code === 'unrecognized_keys',
     );
     error(
@@ -129,9 +129,9 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const userId = authenticatedUserId(req, res);
   if (!userId) return;
-  const result = experienceInputSchema.safeParse(req.body);
+  const result = validateExperienceInput(req.body);
   if (!result.success) {
-    const malformed = result.error.issues.some(
+    const malformed = result.issues.some(
       (issue) => issue.code === 'invalid_type' || issue.code === 'unrecognized_keys',
     );
     error(

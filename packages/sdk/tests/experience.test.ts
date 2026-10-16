@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ClarityClient } from '../src/client.js';
-import { experienceInputSchema } from '../src/experience.js';
+import { validateExperienceInput } from '../src/experience.js';
 
 const resource = {
   id: 'id',
@@ -16,13 +16,13 @@ const input = {
 };
 describe('public profile experience contract', () => {
   it('accepts current roles and same-month roles', () => {
-    expect(experienceInputSchema.parse(input)).toEqual(input);
-    expect(experienceInputSchema.safeParse({ ...input, endDate: '2022-10' }).success).toBe(true);
+    expect(validateExperienceInput(input)).toEqual({ success: true, data: input });
+    expect(validateExperienceInput({ ...input, endDate: '2022-10' }).success).toBe(true);
   });
   it.each(['2022-00', '2022-13', '22-01', '2022-01-01', '2022-1', '2099-01'])(
     'rejects invalid/future start month %s',
     (startDate) => {
-      expect(experienceInputSchema.safeParse({ ...input, startDate }).success).toBe(false);
+      expect(validateExperienceInput({ ...input, startDate }).success).toBe(false);
     },
   );
   it('rejects reversed periods, empty fields and identity assignment', () => {
@@ -33,7 +33,7 @@ describe('public profile experience contract', () => {
       { oxyUserId: 'another-user' },
       { id: 'chosen-id' },
     ]) {
-      expect(experienceInputSchema.safeParse({ ...input, ...patch }).success).toBe(false);
+      expect(validateExperienceInput({ ...input, ...patch }).success).toBe(false);
     }
   });
   it('sends user-authenticated writes to Clarity, using full replacement', async () => {
