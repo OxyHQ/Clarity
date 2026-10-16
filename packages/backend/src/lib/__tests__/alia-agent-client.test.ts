@@ -295,6 +295,10 @@ describe('Clarity Alia agent boundary', () => {
 
     await proxyAliaJson(request, response, '/memory/preferences');
 
+    expect(serviceTokenSpy).toHaveBeenLastCalledWith(undefined, undefined, {
+      scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+    });
+
     expect(fetchMock).toHaveBeenCalledWith(
       'https://alia.example.test/memory/preferences?q=first&q=second',
       expect.objectContaining({

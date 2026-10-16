@@ -195,7 +195,10 @@ function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
 export async function getClarityServiceToken(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
-  const token = await clarityServiceClient(env).serviceToken();
+  // The workload may gain unrelated product scopes; Alia still receives exactly this manifest tuple.
+  const token = await clarityServiceClient(env).serviceToken(undefined, undefined, {
+    scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+  });
   assertExactClarityServiceClaims(token);
   return token;
 }
@@ -211,7 +214,9 @@ export async function getClarityServiceTokenFor(
   audience: ServiceTokenAudience,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
-  const token = await clarityServiceClient(env).serviceTokenFor(audience);
+  const token = await clarityServiceClient(env).serviceTokenFor(audience, undefined, undefined, {
+    scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+  });
   assertExactClarityServiceClaims(token);
   return token;
 }
