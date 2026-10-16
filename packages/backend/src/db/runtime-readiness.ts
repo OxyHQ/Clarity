@@ -1,72 +1,45 @@
-import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 
 import { getDb } from './index.js';
 import { runtimeState } from './schema/index.js';
-import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
 import { hasExactClarityServiceConfiguration } from '../lib/clarity-service-auth.js';
 
 export type RuntimeNotReadyReason =
   | 'database_unavailable'
   | 'postgres_cutover_unattested'
-  | 'clarity_agent_unconfigured'
-  | 'clarity_service_identity_unconfigured'
-  | 'clarity_agent_attestation_mismatch';
+  | 'clarity_service_identity_unconfigured';
 
 export type RuntimeReadiness = { ready: true } | { ready: false; reason: RuntimeNotReadyReason };
 
 export interface RuntimeAttestation {
   status: string;
-  aliaAgentIdSha256: string | null;
-}
-
-function sha256(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
 }
 
 /**
  * Either attested status opens readiness. `cutover` means real prior data was
  * migrated and reconciled (`attest-cutover.ts`); `fresh_install` means the
  * deployment never had prior data to migrate at all (`attest-fresh-install.ts`).
- * Both still require the recorded attestation to name the exact agent id
- * currently configured — that check is not about data, it never stops
- * applying.
  */
 const ATTESTED_STATUSES = new Set(['cutover', 'fresh_install']);
 
-export function evaluateRuntimeReadiness(
-  row: RuntimeAttestation | undefined,
-  agentId: string | undefined,
-): RuntimeReadiness {
-  const configuredAgentId = agentId;
-  if (configuredAgentId !== CLARITY_AGENT_MANIFEST.agentId) {
-    return { ready: false, reason: 'clarity_agent_unconfigured' };
-  }
+export function evaluateRuntimeReadiness(row: RuntimeAttestation | undefined): RuntimeReadiness {
   if (row === undefined || !ATTESTED_STATUSES.has(row.status)) {
     return { ready: false, reason: 'postgres_cutover_unattested' };
-  }
-  if (row.aliaAgentIdSha256 !== sha256(configuredAgentId)) {
-    return { ready: false, reason: 'clarity_agent_attestation_mismatch' };
   }
   return { ready: true };
 }
 
-export async function getRuntimeReadiness(
-  agentId: string | undefined = process.env.CLARITY_ALIA_AGENT_ID,
-): Promise<RuntimeReadiness> {
+export async function getRuntimeReadiness(): Promise<RuntimeReadiness> {
   if (!hasExactClarityServiceConfiguration()) {
     return { ready: false, reason: 'clarity_service_identity_unconfigured' };
   }
   try {
     const [row] = await getDb()
-      .select({
-        status: runtimeState.status,
-        aliaAgentIdSha256: runtimeState.aliaAgentIdSha256,
-      })
+      .select({ status: runtimeState.status })
       .from(runtimeState)
       .where(eq(runtimeState.id, 'postgres-cutover'))
       .limit(1);
-    return evaluateRuntimeReadiness(row, agentId);
+    return evaluateRuntimeReadiness(row);
   } catch {
     return { ready: false, reason: 'database_unavailable' };
   }

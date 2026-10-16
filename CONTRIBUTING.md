@@ -31,5 +31,5 @@ CI also starts a disposable PostgreSQL database, dry-runs and applies all `pre`
 migrations twice, then runs repository integration tests. Never point those
 tests at a database other than the explicitly named `clarity_ci` database.
 
-Read `AGENTS.md` before changing auth, persistence, model IDs or chat. Do not
-add direct inference dependencies or a second datastore.
+Read `AGENTS.md` before changing auth, persistence, the capability catalogue or
+the assistant. Do not add direct inference dependencies or a second datastore.

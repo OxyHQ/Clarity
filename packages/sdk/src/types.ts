@@ -432,16 +432,6 @@ export interface JobCorpusStats {
   clusters: number;
 }
 
-/** Machine-readable tool descriptor for agents grounding answers in Jobs. */
-export interface JobsCapability {
-  name: string;
-  description: string;
-  endpoint: { method: string; path: string; scope: string };
-  grounding: Record<string, unknown>;
-  ranking: { signals: readonly string[]; commercialSignals: string };
-  parameters: Record<string, unknown>;
-}
-
 // ---------------------------------------------------------------------------
 // Places — the canonical gazetteer (GeoNames, CC BY 4.0).
 // ---------------------------------------------------------------------------

@@ -5,7 +5,7 @@ import {
   type ServiceTokenAudience,
 } from '@oxy.so/core/server';
 
-import { CLARITY_AGENT_MANIFEST } from './clarity-agent-manifest.js';
+import { CLARITY_IDENTITY } from './clarity-identity.js';
 
 export class ClarityServiceConfigurationError extends Error {}
 
@@ -43,7 +43,8 @@ function requireExact(value: string | undefined, expected: string, name: string)
   return value;
 }
 
-function canonicalBaseUrl(env: NodeJS.ProcessEnv): string {
+/** The Oxy API origin this process talks to: `OXY_API_URL`, and only the canonical one in production. */
+export function canonicalBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
   const rawBaseUrl = env.OXY_API_URL || CANONICAL_OXY_API_URL;
   let parsed: URL;
   try {
@@ -102,11 +103,7 @@ function serviceConfiguration(env: NodeJS.ProcessEnv): ClarityServiceConfigurati
   }
   const publicKey = env.OXY_SERVICE_API_KEY;
   if (publicKey !== undefined && publicKey !== '') {
-    requireExact(
-      publicKey,
-      CLARITY_AGENT_MANIFEST.backendApplication.clientId,
-      'OXY_SERVICE_API_KEY',
-    );
+    requireExact(publicKey, CLARITY_IDENTITY.backendApplication.clientId, 'OXY_SERVICE_API_KEY');
   }
   if (!canAttestWorkloadIdentity(env)) {
     /**
@@ -142,12 +139,12 @@ function decodeClaims(token: string): ServiceTokenClaims {
  * it is no longer the retired backend credential's id either.
  */
 const ACCEPTED_CREDENTIAL_IDS: readonly string[] = Object.freeze([
-  CLARITY_AGENT_MANIFEST.workloadIdentity.attestationId,
+  CLARITY_IDENTITY.workloadIdentity.attestationId,
 ]);
 
 export function assertExactClarityServiceClaims(token: string): void {
   const claims = decodeClaims(token);
-  const expected = CLARITY_AGENT_MANIFEST.backendApplication;
+  const expected = CLARITY_IDENTITY.backendApplication;
   const tokenScopes = Array.isArray(claims.scopes) ? claims.scopes : [];
   const nowSeconds = Math.floor(Date.now() / 1000);
   if (
@@ -155,7 +152,7 @@ export function assertExactClarityServiceClaims(token: string): void {
     claims.appId !== expected.applicationId ||
     typeof claims.credentialId !== 'string' ||
     !ACCEPTED_CREDENTIAL_IDS.includes(claims.credentialId) ||
-    claims.ownerAccountId !== CLARITY_AGENT_MANIFEST.projectAccountId ||
+    claims.ownerAccountId !== CLARITY_IDENTITY.projectAccountId ||
     tokenScopes.length !== expected.scopes.length ||
     new Set(tokenScopes).size !== expected.scopes.length ||
     expected.scopes.some((scope) => !tokenScopes.includes(scope)) ||
@@ -195,12 +192,27 @@ function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
 export async function getClarityServiceToken(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
-  // The workload may gain unrelated product scopes; Alia still receives exactly this manifest tuple.
+  // Ask for exactly the declared tuple, so a scope bound to the workload for
+  // something else never rides along on this token.
   const token = await clarityServiceClient(env).serviceToken(undefined, undefined, {
-    scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+    scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
   });
   assertExactClarityServiceClaims(token);
   return token;
+}
+
+/**
+ * The attested Oxy client itself, for the calls that authenticate as Clarity
+ * through it rather than with a bare token: live capability-ticket
+ * introspection (`capabilities/capability-authority.ts`).
+ */
+export function clarityOxyServer(env: NodeJS.ProcessEnv = process.env): OxyServer {
+  return clarityServiceClient(env);
+}
+
+/** Forget the cached service token(s) after Oxy refused one, so the next call mints anew. */
+export function invalidateClarityServiceToken(env: NodeJS.ProcessEnv = process.env): void {
+  clarityServiceClient(env).invalidateServiceToken();
 }
 
 /**
@@ -215,7 +227,7 @@ export async function getClarityServiceTokenFor(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
   const token = await clarityServiceClient(env).serviceTokenFor(audience, undefined, undefined, {
-    scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+    scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
   });
   assertExactClarityServiceClaims(token);
   return token;

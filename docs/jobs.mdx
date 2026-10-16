@@ -341,8 +341,7 @@ request rate as `/v1/search`, and answers `429 monthly_quota_exceeded` when the
 allowance is spent. Quota is capacity, never relevance.
 
 Other routes: `GET /v1/jobs/:id`, `GET /v1/jobs/by-url?url=…`,
-`POST /v1/jobs/:id/report`, `GET /v1/jobs/stats` (corpus health) and
-`GET /v1/jobs/capability` (the agent tool descriptor). The unauthenticated
+`POST /v1/jobs/:id/report` and `GET /v1/jobs/stats` (corpus health). The unauthenticated
 portal surface mirrors the read routes and the report route under `/jobs`.
 
 ## Ranking contract
@@ -736,19 +735,23 @@ for (const job of results.data) {
 ```
 
 `clarity.jobs.get(id)`, `clarity.jobs.byUrl(url)`, `clarity.jobs.ingest(...)`,
-`clarity.jobs.report(id, { reason })`, `clarity.jobs.stats()` and
-`clarity.jobs.capability()` complete the namespace. `clarity.places.search` and
+`clarity.jobs.report(id, { reason })` and `clarity.jobs.stats()` complete the
+namespace. `clarity.places.search` and
 `clarity.places.get` read the gazetteer, and the vocabularies are importable
 from the package root or `@clarity.surf/sdk/vocabularies`.
 
 ## Agents
 
-`GET /jobs/capability` returns a tool descriptor — name, endpoint, parameter
-schema, the permitted ranking signals, and the grounding rules — that Clarity's
-Alia agent registers so a request like *"find remote React Native jobs in Europe
-posted this week"* becomes a structured query. The descriptor states the rule
-explicitly: a field missing from a result was not stated by the source and must
-never be inferred, and the canonical source must always be shown.
+Jobs reaches agents through Clarity's capability catalogue
+(`packages/backend/src/capabilities/catalog/jobs.ts`): `searchJobs`, `getJob`,
+`getJobByUrl`, `getJobStats` and `reportJob`, served to Alia on `/_oxy/mcp` and
+to OAuth MCP clients on `mcp.clarity.surf`. A request like *"find remote React
+Native jobs in Europe posted this week"* becomes a structured `searchJobs` call.
+The tool's description carries the grounding rules — a field missing from a
+result was not stated by the source and must never be inferred, the canonical
+source must always be shown, and only the ranking signals above are used — and
+its handler never receives the effective account, so a search, a view or a
+report by a person is not attributable to that person.
 
 ## Portal
 

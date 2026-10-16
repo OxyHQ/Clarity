@@ -2,10 +2,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import {
-  buildClarityAgentBootstrap,
-  CLARITY_AGENT_MANIFEST,
-} from '../lib/clarity-agent-manifest.js';
+import { CLARITY_CAPABILITY_CATALOG } from '../capabilities/clarity.catalog.js';
+import { CLARITY_IDENTITY } from '../lib/clarity-identity.js';
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const repoRoot = resolve(packageRoot, '..', '..');
@@ -21,13 +19,24 @@ function relativeToRepo(file: string): string {
   return relative(repoRoot, file).replaceAll('\\', '/');
 }
 
+/** Every TypeScript file of the backend, the files that configure its runtime, and the deploy. */
+function backendRuntimeSource(): string {
+  const files = [
+    ...filesUnder(join(packageRoot, 'src')).filter(
+      (file) => file.endsWith('.ts') && !file.includes('__tests__'),
+    ),
+    join(packageRoot, '.env.example'),
+    join(packageRoot, 'build.ts'),
+    join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
+    join(repoRoot, '.github', 'scripts', 'smoke-backend-image.sh'),
+  ].filter((file) => !file.endsWith('architecture-gates.test.ts'));
+  return files.map((file) => `${relativeToRepo(file)}\n${readFileSync(file, 'utf8')}`).join('\n');
+}
+
 describe('architecture gates', () => {
-  it('pins the product, public app, backend payer identity, prompt and least-privilege grants', () => {
-    expect(CLARITY_AGENT_MANIFEST).toMatchObject({
+  it('pins the product, public app and backend identity and the exact backend scope set', () => {
+    expect(CLARITY_IDENTITY).toMatchObject({
       projectAccountId: '01a0646a-078f-7f53-848d-a0f82d9f7fa6',
-      botAccountId: '01a0646a-078f-7120-a993-a03c180c81b0',
-      agentId: '01a0646a-078f-7642-95ef-439952f4f3f9',
-      bindingApplicationId: '01a0648b-8d73-70ad-8e67-1c07ddc5eb6e',
       publicApplication: {
         applicationId: '01a0646a-2382-74a3-a795-788924d55722',
         credentialId: '01a0646e-2508-7048-8c08-b1f7b3af634f',
@@ -35,74 +44,29 @@ describe('architecture gates', () => {
       },
       backendApplication: {
         applicationId: '01a0648b-8d73-70ad-8e67-1c07ddc5eb6e',
-        credentialId: '01a0648b-8d74-7240-adba-80707fdfdf9c',
         clientId: 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78',
       },
     });
-    expect(CLARITY_AGENT_MANIFEST.workloadIdentity).toEqual({
+    expect(CLARITY_IDENTITY.workloadIdentity).toEqual({
       provider: 'aws-iam',
       roleArn: 'arn:aws:iam::237343248947:role/oxy-clarity-task',
       attestationId: 'wl_1553bb11eb957512b3cdc956',
     });
-    expect(CLARITY_AGENT_MANIFEST.publicApplication.scopes).toEqual(['user:read']);
-    expect(CLARITY_AGENT_MANIFEST.backendApplication.scopes).toEqual([
+    expect(CLARITY_IDENTITY.publicApplication.scopes).toEqual(['user:read']);
+    // Embeddings on kaana.ai, and the capability catalogue's three Oxy lanes.
+    expect(CLARITY_IDENTITY.backendApplication.scopes).toEqual([
       'user:read',
       'inference:invoke',
+      'catalogs:write',
+      'capabilities:read',
+      'capability-audit:write',
     ]);
-    expect(CLARITY_AGENT_MANIFEST.capabilityGrants).toEqual(['web', 'artifacts', 'memory']);
-    expect(CLARITY_AGENT_MANIFEST.capabilityGrants).not.toEqual(
-      expect.arrayContaining([
-        'browser',
-        'shell',
-        'files',
-        'messaging',
-        'automation',
-        'delegation',
-        'mcp',
-        'integration',
-        'agent',
-      ]),
-    );
-    const prompt = readFileSync(join(packageRoot, 'prompts', 'base.md'), 'utf8');
-    expect(buildClarityAgentBootstrap(prompt).systemPrompt.content).toBe(prompt);
-
-    const boundary = readFileSync(join(packageRoot, 'src', 'lib', 'alia-agent-client.ts'), 'utf8');
-    expect(boundary).not.toContain('req.accessToken');
-    expect(boundary).toContain("'X-Oxy-User-Id': userId");
-
-    const botRoutes = readFileSync(join(packageRoot, 'src', 'routes', 'bots.ts'), 'utf8');
-    expect(botRoutes).toMatch(/check-token\/:token', authenticateToken,/);
-
-    const conversationRoutes = readFileSync(
-      join(packageRoot, 'src', 'routes', 'conversations.ts'),
-      'utf8',
-    );
-    expect(conversationRoutes).not.toContain('agentId');
-
-    const frontend = readFileSync(
-      join(repoRoot, 'packages', 'frontend', 'hooks', 'useStreamingChat.ts'),
-      'utf8',
-    );
-    const requestBody = frontend.slice(
-      frontend.indexOf('body: JSON.stringify({'),
-      frontend.indexOf('signal: abortControllerRef.current.signal'),
-    );
-    expect(requestBody).not.toMatch(
-      /agentId|agentMode|skillIds?|mcpServerId|fallbackPolicy|reasoningEffort|thinkingMode|webSearch|role:\s*['"]system/,
-    );
-
-    const modelSelector = readFileSync(
-      join(repoRoot, 'packages', 'frontend', 'components', 'model-selector.tsx'),
-      'utf8',
-    );
-    expect(modelSelector).toContain("CLARITY_THINKING_MODEL_ID = 'clarity-thinking'");
-    expect(modelSelector).not.toMatch(/id\.includes\(['"]thinking|thinkingModels\[[^\]]+\]/);
 
     const layout = readFileSync(
       join(repoRoot, 'packages', 'frontend', 'app', '_layout.tsx'),
       'utf8',
     );
-    expect(layout).toContain(`clientId="${CLARITY_AGENT_MANIFEST.publicApplication.clientId}"`);
+    expect(layout).toContain(`clientId="${CLARITY_IDENTITY.publicApplication.clientId}"`);
     const deployment = readFileSync(
       join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
       'utf8',
@@ -125,6 +89,92 @@ describe('architecture gates', () => {
     expect(deployScript).toContain('Provision it in oxy-infra first');
     expect(deployScript).toContain('Rolling $service back');
     expect(deployScript).not.toContain('--force-new-deployment');
+  });
+
+  it('never calls Alia: the assistant is an ordinary Alia agent the frontend opens (Alia ADR 0020)', () => {
+    const source = backendRuntimeSource();
+    // No Alia origin, no pinned agent, no relay of a person as a header, no
+    // product-paid chat, no proxy into Alia's own product surfaces.
+    expect(source).not.toMatch(/api\.alia\.onl|ALIA_API_URL|CLARITY_ALIA_AGENT_ID/);
+    expect(source).not.toMatch(/X-Oxy-User-Id|X-Oxy-Requester-Assertion|RequesterAssertion/i);
+    expect(source).not.toMatch(/proxyAlia|fetchAlia|completeAsClarityAgent|alia-agent-client/);
+    expect(source).not.toMatch(/clarity-agent-manifest|agentId|agent_id|aliaAgent/);
+    expect(existsSync(join(packageRoot, 'prompts'))).toBe(false);
+
+    const index = readFileSync(join(packageRoot, 'src', 'index.ts'), 'utf8');
+    for (const retired of [
+      '/conversations',
+      '/clarity/search',
+      '/credits',
+      '/analytics',
+      '/memory',
+      '/audit',
+      '/triggers',
+      '/bots',
+      '/models',
+      '/internal',
+    ]) {
+      expect(index).not.toContain(`app.use('${retired}'`);
+    }
+    const v1 = readFileSync(join(packageRoot, 'src', 'routes', 'v1.ts'), 'utf8');
+    expect(v1).not.toMatch(/chat\/completions|\/models|resolve-model|report-usage/);
+    const schema = readFileSync(join(packageRoot, 'src', 'db', 'schema', 'index.ts'), 'utf8');
+    expect(schema).not.toMatch(/clarity_conversations|clarity_messages|model_ids/);
+  });
+
+  it('draws every conversation with Alia’s SDK and keeps no chat of its own (Alia ADR 0018/0020)', () => {
+    const frontendRoot = join(repoRoot, 'packages', 'frontend');
+    const frontendPackage = JSON.parse(readFileSync(join(frontendRoot, 'package.json'), 'utf8'));
+    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('^19.0.0');
+    const agent = readFileSync(join(frontendRoot, 'lib', 'clarity-agent.ts'), 'utf8');
+    expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
+    const conversation = readFileSync(
+      join(frontendRoot, 'components', 'chat', 'clarity-conversation.tsx'),
+      'utf8',
+    );
+    expect(conversation).toContain('agent={CLARITY_AGENT}');
+
+    const frontend = ['app', 'components', 'hooks', 'lib']
+      .flatMap((dir) => filesUnder(join(frontendRoot, dir)))
+      .filter((file) => /\.(ts|tsx)$/.test(file) && !file.includes('__tests__'))
+      .map((file) => `${relativeToRepo(file)}\n${readFileSync(file, 'utf8')}`)
+      .join('\n');
+    // No stream of its own, no Clarity model id, no route the backend deleted.
+    expect(frontend).not.toMatch(/text\/event-stream|clarity\.(?:reasoning|tool_result|title)\b/);
+    expect(frontend).not.toMatch(/clarity-(?:fast|v1|pro|thinking|pro-max)\b/);
+    expect(frontend).not.toMatch(
+      /['"`]\/(?:clarity\/search|conversations|credits|analytics|memory|audit|triggers|bots)\b/,
+    );
+    expect(frontend).not.toMatch(
+      /\/v1\/chat\/completions|\/suggestions\/generate|\/auth\/authorize/,
+    );
+  });
+
+  it('keeps no compatibility answer for a removed route', () => {
+    for (const file of filesUnder(join(packageRoot, 'src', 'routes'))) {
+      if (file.includes('__tests__')) continue;
+      expect(readFileSync(file, 'utf8'), relativeToRepo(file)).not.toMatch(/status\(410\)/);
+    }
+  });
+
+  it('serves its catalogue on its own hosts, ahead of every shared middleware', () => {
+    expect(CLARITY_CAPABILITY_CATALOG).toMatchObject({
+      appId: 'clarity',
+      internalBaseUrl: 'https://api.clarity.surf',
+      internalTransport: 'mcp',
+      externalMcp: { resource: 'https://mcp.clarity.surf' },
+    });
+    const index = readFileSync(join(packageRoot, 'src', 'index.ts'), 'utf8');
+    const mounted = index.indexOf('mountCapabilityLanes(app, capabilityLanes)');
+    expect(mounted).toBeGreaterThan(0);
+    for (const later of [
+      "app.use(\n  '/v1',\n  cors(",
+      'app.use(express.json(',
+      'app.use(requireRuntimeReady)',
+    ]) {
+      expect(index.indexOf(later), later).toBeGreaterThan(mounted);
+    }
+    expect(index).toContain('void capabilityLanes.internal.bound()');
   });
 
   it('reads runtime secrets from SSM only: no workflow writes SSM or reads an app secret', () => {
@@ -314,16 +364,12 @@ describe('architecture gates', () => {
     expect(source).toContain('VAPID_PRIVATE_KEY');
   });
 
-  it('keeps Alia-owned product surfaces allowlisted and disables pre-cutover seeding', () => {
+  it('mounts the signed account-erasure event ahead of readiness and seeds nothing', () => {
     const index = readFileSync(join(packageRoot, 'src', 'index.ts'), 'utf8');
-    expect(index).toContain("app.use('/memory', memoryRouter)");
-    expect(index).toContain("app.use('/audit', auditRouter)");
-    expect(index).toContain("app.use('/triggers', triggersRouter)");
-    expect(index).toContain("app.use('/bots', botsRouter)");
     expect(index).toContain('app.use(requireRuntimeReady)');
     expect(index).not.toMatch(/seedSuggestions|seed-suggestions/);
-    // Agent-runtime webhooks remain Alia-owned. Oxy's narrowly mounted signed
-    // account-erasure event is an identity lifecycle boundary, not an agent tool.
+    // Oxy's narrowly mounted signed account-erasure event is an identity
+    // lifecycle boundary; there is no general webhook surface.
     expect(index).not.toContain("app.use('/webhooks'");
     expect(index).toContain("app.use('/webhooks/oxy/account-events', oxyAccountEventsRouter)");
     expect(
@@ -334,17 +380,8 @@ describe('architecture gates', () => {
       'utf8',
     );
     expect(accountEvents).toContain('oxyClient.accountEvents.verify');
-    expect(accountEvents).toContain(
-      'audience: CLARITY_AGENT_MANIFEST.backendApplication.applicationId',
-    );
-    expect(accountEvents).not.toContain('proxyAliaJson');
+    expect(accountEvents).toContain('audience: CLARITY_IDENTITY.backendApplication.applicationId');
     expect(accountEvents).toContain('eraseDeletedAccountExperience(event.userId, event.eventId)');
-
-    for (const route of ['memory.ts', 'audit.ts', 'triggers.ts', 'bots.ts']) {
-      const source = readFileSync(join(packageRoot, 'src', 'routes', route), 'utf8');
-      expect(source).toContain('proxyAliaJson');
-      expect(source).not.toMatch(/req\.(?:originalUrl|url)/);
-    }
   });
 
   it('keeps HTTP and Socket.IO closed until the exact cutover attestation is ready', () => {
@@ -359,7 +396,7 @@ describe('architecture gates', () => {
     );
     expect(socket).toContain('getRuntimeReadiness');
     expect(socket).not.toMatch(/subscribe-(?:agent|workflow|canvas)|agent-approval|agent-activity/);
-    expect(schema).not.toMatch(/agentId:\s*text\('agent_id'\)|agentInfo:\s*jsonb\('agent_info'\)/);
+    expect(schema).not.toMatch(/agentId|agentInfo|aliaAgentIdSha256/);
   });
 
   it('keeps every generated migration explicitly phased and bind-free', () => {

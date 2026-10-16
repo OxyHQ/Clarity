@@ -6,7 +6,8 @@ import { searchDocuments } from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
 import { answeredToAny } from '../../../search/public-document.js';
 import { recordDiscoveredPages } from '../../../search/web-discovery.js';
-import { fetchedDocuments, rankedSearch, type SearchInput } from '../search-platform.js';
+import { rankedSearch, type SearchInput } from '../../../search/document-search.js';
+import { fetchedDocuments } from '../search-platform.js';
 
 /**
  * `POST /v1/search`'s ranking against real Postgres. The SQL scores a document

@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import express from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CLARITY_AGENT_MANIFEST } from '../../lib/clarity-agent-manifest.js';
+import { CLARITY_IDENTITY } from '../../lib/clarity-identity.js';
 const mocks = { verify: vi.fn(), erase: vi.fn() };
 vi.mock('../../middleware/auth.js', () => ({
   oxyClient: { accountEvents: { verify: mocks.verify } },
@@ -42,7 +42,7 @@ describe('verified Oxy account deletion', () => {
     mocks.verify.mockResolvedValue({ userId: 'deleted-user', eventId: 'event-1' });
     expect((await request()).status).toBe(202);
     expect(mocks.verify).toHaveBeenCalledWith('header.payload.signature', {
-      audience: CLARITY_AGENT_MANIFEST.backendApplication.applicationId,
+      audience: CLARITY_IDENTITY.backendApplication.applicationId,
     });
     expect(mocks.erase).toHaveBeenCalledWith('deleted-user', 'event-1');
   });

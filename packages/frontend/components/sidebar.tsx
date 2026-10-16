@@ -5,12 +5,11 @@ import {
   User,
   Settings2,
   CreditCard,
-  Palette,
   MessageSquarePlus,
-  Shield,
   ArrowLeft,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
+import { type Conversation, useAskAgent, useConversations } from '@alia.onl/sdk';
 import { AliaAvatarIcon } from '@alia.onl/sdk/avatar';
 import type { SidebarNavItem, SidebarTree, SidebarIcon, SidebarProps } from '@oxy.so/bloom/sidebar';
 import {
@@ -33,19 +32,11 @@ import {
   RiUserAddLine,
 } from '@oxy.so/bloom/icons';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useStore } from '@/lib/globalStore';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useRouter, usePathname } from 'expo-router';
 import { useOxy, openAccountDialog } from '@oxy.so/services';
-import { useQueryClient } from '@tanstack/react-query';
-import { queryKeys } from '@/lib/hooks/query-keys';
-import {
-  useConversations,
-  useCreateConversation,
-  prefetchConversation,
-} from '@/lib/hooks/use-conversations';
 import { ClarityWordmark } from '@/components/ui/clarity-wordmark';
-import type { HydratedConversation } from '@/lib/hooks/use-conversations';
+import { CLARITY_AGENT_ID, conversationPath } from '@/lib/clarity-agent';
 
 const VISIBLE_HISTORY_COUNT = 8;
 
@@ -60,8 +51,6 @@ const Back = adaptLucideIcon(ArrowLeft);
 const Account = adaptLucideIcon(User);
 const General = adaptLucideIcon(Settings2);
 const Billing = adaptLucideIcon(CreditCard);
-const Personalization = adaptLucideIcon(Palette);
-const Security = adaptLucideIcon(Shield);
 const Feedback = adaptLucideIcon(MessageSquarePlus);
 
 /* ================================================================
@@ -94,19 +83,16 @@ function relativeMeta(date: Date, t: (key: string) => string): string {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function buildHistoryTree(
-  conversations: HydratedConversation[],
-  t: (key: string) => string,
-): SidebarTree {
-  const today: HydratedConversation[] = [];
-  const yesterday: HydratedConversation[] = [];
-  const earlier: HydratedConversation[] = [];
+function buildHistoryTree(conversations: Conversation[], t: (key: string) => string): SidebarTree {
+  const today: Conversation[] = [];
+  const yesterday: Conversation[] = [];
+  const earlier: Conversation[] = [];
   for (const conv of conversations) {
     if (isToday(conv.updatedAt)) today.push(conv);
     else if (isYesterday(conv.updatedAt)) yesterday.push(conv);
     else earlier.push(conv);
   }
-  const toItems = (list: HydratedConversation[]) =>
+  const toItems = (list: Conversation[]) =>
     list.map((conv) => ({
       key: conv.id,
       label: conv.title || t('sidebar.newSearch'),
@@ -144,9 +130,7 @@ export function useSettingsSidebarConfig(): SidebarProps {
 
   const activeId = React.useMemo(() => {
     if (pathname.includes('/settings/general')) return 'general';
-    if (pathname.includes('/settings/usage')) return 'usage';
-    if (pathname.includes('/settings/personalization')) return 'personalization';
-    if (pathname.includes('/settings/security')) return 'security';
+    if (pathname.includes('/settings/billing')) return 'billing';
     if (pathname.includes('/settings/feedback')) return 'feedback';
     return 'account';
   }, [pathname]);
@@ -166,22 +150,10 @@ export function useSettingsSidebarConfig(): SidebarProps {
       onPress: () => router.push('/(app)/settings/general'),
     },
     {
-      key: 'usage',
+      key: 'billing',
       label: t('settings.sections.billing'),
       icon: Billing,
-      onPress: () => router.push('/(app)/settings/usage'),
-    },
-    {
-      key: 'personalization',
-      label: t('settings.sections.personalization'),
-      icon: Personalization,
-      onPress: () => router.push('/(app)/settings/personalization'),
-    },
-    {
-      key: 'security',
-      label: t('settings.sections.security'),
-      icon: Security,
-      onPress: () => router.push('/(app)/settings/security'),
+      onPress: () => router.push('/(app)/settings/billing'),
     },
     {
       key: 'feedback',
@@ -209,25 +181,24 @@ export function useSettingsSidebarConfig(): SidebarProps {
    Main search sidebar config — Clarity's real data/handlers
    ================================================================ */
 
-export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void }): SidebarProps {
+export function useSearchSidebarConfig(): SidebarProps {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
+  const { ask } = useAskAgent();
 
-  const chatId = useStore((s) => s.chatId);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const sidebarMode = useUIStore((s) => s.sidebarMode);
   const setSidebarMode = useUIStore((s) => s.setSidebarMode);
 
-  const { data } = useConversations();
-  const createMut = useCreateConversation();
+  // Clarity's conversations are Alia's, with Clarity's agent.
+  const { data } = useConversations({ agentId: CLARITY_AGENT_ID });
   const { user, isAuthenticated, logout, showBottomSheet, oxyServices } = useOxy();
-  const qc = useQueryClient();
 
   const allConvs = React.useMemo(() => {
     const all = data?.pages.flatMap((p) => p.conversations) ?? [];
-    return all.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    return [...all].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }, [data]);
 
   const historyTree = React.useMemo(
@@ -235,27 +206,15 @@ export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void })
     [allConvs, t],
   );
 
-  const handleNewSearch = React.useCallback(() => router.replace('/(app)'), [router]);
-  const handleNewChat = React.useCallback(async () => {
-    const conv = await createMut.mutateAsync();
-    router.replace(`/(app)/c/${conv.id}`);
-  }, [createMut, router]);
-  const handlePrefetch = React.useCallback((id: string) => prefetchConversation(qc, id), [qc]);
+  // The conversation on screen, from the address it owns.
+  const openId = pathname.startsWith('/c/')
+    ? decodeURIComponent(pathname.slice('/c/'.length).split('/')[0] ?? '')
+    : undefined;
+
+  const handleNewChat = React.useCallback(() => router.replace('/(app)'), [router]);
   const handleSelect = React.useCallback(
-    (id: string) => {
-      if (!qc.getQueryData(queryKeys.conversations.detail(id))) {
-        const c = allConvs.find((x) => x.id === id);
-        if (c)
-          qc.setQueryData(
-            queryKeys.conversations.detail(id),
-            { ...c, messages: [] },
-            { updatedAt: 0 },
-          );
-      }
-      handlePrefetch(id);
-      router.replace(`/(app)/c/${id}`);
-    },
-    [router, qc, allConvs, handlePrefetch],
+    (id: string) => router.replace(conversationPath(id)),
+    [router],
   );
   const handleHistory = React.useCallback(() => router.push('/(app)/history'), [router]);
   const handleDiscover = React.useCallback(() => router.push('/(app)/discover'), [router]);
@@ -271,7 +230,7 @@ export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void })
   }, [router, logout]);
   const handleLogin = React.useCallback(() => openAccountDialog(), []);
   const handleUpgrade = React.useCallback(() => router.push('/(biglayout)/subscribe'), [router]);
-  const handleBilling = React.useCallback(() => router.push('/(app)/settings/usage'), [router]);
+  const handleBilling = React.useCallback(() => router.push('/(app)/settings/billing'), [router]);
   const handleNotifications = React.useCallback(
     () => router.push('/(app)/notifications'),
     [router],
@@ -284,16 +243,21 @@ export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void })
     { key: 'discover', label: t('sidebar.discover'), icon: RiEarthLine, onPress: handleDiscover },
     { key: 'jobs', label: t('sidebar.jobs'), icon: Briefcase, onPress: handleJobs },
     { key: 'history', label: t('sidebar.history'), icon: RiTimeLine, onPress: handleHistory },
-    { key: 'ask-alia', label: t('sidebar.askAlia'), icon: AliaAvatarIcon, onPress: onAskAlia },
+    {
+      key: 'ask-alia',
+      label: t('sidebar.askAlia'),
+      icon: AliaAvatarIcon,
+      onPress: () => ask('alia'),
+    },
   ];
 
   const selected = React.useMemo(() => {
-    if (allConvs.some((c) => c.id === chatId?.id)) return chatId?.id;
+    if (openId && allConvs.some((c) => c.id === openId)) return openId;
     if (pathname.startsWith('/discover')) return 'discover';
     if (pathname.startsWith('/jobs')) return 'jobs';
     if (pathname.startsWith('/history')) return 'history';
     return undefined;
-  }, [allConvs, chatId, pathname]);
+  }, [allConvs, openId, pathname]);
 
   const avatarUrl = user?.avatar ? oxyServices.assets.publicUrl(user.avatar, 'thumb') : undefined;
   const displayName = user?.name?.displayName || t('common.user');
@@ -311,7 +275,7 @@ export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void })
     mode: sidebarMode,
     onModeChange: (key) => setSidebarMode(key as 'search' | 'computer'),
     tree: historyTree,
-    selectedTreeItem: chatId?.id,
+    selectedTreeItem: openId,
     onTreeItemPress: (item) => handleSelect(item.key),
     collapsed: sidebarCollapsed,
     onCollapsedChange: setSidebarCollapsed,
@@ -414,7 +378,7 @@ export function useSearchSidebarConfig({ onAskAlia }: { onAskAlia: () => void })
     logo: {
       wordmark: <ClarityWordmark height={24} width={62} />,
       href: '/(app)',
-      onPress: handleNewSearch,
+      onPress: handleNewChat,
       accessibilityLabel: 'Clarity',
     },
   };

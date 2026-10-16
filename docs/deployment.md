@@ -75,8 +75,6 @@ tokens, and no workflow writes SSM. A new secret is written to SSM FIRST, then
 named in the task definition: a task naming a missing parameter fails at start.
 
 - `DATABASE_URL`: dedicated Clarity PostgreSQL database
-- `CLARITY_ALIA_AGENT_ID`: real provisioned Clarity bot/agent record
-- `ALIA_API_URL`: Alia product API origin
 - No Oxy key pair. Both ECS services run the dedicated `oxy-clarity-task` role
   and attest it (oxy ADR 0026): the task signs an STS `GetCallerIdentity`
   request, Oxy replays it and mints the service token. That token carries the
@@ -97,57 +95,55 @@ boundary and must not be described as a provider key. Kaana's only canonical
 signed origin is `https://kaana.ai`; neither Clarity nor Alia may substitute an
 `oxy.so` alias.
 
-The exact deployment identity is: project/payer
-`01a0646a-078f-7f53-848d-a0f82d9f7fa6`, bot account
-`01a0646a-078f-7120-a993-a03c180c81b0`, private Alia agent
-`01a0646a-078f-7642-95ef-439952f4f3f9`, backend app
+The exact deployment identity is: project account
+`01a0646a-078f-7f53-848d-a0f82d9f7fa6`, backend app
 `01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`, and backend task role
-`arn:aws:iam::237343248947:role/oxy-clarity-task`. Match primary keys byte for byte and
-never discover or rebind them by name, list order or fallback. The public
-sign-in app `01a0646a-2382-74a3-a795-788924d55722` remains separate and has
-only `user:read`; it must never authenticate backend inference.
+`arn:aws:iam::237343248947:role/oxy-clarity-task`. Match primary keys byte for
+byte and never discover or rebind them by name, list order or fallback. The
+public sign-in app `01a0646a-2382-74a3-a795-788924d55722` remains separate and
+has only `user:read`. The backend's token carries exactly `user:read`,
+`inference:invoke` (search embeddings), `catalogs:write` with the application
+capability `catalog:clarity`, `capabilities:read` and `capability-audit:write`;
+`clarity-service-auth.ts` refuses any other set. The Clarity agent is Alia's
+(see [Clarity's assistant](assistant)); no deployment value names it.
 
 ## Health contract
 
 - `GET /health/live`: process is running.
-- `GET /health/ready`: PostgreSQL is connected, the exact data snapshot has a
-  `cutover` attestation, `CLARITY_ALIA_AGENT_ID` matches the canonical agent
-  byte for byte, and the exact backend service credential is configured.
+- `GET /health/ready`: PostgreSQL is connected, the data snapshot has a
+  `cutover` or `fresh_install` attestation, and the process can attest its
+  backend service identity.
 
 The ALB must use `/health/ready` as the readiness/deployment gate. A live
 but unattested process is deliberately not production-ready. The same check is
 enforced in front of every product HTTP route and every Socket.IO handshake, so
 a direct origin cannot bypass load-balancer health.
 
+## Hosts
+
+- `api.clarity.surf` — the API, and `POST /_oxy/mcp` (Alia's lane onto the
+  capability catalogue).
+- `mcp.clarity.surf` — the public OAuth MCP (`/mcp`,
+  `/.well-known/oauth-protected-resource`), served by the same `clarity-api`
+  service. It needs its own ACM certificate (validated in the `clarity.surf`
+  Cloudflare zone), a listener certificate on the shared HTTPS listener, the
+  host header on Clarity's listener rule, and a DNS-only CNAME, all in
+  oxy-infra. The service refuses (421) an MCP request that reaches it on any
+  other host.
+
 ## Before enabling traffic
 
 1. Provision PostgreSQL and run the genesis `all` migration with the exact
    `clarity` target name from a one-shot task inside the VPC.
-2. Complete and reconcile the source inventory/backfill.
-3. Reconcile the checked-in bootstrap manifest into Alia: exact bot/agent IDs,
-   backend-app binding, `prompts/base.md` hash and exactly the grants `web`,
-   `artifacts`, `memory`.
-4. Provision the backend service credential into `/oxy/clarity/` in SSM and verify
-   its minted token has
-   only `user:read` + `inference:invoke`, the fixed backend app/credential IDs,
-   and the Clarity project as `ownerAccountId`.
-5. Prove an authenticated Clarity turn reaches Alia, Oxy and Kaana with one
-   correlation trail.
-6. Prove deep research returns progress, tools and citations through the
-   translated `clarity.*` stream.
-7. Prove a Clarity subscription event updates local product entitlement and
-   grants inference credit in Alia exactly once.
-8. Attest the exact snapshot using the documented confirmation command.
-9. Deploy and verify the running revision, image/spec, health payload and an
+2. Complete and reconcile the source inventory/backfill, or attest a fresh
+   install.
+3. Grant the backend application its five scopes and `catalog:clarity`, and
+   verify a minted token's scope set, app, credential handle and owner.
+4. Deploy, then confirm in the API log that the capability catalogue registered
+   (`Clarity internal MCP bound to its catalogue registration`).
+5. Verify the running revision, image/spec, health payload and an
    authenticated live request.
-10. Once no previous image remains, run and re-run the `post` migrations that
-    remove the retired per-conversation agent metadata.
-
-Alia owns channel bot registrations and webhook validation. Clarity exposes
-only the allowlisted Telegram/Discord token-check and user-link endpoints used
-by its authorization screen. `EXPO_PUBLIC_TELEGRAM_BOT_USERNAME` is an optional
-public link and stays blank until that canonical Alia channel bot is provisioned;
-it is not a secret and no fallback username is invented.
+6. Once no previous image remains, run and re-run the `post` migrations.
 
 The application workflow never owns or copies the Oxy credential. Its SSM
 binding belongs to `oxy-infra` and Oxy's credential provisioning path. Do not

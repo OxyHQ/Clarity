@@ -204,6 +204,20 @@
       "when": 1792055533568,
       "tag": "0028_profile_experience",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1792167564713,
+      "tag": "0029_capability_effect_receipts",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1792167565788,
+      "tag": "0030_drop_clarity_chat_and_agent",
+      "breakpoints": true
     }
   ]
 }

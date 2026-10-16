@@ -1,16 +1,15 @@
 /**
  * Plan access & entitlements helper.
- * Resolves which models and features a user can access based on their subscription(s).
+ * Resolves which plan features a user has from their subscription(s): the
+ * features Clarity's own product reads, and the ones the capability
+ * catalogue's feature gates answer Alia with (`capabilities/catalog/features.ts`).
  * Results are cached per-user with a short TTL.
  */
 
 import { findActiveSubscriptions } from '../db/subscription-repository.js';
 import { getPlans, getPlanFeatures } from './product-catalogue.js';
 
-const FREE_MODEL_IDS = ['clarity-fast', 'clarity-v1'];
-
 export interface Entitlements {
-  allowedModelIds: string[];
   features: Record<string, boolean | number>;
   planId: string | null;
 }
@@ -35,11 +34,6 @@ export async function getUserEntitlements(userId: string): Promise<Entitlements>
   const plans = allPlans.filter((p) => planIds.includes(p.planId));
   const planFeatures = allPlanFeatures.filter((pf) => pf.enabled !== false);
 
-  const modelIds = new Set(FREE_MODEL_IDS);
-  for (const plan of plans) {
-    for (const id of plan.modelIds ?? []) modelIds.add(id);
-  }
-
   const features: Record<string, boolean | number> = {};
   for (const pf of planFeatures) {
     if (pf.limitValue != null) {
@@ -58,7 +52,6 @@ export async function getUserEntitlements(userId: string): Promise<Entitlements>
   ).planId;
 
   const result: Entitlements = {
-    allowedModelIds: [...modelIds],
     features,
     planId: highestPlan,
   };

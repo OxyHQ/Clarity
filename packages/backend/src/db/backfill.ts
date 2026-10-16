@@ -17,11 +17,9 @@ import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './i
 import {
   backfillReceipts,
   billingCustomers,
-  conversations,
   creditPackages,
   features,
   feedback,
-  messages,
   notifications,
   planFeatures,
   plans,
@@ -164,62 +162,8 @@ async function insertTarget(
 ): Promise<boolean> {
   const id = sourceId(row._id);
   const createdAt = dateValue(row.createdAt, 'createdAt');
-  // Historical Message documents never had `updatedAt`; every other local
-  // collection did. Do not manufacture a timestamp while preserving IDs.
-  const updatedAt =
-    target === 'clarity_messages' ? createdAt : dateValue(row.updatedAt, 'updatedAt');
+  const updatedAt = dateValue(row.updatedAt, 'updatedAt');
   switch (target) {
-    case 'clarity_conversations':
-      return (
-        (
-          await tx
-            .insert(conversations)
-            .values({
-              id,
-              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-              conversationId: text(row.conversationId, 'conversationId'),
-              title: text(row.title ?? 'New chat', 'title'),
-              isManualTitle: booleanValue(row.isManualTitle, false),
-              lastMessage: optionalText(row.lastMessage, 'lastMessage'),
-              source: text(row.source ?? 'app', 'source'),
-              folderId: optionalText(row.folderId, 'folderId'),
-              icon: optionalText(row.icon, 'icon'),
-              iconColor: optionalText(row.iconColor, 'iconColor'),
-              isFavorite: booleanValue(row.isFavorite, false),
-              isPublic: booleanValue(row.isPublic, false),
-              createdAt,
-              updatedAt,
-            })
-            .onConflictDoNothing()
-            .returning({ id: conversations.id })
-        ).length === 1
-      );
-    case 'clarity_messages':
-      return (
-        (
-          await tx
-            .insert(messages)
-            .values({
-              id,
-              messageId: optionalText(row.id, 'id'),
-              oxyUserId: text(row.oxyUserId, 'oxyUserId'),
-              conversationId: text(row.conversationId, 'conversationId'),
-              role: text(row.role, 'role'),
-              content:
-                row.content === undefined
-                  ? (() => {
-                      throw new Error('content is required');
-                    })()
-                  : row.content,
-              vote: optionalText(row.vote, 'vote'),
-              toolInvocations: Array.isArray(row.toolInvocations) ? row.toolInvocations : [],
-              audioUrl: optionalText(row.audioUrl, 'audioUrl'),
-              createdAt,
-            })
-            .onConflictDoNothing()
-            .returning({ id: messages.id })
-        ).length === 1
-      );
     case 'clarity_suggestions':
       return (
         (
@@ -273,7 +217,6 @@ async function insertTarget(
               creditsLabel: text(row.creditsLabel ?? '', 'creditsLabel'),
               isFeatured: booleanValue(row.isFeatured, false),
               sortOrder: integer(row.sortOrder, 'sortOrder', 0),
-              modelIds: strings(row.modelIds, 'modelIds'),
               isActive: booleanValue(row.isActive, true),
               isFree: booleanValue(row.isFree, false),
               stripeProductId: optionalText(row.stripeProductId, 'stripeProductId'),
@@ -533,8 +476,6 @@ async function importRecord(
 }
 
 const targetTables = {
-  clarity_conversations: conversations,
-  clarity_messages: messages,
   clarity_suggestions: suggestions,
   clarity_plans: plans,
   clarity_features: features,
@@ -603,13 +544,7 @@ async function importCollection(manifestPath: string, item: CutoverCollection): 
 function localOrder(item: CutoverCollection): number {
   if (item.disposition.kind !== 'clarity-postgres') return Number.MAX_SAFE_INTEGER;
   const target = item.disposition.targetTable;
-  if (
-    target === 'clarity_conversations' ||
-    target === 'clarity_plans' ||
-    target === 'clarity_features'
-  )
-    return 0;
-  if (target === 'clarity_messages' || target === 'clarity_plan_features') return 1;
+  if (target === 'clarity_plan_features') return 1;
   return 0;
 }
 
@@ -639,7 +574,9 @@ export async function runBackfill(manifestPath: string, databaseUrl: string): Pr
       targetCounts[item.sourceName] =
         item.disposition.kind === 'clarity-postgres'
           ? await countTarget(item.disposition.targetTable)
-          : item.disposition.receipt.targetCount;
+          : item.disposition.kind === 'external'
+            ? item.disposition.receipt.targetCount
+            : 0;
     }
     await getDb()
       .insert(runtimeState)
@@ -647,7 +584,6 @@ export async function runBackfill(manifestPath: string, databaseUrl: string): Pr
         id: 'postgres-cutover',
         status: 'reconciled',
         sourceSnapshotHash: manifest.snapshot.inventorySha256,
-        aliaAgentIdSha256: manifest.runtimeEvidence.aliaAgentIdSha256,
         reconciledAt: new Date(),
         sourceCounts,
         targetCounts,
@@ -657,7 +593,6 @@ export async function runBackfill(manifestPath: string, databaseUrl: string): Pr
         set: {
           status: 'reconciled',
           sourceSnapshotHash: manifest.snapshot.inventorySha256,
-          aliaAgentIdSha256: manifest.runtimeEvidence.aliaAgentIdSha256,
           reconciledAt: new Date(),
           sourceCounts,
           targetCounts,

@@ -1,16 +1,16 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
-import { CLARITY_AGENT_MANIFEST } from '../clarity-agent-manifest.js';
+import { CLARITY_IDENTITY } from '../clarity-identity.js';
 import {
   assertExactClarityServiceClaims,
   hasExactClarityServiceConfiguration,
 } from '../clarity-service-auth.js';
 
-const CLIENT_ID = CLARITY_AGENT_MANIFEST.backendApplication.clientId;
-/** The backend credential retired with its key pair. */
-const RETIRED_CREDENTIAL_ID = CLARITY_AGENT_MANIFEST.backendApplication.credentialId;
-const ATTESTATION_ID = CLARITY_AGENT_MANIFEST.workloadIdentity.attestationId;
+const CLIENT_ID = CLARITY_IDENTITY.backendApplication.clientId;
+/** The backend credential retired with its key pair (oxy ADR 0026); no token naming it is Clarity's. */
+const RETIRED_CREDENTIAL_ID = '01a0648b-8d74-7240-adba-80707fdfdf9c';
+const ATTESTATION_ID = CLARITY_IDENTITY.workloadIdentity.attestationId;
 
 /** What ECS puts in a task's environment; its presence is what makes attesting possible. */
 const ON_ECS = { AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '/v2/credentials/abc-123' };
@@ -22,10 +22,10 @@ function env(overrides: Record<string, string | undefined> = {}): NodeJS.Process
 function serviceToken(overrides: Record<string, unknown> = {}): string {
   const payload = {
     type: 'service',
-    appId: CLARITY_AGENT_MANIFEST.backendApplication.applicationId,
+    appId: CLARITY_IDENTITY.backendApplication.applicationId,
     credentialId: ATTESTATION_ID,
-    ownerAccountId: CLARITY_AGENT_MANIFEST.projectAccountId,
-    scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+    ownerAccountId: CLARITY_IDENTITY.projectAccountId,
+    scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
     exp: Math.floor(Date.now() / 1000) + 3600,
     ...overrides,
   };
@@ -44,7 +44,7 @@ function serviceToken(overrides: Record<string, unknown> = {}): string {
 describe('the pinned workload attestation handle', () => {
   it('is exactly what oxy derives from the task role ARN', () => {
     const derived = `wl_${createHash('sha256')
-      .update(CLARITY_AGENT_MANIFEST.workloadIdentity.roleArn)
+      .update(CLARITY_IDENTITY.workloadIdentity.roleArn)
       .digest('hex')
       .slice(0, 24)}`;
     expect(ATTESTATION_ID).toBe(derived);
@@ -54,7 +54,7 @@ describe('the pinned workload attestation handle', () => {
   it('names the dedicated Clarity task role, never the shared one', () => {
     // The shared `oxy-ecs-task` is bound to no application by design; a service
     // attesting it would have no identity at all.
-    expect(CLARITY_AGENT_MANIFEST.workloadIdentity.roleArn).toBe(
+    expect(CLARITY_IDENTITY.workloadIdentity.roleArn).toBe(
       'arn:aws:iam::237343248947:role/oxy-clarity-task',
     );
   });
@@ -109,7 +109,7 @@ describe('Clarity service configuration', () => {
     // Clarity's PUBLIC app is a different application; it must not mint here.
     expect(
       hasExactClarityServiceConfiguration(
-        env({ OXY_SERVICE_API_KEY: CLARITY_AGENT_MANIFEST.publicApplication.clientId, ...ON_ECS }),
+        env({ OXY_SERVICE_API_KEY: CLARITY_IDENTITY.publicApplication.clientId, ...ON_ECS }),
       ),
     ).toBe(false);
   });
@@ -168,7 +168,7 @@ describe('Clarity service token claims', () => {
     { name: 'the handle with a suffix', credentialId: `${ATTESTATION_ID}x` },
     {
       name: 'Clarity’s public-app credential',
-      credentialId: CLARITY_AGENT_MANIFEST.publicApplication.credentialId,
+      credentialId: CLARITY_IDENTITY.publicApplication.credentialId,
     },
     { name: 'a missing credential id', credentialId: undefined },
     { name: 'a non-string credential id', credentialId: { id: ATTESTATION_ID } },
@@ -180,13 +180,20 @@ describe('Clarity service token claims', () => {
 
   it('still refuses a token from another application, payer or scope set', () => {
     const wrong = [
-      { appId: CLARITY_AGENT_MANIFEST.publicApplication.applicationId },
-      { ownerAccountId: CLARITY_AGENT_MANIFEST.botAccountId },
+      { appId: CLARITY_IDENTITY.publicApplication.applicationId },
+      // The Clarity agent's bot account: a token it pays for is not the backend's.
+      { ownerAccountId: '01a0646a-078f-7120-a993-a03c180c81b0' },
       { type: 'user' },
       { scopes: ['user:read'] },
-      { scopes: ['user:read', 'inference:invoke', 'files:read'] },
-      { scopes: ['user:read', 'inference:invoke', 'safety:decide'] },
-      { scopes: ['user:read', 'user:read'] },
+      // The scope set before the capability catalogue: one the backend no longer runs on.
+      { scopes: ['user:read', 'inference:invoke'] },
+      { scopes: [...CLARITY_IDENTITY.backendApplication.scopes, 'files:read'] },
+      {
+        scopes: [
+          ...CLARITY_IDENTITY.backendApplication.scopes.slice(1),
+          CLARITY_IDENTITY.backendApplication.scopes[1],
+        ],
+      },
       { scopes: [] },
     ];
     for (const overrides of wrong) {

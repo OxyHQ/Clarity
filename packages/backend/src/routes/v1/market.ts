@@ -9,10 +9,10 @@
  * carries the monthly `search_month` quota and is what a search-platform
  * customer buys. Market quotes are neither indexed by Clarity nor billable as
  * searches. Putting them behind `clarity:search` would hand every existing
- * search customer a market feed nobody granted them, and would force the two
- * consumers this exists for — Clarity's own Finance page and, later, Alia's
- * tool layer — to hold a corpus-search credential to read a price. It is not
- * `clarity:index` either: nothing here writes.
+ * search customer a market feed nobody granted them, and would force a machine
+ * consumer to hold a corpus-search credential to read a price. It is not
+ * `clarity:index` either: nothing here writes. (A person's agent reads quotes
+ * through the capability catalogue's `getMarketQuotes`, not through here.)
  */
 import { Router } from 'express';
 import { z } from 'zod';

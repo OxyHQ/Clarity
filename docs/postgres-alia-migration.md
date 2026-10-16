@@ -6,22 +6,21 @@ readiness is deliberately closed until the steps below produce real evidence.
 ## Resulting ownership
 
 Clarity code and deployment configuration contain no second datastore and no
-local inference runtime. Product tables are PostgreSQL/Drizzle. Chat calls the
-fixed Clarity agent in Alia. Credits and inference telemetry are read from
-Alia. Provider credentials are migrated separately into Kaana custody and are
-never copied into a Clarity file, environment variable or table.
+local inference runtime. Product tables are PostgreSQL/Drizzle. The assistant is
+an ordinary Alia agent; its conversations, credits and telemetry are Alia's, and
+Clarity's own historical conversations are not migrated (owner decision
+2026-10-16). Provider credentials are migrated separately into Kaana custody and
+are never copied into a Clarity file, environment variable or table.
 
 ## Schema and transactions
 
-The schema covers conversations/messages, suggestions, plans/features/plan
-features, the legacy credit-package catalogue retained for reconciliation,
-feedback, notifications, push/web-push registrations, product subscriptions,
-billing customer mapping, per-record backfill receipts and cutover state.
-
-Conversation metadata plus full message replacement is one PostgreSQL
-transaction. Messages reference the exact `(oxy_user_id, conversation_id)` and
-cascade on conversation delete. Source `_id` values are copied verbatim into
-text primary keys; public product IDs remain separate columns.
+The schema covers suggestions, plans/features/plan features, the legacy
+credit-package catalogue retained for reconciliation, feedback, notifications,
+push/web-push registrations, product subscriptions, billing customer mapping,
+per-record backfill receipts and cutover state. Source `_id` values are copied
+verbatim into text primary keys; public product IDs remain separate columns. A
+legacy plan's `modelIds` is not imported: plans unlock power levels through the
+plan features `power-level-<level>` (see [Clarity's assistant](assistant)).
 
 ## Migrations
 
@@ -36,8 +35,8 @@ DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
 ```
 
 Re-run the apply command; it must report no migrations to apply.
-After the new application revision is healthy and no previous image can write
-the retired per-conversation agent metadata, apply and re-run the `post` phase:
+After the new application revision is healthy and no previous image is serving,
+apply and re-run the `post` phase:
 
 ```bash
 DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
@@ -59,7 +58,9 @@ ID set. Each collection has one disposition:
 - `clarity-postgres`: bounded relative JSONL file, byte count and file hash,
   mapped to exactly one required Clarity target table;
 - `external`: Alia, Kaana, Oxy or an approved archive, with a receipt whose
-  exact target count and ID-set hash equal the source.
+  exact target count and ID-set hash equal the source;
+- `discarded`: counted in the inventory and not carried over — the legacy
+  conversation and message collections.
 
 The source inventory itself is content-bound by `inventorySha256`. Files are
 restricted to the manifest directory, the manifest is capped at 1 MiB, data
@@ -79,31 +80,21 @@ an append-only receipt in the same transaction as its target insert. A changed
 rerun or a pre-existing unreceipted target row fails. On success it reconciles
 exact receipt ID sets and exact target counts, then records status `reconciled`.
 
-## Cutover evidence
+## Cutover attestation
 
-The manifest also carries dated receipt IDs for:
-
-1. the real Clarity Alia agent answering an authenticated product turn;
-2. the same turn reaching Oxy inference;
-3. the same turn reaching an attested Kaana route;
-4. a subscription event granting Alia inference credit exactly once.
-
-The manifest stores only SHA-256 of the real agent ID. The deployment secret
-must hash to that value. After reviewing the exact snapshot hash:
+After reviewing the exact snapshot hash:
 
 ```bash
 DATABASE_URL=postgresql://... \
-CLARITY_ALIA_AGENT_ID=01a0646a-078f-7642-95ef-439952f4f3f9 \
 bun run --filter @clarity/backend db:attest-cutover -- \
   --manifest=/approved/export/manifest.json \
   --snapshot-hash=<exact-inventory-sha256> \
   --confirm=CUTOVER_CLARITY_TO_POSTGRES
 ```
 
-Only a matching `reconciled` row with the same agent-ID hash can become
-`cutover`. Until then `/health/ready` returns `503`, every product HTTP route
-returns `503`, and Socket.IO rejects the handshake. Changing the canonical
-agent or backend service configuration also closes those gates.
+Only a matching `reconciled` row can become `cutover`. Until then
+`/health/ready` returns `503`, every product HTTP route returns `503`, and
+Socket.IO rejects the handshake.
 
 ## Production blockers
 
@@ -113,22 +104,12 @@ agent or backend service configuration also closes those gates.
   provisioned;
 - source now targets the declared `api.clarity.surf` product API, but no DNS
   answer or deployed production revision has been observed for that origin;
-- the canonical bot/agent/backend-app IDs are pinned, but no dated evidence
-  proves Alia has reconciled the manifest, prompt hash, app binding and exact
-  `web`/`artifacts`/`memory` grants;
 - the declarations accept the backend service credential from the production
   platform's managed secret store, but no read-back proves that the live app
   has it;
-- the pre-existing Codea/Cowork developer authorization endpoints remain
-  explicit `410` responses until a canonical Oxy application-delegation
-  replacement is designed; this migration does not claim that flow works;
-- the Oxy inference edge dependency used by Alia is still an external rollout
-  dependency;
 - external migration receipts for historical credits/usage/memory/agent data
   and a live receipt proving Clarity reached Kaana's credential-backed route do
-  not yet exist; this is not a claim that Kaana's custody store itself is absent;
-- no production Stripe dual-webhook credit-grant test or deployed revision was
-  observed.
+  not yet exist; this is not a claim that Kaana's custody store itself is absent.
 
 Do not delete source data, enable traffic or mark the PR production-ready until
 all blockers are replaced with dated, exact evidence.

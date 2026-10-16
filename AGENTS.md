@@ -2,35 +2,47 @@
 
 > Universal standards live in `~/AGENTS.md`, Oxy-wide gotchas in `~/Oxy/AGENTS.md`. Documentation belongs in `docs/`, history in git, status in issues. This file holds only RULES, commands and pointers. **Budget: under 8 KB.**
 
-Clarity is an Expo product plus an Express product API. The assistant is one
-named Alia bot/agent. Chat flows `Clarity -> Alia -> Oxy inference -> Kaana`.
+Clarity is an Expo product plus an Express product API. Its assistant is an
+ordinary Alia agent (Alia ADR 0020): `docs/assistant.mdx`.
 
 ## Hard boundaries
 
 - PostgreSQL/Drizzle is the only Clarity datastore. Do not add another database
   driver, fallback, connection string, compatibility reader, or dual write.
-- Clarity owns product state: conversations, suggestions, notifications,
-  feedback, plan catalogue, subscriptions and entitlements.
-- Alia owns the agent runtime, tools, search/deep research, memory, citations,
-  inference credits and inference telemetry.
+- Clarity owns its product: search and indexing, Jobs, places, market, news,
+  Experience, suggestions, notifications, feedback, the plan catalogue,
+  subscriptions and entitlements.
+- Alia owns the assistant: the Clarity agent (prompt, character, families,
+  ceiling, feature gates), its conversations, memory, deep research, credits
+  and checkout, usage, audit, triggers and channel bots. **The backend never
+  calls Alia** — no proxy, no relay of a person as a header, no agent id, no
+  product-paid chat. Never re-add a Clarity conversation table or a Clarity
+  chat UI; the frontend draws every conversation with `@alia.onl/sdk`
+  (`AliaChatContent agent={CLARITY_AGENT}`), under the person's own session.
+- Alia reaches Clarity only through the capability catalogue
+  (`packages/backend/src/capabilities/`): one tool per person action, calling
+  the same use case as its route. The account a tool acts as comes ONLY from
+  the verified ticket (`effectiveAccountId`) or OAuth connection
+  (`activeAccountId`); input never names an account. Both MCP lanes mount
+  before CORS, body parsers and readiness. Bump the catalogue `version` with
+  any tool change. What has no tool is written in `capabilities/exclusions.ts`.
+- Plans unlock Alia features through feature gates: catalogue `features` answered
+  from plan features (`deep-research`, `power-level-<level>`). The person's Alia
+  credits pay for inference; Clarity never does.
+- No agent asks for approval; never add a confirmation step to a tool.
 - Oxy authorizes and orders exact inference routes. Kaana owns adapters,
   provider credentials and execution/failover within that signed order. No
   provider credential, adapter, routing table or direct provider endpoint
   belongs here.
-- Preserve the public product IDs in
-  `packages/backend/src/lib/clarity-models.ts`. Map by exact ID, never name,
-  array position, or sort order.
-- The canonical IDs, public/backend app split, prompt hash and grants live in
-  `packages/backend/src/lib/clarity-agent-manifest.ts`. Match them byte for byte;
-  do not trim, normalize, discover by name/list/order, or accept client rebinding.
-- Backend calls to Alia use only Clarity's Oxy service credential plus the
-  authenticated user's `X-Oxy-User-Id`. Never forward a human bearer. The token
-  must identify the exact backend app, credential, project payer and exact
-  `user:read` + `inference:invoke` scope set.
+- The canonical IDs live in `packages/backend/src/lib/clarity-identity.ts`.
+  Match them byte for byte; do not trim, normalize, discover by name/list/order,
+  or accept client rebinding. The backend token must identify the exact backend
+  app, workload handle, project owner and the exact scope set listed there.
 - Clarity Jobs indexes PUBLIC job postings. No applicant tracking, CV store,
   candidate profile or application data in Jobs, and no route that could disclose a
-  named user to an employer. Never present Clarity as the employer or source of
-  a listing it only indexed.
+  named user to an employer — Jobs catalogue tools never receive the effective
+  account. Never present Clarity as the employer or source of a listing it only
+  indexed.
 - Clarity Experience owns user-published personal work history, edited through
   the user session from Clarity or Mention. Keep its storage and APIs separate
   from Jobs, search, ranking and employer-facing candidate discovery.
@@ -80,12 +92,12 @@ tests. See `docs/postgres-alia-migration.md` for backfill and cutover commands.
 ## Pointers
 
 - `docs/index.mdx` — current architecture and ownership.
-- `docs/chat-api.mdx` — user-session chat and streaming boundary.
+- `docs/assistant.mdx` — the Alia agent, the capability catalogue, plan gates.
 - `docs/jobs.mdx` — Jobs vertical: extraction, projection, lifecycle, dedupe,
   ranking contract, ingestion boundary and portal.
 - `docs/postgres-alia-migration.md` — rehearsal, reconciliation and cutover.
 - `packages/backend/src/db/schema/index.ts` — product schema.
-- `packages/backend/src/lib/alia-agent-client.ts` — fixed-agent proxy.
+- `packages/backend/src/capabilities/clarity.catalog.ts` — the capability catalogue.
 - `packages/backend/src/search/jobs/` — Jobs extraction, projection and search.
 - `packages/backend/src/__tests__/architecture-gates.test.ts` — forbidden
   dependency/config regression gate.

@@ -1,7 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
-import { completeAsClarityAgent, fetchAliaJson } from '../lib/alia-agent-client.js';
 import { log } from '../lib/logger.js';
 import {
   createSuggestion,
@@ -14,22 +13,6 @@ import {
   updateOwnSuggestion,
   type SuggestionPatch,
 } from '../db/suggestion-repository.js';
-
-const aiSuggestionSchema = z.object({
-  title: z.string().min(1),
-  text: z.string().min(1),
-  description: z.string().optional().default(''),
-  type: z.enum(['welcome', 'autocomplete']).catch('autocomplete'),
-  category: z.string().optional().default('general'),
-  language: z
-    .string()
-    .regex(/^[a-z]{2}-[A-Z]{2}$/)
-    .optional(),
-  triggerWords: z.array(z.string()).optional().default([]),
-  tags: z.array(z.string()).optional().default([]),
-  occupations: z.array(z.string()).optional().default([]),
-  interests: z.array(z.string()).optional().default([]),
-});
 
 const router = Router();
 type SearchSuggestion = Awaited<ReturnType<typeof searchSuggestions>>[number];
@@ -75,31 +58,26 @@ setInterval(
   2 * 60 * 1000,
 );
 
-interface AliaMemoryProfile {
-  preferences?: { language?: string; tone?: string; interests?: string[] };
-  context?: { occupation?: string; location?: string };
-}
+/**
+ * The language a suggestion list is read in: the `language` the client sends
+ * (`xx-YY`, the app's locale), else `en-US`. Nothing else is consulted.
+ */
+const languageSchema = z.string().regex(/^[a-z]{2}-[A-Z]{2}$/);
 
-async function getUserProfile(userId?: string): Promise<AliaMemoryProfile> {
-  if (!userId) return {};
-  try {
-    return await fetchAliaJson<AliaMemoryProfile>(userId, '/memory');
-  } catch (error: unknown) {
-    log.general.warn({ err: error }, 'Alia memory unavailable for suggestion personalization');
-    return {};
-  }
+function requestLanguage(req: Request): string {
+  const parsed = languageSchema.safeParse(req.body?.language);
+  return parsed.success ? parsed.data : 'en-US';
 }
 
 /**
  * POST /suggestions/list
- * List suggestions with filters. Language resolved server-side.
- * Body: { type?, category?, limit?, offset? }
+ * List suggestions with filters.
+ * Body: { language?, type?, category?, limit?, offset? }
  */
 router.post('/list', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { type, category, limit = 200, offset = 0 } = req.body || {};
-    const profile = await getUserProfile(req.user?.id);
-    const language = profile.preferences?.language || 'en-US';
+    const language = requestLanguage(req);
 
     const suggestions = await listSuggestions({
       language,
@@ -119,14 +97,13 @@ router.post('/list', optionalAuth, async (req: Request, res: Response) => {
 
 /**
  * POST /suggestions/welcome
- * Get welcome card suggestions. Language resolved server-side.
- * Body: { count? }
+ * Get welcome card suggestions.
+ * Body: { language?, count? }
  */
 router.post('/welcome', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { count = 4 } = req.body || {};
-    const profile = await getUserProfile(req.user?.id);
-    const language = profile.preferences?.language || 'en-US';
+    const language = requestLanguage(req);
 
     const requestedCount = Math.min(Number(count) || 4, 20);
 
@@ -204,7 +181,7 @@ router.post('/create', authenticateToken, async (req: Request, res: Response) =>
       triggerWords: triggerWords || [],
       tags: tags || [],
       scope: 'personal',
-      language: (await getUserProfile(req.user.id)).preferences?.language || 'en-US',
+      language: requestLanguage(req),
       isBuiltIn: false,
       isAiGenerated: false,
       oxyUserId: req.user.id,
@@ -215,139 +192,6 @@ router.post('/create', authenticateToken, async (req: Request, res: Response) =>
   } catch (error: unknown) {
     log.general.error({ err: error }, 'Error creating suggestion');
     res.status(500).json({ error: 'Failed to create suggestion' });
-  }
-});
-
-/**
- * POST /suggestions/generate
- * AI-generate personalized suggestions (authenticated)
- * Body: { count?, types? }
- */
-router.post('/generate', authenticateToken, async (req: Request, res: Response) => {
-  try {
-    if (!req.user?.id) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    const userId = req.user.id;
-
-    const requestedCount = Number(req.body?.count ?? 6);
-    const count = Number.isInteger(requestedCount) ? Math.min(Math.max(requestedCount, 1), 12) : 6;
-    const requestedTypes = Array.isArray(req.body?.types) ? req.body.types : [];
-    const types = requestedTypes.filter(
-      (value: unknown): value is 'welcome' | 'autocomplete' =>
-        value === 'welcome' || value === 'autocomplete',
-    );
-    if (types.length === 0) types.push('welcome', 'autocomplete');
-
-    const profile = await getUserProfile(userId);
-    const language = profile.preferences?.language || 'en-US';
-    const interests = profile.preferences?.interests ?? [];
-    const tone = profile.preferences?.tone || 'friendly';
-    const occupation = profile.context?.occupation || '';
-    const location = profile.context?.location || '';
-
-    // Build compact user profile string (only non-empty fields)
-    const profileParts = [
-      `lang:${language}`,
-      interests.length ? `interests:${interests.join(',')}` : '',
-      occupation ? `job:${occupation}` : '',
-      location ? `loc:${location}` : '',
-      `tone:${tone}`,
-    ]
-      .filter(Boolean)
-      .join(' | ');
-
-    const responseText = await completeAsClarityAgent({
-      userId,
-      clarityModelId: 'clarity-fast',
-      signal: AbortSignal.timeout(30_000),
-      messages: [
-        {
-          role: 'user',
-          content: `Generate ${count} unique prompt suggestions as a JSON array.
-User profile: ${profileParts}
-
-Rules:
-- Each suggestion MUST start with a different verb (Write, Help, Explain, Create, Plan, Summarize, Compare, etc.)
-- Text must be a complete, ready-to-send prompt — NO placeholders like {username} or {variable}
-- Vary categories: mix productivity, creative, coding, learning, communication
-- Language: ${language} (all text in this language)
-- Types needed: ${types.join(', ')}
-  - "welcome": short title + description shown as cards (4-8 words title)
-  - "autocomplete": longer text shown as user types (complete sentence)
-
-JSON schema per item:
-{"title":"string","text":"string","description":"string","type":"welcome|autocomplete","category":"string","language":"${language}","triggerWords":["first 1-2 words of text"],"tags":["2-3"],"occupations":[],"interests":[]}
-
-Examples:
-- {"title":"Debug Code","text":"Help me debug this error and explain what went wrong","type":"autocomplete","category":"coding","language":"en-US","triggerWords":["help"],"tags":["coding","debug"],"occupations":[],"interests":[]}
-- {"title":"Creative Writing","text":"Write a short story about an unexpected friendship","type":"welcome","category":"creative","language":"en-US","triggerWords":["write"],"tags":["writing","creative"],"occupations":[],"interests":[]}
-
-Return ONLY a valid JSON array, no other text.`,
-        },
-      ],
-    });
-
-    // Parse and validate JSON array from response
-    let rawParsed: unknown[];
-    try {
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('No JSON array found');
-      const arr = JSON.parse(jsonMatch[0]);
-      if (!Array.isArray(arr)) throw new Error('Not an array');
-      rawParsed = arr;
-    } catch {
-      log.general.error({ responseText }, 'Failed to parse AI-generated suggestions');
-      return res.status(500).json({ error: 'Failed to generate suggestions' });
-    }
-
-    // Validate each item with Zod, skip invalid ones
-    const validated = rawParsed
-      .map((item) => aiSuggestionSchema.safeParse(item))
-      .flatMap((result) => (result.success ? [result.data] : []));
-
-    // Create suggestion documents
-    const created = [];
-    for (let i = 0; i < validated.length; i++) {
-      const item = validated[i];
-
-      const slug = item.title
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .slice(0, 40);
-      const suggestionId = `ai-${slug}-${Date.now().toString(36).slice(-4)}-${i}`;
-
-      try {
-        const suggestion = await createSuggestion({
-          suggestionId,
-          title: item.title,
-          text: item.text,
-          description: item.description,
-          type: item.type,
-          category: item.category,
-          triggerWords: item.triggerWords.slice(0, 5),
-          tags: item.tags.slice(0, 5),
-          occupations: item.occupations.slice(0, 5),
-          interests: item.interests.slice(0, 5),
-          scope: 'personal',
-          language: item.language || language,
-          isBuiltIn: false,
-          isAiGenerated: true,
-          oxyUserId: userId,
-        });
-        created.push(suggestion);
-      } catch (err: unknown) {
-        log.general.error({ err, suggestionId }, 'Failed to create AI suggestion');
-      }
-    }
-
-    res.json({ suggestions: created, generated: created.length });
-  } catch (error: unknown) {
-    log.general.error({ err: error }, 'Error generating suggestions');
-    const err = error as { statusCode?: number; code?: string };
-    const status = (err.statusCode ?? 0) >= 500 || err.code === 'ECONNREFUSED' ? 503 : 500;
-    res.status(status).json({ error: 'Failed to generate suggestions' });
   }
 });
 
@@ -420,7 +264,7 @@ router.delete('/:id', authenticateToken, async (req: Request, res: Response) => 
 /**
  * POST /suggestions/search
  * Real-time autocomplete search (Google-style). Debounced client-side.
- * Body: { query, limit? }
+ * Body: { query, language?, limit? }
  */
 router.post('/search', optionalAuth, async (req: Request, res: Response) => {
   try {
@@ -430,8 +274,7 @@ router.post('/search', optionalAuth, async (req: Request, res: Response) => {
     }
 
     const trimmed = query.trim().toLowerCase();
-    const profile = await getUserProfile(req.user?.id);
-    const language = profile.preferences?.language || 'en-US';
+    const language = requestLanguage(req);
     const limitNum = Math.min(Number(limit) || 6, 20);
 
     // 1. Global results — search all languages, cache by query+language (sort order depends on pref)

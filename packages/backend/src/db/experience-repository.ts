@@ -6,7 +6,12 @@ import {
   type ExperienceInput,
 } from '@clarity.surf/sdk/experience';
 import { getDb } from './index.js';
-import { accountEventCursors, experience, experienceErasures } from './schema/index.js';
+import {
+  accountEventCursors,
+  capabilityEffectReceipts,
+  experience,
+  experienceErasures,
+} from './schema/index.js';
 
 type ExperienceRow = typeof experience.$inferSelect;
 function present(row: ExperienceRow): Experience {
@@ -109,7 +114,10 @@ export class ExperienceAccountErasedError extends Error {
   }
 }
 
-/** Called only after verifying an Oxy account.deleted security event. */
+/**
+ * Called only after verifying an Oxy account.deleted security event. The
+ * account's capability receipts go with it: they hold tool answers about it.
+ */
 export async function eraseDeletedAccountExperience(
   oxyUserId: string,
   eventId: string,
@@ -118,6 +126,9 @@ export async function eraseDeletedAccountExperience(
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${oxyUserId}, 0))`);
     await tx.insert(experienceErasures).values({ oxyUserId, eventId }).onConflictDoNothing();
     await tx.delete(experience).where(eq(experience.oxyUserId, oxyUserId));
+    await tx
+      .delete(capabilityEffectReceipts)
+      .where(eq(capabilityEffectReceipts.oxyUserId, oxyUserId));
   });
 }
 
@@ -158,6 +169,9 @@ export async function commitAccountEventPage(
         .values({ oxyUserId: event.userId, eventId: event.eventId })
         .onConflictDoNothing();
       await tx.delete(experience).where(eq(experience.oxyUserId, event.userId));
+      await tx
+        .delete(capabilityEffectReceipts)
+        .where(eq(capabilityEffectReceipts.oxyUserId, event.userId));
     }
     await tx
       .update(accountEventCursors)

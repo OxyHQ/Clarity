@@ -1,72 +1,48 @@
-import { useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@oxy.so/services';
+import { useMutation, useQuery } from '@tanstack/react-query';
+
+import { useTranslation } from '@/hooks/useTranslation';
+
 import { useApiClient } from '../api/use-api-client';
 import { API_ROUTES } from '../api/routes';
+import { type Suggestion, suggestionLanguage } from '../suggestions';
 import { queryKeys } from './query-keys';
 
-export interface Suggestion {
-  suggestionId: string;
-  title: string;
-  text: string;
-  description?: string;
-  isTemplate: boolean;
-  templateVariables?: string[];
-  type: 'welcome' | 'autocomplete';
-  category?: string;
-  triggerWords: string[];
-  scope: 'global' | 'personal';
-  language: string;
-  usageCount: number;
-  priority: number;
-  isBuiltIn: boolean;
-  isAIGenerated: boolean;
-  tags: string[];
-  expiresAt?: string;
+/** The app's language for the pool, or nothing (the server's default). */
+function useSuggestionLanguage(): string | undefined {
+  const { locale } = useTranslation();
+  return suggestionLanguage(locale);
 }
 
-/**
- * Fetch welcome card suggestions (POST, language resolved server-side)
- * Backend returns random/personalized suggestions from the pool.
- */
+/** The welcome suggestions over Clarity's empty chat, from its own pool. */
 export function useWelcomeSuggestions() {
   const client = useApiClient();
+  const language = useSuggestionLanguage();
   return useQuery<Suggestion[]>({
-    queryKey: queryKeys.suggestions.welcome,
+    queryKey: queryKeys.suggestions.welcome(language),
     queryFn: async () => {
       const data = await client.post<{ suggestions: Suggestion[] }>(
         API_ROUTES.suggestions.welcome,
-        { count: 4 },
+        { count: 4, ...(language ? { language } : {}) },
       );
       return data.suggestions;
     },
-    staleTime: 1000 * 60 * 15, // 15 minutes
-    placeholderData: (prev: Suggestion[] | undefined) => prev,
+    staleTime: 1000 * 60 * 15,
+    placeholderData: (previous: Suggestion[] | undefined) => previous,
     retry: 1,
   });
 }
 
-/**
- * Record suggestion usage (fire-and-forget mutation)
- */
-export function useRecordSuggestionUsage() {
-  const client = useApiClient();
-  return useMutation({
-    mutationFn: (suggestionId: string) => client.post(API_ROUTES.suggestions.use(suggestionId), {}),
-  });
-}
-
-/**
- * Real-time autocomplete search (Google-style, debounced client-side)
- */
+/** What the pool has for the text being typed (the composer debounces it). */
 export function useSearchSuggestions(query: string) {
   const client = useApiClient();
+  const language = useSuggestionLanguage();
   return useQuery<Suggestion[]>({
-    queryKey: queryKeys.suggestions.search(query),
+    queryKey: queryKeys.suggestions.search(query, language),
     queryFn: async () => {
       const data = await client.post<{ suggestions: Suggestion[] }>(API_ROUTES.suggestions.search, {
         query,
         limit: 6,
+        ...(language ? { language } : {}),
       });
       return data.suggestions;
     },
@@ -77,36 +53,10 @@ export function useSearchSuggestions(query: string) {
   });
 }
 
-/**
- * AI-generate personalized suggestions
- */
-export function useGenerateSuggestions() {
-  const queryClient = useQueryClient();
+/** Count a picked suggestion (fire and forget). */
+export function useRecordSuggestionUsage() {
   const client = useApiClient();
   return useMutation({
-    mutationFn: (params?: { count?: number; types?: string[] }) =>
-      client.post(API_ROUTES.suggestions.generate, params ?? {}, { timeout: 60000 }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.suggestions.welcome });
-      queryClient.invalidateQueries({ queryKey: queryKeys.suggestions.me });
-    },
+    mutationFn: (suggestionId: string) => client.post(API_ROUTES.suggestions.use(suggestionId), {}),
   });
-}
-
-/**
- * Auto-generate personalized suggestions once per app session.
- * Call from the app layout so it fires as soon as auth is ready.
- */
-export function useSessionSuggestionGeneration() {
-  const { isAuthenticated } = useAuth();
-  const { mutate } = useGenerateSuggestions();
-  const mutateRef = useRef(mutate);
-  mutateRef.current = mutate;
-  const hasGenerated = useRef(false);
-
-  useEffect(() => {
-    if (!isAuthenticated || hasGenerated.current) return;
-    hasGenerated.current = true;
-    mutateRef.current({ count: 8, types: ['welcome', 'autocomplete'] });
-  }, [isAuthenticated]);
 }

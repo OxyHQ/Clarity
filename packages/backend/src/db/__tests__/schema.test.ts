@@ -1,43 +1,24 @@
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 
+import * as schema from '../schema/index.js';
 import {
   backfillReceipts,
-  conversations,
-  messages,
+  capabilityEffectReceipts,
   planFeatures,
+  plans,
+  runtimeState,
   suggestions,
 } from '../schema/index.js';
 
-describe('PostgreSQL expand schema', () => {
+describe('PostgreSQL schema', () => {
   it('preserves source and product IDs as distinct text columns', () => {
-    const conversationColumns = getTableConfig(conversations).columns.map((column) => column.name);
-    const messageColumns = getTableConfig(messages).columns.map((column) => column.name);
     const planFeatureColumns = getTableConfig(planFeatures).columns.map((column) => column.name);
-    expect(conversationColumns).toEqual(
-      expect.arrayContaining(['id', 'conversation_id', 'oxy_user_id']),
-    );
-    expect(messageColumns).toEqual(
-      expect.arrayContaining(['id', 'message_id', 'conversation_id', 'oxy_user_id']),
-    );
     expect(planFeatureColumns).toEqual(expect.arrayContaining(['id', 'plan_id', 'feature_id']));
   });
 
   it('ports the query indexes that cannot be proven by functional tests', () => {
-    const conversationIndexes = getTableConfig(conversations).indexes.map(
-      (item) => item.config.name,
-    );
-    const messageIndexes = getTableConfig(messages).indexes.map((item) => item.config.name);
     const suggestionIndexes = getTableConfig(suggestions).indexes.map((item) => item.config.name);
-    expect(conversationIndexes).toEqual(
-      expect.arrayContaining(['clarity_conversations_user_updated_idx']),
-    );
-    expect(messageIndexes).toEqual(
-      expect.arrayContaining([
-        'clarity_messages_conversation_created_idx',
-        'clarity_messages_user_conversation_idx',
-      ]),
-    );
     expect(suggestionIndexes).toEqual(
       expect.arrayContaining([
         'clarity_suggestions_trigger_words_idx',
@@ -53,5 +34,30 @@ describe('PostgreSQL expand schema', () => {
       'source_collection',
       'source_id',
     ]);
+  });
+
+  it('claims one capability effect per account, tool and idempotency key', () => {
+    const config = getTableConfig(capabilityEffectReceipts);
+    expect(
+      config.uniqueConstraints.map((item) => item.columns.map((column) => column.name)),
+    ).toEqual([['oxy_user_id', 'tool', 'idempotency_key_hash']]);
+    expect(config.columns.map((column) => column.name)).not.toContain('idempotency_key');
+  });
+
+  it('holds no chat history, model id or agent pin (owner decision 2026-10-16)', () => {
+    const tables = Object.values(schema)
+      .filter(
+        (value) =>
+          typeof value === 'object' &&
+          value !== null &&
+          Symbol.for('drizzle:IsDrizzleTable') in value,
+      )
+      .map((table) => getTableConfig(table as typeof plans).name);
+    expect(tables).not.toContain('clarity_conversations');
+    expect(tables).not.toContain('clarity_messages');
+    expect(getTableConfig(plans).columns.map((column) => column.name)).not.toContain('model_ids');
+    expect(getTableConfig(runtimeState).columns.map((column) => column.name)).not.toContain(
+      'alia_agent_id_sha256',
+    );
   });
 });

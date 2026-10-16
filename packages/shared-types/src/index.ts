@@ -4,9 +4,7 @@
 // Types shared by BOTH the Clarity frontend (@clarity/frontend) and the
 // Clarity backend (@clarity/backend). Import from `@clarity/shared-types`.
 //
-// MODEL ABSTRACTION RULE: nothing exported here may expose internal provider
-// names, provider model ids, or provider routing details — only Clarity-branded
-// model identities. See AGENTS.md "Model Abstraction Architecture".
+// Nothing exported here may expose an inference provider, model or route.
 // ---------------------------------------------------------------------------
 
 export type {
@@ -15,32 +13,6 @@ export type {
   Paginated,
   ApiErrorResponse,
 } from './common.js';
-
-export type {
-  ToolInvocation,
-  MessageContentBlock,
-  MessageSource,
-  MessageSpeaker,
-  MessageVote,
-  MessageResearchProgress,
-  PlanStep,
-  PendingPlan,
-  PendingApproval,
-  PendingApprovalResult,
-  Message,
-  ConversationSource,
-  Conversation,
-  FolderColor,
-  ChatFolder,
-} from './conversation.js';
-
-export type {
-  ModelCategory,
-  ClarityModelCapabilities,
-  ClarityModelPricing,
-  ClarityModelDTO,
-  ClarityModelsResponse,
-} from './model.js';
 
 export type {
   JobWorkplaceType,
@@ -83,13 +55,3 @@ export type {
   NewsStory,
   NewsResponse,
 } from './news.js';
-
-export type {
-  ResearchSource,
-  ResearchProgress,
-  ReasoningEvent,
-  ToolResultEvent,
-  TitleEvent,
-  ModelSwitchEvent,
-  ClaritySseEventName,
-} from './sse.js';

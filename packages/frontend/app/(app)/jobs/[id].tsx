@@ -16,7 +16,6 @@ import {
 import type { JobReportReason } from '@clarity/shared-types';
 
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClarityMarkdown } from '@/lib/sdk';
 import { Text } from '@/components/ui/text';
 import { useJobPosting, useReportJobPosting } from '@/lib/hooks/use-jobs';
 import { formatLocations, formatPostedAt, formatSalary } from '@/lib/jobs-format';
@@ -24,6 +23,7 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { bloomIcon } from '@/lib/bloom-icon';
 import { Button, GlyphButton } from '@oxy.so/bloom/button';
+import { AliaMarkdown } from '@alia.onl/sdk';
 
 const REPORT_REASONS: JobReportReason[] = [
   'scam',
@@ -40,14 +40,8 @@ export default function JobDetailScreen() {
   const { colors } = useColorScheme();
   // Long-text listing fields are Markdown with no raw HTML (Clarity Jobs contract).
   const markdownColors = useMemo(
-    () => ({
-      text: colors.mutedForeground,
-      border: colors.border,
-      muted: colors.muted,
-      mutedForeground: colors.mutedForeground,
-      primary: colors.primary,
-    }),
-    [colors.mutedForeground, colors.border, colors.muted, colors.primary],
+    () => ({ text: colors.mutedForeground }),
+    [colors.mutedForeground],
   );
   const insets = useSafeAreaInsets();
   const job = useJobPosting(typeof id === 'string' ? id : undefined);
@@ -212,7 +206,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.descriptionHeading')}
                   </Text>
-                  <ClarityMarkdown content={posting.description} colors={markdownColors} />
+                  <AliaMarkdown content={posting.description} colors={markdownColors} />
                 </View>
               ) : null}
 
@@ -236,7 +230,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.qualificationsHeading')}
                   </Text>
-                  <ClarityMarkdown content={posting.qualifications} colors={markdownColors} />
+                  <AliaMarkdown content={posting.qualifications} colors={markdownColors} />
                 </View>
               ) : null}
 
@@ -245,7 +239,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.responsibilitiesHeading')}
                   </Text>
-                  <ClarityMarkdown content={posting.responsibilities} colors={markdownColors} />
+                  <AliaMarkdown content={posting.responsibilities} colors={markdownColors} />
                 </View>
               ) : null}
 
@@ -254,7 +248,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.benefitsHeading')}
                   </Text>
-                  <ClarityMarkdown content={posting.benefits} colors={markdownColors} />
+                  <AliaMarkdown content={posting.benefits} colors={markdownColors} />
                 </View>
               ) : null}
 

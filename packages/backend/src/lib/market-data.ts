@@ -34,7 +34,7 @@
  * CoinGecko tool — not from a live response.
  */
 
-import type { MarketQuote, MarketSeriesPoint } from '@clarity/shared-types';
+import type { MarketQuote, MarketQuoteResult, MarketSeriesPoint } from '@clarity/shared-types';
 import { z } from 'zod';
 
 import { log } from './logger.js';
@@ -443,8 +443,8 @@ async function fairCoinQuote(currency: string, doFetch: FetchFunction): Promise<
 
 /**
  * What this surface can and cannot answer, for a consumer that has to decide
- * before asking — Clarity's Finance page, and Alia's tool layer once it stops
- * calling CoinGecko itself.
+ * before asking. The capability catalogue's `getMarketQuotes` description is
+ * built from it, so the agent and an API caller are told the same thing.
  */
 export const CLARITY_MARKET_CAPABILITY = {
   name: 'clarity_market_quote',
@@ -477,3 +477,67 @@ export const CLARITY_MARKET_CAPABILITY = {
     updatedAtMeaning: 'When the source produced the number, not when Clarity served it.',
   },
 } as const;
+
+/**
+ * One page of cards, and no more. Each asset costs several upstream calls on a
+ * cold cache, so a batch bounds what a single request can spend.
+ */
+export const MAX_QUOTE_ASSETS = 8;
+
+/** A CoinGecko id, symbol or name, or a FairCoin alias. Never a URL or a path. */
+export const MARKET_ASSET_PATTERN = /^[a-z0-9][a-z0-9 .-]*$/i;
+
+/**
+ * SUMMARIES of several assets, each with its own outcome: an upstream that is
+ * down for FairCoin must not take Bitcoin's price with it, so a failure is a
+ * value here rather than a rejection. No chart history — a card draws none and
+ * a coin's full daily series is thousands of points. Behind `GET /market/quotes`
+ * and the catalogue's `getMarketQuotes`.
+ */
+export async function getMarketQuoteSummaries(
+  assets: readonly string[],
+  currency: string,
+): Promise<{ results: MarketQuoteResult[] }> {
+  return { results: await Promise.all(assets.map((asset) => quoteSummary(asset, currency))) };
+}
+
+async function quoteSummary(requested: string, currency: string): Promise<MarketQuoteResult> {
+  try {
+    const quote = await getMarketQuote(requested, { currency });
+    // Named field by field rather than spread-minus-`series`: a field added to
+    // the summary type is then a compile error here rather than a field this
+    // answer silently stops serving.
+    return {
+      requested,
+      status: 'quoted',
+      quote: {
+        asset: quote.asset,
+        name: quote.name,
+        symbol: quote.symbol,
+        currency: quote.currency,
+        price: quote.price,
+        changePct: quote.changePct,
+        changeAbs: quote.changeAbs,
+        marketCap: quote.marketCap,
+        volume24h: quote.volume24h,
+        liquidityUsd: quote.liquidityUsd,
+        source: quote.source,
+        updatedAt: quote.updatedAt,
+      },
+    };
+  } catch (error) {
+    if (error instanceof MarketDataError) {
+      return {
+        requested,
+        status: 'unavailable',
+        error: { code: error.code, message: error.message },
+      };
+    }
+    log.general.error({ err: error, asset: requested }, 'Market quote failed');
+    return {
+      requested,
+      status: 'unavailable',
+      error: { code: 'quote_unavailable', message: 'This quote is temporarily unavailable' },
+    };
+  }
+}
