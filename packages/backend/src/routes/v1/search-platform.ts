@@ -38,10 +38,10 @@ import {
 } from '../../search/public-document.js';
 import { listNewsStories } from '../../search/news.js';
 import {
-  canonicalizePublicUrl,
   decodeSearchCursor,
   encodeSearchCursor,
   escapeLike,
+  publicUrlSchema,
 } from '../../search/query-primitives.js';
 import { CLARITY_JOBS_CAPABILITY } from '../../search/jobs/capability.js';
 import {
@@ -107,7 +107,7 @@ const searchSchema = z.object({
   limit: z.number().int().min(1).max(100).default(20),
   cursor: z.string().optional(),
 });
-const urlsSchema = z.object({ urls: z.array(z.string().url()).min(1).max(50) });
+const urlsSchema = z.object({ urls: z.array(publicUrlSchema).min(1).max(50) });
 const resolveSchema = urlsSchema.extend({ waitMs: z.number().int().min(0).max(10_000).optional() });
 const createSiteSchema = z.object({
   origin: z.string().url(),
@@ -312,11 +312,7 @@ router.post('/index/urls', requireResourceScope('clarity:index'), async (req, re
   if (!input) return;
   const idempotencyKey = requireIdempotency(req, res);
   if (!idempotencyKey) return;
-  const operation = await createIndexOperation(
-    req,
-    input.urls.map(canonicalizePublicUrl),
-    idempotencyKey,
-  );
+  const operation = await createIndexOperation(req, input.urls, idempotencyKey);
   if (!operation) {
     sendError(
       res,
@@ -363,7 +359,7 @@ export async function fetchedDocuments(urls: readonly string[]): Promise<Map<str
 router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) => {
   const input = parse(resolveSchema, req, res);
   if (!input) return;
-  const urls = input.urls.map(canonicalizePublicUrl);
+  const { urls } = input;
   let byUrl = await fetchedDocuments(urls);
   const missing = [...new Set(urls.filter((url) => !byUrl.has(url)))];
   // A caller that waits has a person waiting on the answer (a composer, a
@@ -434,10 +430,15 @@ router.get('/documents/by-url', requireResourceScope('clarity:search'), async (r
     sendError(res, 400, 'invalid_request', 'url is required', req);
     return;
   }
+  const url = publicUrlSchema.safeParse(req.query.url);
+  if (!url.success) {
+    sendError(res, 400, 'invalid_request', 'url must be a public HTTP(S) URL', req);
+    return;
+  }
   const [row] = await getDb()
     .select()
     .from(searchDocuments)
-    .where(eq(searchDocuments.canonicalUrl, canonicalizePublicUrl(req.query.url)))
+    .where(eq(searchDocuments.canonicalUrl, url.data))
     .limit(1);
   if (!row) {
     sendError(res, 404, 'document_not_found', 'Document not found', req);
@@ -659,7 +660,7 @@ router.post('/operations/:id/cancel', requireResourceScope('clarity:index'), asy
 // ---------------------------------------------------------------------------
 
 const ingestJobSchema = z.object({
-  url: z.string().url(),
+  url: publicUrlSchema,
   /** `schema.org/JobPosting` JSON-LD, exactly as the publisher emits it. */
   jobPosting: z.union([z.record(z.string(), z.unknown()), z.array(z.unknown())]).optional(),
   /** Set when the publisher has closed the listing. */
@@ -746,13 +747,7 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
   const input = parse(ingestJobSchema, req, res);
   const principal = req.resourcePrincipal;
   if (!input || !principal) return;
-  let canonicalUrl: string;
-  try {
-    canonicalUrl = canonicalizePublicUrl(input.url);
-  } catch {
-    sendError(res, 400, 'invalid_request', 'url must be a public HTTP(S) URL', req);
-    return;
-  }
+  const canonicalUrl = input.url;
 
   if (input.closed || input.jobPosting) {
     const site = await findVerifiedSite(principal.accountId, canonicalUrl);

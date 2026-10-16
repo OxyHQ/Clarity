@@ -4,6 +4,8 @@
  * cursor format and URL canonicalization cannot drift between verticals.
  */
 
+import { z } from 'zod';
+
 /** Public HTTP(S) URL in the exact shape Clarity stores as a canonical URL. */
 export function canonicalizePublicUrl(value: string): string {
   const url = new URL(value);
@@ -19,6 +21,20 @@ export function canonicalizePublicUrl(value: string): string {
     url.port = '';
   return url.toString();
 }
+
+/**
+ * A request field holding a public HTTP(S) URL, parsed to its canonical form.
+ * Validating here makes a non-public URL (another scheme, embedded credentials,
+ * or no URL at all) the caller's 400 instead of an unhandled throw later on.
+ */
+export const publicUrlSchema = z.string().transform((value, ctx) => {
+  try {
+    return canonicalizePublicUrl(value);
+  } catch {
+    ctx.addIssue({ code: 'custom', message: 'Only public HTTP(S) URLs are supported' });
+    return z.NEVER;
+  }
+});
 
 export function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&');
