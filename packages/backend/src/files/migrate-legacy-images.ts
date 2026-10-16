@@ -10,17 +10,24 @@ import {
   searchHosts,
 } from '../db/schema/index.js';
 import { STORED_IMAGE_RENDITION, renderStoredImage } from '../search/image-render.js';
-import { isBlocked, oxyCanHold, oxyFiles } from './oxy-files.js';
+import { isBlocked, isSvg, oxyFiles, svgUploadRefusal } from './oxy-files.js';
 import { IMAGE_IDLE_TTL_MS } from './references.js';
 
 /**
  * Copy the images Clarity kept itself into Oxy Files (ADR 0043 stage 4).
  *
  * - `clarity_image_cache.bytes` (the WebP renditions of document previews and
- *   employer logos) and `clarity_search_hosts.icon_bytes` (favicons, except an
- *   SVG — TODO(oxy-4c) in `oxy-files.ts`) become Clarity-owned public files.
+ *   employer logos) and `clarity_search_hosts.icon_bytes` (favicons, SVG ones
+ *   included) become Clarity-owned public files.
  * - Each upload is VERIFIED: Oxy's SHA-256 and size of what it stored must equal
- *   those of the bytes sent, or the row is left as it was and reported.
+ *   those of the bytes sent, or the row is left as it was and reported. An SVG
+ *   is the exception Oxy defines: stage 4c stores only its SANITIZED document,
+ *   so what is checked is that Oxy stored an SVG at all (`image/svg+xml`, not
+ *   empty), and the report carries the stored hash beside Clarity's.
+ * - SAFE BEFORE STAGE 4C: an Oxy without it refuses the SVG type, and the row is
+ *   left as it was (`refused`), still served from Postgres. An SVG stage 4c
+ *   cannot sanitize (`invalid_svg`) is left too, unless `releaseInvalidSvg`
+ *   drops Clarity's copy so the worker fetches the host's icon afresh.
  * - RESUMABLE: a row is moved (file id written, bytes cleared) in one statement
  *   after its own upload, so an interrupted run resumes where it stopped, and a
  *   repeated upload is free — Oxy deduplicates an application's bytes.
@@ -43,8 +50,12 @@ export interface MigrationReportLine {
     | 'blocked'
     | 'refused'
     | 'unrenderable'
+    | 'invalid_svg'
+    | 'released_invalid_svg'
     | 'oxy_unavailable';
   oxyFileId?: string;
+  /** The SHA-256 Oxy stored, when it is not Clarity's: a sanitized SVG. */
+  storedSha256?: string;
 }
 
 export interface MigrationSummary {
@@ -62,6 +73,13 @@ export interface MigrationOptions {
   limit?: number;
   report?: (line: MigrationReportLine) => void;
   now?: number;
+  /**
+   * Drop Clarity's copy of an SVG favicon Oxy refused as `INVALID_SVG` (stage
+   * 4c: not a document it can make safe), so the host shows no icon until the
+   * worker fetches one Oxy accepts. Off by default: such a row is left, still
+   * served from Postgres, and blocks the storage retirement until decided.
+   */
+  releaseInvalidSvg?: boolean;
 }
 
 function sha256(bytes: Uint8Array): string {
@@ -76,15 +94,26 @@ function count(summary: Record<string, number>, outcome: string): void {
 async function upload(
   bytes: Buffer,
   contentType: string,
-): Promise<{ outcome: MigrationReportLine['outcome']; oxyFileId?: string }> {
+): Promise<Pick<MigrationReportLine, 'outcome' | 'oxyFileId' | 'storedSha256'>> {
   try {
     const { file } = await oxyFiles().uploadAppFile(bytes, contentType, { visibility: 'public' });
+    if (isSvg(contentType)) {
+      // Stored sanitized (stage 4c): the hash is Oxy's document, not ours.
+      if (!isSvg(file.mime) || file.size <= 0) return { outcome: 'sha256_mismatch' };
+      return {
+        outcome: 'uploaded',
+        oxyFileId: file.id,
+        ...(file.sha256 !== sha256(bytes) ? { storedSha256: file.sha256 } : {}),
+      };
+    }
     if (file.sha256 !== sha256(bytes) || file.size !== bytes.length) {
       return { outcome: 'sha256_mismatch' };
     }
     return { outcome: 'uploaded', oxyFileId: file.id };
   } catch (error) {
     if (isBlocked(error)) return { outcome: 'blocked' };
+    if (isSvg(contentType) && svgUploadRefusal(error) === 'invalid_svg')
+      return { outcome: 'invalid_svg' };
     const status = (error as { status?: unknown }).status;
     if (status === 413 || status === 415 || status === 400) return { outcome: 'refused' };
     return { outcome: 'oxy_unavailable' };
@@ -191,8 +220,7 @@ async function migrateFavicons(
     if (rows.length === 0) return;
     for (const row of rows) {
       after = row.host;
-      // An SVG stays where it is until Oxy can hold one (TODO(oxy-4c)).
-      if (!row.bytes || !row.contentType || !oxyCanHold(row.contentType)) continue;
+      if (!row.bytes || !row.contentType) continue;
       if (options.limit !== undefined && seen >= options.limit) return;
       seen += 1;
       const digest = sha256(row.bytes);
@@ -206,7 +234,11 @@ async function migrateFavicons(
         count(summary.favicons, 'would_upload');
         continue;
       }
-      const result = await upload(row.bytes, row.contentType);
+      const uploaded = await upload(row.bytes, row.contentType);
+      const result =
+        uploaded.outcome === 'invalid_svg' && options.releaseInvalidSvg
+          ? { outcome: 'released_invalid_svg' as const }
+          : uploaded;
       options.report?.({ kind: 'favicon', sha256: digest, bytes: row.bytes.length, ...result });
       count(summary.favicons, result.outcome);
       if (result.outcome === 'uploaded' && result.oxyFileId) {
@@ -230,6 +262,18 @@ async function migrateFavicons(
           .update(searchHosts)
           .set({ iconStatus: 'missing', iconBytes: null, updatedAt: now })
           .where(eq(searchHosts.host, row.host));
+      } else if (result.outcome === 'released_invalid_svg') {
+        // Only on request: the host shows no icon until the worker, due now,
+        // fetches one Oxy accepts.
+        await getDb()
+          .update(searchHosts)
+          .set({
+            iconStatus: 'missing',
+            iconBytes: null,
+            iconNextFetchAt: now,
+            updatedAt: now,
+          })
+          .where(and(eq(searchHosts.host, row.host), isNull(searchHosts.iconOxyFileId)));
       }
     }
   }

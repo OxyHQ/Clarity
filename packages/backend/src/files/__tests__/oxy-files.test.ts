@@ -5,8 +5,9 @@ import {
   CLARITY_FILES_SCOPES,
   isBlocked,
   isSourceFailure,
-  oxyCanHold,
+  isSvg,
   oxyFileUrl,
+  svgUploadRefusal,
 } from '../oxy-files.js';
 import { oxyError } from './fake-oxy-files.js';
 
@@ -17,11 +18,16 @@ describe('the Oxy Files adapter', () => {
       expect(CLARITY_AGENT_MANIFEST.backendApplication.scopes).not.toContain(scope);
   });
 
-  it('keeps out of Oxy only what Oxy cannot hold yet (an SVG, TODO(oxy-4c))', () => {
-    for (const type of ['image/png', 'image/x-icon', 'image/avif', 'image/webp', 'image/gif'])
-      expect(oxyCanHold(type)).toBe(true);
-    expect(oxyCanHold('image/svg+xml')).toBe(false);
-    expect(oxyCanHold('application/pdf')).toBe(false);
+  it('reads an SVG refusal: an Oxy without stage 4c refuses the type, stage 4c an unsafe document', () => {
+    expect(isSvg('image/svg+xml')).toBe(true);
+    for (const type of ['image/png', 'image/x-icon', 'image/webp']) expect(isSvg(type)).toBe(false);
+    expect(svgUploadRefusal(oxyError(415, 'UNSUPPORTED_MEDIA_TYPE'))).toBe('type_not_supported');
+    expect(svgUploadRefusal(oxyError(415, 'INVALID_SVG'))).toBe('invalid_svg');
+    // Anything else is not about the SVG: a takedown, an unreachable Oxy, a refusal of Clarity.
+    expect(svgUploadRefusal(oxyError(451, 'CONTENT_BLOCKED'))).toBeUndefined();
+    expect(svgUploadRefusal(oxyError(503, 'SERVICE_UNAVAILABLE'))).toBeUndefined();
+    expect(svgUploadRefusal(oxyError(403, 'FORBIDDEN'))).toBeUndefined();
+    expect(svgUploadRefusal(new Error('network down'))).toBeUndefined();
   });
 
   it('tells a failed source from an unreachable Oxy, and a takedown from both', () => {

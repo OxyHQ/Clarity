@@ -18,7 +18,7 @@ only module that calls Oxy Files; `references.ts`; `legacy-reads.ts`;
 |---|---|---|---|---|
 | Document preview (`search_documents.image_url`) | Clarity application, `public` | `search_document` / document id | the first time `/images/documents/:id/…` is served, and again (at most daily) on later requests | the document's `image_url` changes or is cleared, the document is deleted, or it is not served for 30 days |
 | Employer logo (`job_postings.employer_logo_url`) | Clarity application, `public` | `job_posting` / posting id | the first time `/images/jobs/:id/…` is served | the logo URL changes or is cleared, the posting is deleted (including the cascade when its document is pruned), or it is not served for 30 days |
-| Favicon (`search_hosts`) | Clarity application, `public` | `search_host` / host | when `/favicons/:host` is served | the host's icon is replaced by different bytes (the use moves to the new file) or by an SVG, or it is not served for 30 days |
+| Favicon (`search_hosts`) | Clarity application, `public` | `search_host` / host | when `/favicons/:host` is served | the host's icon is replaced by different bytes (the use moves to the new file) or by an SVG kept in Postgres (an Oxy without stage 4c refused it), or it is not served for 30 days |
 
 No person owns any of these, so none is billed, and none is ever a person's
 private file.
@@ -72,15 +72,27 @@ it holds that Clarity no longer lists. This catches whatever the outbox missed.
   remembered: the image answers `503 image_unavailable` with `no-store`, and
   the worker retries an icon within the hour.
 
-### TODO(oxy-4c): SVG favicons
+### SVG favicons (Oxy stage 4c)
 
-Oxy refuses `image/svg*` for application files (`isAllowedCacheMime`, a
-stored-XSS rule). SVG favicons therefore stay in
-`clarity_search_hosts.icon_bytes` and are served by `/favicons/:host` under its
-sandbox CSP. Reads of them are counted as `favicons_svg`. They are the only
-images Oxy cannot hold. Every other image is far below Oxy's 40 MiB cap: 5 MiB
-previews and 100 KiB icons. When Oxy's stage 4c holds an SVG and serves it inertly, upload SVG
-icons like the others: drop the `oxyCanHold` branch in `files/oxy-files.ts`.
+An SVG favicon is uploaded like any other icon. Oxy stage 4c stores only the
+SANITIZED document (DOMPurify over a parsed, entity-free SVG: no script, no
+handler, no external reference) and serves it inline with
+`Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline';
+sandbox` and `nosniff`, so `/favicons/:host` redirects to it like every other
+icon. Because the stored bytes are the sanitized ones, their SHA-256 is Oxy's,
+not the site's; Oxy dedupes on it.
+
+Two refusals are read apart (`svgUploadRefusal` in `files/oxy-files.ts`):
+
+- **415 `UNSUPPORTED_MEDIA_TYPE`: an Oxy without stage 4c.** The icon is kept
+  in `clarity_search_hosts.icon_bytes` and served by `/favicons/:host` under
+  the same sandbox CSP, exactly as before; the next refresh offers it to Oxy
+  again. Reads of it count as `favicons_svg`. This is what makes the change safe
+  to deploy before stage 4c: no icon is lost and nothing else changes.
+- **415 `INVALID_SVG`: stage 4c cannot make the document safe** (not
+  well-formed XML, no SVG root, not UTF-8). The worker treats it like bytes
+  that are not an image: the host keeps the icon it already had, and gets
+  none if it had none.
 
 ## Serving: stable addresses
 
@@ -141,9 +153,11 @@ answers `503 image_unavailable` until the grant lands.
 
 ### Before Oxy stage 4c
 
-Nothing here calls a stage 4c endpoint. SVG favicons (TODO(oxy-4c) above) stay
-in `clarity_search_hosts.icon_bytes`, served by `/favicons/:host` as before, so
-this change is safe to deploy against Oxy's stages 1–4b.
+Safe to deploy against Oxy's stages 1–4b. The only stage 4c behaviour Clarity
+uses is an SVG upload, through the same `uploadAppFile` call as every icon: an
+Oxy without 4c refuses it with 415 `UNSUPPORTED_MEDIA_TYPE`, and the icon stays
+in Postgres and is served from there, as before (above). The backfill is run by
+an operator, after Oxy #1774 (stage 4c) is deployed.
 
 ### Operations
 
@@ -172,10 +186,12 @@ DATABASE_URL=… bun run --filter @clarity/backend images:migrate-to-oxy -- \
 
 The migration copies `clarity_image_cache.bytes`, which are WebP renditions.
 A row an older pipeline kept as an original is rendered first. It also copies
-`clarity_search_hosts.icon_bytes`, except SVG icons.
+`clarity_search_hosts.icon_bytes`, SVG icons included.
 
 Each upload is verified: Oxy's SHA-256 and size of what it stored must equal
-Clarity's. On a mismatch the row is left untouched. A moved row gets its file
+Clarity's. On a mismatch the row is left untouched. An SVG is stored sanitized,
+so for it the check is that Oxy stored a non-empty `image/svg+xml`; its report
+line carries Oxy's hash as `storedSha256` when it differs from Clarity's. A moved row gets its file
 id and loses its bytes in one statement, so the migration can be interrupted
 and resumed. Re-running it moves only what is left.
 
@@ -186,7 +202,14 @@ and the host of each icon. The outbox delivers them.
 The report names each image by SHA-256, never by URL or host. A `blocked`
 outcome means Oxy refuses those bytes after a content claim, so Clarity stops
 serving them too. A `refused` or `oxy_unavailable` outcome leaves the row for a
-later run.
+later run; run against an Oxy without stage 4c, every SVG icon is `refused`
+and stays served from Postgres.
+
+An `invalid_svg` outcome (stage 4c cannot sanitize the document) also leaves
+the row, still served from Postgres, and blocks the retirement. Decide it with
+`--apply --release-invalid-svg`: Clarity's copy is dropped (`released_invalid_svg`),
+the host shows no icon, and the worker fetches the host's icon again at once,
+keeping it only if Oxy accepts it.
 
 ### Soak: dual read
 
@@ -205,15 +228,16 @@ DATABASE_URL=… bun run --filter @clarity/backend images:storage-status -- --ta
 
 It reports `ready` only when both of these hold:
 
-- No `images` or `favicons` legacy read in the last 14 days.
-- No cache row or non-SVG icon still holds bytes.
-
-`favicons_svg` reads do not count against the gate.
+- No `images`, `favicons` or `favicons_svg` legacy read in the last 14 days.
+- No cache row or icon, SVG included, still holds bytes
+  (`svgFaviconsNotMigrated` counts the SVG ones apart).
 
 Once the gate passes, a `post` migration drops `clarity_image_cache.bytes`,
 `content_type`, `byte_size` and `rendition`. It also replaces the ready CHECK
 with `status <> 'ready' or oxy_file_id is not null`. Remove the legacy branches
 of `resolveImage` and `readSiteIcon` in the same change.
 
-`clarity_search_hosts.icon_bytes` stays, restricted to `image/svg%`, until the
-TODO(oxy-4c) above is done.
+The same `post` migration drops `clarity_search_hosts.icon_bytes` and replaces
+the icon's ready condition with `icon_oxy_file_id is not null`, removing the
+`kind: 'local'` branch of `readSiteIcon` and the Postgres fallback of
+`keepIcon`. Until then the column stays, and nothing drops it.

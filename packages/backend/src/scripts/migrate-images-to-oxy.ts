@@ -8,13 +8,15 @@ import { migrateLegacyImages } from '../files/migrate-legacy-images.js';
 
 /**
  * `bun run images:migrate-to-oxy -- --target-database=<db> [--apply]
- *   [--limit=N] [--batch=N] [--report=<file.jsonl>]`
+ *   [--release-invalid-svg] [--limit=N] [--batch=N] [--report=<file.jsonl>]`
  *
  * Copies the images Clarity kept itself into Clarity-owned Oxy files
  * (files/migrate-legacy-images.ts; docs/oxy-files.md). Without `--apply` it is a
  * preview: nothing is written and Oxy is not called. The target database must
  * be named, and must be the one `DATABASE_URL` connects to. The report has one
- * JSON line per image, naming it by SHA-256 only.
+ * JSON line per image, naming it by SHA-256 only. `--release-invalid-svg`
+ * (with `--apply`) drops Clarity's copy of an SVG favicon Oxy refused as
+ * `INVALID_SVG`; without it such a row is left and reported.
  */
 function flag(argv: readonly string[], name: string): string | undefined {
   const prefix = `--${name}=`;
@@ -33,6 +35,8 @@ async function main(): Promise<void> {
   const argv = process.argv.slice(2);
   const target = readTargetDatabase(argv);
   const apply = argv.includes('--apply');
+  const releaseInvalidSvg = argv.includes('--release-invalid-svg');
+  if (releaseInvalidSvg && !apply) throw new Error('--release-invalid-svg requires --apply');
   const limit = positiveInteger(flag(argv, 'limit'), 'limit');
   const batchSize = positiveInteger(flag(argv, 'batch'), 'batch');
   const reportPath = flag(argv, 'report');
@@ -48,6 +52,7 @@ async function main(): Promise<void> {
   try {
     const summary = await migrateLegacyImages({
       apply,
+      releaseInvalidSvg,
       limit,
       batchSize,
       report: (line) => {

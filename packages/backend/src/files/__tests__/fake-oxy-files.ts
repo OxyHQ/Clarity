@@ -14,6 +14,19 @@ export function oxyError(status: number, code: string): Error {
 }
 
 /**
+ * Stage 4c's SVG rule, reduced to what Clarity can observe: a document without
+ * an SVG-namespace root is refused (415 `INVALID_SVG`), and a stored one is the
+ * sanitized document — here, with every `<script>` removed — so its SHA-256 is
+ * not the uploader's whenever sanitizing changed it. Deterministic.
+ */
+export function sanitizeSvg(bytes: Buffer): Buffer {
+  const text = bytes.toString('utf8');
+  if (!/<svg\b[^>]*\sxmlns="http:\/\/www\.w3\.org\/2000\/svg"/.test(text))
+    throw oxyError(415, 'INVALID_SVG');
+  return Buffer.from(text.replace(/<script\b[\s\S]*?<\/script>/g, ''));
+}
+
+/**
  * An in-memory Oxy Files with the semantics Clarity relies on: per-application
  * dedupe by bytes and by source URL, references that `not_found` a deleted
  * file, reconciliation of one entity type. Never touches the network.
@@ -58,6 +71,12 @@ export class FakeOxyFiles implements OxyFiles {
   remote = new Map<string, Buffer | Error>();
   /** When set, every call throws it (Oxy unreachable). */
   down: Error | undefined;
+  /**
+   * How this Oxy treats an SVG: `sanitize` is stage 4c (stores the sanitized
+   * document, refuses one it cannot parse with 415 `INVALID_SVG`);
+   * `unsupported` is an Oxy without 4c (415 `UNSUPPORTED_MEDIA_TYPE`).
+   */
+  svg: 'sanitize' | 'unsupported' = 'sanitize';
   private next = 1;
 
   private live(fileId: string): boolean {
@@ -112,7 +131,10 @@ export class FakeOxyFiles implements OxyFiles {
   async uploadAppFile(bytes: Uint8Array, mime: string) {
     if (this.down) throw this.down;
     this.calls.push(`upload:${mime}`);
-    if (mime.startsWith('image/svg')) throw oxyError(415, 'UNSUPPORTED_MEDIA_TYPE');
+    if (mime.startsWith('image/svg')) {
+      if (this.svg === 'unsupported') throw oxyError(415, 'UNSUPPORTED_MEDIA_TYPE');
+      return this.store(sanitizeSvg(Buffer.from(bytes)), 'image/svg+xml');
+    }
     return this.store(Buffer.from(bytes), mime);
   }
 

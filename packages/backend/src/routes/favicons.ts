@@ -11,10 +11,11 @@ import { readSiteIcon, registerHosts } from '../search/site-icons.js';
  *
  * A STABLE address (the frontend and every API response build it from the
  * host alone): it answers with a `302` to the icon's Clarity-owned Oxy file
- * (ADR 0043). An SVG icon — which Oxy cannot hold yet, TODO(oxy-4c) in
- * `files/oxy-files.ts` — and, during the soak, an icon not yet migrated are
- * still sent from Clarity: an image whose type Clarity sniffed, with a
- * sandboxing CSP so an SVG cannot run anything even opened directly.
+ * (ADR 0043) — an SVG included, which Oxy serves as its sanitized document
+ * under a sandboxing CSP (stage 4c). An icon not yet moved into Oxy (the soak),
+ * or an SVG an Oxy without stage 4c refused, is still sent from Clarity: an
+ * image whose type Clarity sniffed, with the same sandboxing CSP, so an SVG
+ * cannot run anything even opened directly.
  *
  * Public and credential-free, because an `<img>` sends no bearer. A host
  * Clarity has no icon for yet is registered here and answers 404 briefly, so

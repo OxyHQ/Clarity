@@ -5,7 +5,13 @@ import type { ClarityExecutor } from '../db/index.js';
 import { getDb } from '../db/index.js';
 import { imageReferences, searchHosts } from '../db/schema/index.js';
 import { recordLegacyRead } from '../files/legacy-reads.js';
-import { isBlocked, isSourceFailure, oxyCanHold, oxyFiles } from '../files/oxy-files.js';
+import {
+  isBlocked,
+  isSourceFailure,
+  isSvg,
+  oxyFiles,
+  svgUploadRefusal,
+} from '../files/oxy-files.js';
 import { useImage } from '../files/references.js';
 import { extractDocument } from './extractor.js';
 
@@ -24,8 +30,10 @@ import { extractDocument } from './extractor.js';
  * hotlinking the site or telling a third party which sites its users read.
  * Serving an icon records its use by the host (`clarity_image_references`);
  * an icon nobody is shown for 30 days is released and Oxy collects it, and the
- * next request fetches it again. An SVG icon stays in Postgres until Oxy can
- * hold one (`files/oxy-files.ts`, TODO(oxy-4c)).
+ * next request fetches it again. An SVG icon is a file like any other: Oxy
+ * stores its sanitized document and serves it inline under a sandboxing CSP
+ * (stage 4c). Only an Oxy without stage 4c refuses one, and then the bytes stay
+ * in Postgres and are served from there, as before (`files/oxy-files.ts`).
  */
 
 const USER_AGENT = 'ClarityBot/0.1 (+https://clarity.surf/bot)';
@@ -120,7 +128,7 @@ export async function hostsWithIcons(
 export type SiteIconAnswer =
   /** The icon is a Clarity-owned Oxy file: redirect to it. */
   | { kind: 'oxy'; oxyFileId: string }
-  /** Bytes Clarity holds: an SVG (TODO(oxy-4c)), or a copy not yet migrated. */
+  /** Bytes Clarity holds: a copy not yet moved into Oxy, or an SVG an Oxy without stage 4c refused. */
   | ({ kind: 'local' } & SiteIcon);
 
 /**
@@ -150,7 +158,7 @@ export async function readSiteIcon(
     return used ? { kind: 'oxy', oxyFileId: row.oxyFileId } : undefined;
   }
   if (!row.bytes) return undefined;
-  recordLegacyRead(oxyCanHold(row.contentType) ? 'favicons' : 'favicons_svg', now);
+  recordLegacyRead(isSvg(row.contentType) ? 'favicons_svg' : 'favicons', now);
   return { kind: 'local', contentType: row.contentType, bytes: row.bytes };
 }
 
@@ -280,22 +288,27 @@ type StoredIcon =
   | { bytes: Buffer; contentType: string; sourceUrl: string };
 
 /**
- * Where a fetched icon is kept: Oxy, as a Clarity file, unless Oxy cannot hold
- * its type (an SVG — TODO(oxy-4c)). `missing` when Oxy refused these bytes
- * (taken down, or not an image after all); `unavailable` when Oxy could not be
- * reached.
+ * Where a fetched icon is kept: Oxy, as a Clarity file — an SVG too, which Oxy
+ * stores sanitized. `missing` when Oxy refused these bytes (taken down, not an
+ * image after all, or an SVG it cannot make safe); `unavailable` when Oxy could
+ * not be reached.
+ *
+ * The one fallback: an Oxy without stage 4c refuses the SVG TYPE, and then the
+ * icon is kept in Postgres and served from there, exactly as before 4c, so a
+ * deploy ahead of Oxy's loses no icon. The next refresh offers it to Oxy again.
  */
 async function keepIcon(
   icon: SiteIcon & { sourceUrl: string },
 ): Promise<StoredIcon | 'missing' | 'unavailable'> {
-  if (!oxyCanHold(icon.contentType)) return icon;
   try {
     const { file } = await oxyFiles().uploadAppFile(icon.bytes, icon.contentType, {
       visibility: 'public',
     });
     return { oxyFileId: file.id, contentType: icon.contentType, sourceUrl: icon.sourceUrl };
   } catch (error) {
-    return isBlocked(error) || isSourceFailure(error) ? 'missing' : 'unavailable';
+    if (isBlocked(error)) return 'missing';
+    if (isSvg(icon.contentType) && svgUploadRefusal(error) === 'type_not_supported') return icon;
+    return isSourceFailure(error) ? 'missing' : 'unavailable';
   }
 }
 
@@ -355,8 +368,9 @@ export async function refreshDueIcons(
             updatedAt: now,
           })
           .where(eq(searchHosts.host, host));
-        // The host now shows this file (or, for an SVG, no Oxy file at all):
-        // the trigger owes Oxy the swap or the removal of its use.
+        // The host now shows this file (or, for an SVG an Oxy without stage 4c
+        // refused, no Oxy file at all): the trigger owes Oxy the swap or the
+        // removal of its use.
         const use = and(
           eq(imageReferences.entityType, 'search_host'),
           eq(imageReferences.entityId, host),

@@ -27,17 +27,17 @@ import {
  * sends to Alia must stay exactly `CLARITY_AGENT_MANIFEST.backendApplication
  * .scopes` (docs/oxy-files.md, "Before the grant").
  *
- * ## What Oxy cannot hold yet — TODO(oxy-4c)
+ * ## SVG (Oxy stage 4c)
  *
- * Oxy accepts an application file only when it is an image or a video, at most
- * 40 MiB, and never `image/svg*` (refused as a stored-XSS vector by the API's
- * `isAllowedCacheMime`). Every Clarity image is far below the size cap (5 MiB
- * previews, 100 KiB icons), so the one thing that does not fit is an SVG
- * favicon: {@link oxyCanHold} says no, and `site-icons.ts` keeps those bytes in
- * `clarity_search_hosts.icon_bytes`, served by `/favicons` under its sandbox
- * CSP, exactly as before. TODO(oxy-4c): when Oxy's stage 4c holds an SVG
- * (and serves an SVG inertly), drop this branch, upload SVG icons like every
- * other icon, and let the retirement step drop `icon_bytes`.
+ * Every image Clarity keeps is a file here, SVG favicons included: since stage
+ * 4c Oxy accepts `image/svg+xml`, stores ONLY its sanitized document (so the
+ * stored SHA-256 is the sanitized bytes', not Clarity's) and serves it inline
+ * under `Content-Security-Policy: default-src 'none'; style-src
+ * 'unsafe-inline'; sandbox`. {@link svgUploadRefusal} reads the two ways an SVG
+ * upload is refused: an Oxy without stage 4c refuses the TYPE (415
+ * `UNSUPPORTED_MEDIA_TYPE`), and Clarity keeps the icon's bytes in Postgres,
+ * served by `/favicons` exactly as before; stage 4c refuses a document it cannot
+ * make safe (415 `INVALID_SVG`), which is not an image Oxy will hold.
  */
 
 /** The Oxy scopes Clarity's backend application needs for its files. */
@@ -112,13 +112,23 @@ export function setOxyFilesForTesting(files: OxyFiles | undefined): void {
   override = files;
 }
 
+/** Whether a (sniffed) content type is SVG, which Oxy stores sanitized. */
+export function isSvg(contentType: string): boolean {
+  return contentType.toLowerCase().startsWith('image/svg');
+}
+
 /**
- * Whether Oxy Files can hold bytes of this (sniffed) type. Only an SVG cannot
- * today — see the module header, TODO(oxy-4c).
+ * Why Oxy refused an SVG upload, when it refused the SVG itself:
+ * `type_not_supported` from an Oxy without stage 4c (the type is refused, so
+ * the caller keeps the bytes it already has), `invalid_svg` from stage 4c (the
+ * document is not one Oxy can sanitize). `undefined` for any other failure.
  */
-export function oxyCanHold(contentType: string): boolean {
-  const type = contentType.toLowerCase();
-  return (type.startsWith('image/') || type.startsWith('video/')) && !type.startsWith('image/svg');
+export function svgUploadRefusal(error: unknown): 'type_not_supported' | 'invalid_svg' | undefined {
+  const { status, code } = oxyErrorOf(error);
+  if (code === 'INVALID_SVG') return 'invalid_svg';
+  if (code === 'UNSUPPORTED_MEDIA_TYPE' || (status === 415 && code === undefined))
+    return 'type_not_supported';
+  return undefined;
 }
 
 /**

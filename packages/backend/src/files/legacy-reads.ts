@@ -57,10 +57,10 @@ export interface StorageRetirementStatus {
   legacyReads: Record<LegacyReadSurface, number>;
   /** Cache rows still holding Clarity's own bytes. */
   imagesNotMigrated: number;
-  /** Non-SVG icons still held by Clarity rather than Oxy. */
+  /** Icons still held by Clarity rather than Oxy, SVG ones included. */
   faviconsNotMigrated: number;
-  /** SVG icons Clarity keeps until Oxy can hold them (TODO(oxy-4c)); not a blocker. */
-  svgFaviconsKept: number;
+  /** Of those, SVG icons (an Oxy without stage 4c refused them, or they await the move). */
+  svgFaviconsNotMigrated: number;
   /** True when the byte columns may be retired (docs/oxy-files.md). */
   ready: boolean;
 }
@@ -90,25 +90,28 @@ export async function storageRetirementStatus(now = Date.now()): Promise<Storage
   const [{ favicons }] = await getDb()
     .select({ favicons: sql<number>`count(*)::int`.mapWith(Number) })
     .from(searchHosts)
-    .where(
-      and(
-        isNotNull(searchHosts.iconBytes),
-        isNull(searchHosts.iconOxyFileId),
-        sql`${searchHosts.iconContentType} not like 'image/svg%'`,
-      ),
-    );
+    .where(and(isNotNull(searchHosts.iconBytes), isNull(searchHosts.iconOxyFileId)));
   const [{ svg }] = await getDb()
     .select({ svg: sql<number>`count(*)::int`.mapWith(Number) })
     .from(searchHosts)
     .where(
-      and(isNotNull(searchHosts.iconBytes), sql`${searchHosts.iconContentType} like 'image/svg%'`),
+      and(
+        isNotNull(searchHosts.iconBytes),
+        isNull(searchHosts.iconOxyFileId),
+        sql`${searchHosts.iconContentType} like 'image/svg%'`,
+      ),
     );
 
   return {
     legacyReads,
     imagesNotMigrated: images,
     faviconsNotMigrated: favicons,
-    svgFaviconsKept: svg,
-    ready: legacyReads.images === 0 && legacyReads.favicons === 0 && images === 0 && favicons === 0,
+    svgFaviconsNotMigrated: svg,
+    ready:
+      legacyReads.images === 0 &&
+      legacyReads.favicons === 0 &&
+      legacyReads.favicons_svg === 0 &&
+      images === 0 &&
+      favicons === 0,
   };
 }

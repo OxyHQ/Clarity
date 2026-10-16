@@ -77,8 +77,10 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
 - `GET /favicons/:host` — public, no credential (an `<img>` sends none): the
   site's favicon, one per host, fetched by the worker. A stable address: it
   answers `302` to the icon as a Clarity-owned Oxy file on Oxy's CDN (cached a
-  day); an SVG icon, which Oxy cannot hold yet, is still sent by Clarity with a
-  week's cache (`docs/oxy-files.md`). Hosts are registered as their pages are
+  day), an SVG too, which Oxy serves as its sanitized document under a sandbox
+  CSP. An icon Clarity still holds itself (not yet moved, or an SVG an Oxy
+  without stage 4c refused) is sent by Clarity under the same CSP with a week's
+  cache (`docs/oxy-files.md`). Hosts are registered as their pages are
   crawled or discovered; an unknown host is registered on request and answers
   404 until fetched. Documents and search results carry `faviconUrl` pointing
   here once the icon is stored; the SDK's `resolveFaviconUrl(host)` builds the

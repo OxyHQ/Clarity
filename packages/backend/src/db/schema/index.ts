@@ -509,10 +509,12 @@ export const searchHosts = pgTable(
     iconSourceUrl: text('icon_source_url'),
     iconContentType: text('icon_content_type'),
     /**
-     * The icon's bytes, kept in Postgres only for an icon Oxy Files cannot hold
-     * (an SVG, `files/oxy-files.ts` — TODO(oxy-4c)) and, during the soak, for an
-     * icon stored before the move to Oxy Files that `images:migrate-to-oxy` has
-     * not copied yet. Every other icon is `icon_oxy_file_id`.
+     * The icon's bytes, kept in Postgres only during the soak: for an icon
+     * stored before the move to Oxy Files that `images:migrate-to-oxy` has not
+     * copied yet, and for an SVG an Oxy without stage 4c refused
+     * (`files/oxy-files.ts`). Every other icon, SVG included, is
+     * `icon_oxy_file_id`. Dropped only by the retirement step's `post`
+     * migration, once `images:storage-status` is ready.
      */
     iconBytes: bytea('icon_bytes'),
     /** The Clarity-owned Oxy file holding the icon (ADR 0043), when Oxy holds it. */
@@ -718,9 +720,9 @@ export const oxyFileJobs = pgTable('clarity_oxy_file_jobs', {
 /**
  * Requests answered from Clarity's OWN image bytes, per day and surface — the
  * measure the storage-retirement step is gated on (docs/oxy-files.md).
- * `images` and `favicons` are legacy reads of copies not yet in Oxy;
- * `favicons_svg` counts the SVG icons Clarity must keep until Oxy can hold them
- * (TODO(oxy-4c)), which are not legacy and do not block the retirement.
+ * Every surface is a legacy read of a copy not yet in Oxy; `favicons_svg`
+ * counts the SVG icons apart (an Oxy without stage 4c refuses them, so they are
+ * the last to move), and blocks the retirement like the others.
  */
 export const legacyImageReads = pgTable(
   'clarity_legacy_image_reads',
