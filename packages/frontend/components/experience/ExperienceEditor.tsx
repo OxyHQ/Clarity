@@ -19,7 +19,7 @@ import { TextField, TextFieldInput, TextFieldLabel } from '@oxy.so/bloom/text-fi
 import { useTranslation } from '@/hooks/useTranslation';
 import {
   EXPERIENCE_EMPLOYMENT_TYPES,
-  experienceInputSchema,
+  validateExperienceInput,
   type Experience,
   type ExperienceInput,
 } from '@clarity.surf/sdk/experience';
@@ -81,9 +81,9 @@ export function ExperienceEditor({
   }
   function submit() {
     if (busy || !canEdit) return;
-    const result = experienceInputSchema.safeParse(draft);
+    const result = validateExperienceInput(draft);
     if (!result.success) {
-      setErrors(result.error.issues.map((issue) => String(issue.path[0])));
+      setErrors(result.issues.map((issue) => String(issue.path[0])));
       return;
     }
     save.mutate(result.data);

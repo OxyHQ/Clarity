@@ -1,4 +1,9 @@
-import { experienceSchema, experienceListSchema, type ExperienceInput } from './experience.js';
+import {
+  validateExperience,
+  validateExperienceList,
+  type ExperienceInput,
+  type ExperienceValidation,
+} from './experience.js';
 import { resolveFaviconUrl } from './favicon.js';
 import type {
   ClarityErrorBody,
@@ -206,10 +211,10 @@ export class ClarityClient {
         undefined,
         options,
         true,
-      ).then((value) => experienceListSchema.parse(value)),
+      ).then((value) => checked(validateExperienceList(value))),
     create: (input: ExperienceInput, options?: RequestOptions) =>
       this.request<unknown>('POST', '/api/experience', input, options).then((value) =>
-        experienceSchema.parse(value),
+        checked(validateExperience(value)),
       ),
     update: (id: string, input: ExperienceInput, options?: RequestOptions) =>
       this.request<unknown>(
@@ -217,7 +222,7 @@ export class ClarityClient {
         `/api/experience/${encodeURIComponent(id)}`,
         input,
         options,
-      ).then((value) => experienceSchema.parse(value)),
+      ).then((value) => checked(validateExperience(value))),
     delete: (id: string, options?: RequestOptions) =>
       this.request<void>('DELETE', `/api/experience/${encodeURIComponent(id)}`, undefined, options),
     clear: (options?: RequestOptions) =>
@@ -295,6 +300,13 @@ export class ClarityClient {
     }
     throw new Error('Unreachable retry state');
   }
+}
+
+/** A response that does not match the contract is a deployment mismatch, not data. */
+function checked<T>(validation: ExperienceValidation<T>): T {
+  if (validation.success) return validation.data;
+  const where = validation.issues.map((issue) => issue.path.join('.') || '(root)').join(', ');
+  throw new TypeError(`Clarity returned an Experience response outside the contract: ${where}`);
 }
 
 function query(values: object): string {
