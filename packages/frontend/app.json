@@ -58,7 +58,9 @@
           "backgroundColor": "#040711"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      "@oxy.so/app-preset/plugin/withOxyAndroidRelease",
+      "@oxy.so/services/plugins/withOxySharedPermissions"
     ],
     "experiments": {
       "typedRoutes": true
