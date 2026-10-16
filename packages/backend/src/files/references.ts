@@ -12,7 +12,7 @@ import {
 import { type ReferenceEntityType, REFERENCE_ENTITY_TYPES, oxyFiles } from './oxy-files.js';
 
 /**
- * Clarity's side of ADR 0041's usage model: which entity shows which
+ * Clarity's side of ADR 0043's usage model: which entity shows which
  * Clarity-owned file (`clarity_image_references`, whose header defines when an
  * image STOPS being used), and keeping Oxy's `file_references` equal to it.
  *
@@ -148,7 +148,7 @@ export async function forgetOxyFile(executor: ClarityExecutor, oxyFileId: string
 
 /**
  * Hide (`blocked: true`) or show again everything Clarity serves from a file
- * Oxy took down after a content claim (ADR 0041 D10). The uses stay: the image
+ * Oxy took down after a content claim (ADR 0043 D10). The uses stay: the image
  * is still what those entities show, it is just not served.
  */
 export async function setOxyFileBlocked(
@@ -203,7 +203,7 @@ export async function reassertUses(executor: ClarityExecutor, oxyFileId: string)
  * The "last used" rule: release every use not served for
  * {@link IMAGE_IDLE_TTL_MS}. The delete's trigger owes Oxy the removal; Oxy
  * then trashes a file nothing else uses after 24 hours and deletes it 30 days
- * later (ADR 0041 D5), and a request in between restores it.
+ * later (ADR 0043 D5), and a request in between restores it.
  */
 export async function releaseIdleReferences(now = Date.now()): Promise<number> {
   const idleBefore = new Date(now - IMAGE_IDLE_TTL_MS);

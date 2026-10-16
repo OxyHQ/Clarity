@@ -510,12 +510,12 @@ export const searchHosts = pgTable(
     iconContentType: text('icon_content_type'),
     /**
      * The icon's bytes, kept in Postgres only for an icon Oxy Files cannot hold
-     * (an SVG, `files/oxy-files.ts` — TODO(oxy-4b)) and, during the soak, for an
+     * (an SVG, `files/oxy-files.ts` — TODO(oxy-4c)) and, during the soak, for an
      * icon stored before the move to Oxy Files that `images:migrate-to-oxy` has
      * not copied yet. Every other icon is `icon_oxy_file_id`.
      */
     iconBytes: bytea('icon_bytes'),
-    /** The Clarity-owned Oxy file holding the icon (ADR 0041), when Oxy holds it. */
+    /** The Clarity-owned Oxy file holding the icon (ADR 0043), when Oxy holds it. */
     iconOxyFileId: text('icon_oxy_file_id'),
     iconFetchedAt: timestamp('icon_fetched_at', { withTimezone: true }),
     iconNextFetchAt: timestamp('icon_next_fetch_at', { withTimezone: true }).notNull().defaultNow(),
@@ -544,7 +544,7 @@ export const searchHosts = pgTable(
  * job's employer logo — keyed by the SHA-256 of the source URL, so every
  * document or job pointing at one image shares one row.
  *
- * Since ADR 0041 the image itself is a CLARITY-OWNED Oxy file
+ * Since ADR 0043 the image itself is a CLARITY-OWNED Oxy file
  * (`oxy_file_id`): Oxy imported it by URL, keeps it, renders its sizes and
  * serves it from its CDN, and garbage-collects it once nothing references it
  * (search/image-cache.ts, files/references.ts). A consumer still loads
@@ -608,7 +608,7 @@ export const imageCache = pgTable(
 
 /**
  * Which Clarity entity SHOWS which Clarity-owned Oxy file — the inventory of
- * Clarity's ADR 0041 references, one row per entity (an entity shows one
+ * Clarity's ADR 0043 references, one row per entity (an entity shows one
  * image of its kind):
  *
  * - `search_document`: a document's preview image (`/images/documents/:id`);
@@ -629,7 +629,7 @@ export const imageCache = pgTable(
  *    days): the "last used" rule Clarity's own cache sweep used to apply, now
  *    applied to the reference (files/references.ts `releaseIdleReferences`).
  *
- * After that Oxy owns the rest (ADR 0041 D5): an application file nothing
+ * After that Oxy owns the rest (ADR 0043 D5): an application file nothing
  * references is trashed after 24 hours and deleted 30 days later, and a new
  * reference in between restores it. Every insert, delete and file change here
  * is mirrored into `clarity_oxy_file_reference_outbox` by a trigger in the same
@@ -692,7 +692,7 @@ export const oxyFileReferenceOutbox = pgTable(
 );
 
 /**
- * File events Oxy delivered (ADR 0041 D9), by event id: delivery is at least
+ * File events Oxy delivered (ADR 0043 D9), by event id: delivery is at least
  * once, so an event is acted on only by the request that inserts its row.
  * Swept after 30 days, when Oxy's own delivery row has expired too.
  */
@@ -720,7 +720,7 @@ export const oxyFileJobs = pgTable('clarity_oxy_file_jobs', {
  * measure the storage-retirement step is gated on (docs/oxy-files.md).
  * `images` and `favicons` are legacy reads of copies not yet in Oxy;
  * `favicons_svg` counts the SVG icons Clarity must keep until Oxy can hold them
- * (TODO(oxy-4b)), which are not legacy and do not block the retirement.
+ * (TODO(oxy-4c)), which are not legacy and do not block the retirement.
  */
 export const legacyImageReads = pgTable(
   'clarity_legacy_image_reads',

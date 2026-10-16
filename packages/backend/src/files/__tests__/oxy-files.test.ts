@@ -17,7 +17,7 @@ describe('the Oxy Files adapter', () => {
       expect(CLARITY_AGENT_MANIFEST.backendApplication.scopes).not.toContain(scope);
   });
 
-  it('keeps out of Oxy only what Oxy cannot hold yet (an SVG, TODO(oxy-4b))', () => {
+  it('keeps out of Oxy only what Oxy cannot hold yet (an SVG, TODO(oxy-4c))', () => {
     for (const type of ['image/png', 'image/x-icon', 'image/avif', 'image/webp', 'image/gif'])
       expect(oxyCanHold(type)).toBe(true);
     expect(oxyCanHold('image/svg+xml')).toBe(false);

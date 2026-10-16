@@ -59,7 +59,7 @@ export interface StorageRetirementStatus {
   imagesNotMigrated: number;
   /** Non-SVG icons still held by Clarity rather than Oxy. */
   faviconsNotMigrated: number;
-  /** SVG icons Clarity keeps until Oxy can hold them (TODO(oxy-4b)); not a blocker. */
+  /** SVG icons Clarity keeps until Oxy can hold them (TODO(oxy-4c)); not a blocker. */
   svgFaviconsKept: number;
   /** True when the byte columns may be retired (docs/oxy-files.md). */
   ready: boolean;

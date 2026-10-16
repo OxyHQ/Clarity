@@ -8,7 +8,7 @@ import { log } from '../lib/logger.js';
 
 /**
  * `POST /webhooks/oxy/files` — Oxy's file events for the files Clarity owns
- * and uses (ADR 0041 D9), signed with the secret Oxy showed once when the
+ * and uses (ADR 0043 D9), signed with the secret Oxy showed once when the
  * endpoint was set (console → Webhooks → File events), held in
  * `OXY_FILES_WEBHOOK_SECRET`.
  *

@@ -1,7 +1,7 @@
 # Clarity's images in Oxy Files
 
 Clarity shows three kinds of remote image: a document's preview image, a job's
-employer logo, and a site's favicon. Since Oxy ADR 0041 (phase 4) they are
+employer logo, and a site's favicon. Since Oxy ADR 0043 (stage 4) they are
 **files the Clarity application owns in Oxy Files**, not bytes in Clarity's
 Postgres. Oxy imports them, renders their sizes, serves them from its CDN, and
 deletes them once Clarity stops using them. Clarity keeps the record of which
@@ -26,7 +26,7 @@ private file.
 ### What "stops being used" means
 
 Clarity used to delete its own copy of an image nobody had asked for in 30 days.
-That rule now applies to the **reference**. Oxy owns the deletion (ADR 0041 D5).
+That rule now applies to the **reference**. Oxy owns the deletion (ADR 0043 D5).
 A use (a row in `clarity_image_references`) goes in exactly three cases:
 
 1. **The entity no longer shows that image.** Its URL changed or was cleared,
@@ -46,7 +46,7 @@ Oxy trashes it after 24 hours and deletes it 30 days later. If the image is
 asked for in between, the request's new use restores it. After that, the
 request imports the image again.
 
-A **nightly reconciliation** per entity type (`references.reconcile`, ADR 0041
+A **nightly reconciliation** per entity type (`references.reconcile`, ADR 0043
 D6) sends the whole inventory. Oxy adds any use it is missing and removes any
 it holds that Clarity no longer lists. This catches whatever the outbox missed.
 
@@ -72,14 +72,14 @@ it holds that Clarity no longer lists. This catches whatever the outbox missed.
   remembered: the image answers `503 image_unavailable` with `no-store`, and
   the worker retries an icon within the hour.
 
-### TODO(oxy-4b): SVG favicons
+### TODO(oxy-4c): SVG favicons
 
 Oxy refuses `image/svg*` for application files (`isAllowedCacheMime`, a
 stored-XSS rule). SVG favicons therefore stay in
 `clarity_search_hosts.icon_bytes` and are served by `/favicons/:host` under its
 sandbox CSP. Reads of them are counted as `favicons_svg`. They are the only
 images Oxy cannot hold. Every other image is far below Oxy's 40 MiB cap: 5 MiB
-previews and 100 KiB icons. When Oxy's stage 4b stores any type, upload SVG
+previews and 100 KiB icons. When Oxy's stage 4c holds an SVG and serves it inertly, upload SVG
 icons like the others: drop the `oxyCanHold` branch in `files/oxy-files.ts`.
 
 ## Serving: stable addresses
@@ -118,24 +118,32 @@ event id once (`clarity_oxy_file_events`, kept 30 days):
 
 ## Rollout
 
-### Before the grant (blocker)
+### Before the grant: exact scope subsets (done)
 
 Clarity's token to Alia must carry exactly `user:read` and `inference:invoke`
 (`assertExactClarityServiceClaims`, and the AGENTS.md hard boundary). Clarity
-mints that token from its attested workload, so every scope granted to the
-Clarity Backend workload appears on it.
+mints it from its attested workload, so before scope subsets every scope granted
+to the Clarity Backend workload appeared on it, and a file grant would have made
+every Alia call and readiness check fail closed.
 
-`@oxy.so/core` 4.14.0 cannot mint a token with only a subset of scopes. Scope
-subsets are on the unmerged `feat/service-token-scope-subsets` branch in
-OxyHQ/oxy, and Clarity's `fix/agent-service-token-scope-subset` already
-requests the agent subset with it.
+That is closed: `@oxy.so/core` mints exact scope subsets (oxy #1718), and
+Clarity #123 requests the agent tuple as one (`getClarityServiceToken` and
+`getClarityServiceTokenFor`). The Oxy Files adapter's calls mint the unscoped
+token, which `OxyServer` caches apart from the subset, so the file scopes reach
+only Oxy Files. `clarity-service-auth.test.ts` refuses the full grant (agent
+tuple plus `CLARITY_FILES_SCOPES`) as an agent token.
 
-Do these in order:
+Order: grant the scopes below only once Clarity #123 runs in production (it is
+the code that requests the subset), and before deploying this change. A deploy
+without the grant is safe but degraded: Oxy refuses the imports (403, never
+remembered as a missing image), so an image Clarity does not already hold
+answers `503 image_unavailable` until the grant lands.
 
-1. Release scoped minting in `@oxy.so/core`.
-2. Merge Clarity's agent-subset change.
-3. Grant this PR's scopes. If you grant first, every Alia call and readiness
-   check fails closed.
+### Before Oxy stage 4c
+
+Nothing here calls a stage 4c endpoint. SVG favicons (TODO(oxy-4c) above) stay
+in `clarity_search_hosts.icon_bytes`, served by `/favicons/:host` as before, so
+this change is safe to deploy against Oxy's stages 1–4b.
 
 ### Operations
 
@@ -208,4 +216,4 @@ with `status <> 'ready' or oxy_file_id is not null`. Remove the legacy branches
 of `resolveImage` and `readSiteIcon` in the same change.
 
 `clarity_search_hosts.icon_bytes` stays, restricted to `image/svg%`, until the
-TODO(oxy-4b) above is done.
+TODO(oxy-4c) above is done.

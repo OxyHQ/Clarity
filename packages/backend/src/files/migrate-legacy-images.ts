@@ -14,11 +14,11 @@ import { isBlocked, oxyCanHold, oxyFiles } from './oxy-files.js';
 import { IMAGE_IDLE_TTL_MS } from './references.js';
 
 /**
- * Copy the images Clarity kept itself into Oxy Files (ADR 0041 phase 4).
+ * Copy the images Clarity kept itself into Oxy Files (ADR 0043 stage 4).
  *
  * - `clarity_image_cache.bytes` (the WebP renditions of document previews and
  *   employer logos) and `clarity_search_hosts.icon_bytes` (favicons, except an
- *   SVG — TODO(oxy-4b) in `oxy-files.ts`) become Clarity-owned public files.
+ *   SVG — TODO(oxy-4c) in `oxy-files.ts`) become Clarity-owned public files.
  * - Each upload is VERIFIED: Oxy's SHA-256 and size of what it stored must equal
  *   those of the bytes sent, or the row is left as it was and reported.
  * - RESUMABLE: a row is moved (file id written, bytes cleared) in one statement
@@ -191,7 +191,7 @@ async function migrateFavicons(
     if (rows.length === 0) return;
     for (const row of rows) {
       after = row.host;
-      // An SVG stays where it is until Oxy can hold one (TODO(oxy-4b)).
+      // An SVG stays where it is until Oxy can hold one (TODO(oxy-4c)).
       if (!row.bytes || !row.contentType || !oxyCanHold(row.contentType)) continue;
       if (options.limit !== undefined && seen >= options.limit) return;
       seen += 1;

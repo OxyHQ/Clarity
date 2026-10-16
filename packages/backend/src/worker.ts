@@ -712,7 +712,7 @@ async function runOxyFiles(): Promise<void> {
 
 /**
  * Release the images nobody has been shown in 30 days (Oxy collects them,
- * ADR 0041 D5) and forget what the cache no longer needs (search/image-cache.ts).
+ * ADR 0043 D5) and forget what the cache no longer needs (search/image-cache.ts).
  */
 async function runImageCacheSweep(): Promise<void> {
   try {

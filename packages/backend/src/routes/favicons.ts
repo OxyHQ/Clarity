@@ -11,7 +11,7 @@ import { readSiteIcon, registerHosts } from '../search/site-icons.js';
  *
  * A STABLE address (the frontend and every API response build it from the
  * host alone): it answers with a `302` to the icon's Clarity-owned Oxy file
- * (ADR 0041). An SVG icon — which Oxy cannot hold yet, TODO(oxy-4b) in
+ * (ADR 0043). An SVG icon — which Oxy cannot hold yet, TODO(oxy-4c) in
  * `files/oxy-files.ts` — and, during the soak, an icon not yet migrated are
  * still sent from Clarity: an image whose type Clarity sniffed, with a
  * sandboxing CSP so an SVG cannot run anything even opened directly.

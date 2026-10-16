@@ -15,7 +15,7 @@ import { hostsWithIcons, readSiteIcon, refreshDueIcons, registerHosts } from '..
  * Site icons against real Postgres and a fake Oxy: hosts are registered once, a
  * page's declared icon becomes the hint, the worker's claim and outcome land on
  * the row, an icon is kept as a Clarity-owned Oxy file (an SVG stays in
- * Postgres, TODO(oxy-4b)), serving it records the host's use, and a failed
+ * Postgres, TODO(oxy-4c)), serving it records the host's use, and a failed
  * refresh never throws away an icon Clarity already had.
  */
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';

@@ -126,7 +126,7 @@ app.use(
 
 // Account deletion authenticates the signed event itself, independently of runtime readiness.
 app.use('/webhooks/oxy/account-events', oxyAccountEventsRouter);
-// Oxy's file events (ADR 0041 D9): the signature is over the raw body, so this
+// Oxy's file events (ADR 0043 D9): the signature is over the raw body, so this
 // is mounted before `express.json()`, like the account events above.
 app.use('/webhooks/oxy/files', oxyFileEventsRouter);
 

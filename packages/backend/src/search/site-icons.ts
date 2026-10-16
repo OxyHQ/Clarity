@@ -20,12 +20,12 @@ import { extractDocument } from './extractor.js';
  * served content type is the sniffed one, never the site's header.
  *
  * `GET /favicons/:host` (routes/favicons.ts) redirects to the icon, which is a
- * Clarity-owned Oxy file (ADR 0041), so a consumer shows a site's mark without
+ * Clarity-owned Oxy file (ADR 0043), so a consumer shows a site's mark without
  * hotlinking the site or telling a third party which sites its users read.
  * Serving an icon records its use by the host (`clarity_image_references`);
  * an icon nobody is shown for 30 days is released and Oxy collects it, and the
  * next request fetches it again. An SVG icon stays in Postgres until Oxy can
- * hold one (`files/oxy-files.ts`, TODO(oxy-4b)).
+ * hold one (`files/oxy-files.ts`, TODO(oxy-4c)).
  */
 
 const USER_AGENT = 'ClarityBot/0.1 (+https://clarity.surf/bot)';
@@ -120,7 +120,7 @@ export async function hostsWithIcons(
 export type SiteIconAnswer =
   /** The icon is a Clarity-owned Oxy file: redirect to it. */
   | { kind: 'oxy'; oxyFileId: string }
-  /** Bytes Clarity holds: an SVG (TODO(oxy-4b)), or a copy not yet migrated. */
+  /** Bytes Clarity holds: an SVG (TODO(oxy-4c)), or a copy not yet migrated. */
   | ({ kind: 'local' } & SiteIcon);
 
 /**
@@ -281,7 +281,7 @@ type StoredIcon =
 
 /**
  * Where a fetched icon is kept: Oxy, as a Clarity file, unless Oxy cannot hold
- * its type (an SVG — TODO(oxy-4b)). `missing` when Oxy refused these bytes
+ * its type (an SVG — TODO(oxy-4c)). `missing` when Oxy refused these bytes
  * (taken down, or not an image after all); `unavailable` when Oxy could not be
  * reached.
  */

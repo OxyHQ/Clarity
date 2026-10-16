@@ -10,7 +10,7 @@ import {
 } from '@oxy.so/core';
 
 /**
- * The ONE place Clarity talks to Oxy Files (ADR 0041).
+ * The ONE place Clarity talks to Oxy Files (ADR 0043).
  *
  * Clarity's remote images — document previews, employer logos, favicons — are
  * files the CLARITY application owns: not a person's, not billed, garbage-
@@ -18,7 +18,7 @@ import {
  * Clarity reaches Oxy through this module, so a test swaps one object and the
  * scopes Clarity needs are named in one place.
  *
- * ## Scopes (granted by Oxy staff, ADR 0041 D11)
+ * ## Scopes (granted by Oxy staff, ADR 0043 D11)
  *
  * {@link CLARITY_FILES_SCOPES}: `files:app:write` to import, upload and list its
  * own files, and `files:references:write` to say which entity uses which file.
@@ -27,7 +27,7 @@ import {
  * sends to Alia must stay exactly `CLARITY_AGENT_MANIFEST.backendApplication
  * .scopes` (docs/oxy-files.md, "Before the grant").
  *
- * ## What Oxy cannot hold yet — TODO(oxy-4b)
+ * ## What Oxy cannot hold yet — TODO(oxy-4c)
  *
  * Oxy accepts an application file only when it is an image or a video, at most
  * 40 MiB, and never `image/svg*` (refused as a stored-XSS vector by the API's
@@ -35,7 +35,7 @@ import {
  * previews, 100 KiB icons), so the one thing that does not fit is an SVG
  * favicon: {@link oxyCanHold} says no, and `site-icons.ts` keeps those bytes in
  * `clarity_search_hosts.icon_bytes`, served by `/favicons` under its sandbox
- * CSP, exactly as before. TODO(oxy-4b): when Oxy's stage 4b stores any type
+ * CSP, exactly as before. TODO(oxy-4c): when Oxy's stage 4c holds an SVG
  * (and serves an SVG inertly), drop this branch, upload SVG icons like every
  * other icon, and let the retirement step drop `icon_bytes`.
  */
@@ -114,7 +114,7 @@ export function setOxyFilesForTesting(files: OxyFiles | undefined): void {
 
 /**
  * Whether Oxy Files can hold bytes of this (sniffed) type. Only an SVG cannot
- * today — see the module header, TODO(oxy-4b).
+ * today — see the module header, TODO(oxy-4c).
  */
 export function oxyCanHold(contentType: string): boolean {
   const type = contentType.toLowerCase();
@@ -165,7 +165,7 @@ export function isSourceFailure(error: unknown): boolean {
   );
 }
 
-/** Whether Oxy refused the bytes because they were taken down (ADR 0041 D10). */
+/** Whether Oxy refused the bytes because they were taken down (ADR 0043 D10). */
 export function isBlocked(error: unknown): boolean {
   const { status, code } = oxyErrorOf(error);
   return code === 'CONTENT_BLOCKED' || status === 451;

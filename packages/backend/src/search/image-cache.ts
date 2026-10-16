@@ -26,7 +26,7 @@ import { fetchBounded, hostOf, publicApiBase } from './site-icons.js';
  *
  * The API never hands a consumer a site's own image URL. It hands out
  * `GET /images/<kind>/<id>/<version>` (routes/images.ts) — a stable address
- * that now REDIRECTS to the image as a Clarity-owned Oxy file (ADR 0041), so a
+ * that now REDIRECTS to the image as a Clarity-owned Oxy file (ADR 0043), so a
  * reader's browser still never asks the site for anything.
  *
  * - Filled lazily, the first time anyone asks for the image: Oxy imports it by
@@ -39,7 +39,7 @@ import { fetchBounded, hostOf, publicApiBase } from './site-icons.js';
  *   a changed image becomes a new file and every use moves to it.
  * - A failed fetch is remembered for {@link IMAGE_MISS_TTL_MS}.
  * - When it stops being used — see `clarity_image_references` — Clarity
- *   removes its reference and Oxy collects the file (ADR 0041 D5). That
+ *   removes its reference and Oxy collects the file (ADR 0043 D5). That
  *   replaces the 30-day sweep that used to delete Clarity's own copy.
  *
  * During the soak a row may still hold the WebP Clarity kept itself (`bytes`):
@@ -331,7 +331,7 @@ export async function resolveImage(
  * went: failures whose window has passed, legacy copies nobody read in
  * {@link IMAGE_IDLE_TTL_MS} (so the migration does not move dead images), and
  * rows whose file no entity has used since Oxy collected it. The images
- * themselves are Oxy's to delete (ADR 0041 D5).
+ * themselves are Oxy's to delete (ADR 0043 D5).
  */
 export async function sweepImageCache(now = Date.now()): Promise<number> {
   const missBefore = new Date(now - IMAGE_MISS_TTL_MS);
