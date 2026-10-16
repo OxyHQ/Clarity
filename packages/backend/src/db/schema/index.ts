@@ -4,6 +4,7 @@ import {
   bigint,
   check,
   customType,
+  date,
   doublePrecision,
   foreignKey,
   index,
@@ -507,36 +508,56 @@ export const searchHosts = pgTable(
     iconHintUrl: text('icon_hint_url'),
     iconSourceUrl: text('icon_source_url'),
     iconContentType: text('icon_content_type'),
+    /**
+     * The icon's bytes, kept in Postgres only for an icon Oxy Files cannot hold
+     * (an SVG, `files/oxy-files.ts` — TODO(oxy-4b)) and, during the soak, for an
+     * icon stored before the move to Oxy Files that `images:migrate-to-oxy` has
+     * not copied yet. Every other icon is `icon_oxy_file_id`.
+     */
     iconBytes: bytea('icon_bytes'),
+    /** The Clarity-owned Oxy file holding the icon (ADR 0041), when Oxy holds it. */
+    iconOxyFileId: text('icon_oxy_file_id'),
     iconFetchedAt: timestamp('icon_fetched_at', { withTimezone: true }),
     iconNextFetchAt: timestamp('icon_next_fetch_at', { withTimezone: true }).notNull().defaultNow(),
     ...timestampColumns(),
   },
   (table) => [
     index('clarity_search_hosts_icon_due_idx').on(table.iconNextFetchAt),
+    // `blocked`: Oxy took the icon's file down after a content claim (a
+    // `file.blocked` event); it is not served until `file.unblocked`.
     check(
       'clarity_search_hosts_icon_status_check',
-      sql`${table.iconStatus} in ('pending', 'ready', 'missing')`,
+      sql`${table.iconStatus} in ('pending', 'ready', 'missing', 'blocked')`,
     ),
     check(
       'clarity_search_hosts_icon_ready_check',
-      sql`${table.iconStatus} <> 'ready' or (${table.iconBytes} is not null and ${table.iconContentType} is not null)`,
+      sql`${table.iconStatus} <> 'ready' or (${table.iconContentType} is not null and (${table.iconBytes} is not null or ${table.iconOxyFileId} is not null))`,
     ),
+    index('clarity_search_hosts_icon_oxy_file_idx')
+      .on(table.iconOxyFileId)
+      .where(sql`${table.iconOxyFileId} is not null`),
   ],
 );
 
 /**
- * Clarity's copy of the remote images its API shows: a document's preview image
- * and a job's employer logo. A consumer loads them from Clarity
- * (`GET /images/...`), never from the site, so a reader's browser never asks a
- * third party for anything and never tells it what they read.
- *
- * A CACHE, not an archive. A row is filled the first time the image is asked
- * for, refetched once it is `IMAGE_REFRESH_MS` old, and deleted by the worker
- * when nobody has asked for it in `IMAGE_IDLE_TTL_MS` (search/image-cache.ts).
- * `missing` remembers a failed fetch briefly so a broken image is not
- * re-fetched on every request. Keyed by the SHA-256 of the source URL, so every
+ * The remote images Clarity's API shows — a document's preview image and a
+ * job's employer logo — keyed by the SHA-256 of the source URL, so every
  * document or job pointing at one image shares one row.
+ *
+ * Since ADR 0041 the image itself is a CLARITY-OWNED Oxy file
+ * (`oxy_file_id`): Oxy imported it by URL, keeps it, renders its sizes and
+ * serves it from its CDN, and garbage-collects it once nothing references it
+ * (search/image-cache.ts, files/references.ts). A consumer still loads
+ * `GET /images/...` from Clarity, which redirects to the file.
+ *
+ * `bytes` is the copy Clarity used to keep itself (a WebP rendition). It is
+ * READ ONLY now: no write path fills it, `images:migrate-to-oxy` copies it into
+ * Oxy and clears it, and the column goes in the storage-retirement step
+ * (docs/oxy-files.md) once no request has read it for the soak window.
+ *
+ * `missing` remembers a failed fetch briefly so a broken image is not
+ * re-fetched on every request; `blocked` is an image Oxy took down after a
+ * content claim, never served and never re-imported until `file.unblocked`.
  */
 export const imageCache = pgTable(
   'clarity_image_cache',
@@ -544,28 +565,175 @@ export const imageCache = pgTable(
     key: text('key').primaryKey(),
     sourceUrl: text('source_url').notNull(),
     status: text('status').notNull(),
+    /** The Clarity-owned Oxy file holding this image. */
+    oxyFileId: text('oxy_file_id'),
+    /** Legacy copy only (see above). */
     contentType: text('content_type'),
+    /** Legacy copy only (see above). */
     bytes: bytea('bytes'),
     byteSize: integer('byte_size').notNull().default(0),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
     lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }).notNull().defaultNow(),
     /**
-     * Which `image-render.ts` pipeline produced `bytes`. 0 is a row from before
-     * renditions existed, which may hold a site's original; anything below
-     * `STORED_IMAGE_RENDITION` is re-rendered on read and by the worker.
+     * Which `image-render.ts` pipeline produced the legacy `bytes`. 0 is a row
+     * from before renditions existed, which may hold a site's original; the
+     * migration renders it before copying it into Oxy.
      */
     rendition: integer('rendition').notNull().default(0),
   },
   (table) => [
     index('clarity_image_cache_last_accessed_idx').on(table.lastAccessedAt),
-    // The worker's upgrade sweep reads only rows still on an older rendition.
     index('clarity_image_cache_rendition_idx')
       .on(table.rendition)
       .where(sql`${table.status} = 'ready'`),
-    check('clarity_image_cache_status_check', sql`${table.status} in ('ready', 'missing')`),
+    index('clarity_image_cache_oxy_file_idx')
+      .on(table.oxyFileId)
+      .where(sql`${table.oxyFileId} is not null`),
+    // The migration and the retirement check read only rows still holding bytes.
+    index('clarity_image_cache_legacy_idx').on(table.key).where(sql`${table.bytes} is not null`),
+    check(
+      'clarity_image_cache_status_check',
+      sql`${table.status} in ('ready', 'missing', 'blocked')`,
+    ),
     check(
       'clarity_image_cache_ready_check',
-      sql`${table.status} <> 'ready' or (${table.bytes} is not null and ${table.contentType} is not null)`,
+      sql`${table.status} <> 'ready' or ${table.oxyFileId} is not null or (${table.bytes} is not null and ${table.contentType} is not null)`,
+    ),
+    check(
+      'clarity_image_cache_blocked_check',
+      sql`${table.status} <> 'blocked' or ${table.oxyFileId} is not null`,
+    ),
+  ],
+);
+
+/**
+ * Which Clarity entity SHOWS which Clarity-owned Oxy file — the inventory of
+ * Clarity's ADR 0041 references, one row per entity (an entity shows one
+ * image of its kind):
+ *
+ * - `search_document`: a document's preview image (`/images/documents/:id`);
+ * - `job_posting`: a job's employer logo (`/images/jobs/:id`);
+ * - `search_host`: a site's favicon (`/favicons/:host`).
+ *
+ * A row is written the first time the entity's image is served and its
+ * `last_used_at` is moved (at most daily) whenever it is served again. It goes
+ * — and with it Clarity's reference in Oxy — when the image STOPS BEING USED,
+ * which is exactly one of:
+ *
+ * 1. the entity no longer shows that image: a document's `image_url` or a
+ *    job's `employer_logo_url` changes or is cleared, or a host's icon is
+ *    replaced (triggers, and `site-icons.ts`);
+ * 2. the entity is deleted (triggers, including the cascade from a pruned
+ *    document to its job postings);
+ * 3. nobody has been served it from that entity for `IMAGE_IDLE_TTL_MS` (30
+ *    days): the "last used" rule Clarity's own cache sweep used to apply, now
+ *    applied to the reference (files/references.ts `releaseIdleReferences`).
+ *
+ * After that Oxy owns the rest (ADR 0041 D5): an application file nothing
+ * references is trashed after 24 hours and deleted 30 days later, and a new
+ * reference in between restores it. Every insert, delete and file change here
+ * is mirrored into `clarity_oxy_file_reference_outbox` by a trigger in the same
+ * transaction, so no path can change the inventory without telling Oxy.
+ */
+export const imageReferences = pgTable(
+  'clarity_image_references',
+  {
+    entityType: text('entity_type').notNull(),
+    entityId: text('entity_id').notNull(),
+    oxyFileId: text('oxy_file_id').notNull(),
+    /**
+     * The `clarity_image_cache` row the file came from (documents and jobs);
+     * NULL for a favicon. CASCADE: a forgotten image releases its uses.
+     */
+    imageKey: text('image_key').references(() => imageCache.key, { onDelete: 'cascade' }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.entityType, table.entityId] }),
+    index('clarity_image_references_file_idx').on(table.oxyFileId),
+    index('clarity_image_references_image_key_idx')
+      .on(table.imageKey)
+      .where(sql`${table.imageKey} is not null`),
+    index('clarity_image_references_last_used_idx').on(table.lastUsedAt),
+    check(
+      'clarity_image_references_entity_type_check',
+      sql`${table.entityType} in ('search_document', 'job_posting', 'search_host')`,
+    ),
+    check(
+      'clarity_image_references_image_key_check',
+      sql`(${table.entityType} = 'search_host') = (${table.imageKey} is null)`,
+    ),
+  ],
+);
+
+/**
+ * Reference changes owed to Oxy, written by triggers on
+ * `clarity_image_references` in the transaction that made them and drained in
+ * id order by the worker (files/references.ts). A row is deleted once Oxy has
+ * answered it; a failure backs the head of the queue off and keeps the order.
+ */
+export const oxyFileReferenceOutbox = pgTable(
+  'clarity_oxy_file_reference_outbox',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().generatedAlwaysAsIdentity(),
+    op: text('op').notNull(),
+    oxyFileId: text('oxy_file_id').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: text('entity_id').notNull(),
+    attempts: integer('attempts').notNull().default(0),
+    nextAttemptAt: timestamp('next_attempt_at', { withTimezone: true }).notNull().defaultNow(),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    check('clarity_oxy_file_reference_outbox_op_check', sql`${table.op} in ('add', 'remove')`),
+  ],
+);
+
+/**
+ * File events Oxy delivered (ADR 0041 D9), by event id: delivery is at least
+ * once, so an event is acted on only by the request that inserts its row.
+ * Swept after 30 days, when Oxy's own delivery row has expired too.
+ */
+export const oxyFileEvents = pgTable('clarity_oxy_file_events', {
+  eventId: text('event_id').primaryKey(),
+  type: text('type').notNull(),
+  oxyFileId: text('oxy_file_id').notNull(),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Leases and schedules of the worker's Oxy Files jobs (the outbox drain, one
+ * reconciliation per entity type), so only one worker replica runs each.
+ */
+export const oxyFileJobs = pgTable('clarity_oxy_file_jobs', {
+  name: text('name').primaryKey(),
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }).notNull().defaultNow(),
+  leasedUntil: timestamp('leased_until', { withTimezone: true }),
+  lastResult: jsonb('last_result'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Requests answered from Clarity's OWN image bytes, per day and surface — the
+ * measure the storage-retirement step is gated on (docs/oxy-files.md).
+ * `images` and `favicons` are legacy reads of copies not yet in Oxy;
+ * `favicons_svg` counts the SVG icons Clarity must keep until Oxy can hold them
+ * (TODO(oxy-4b)), which are not legacy and do not block the retirement.
+ */
+export const legacyImageReads = pgTable(
+  'clarity_legacy_image_reads',
+  {
+    day: date('day', { mode: 'string' }).notNull(),
+    surface: text('surface').notNull(),
+    reads: bigint('reads', { mode: 'number' }).notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.day, table.surface] }),
+    check(
+      'clarity_legacy_image_reads_surface_check',
+      sql`${table.surface} in ('images', 'favicons', 'favicons_svg')`,
     ),
   ],
 );
