@@ -1,13 +1,13 @@
-import { inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
-import { searchDocuments } from '../../db/schema/index.js';
+import { searchChunks, searchDocuments } from '../../db/schema/index.js';
 import {
-  chunksNeedReplacing,
   chunkText,
   documentChunkState,
   replaceDocumentChunks,
+  storeChunkEmbeddings,
 } from '../chunking.js';
 
 /**
@@ -23,12 +23,13 @@ const EXTRACTOR = 'chunks-current-test-v1';
 const current = 'https://chunks-current.example/current';
 const neighbour = 'https://chunks-current.example/neighbour';
 const lexical = 'https://chunks-current.example/lexical';
-const urls = [current, neighbour, lexical];
+const writtenBack = 'https://chunks-current.example/written-back';
+const urls = [current, neighbour, lexical, writtenBack];
 const body = 'A listing body long enough to span chunks. '.repeat(100);
 const chunks = chunkText(body);
 const embedding = () => Array.from({ length: 1024 }, (_, i) => (i % 7) / 7);
 
-async function indexDocument(canonicalUrl: string, embedded: boolean) {
+async function indexDocument(canonicalUrl: string, embedded: boolean): Promise<string> {
   const [document] = await getDb()
     .insert(searchDocuments)
     .values({
@@ -48,6 +49,7 @@ async function indexDocument(canonicalUrl: string, embedded: boolean) {
     embedded ? chunks.map(embedding) : undefined,
     EXTRACTOR,
   );
+  return document.id;
 }
 
 suite('documentChunkState on Postgres', () => {
@@ -97,13 +99,27 @@ suite('documentChunkState on Postgres', () => {
     ).resolves.toBe('unembedded');
   });
 
-  it('rewrites chunks only when that stores something new', () => {
-    expect(chunksNeedReplacing('stale', false)).toBe(true);
-    expect(chunksNeedReplacing('stale', true)).toBe(true);
-    // The same unembedded chunks again: nothing would change.
-    expect(chunksNeedReplacing('unembedded', false)).toBe(false);
-    expect(chunksNeedReplacing('unembedded', true)).toBe(true);
-    expect(chunksNeedReplacing('current', false)).toBe(false);
+  it('writes queued embeddings into the stored chunks in place', async () => {
+    const documentId = await indexDocument(writtenBack, false);
+    const stored = await getDb()
+      .select({ id: searchChunks.id, text: searchChunks.text })
+      .from(searchChunks)
+      .where(eq(searchChunks.documentId, documentId))
+      .orderBy(asc(searchChunks.position));
+
+    // A chunk replaced since it was queued is simply not found.
+    const queued = [...stored, { id: crypto.randomUUID(), text: 'replaced meanwhile' }];
+    await storeChunkEmbeddings(queued, queued.map(embedding));
+
+    await expect(
+      documentChunkState(getDb(), writtenBack, body, chunks.length, EXTRACTOR),
+    ).resolves.toBe('current');
+    const after = await getDb()
+      .select({ id: searchChunks.id })
+      .from(searchChunks)
+      .where(eq(searchChunks.documentId, documentId))
+      .orderBy(asc(searchChunks.position));
+    expect(after.map(({ id }) => id)).toEqual(stored.map(({ id }) => id));
   });
 
   it('is stale when the document is not indexed', async () => {

@@ -10,6 +10,7 @@ import {
   searchDocuments,
 } from '../../../db/schema/index.js';
 import { createEmbeddings, embeddingsEnabled } from '../../../lib/kaana-embeddings.js';
+import { flushChunkEmbeddingsForTests } from '../../chunking.js';
 import { extractJobPostings } from '../extract.js';
 import { staleJobPredicate, sweepJobLifecycle } from '../lifecycle.js';
 import {
@@ -40,7 +41,11 @@ const daysAgo = (days: number) => new Date(now - days * 24 * 60 * 60 * 1000);
 const employerUrl = 'https://churn-employer.example/careers/platform-engineer';
 const boardUrl = 'https://boards.greenhouse.io/churn-employer/jobs/7781';
 const loneUrl = 'https://churn-employer.example/careers/lone-role';
-const urls = [employerUrl, boardUrl, loneUrl];
+const batchUrls = Array.from(
+  { length: 10 },
+  (_, index) => `https://batch-employer-${index}.example/careers/role-${index}`,
+);
+const urls = [employerUrl, boardUrl, loneUrl, ...batchUrls];
 
 /** Words that do not compress away, so the description is stored out of line in TOAST. */
 function incompressibleText(seed: number, words: number): string {
@@ -317,6 +322,8 @@ suite('re-observing job listings on Postgres', () => {
   });
 
   it('embeds chunks stored without embeddings once the embedding capability appears', async () => {
+    // What earlier tests queued is sent (and refused) now, not in the middle of this one.
+    await flushChunkEmbeddingsForTests();
     const lexical = await snapshot(loneUrl);
     expect(lexical.embeddedChunks).toBe(0);
     const content = { description: incompressibleText(11, 1_500) };
@@ -333,8 +340,14 @@ suite('re-observing job listings on Postgres', () => {
       texts.map(() => Array.from({ length: 1024 }, () => 0.1)),
     );
     await ingest(loneUrl, at(420), content);
+    // Indexing queues the chunks rather than waiting on Kaana for them.
+    expect(createEmbeddings).not.toHaveBeenCalled();
+    await flushChunkEmbeddingsForTests();
+    expect(createEmbeddings).toHaveBeenCalledOnce();
     const embedded = await snapshot(loneUrl);
     expect(embedded.embeddedChunks).toBe(embedded.chunkIds.length);
+    // The vectors are written into the chunks already stored, not by replacing them.
+    expect(embedded.chunkIds).toEqual(lexical.chunkIds);
 
     await ingest(loneUrl, at(480), content);
     expect((await snapshot(loneUrl)).chunkIds).toEqual(embedded.chunkIds);
@@ -428,5 +441,32 @@ suite('re-observing job listings on Postgres', () => {
     expect(plan).not.toContain('Seq Scan');
     expect(plan).toContain('clarity_job_postings_status_last_seen_idx');
     expect(plan).toMatch(/Index Cond: .*last_seen_at/);
+  });
+
+  it('embeds the chunks of many listings in one request', async () => {
+    await flushChunkEmbeddingsForTests();
+    vi.mocked(createEmbeddings).mockReset();
+    vi.mocked(createEmbeddings).mockImplementation(async (texts: readonly string[]) =>
+      texts.map(() => Array.from({ length: 1024 }, () => 0.1)),
+    );
+
+    // Ten listings of one feed page, indexed one after another as the poll does.
+    for (const [index, url] of batchUrls.entries())
+      await ingest(url, at(600), {
+        title: `Batch Role ${index}`,
+        identifier: { '@type': 'PropertyValue', name: 'Batch', value: `BATCH-${index}` },
+        description: incompressibleText(100 + index, 700),
+        hiringOrganization: { '@type': 'Organization', name: `Batch Employer ${index}` },
+      });
+    expect(createEmbeddings).not.toHaveBeenCalled();
+    await flushChunkEmbeddingsForTests();
+
+    // One request for every listing's chunks, where there was one per listing.
+    const snapshots = await Promise.all(batchUrls.map(snapshot));
+    const chunks = snapshots.reduce((total, listed) => total + listed.chunkIds.length, 0);
+    expect(chunks).toBeGreaterThan(batchUrls.length);
+    expect(createEmbeddings).toHaveBeenCalledOnce();
+    expect(vi.mocked(createEmbeddings).mock.calls[0][0]).toHaveLength(chunks);
+    for (const listed of snapshots) expect(listed.embeddedChunks).toBe(listed.chunkIds.length);
   });
 });

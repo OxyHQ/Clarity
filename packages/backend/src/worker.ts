@@ -9,10 +9,9 @@ import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './d
 import { crawlJobs, crawlPages, fetchAttempts, searchDocuments } from './db/schema/index.js';
 import { extractDocument } from './search/extractor.js';
 import {
-  chunksNeedReplacing,
   chunkText,
   documentChunkState,
-  embedChunks,
+  queueChunkEmbeddings,
   replaceDocumentChunks,
 } from './search/chunking.js';
 import { extractJobPostings } from './search/jobs/extract.js';
@@ -353,10 +352,8 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
       textChunks.length,
       extractorVersion,
     );
-    const embeddings =
-      chunkState === 'current' ? undefined : await embedChunks(textChunks.map((item) => item.text));
-    const committed = await getDb().transaction(async (tx) => {
-      if (!(await ownsPageLease(tx, page))) return false;
+    const documentId = await getDb().transaction(async (tx) => {
+      if (!(await ownsPageLease(tx, page))) return undefined;
       const documentStatus = extracted.noindex ? 'blocked' : 'indexed';
       const nextFetchAt =
         postings.length > 0
@@ -397,8 +394,8 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
           set: { ...mutable, updatedAt: observedAt },
         })
         .returning({ id: searchDocuments.id });
-      if (chunksNeedReplacing(chunkState, embeddings !== undefined))
-        await replaceDocumentChunks(tx, document.id, textChunks, embeddings, extractorVersion);
+      if (chunkState === 'stale')
+        await replaceDocumentChunks(tx, document.id, textChunks, undefined, extractorVersion);
       await registerHosts(tx, [{ url: canonicalUrl, iconHintUrl: extracted.faviconUrl }]);
       await projectJobPostings(tx, {
         documentId: document.id,
@@ -426,9 +423,11 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
         })
         .where(eq(fetchAttempts.id, attemptId));
       await finishJobIfComplete(tx, page.jobId);
-      return true;
+      return document.id;
     });
-    if (committed && !extracted.noindex)
+    if (documentId !== undefined && chunkState !== 'current')
+      await queueChunkEmbeddings(documentId);
+    if (documentId !== undefined && !extracted.noindex)
       await consumeUsage({
         principal,
         operation: 'page_indexed',

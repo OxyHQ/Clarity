@@ -25,10 +25,9 @@ import {
   searchDocuments,
 } from '../../db/schema/index.js';
 import {
-  chunksNeedReplacing,
   chunkText,
   documentChunkState,
-  embedChunks,
+  queueChunkEmbeddings,
   replaceDocumentChunks,
 } from '../chunking.js';
 import { canonicalSourceRank, jobClusterSignatures, type JobSignature } from './dedupe.js';
@@ -560,9 +559,9 @@ export async function ingestJobPosting(
   const body = postings.map(textIndexSource).join('\n\n');
   const chunks = chunkText(body);
   // A feed re-delivers every live listing on every poll. When the indexed text
-  // and its embedded chunks are exactly what this payload would produce, the
-  // chunks are kept and nothing is re-embedded; the listing is still
-  // re-projected below, so lastSeenAt and every column stay current.
+  // is exactly what this payload would produce, the chunks are kept (and only
+  // those still unembedded are queued); the listing is still re-projected
+  // below, so lastSeenAt and every column stay current.
   const chunkState = await documentChunkState(
     getDb(),
     input.canonicalUrl,
@@ -570,10 +569,8 @@ export async function ingestJobPosting(
     chunks.length,
     INGEST_EXTRACTOR_VERSION,
   );
-  const embeddings =
-    chunkState === 'current' ? undefined : await embedChunks(chunks.map((chunk) => chunk.text));
 
-  return getDb().transaction(async (tx) => {
+  const ingested = await getDb().transaction(async (tx) => {
     const content = {
       title: primary.title,
       // A removed description or date clears the stored one; siteId is kept when absent.
@@ -624,8 +621,8 @@ export async function ingestJobPosting(
         .onConflictDoUpdate({ target: searchDocuments.canonicalUrl, set: mutable })
         .returning({ id: searchDocuments.id });
     }
-    if (chunksNeedReplacing(chunkState, embeddings !== undefined))
-      await replaceDocumentChunks(tx, document.id, chunks, embeddings, INGEST_EXTRACTOR_VERSION);
+    if (chunkState === 'stale')
+      await replaceDocumentChunks(tx, document.id, chunks, undefined, INGEST_EXTRACTOR_VERSION);
     const jobPostingIds = await projectJobPostings(tx, {
       documentId: document.id,
       documentStatus: 'indexed',
@@ -636,4 +633,6 @@ export async function ingestJobPosting(
     });
     return { documentId: document.id, jobPostingIds };
   });
+  if (chunkState !== 'current') await queueChunkEmbeddings(ingested.documentId);
+  return ingested;
 }
