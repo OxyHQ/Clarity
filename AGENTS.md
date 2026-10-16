@@ -51,6 +51,10 @@ inference-provider credentials. Keep that distinction in architecture gates.
 
 ## Commands
 
+npm releases: only Actions → Release packages (`release-packages.yml`, Oxy's shared
+workflow, OIDC); a package's gates are its `prepublishOnly`. Never publish from a laptop —
+`~/Oxy/docs/npm-releases.md`.
+
 ```bash
 bun install --frozen-lockfile
 bun run lint            # Biome: lint + format check (CI: bunx biome ci .)
