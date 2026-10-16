@@ -229,9 +229,9 @@ vector stay where they are in TOAST, and the listing's signatures, cluster and
 document chunks are not touched. A changed listing is rewritten in full, its
 signatures by difference, and `cluster_id` and cluster elections only where
 they actually change. The listing's document follows the same rule through its
-own `content_hash`, and chunks are rewritten only when they would store
-something new — the same unembedded chunks are never re-inserted while
-embeddings are off or failing ([embeddings capability](index#embeddings-capability)).
+own `content_hash`, and chunks are rewritten only when the indexed text
+changed; unembedded chunks are kept and only queued for embedding, which
+writes their vectors in place ([embeddings capability](index#embeddings-capability)).
 
 Filterable columns cover employer identity, locations (raw JSON plus country /
 region / locality arrays), workplace type, employment types, salary (source
@@ -585,7 +585,8 @@ never per viewer.
    then re-expressed as `JobPosting` before projection, so one normalizer
    defines every field and a listing arriving by feed deduplicates against the
    same listing arriving by crawl instead of racing it. A re-delivered listing
-   whose indexed text is unchanged keeps its chunks and is not re-embedded, and
+   whose indexed text is unchanged keeps its chunks and is not re-embedded (an
+   unembedded one is only queued again), and
    an unchanged listing only records the sighting (see *The projection*).
 
    **Boards are discovered from listings.** When a listing's own URL or its

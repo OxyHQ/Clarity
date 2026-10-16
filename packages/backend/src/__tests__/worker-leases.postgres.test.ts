@@ -22,7 +22,7 @@ const { safeFetch } = vi.hoisted(() => ({ safeFetch: vi.fn() }));
 vi.mock('@oxy.so/core/server', async (original) => ({ ...(await original<object>()), safeFetch }));
 vi.mock('../search/chunking.js', async (original) => ({
   ...(await original<object>()),
-  embedChunks: async () => undefined,
+  queueChunkEmbeddings: async () => undefined,
 }));
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
 const suite = databaseUrl ? describe : describe.skip;

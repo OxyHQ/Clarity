@@ -7,13 +7,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mock = {
   enabled: vi.fn(() => false),
   create: vi.fn(async (texts: readonly string[]) => texts.map(() => [0.1])),
+  getDb: vi.fn(() => {
+    throw new Error('the database was read');
+  }),
 };
 vi.mock('../../lib/kaana-embeddings.js', () => ({
   CLARITY_EMBEDDING_MODEL: 'test-embedding-model',
   embeddingsEnabled: mock.enabled,
   createEmbeddings: mock.create,
 }));
-const { embedChunks, embedQuery } = await import('../chunking.js');
+vi.mock('../../db/index.js', () => ({ getDb: mock.getDb }));
+const { embedQuery, queueChunkEmbeddings } = await import('../chunking.js');
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -22,9 +26,10 @@ beforeEach(() => {
 });
 
 describe('without the embeddings capability', () => {
-  it('stores chunks unembedded and ranks queries lexically without calling the route', async () => {
-    await expect(embedChunks(['one', 'two'])).resolves.toBeUndefined();
+  it('queues no chunk and ranks queries lexically without calling the route', async () => {
+    await queueChunkEmbeddings('document-1');
     await expect(embedQuery('query')).resolves.toBeUndefined();
+    expect(mock.getDb).not.toHaveBeenCalled();
     expect(mock.create).not.toHaveBeenCalled();
   });
 });
@@ -32,26 +37,19 @@ describe('without the embeddings capability', () => {
 describe('with the embeddings capability', () => {
   beforeEach(() => mock.enabled.mockReturnValue(true));
 
-  it('embeds chunks in batches the route accepts', async () => {
-    const texts = Array.from({ length: 130 }, (_, index) => `chunk ${index}`);
-    const embeddings = await embedChunks(texts);
-    expect(embeddings).toHaveLength(130);
-    expect(mock.create.mock.calls.map(([batch]) => batch.length)).toEqual([128, 2]);
-  });
-
-  it('embeds a query', async () => {
+  it('embeds a query on its own, without the indexing queue', async () => {
     await expect(embedQuery('query')).resolves.toEqual([0.1]);
     expect(mock.create).toHaveBeenCalledWith(['query'], {});
   });
 
-  it('degrades to no embeddings when the route fails', async () => {
+  it('degrades a query to no embedding when the route fails', async () => {
     mock.create.mockRejectedValue(new Error('service_unavailable'));
-    await expect(embedChunks(['one'])).resolves.toBeUndefined();
     await expect(embedQuery('query')).resolves.toBeUndefined();
   });
 
-  it('calls nothing for a document without chunks', async () => {
-    await expect(embedChunks([])).resolves.toBeUndefined();
+  it('leaves a document indexed when its chunks cannot be read for the queue', async () => {
+    await expect(queueChunkEmbeddings('document-1')).resolves.toBeUndefined();
+    expect(mock.getDb).toHaveBeenCalledOnce();
     expect(mock.create).not.toHaveBeenCalled();
   });
 });

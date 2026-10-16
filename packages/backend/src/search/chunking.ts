@@ -4,20 +4,27 @@
  * One definition used by the crawl worker and by API ingestion, so a document
  * that arrives through either path is chunked, embedded and stored identically
  * and therefore ranks identically.
+ *
+ * Indexing never waits on Kaana: a document's chunks are stored unembedded and
+ * queued ({@link queueChunkEmbeddings}), and the queue embeds chunks from many
+ * documents per request and writes the vectors back (`embedding-queue.ts`).
  */
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
 
-import type { ClarityExecutor } from '../db/index.js';
+import { getDb, type ClarityExecutor } from '../db/index.js';
 import { searchChunks, searchDocuments } from '../db/schema/index.js';
 import {
   CLARITY_EMBEDDING_MODEL,
   createEmbeddings,
   embeddingsEnabled,
 } from '../lib/kaana-embeddings.js';
+import { createLogger } from '../lib/logger.js';
+import { EmbeddingQueue, type PendingChunk } from './embedding-queue.js';
 
 const CHUNK_STRIDE = 1600;
 const CHUNK_LENGTH = 2000;
-const EMBEDDING_BATCH = 128;
+
+const log = createLogger('embeddings');
 
 export interface TextChunk {
   start: number;
@@ -34,23 +41,76 @@ export function chunkText(text: string): TextChunk[] {
   return result;
 }
 
+/** Writes the vectors of embedded chunks; a chunk replaced meanwhile is simply not found. */
+export async function storeChunkEmbeddings(
+  chunks: readonly PendingChunk[],
+  embeddings: readonly number[][],
+): Promise<void> {
+  const rows = chunks.map(({ id }, index) => ({
+    id,
+    embedding: `[${embeddings[index].join(',')}]`,
+  }));
+  await getDb().execute(sql`
+    update clarity_search_chunks as chunk
+    set embedding = embedded.embedding::vector,
+        embedding_model = ${CLARITY_EMBEDDING_MODEL},
+        updated_at = now()
+    from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as embedded(id text, embedding text)
+    where chunk.id = embedded.id
+  `);
+}
+
+let queue: EmbeddingQueue | undefined;
+
+function chunkEmbeddingQueue(): EmbeddingQueue {
+  queue ??= new EmbeddingQueue({
+    embed: (texts) => createEmbeddings(texts, { queued: true }),
+    store: storeChunkEmbeddings,
+    onStoreFailure: (error, chunks) =>
+      log.warn(
+        { chunks, error: error instanceof Error ? error.message : String(error) },
+        'Chunk embeddings could not be stored; the chunks stay unembedded',
+      ),
+  });
+  return queue;
+}
+
+/** Test seam: sends every queued chunk embedding now. */
+export async function flushChunkEmbeddingsForTests(): Promise<void> {
+  await queue?.flush();
+}
+
 /**
- * The chunks' embeddings, or `undefined` when there are none to have: no chunk,
- * no embeddings capability (nothing is called), or a failed call (reported by
- * the client, rate-limited). Without embeddings the document stays lexically
- * searchable and its chunks are `unembedded`, so a later pass embeds them.
+ * Queues the chunks of a document that lack a current embedding: called after
+ * the transaction that stored them commits. Nothing is read or queued without
+ * the embeddings capability. Best effort: the document is already indexed and
+ * lexically searchable, and its chunks are queued again whenever it is indexed
+ * again.
  */
-export async function embedChunks(texts: readonly string[]): Promise<number[][] | undefined> {
-  if (texts.length === 0 || !embeddingsEnabled()) return undefined;
-  const embeddings: number[][] = [];
+export async function queueChunkEmbeddings(documentId: string): Promise<void> {
+  if (!embeddingsEnabled()) return;
   try {
-    for (let start = 0; start < texts.length; start += EMBEDDING_BATCH) {
-      embeddings.push(...(await createEmbeddings(texts.slice(start, start + EMBEDDING_BATCH))));
-    }
-  } catch {
-    return undefined;
+    const chunks = await getDb()
+      .select({ id: searchChunks.id, text: searchChunks.text })
+      .from(searchChunks)
+      .where(
+        and(
+          eq(searchChunks.documentId, documentId),
+          or(
+            isNull(searchChunks.embedding),
+            isNull(searchChunks.embeddingModel),
+            ne(searchChunks.embeddingModel, CLARITY_EMBEDDING_MODEL),
+          ),
+        ),
+      )
+      .orderBy(searchChunks.position);
+    chunkEmbeddingQueue().enqueue(chunks);
+  } catch (error) {
+    log.warn(
+      { documentId, error: error instanceof Error ? error.message : String(error) },
+      'Could not queue chunk embeddings; they are queued when the document is indexed again',
+    );
   }
-  return embeddings;
 }
 
 /**
@@ -80,8 +140,9 @@ export type DocumentChunkState = 'current' | 'unembedded' | 'stale';
  * - `current`: the same text and extractor, and every chunk embedded by the
  *   current model. Re-chunking and re-embedding would reproduce what is stored.
  * - `unembedded`: the same chunks, but not all of them carry a current
- *   embedding. Only fresh embeddings would change anything.
- * - `stale`: anything else, including a document not indexed yet.
+ *   embedding. They are kept, and only their embeddings are queued.
+ * - `stale`: anything else, including a document not indexed yet. Only these
+ *   chunks are replaced.
  *
  * Two statements, not one with correlated subqueries: Drizzle renders the
  * columns of a single-table select unqualified, so a subquery comparing
@@ -123,16 +184,9 @@ export async function documentChunkState(
 }
 
 /**
- * Whether replacing a document's chunks stores anything new. Chunks that are
- * already right except for their embeddings are only worth rewriting with
- * embeddings: while the embedding route failed, every feed poll deleted and
- * re-inserted the same unembedded chunks of every listing it re-delivered.
+ * Replaces a document's chunks, unembedded unless `embeddings` are given; then
+ * {@link queueChunkEmbeddings} embeds them once the transaction commits.
  */
-export function chunksNeedReplacing(state: DocumentChunkState, embedded: boolean): boolean {
-  return state === 'stale' || (state === 'unembedded' && embedded);
-}
-
-/** Replaces a document's chunks. Missing embeddings leave it lexically searchable. */
 export async function replaceDocumentChunks(
   tx: ClarityExecutor,
   documentId: string,

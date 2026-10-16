@@ -19,8 +19,9 @@
  *
  * With the capability on, a failed call (a typed `KaanaError`, a timeout, a
  * malformed answer) is reported at most once per {@link FAILURE_REPORT_INTERVAL_MS}
- * with the number of failures since the last report, never once per document,
- * and the caller degrades exactly as it does without the capability.
+ * with the number of failures since the last report, never once per request,
+ * and the caller degrades exactly as it does without the capability. Chunks
+ * are embedded through `search/embedding-queue.ts`, which backs off on its own.
  */
 import { Kaana, KaanaError } from '@kaana.ai/sdk';
 
@@ -99,12 +100,20 @@ export function resetEmbeddingReportsForTests(): void {
 }
 
 let defaultClient: Kaana | undefined;
+let queuedClient: Kaana | undefined;
 
-function kaana(): Kaana {
-  defaultClient ??= new Kaana({
-    credential: () => getClarityServiceTokenFor('kaana.ai'),
-    timeoutMs: DEFAULT_TIMEOUT_MS,
-  });
+function kaana(queued: boolean): Kaana {
+  const create = (maxRetries?: number) =>
+    new Kaana({
+      credential: () => getClarityServiceTokenFor('kaana.ai'),
+      timeoutMs: DEFAULT_TIMEOUT_MS,
+      ...(maxRetries === undefined ? {} : { maxRetries }),
+    });
+  if (queued) {
+    queuedClient ??= create(0);
+    return queuedClient;
+  }
+  defaultClient ??= create();
   return defaultClient;
 }
 
@@ -112,6 +121,13 @@ export interface EmbeddingOptions {
   signal?: AbortSignal;
   /** The client to call; Clarity's own (service token, `https://kaana.ai/v1`) when absent. */
   client?: Pick<Kaana, 'embeddings'>;
+  /**
+   * A call from the chunk embedding queue (`search/embedding-queue.ts`), which
+   * the SDK does not retry: the queue backs off on Kaana's Retry-After itself,
+   * and every SDK retry is another Oxy grant against the same per-credential
+   * limit — a refused document used to cost three.
+   */
+  queued?: boolean;
 }
 
 /**
@@ -126,7 +142,7 @@ export async function createEmbeddings(
   if (input.length > MAX_EMBEDDING_INPUTS)
     throw new EmbeddingError(`Kaana embeds at most ${MAX_EMBEDDING_INPUTS} inputs per request`);
   try {
-    const response = await (options.client ?? kaana()).embeddings.create(
+    const response = await (options.client ?? kaana(options.queued === true)).embeddings.create(
       {
         model: CLARITY_EMBEDDING_MODEL,
         input: [...input],

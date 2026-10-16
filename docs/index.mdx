@@ -49,12 +49,28 @@ that question; the setting does.
   answer `degraded: { from: 'hybrid', to: 'lexical', reason:
   'embedding_route_unavailable' }`, and `mode: 'semantic'` answers `503
   semantic_unavailable`. The process logs once that embeddings are off.
-- **On:** chunks and queries are embedded. A failed call (Kaana error, timeout,
-  malformed answer) degrades exactly as above and is logged at most once every
-  five minutes with the number of failures since the last log line.
-- **Turning it on later:** chunks stored without embeddings are `unembedded`
-  (`documentChunkState`), so the next recrawl or feed delivery of each document
-  embeds them without rewriting anything else.
+- **On:** chunks and queries are embedded. A query is embedded on its own, when
+  it is asked. Chunks never hold up indexing: a document's chunks are stored
+  unembedded (lexically searchable at once) and queued, and the queue
+  (`packages/backend/src/search/embedding-queue.ts`) embeds chunks from many
+  documents per request and writes the vectors into the stored chunks. A
+  request carries up to 128 chunks and 65,536 estimated tokens (Kaana's
+  UTF-16 length / 4 + 1 per input); a full batch is sent at once, a partial one
+  once its oldest chunk has waited 10 seconds, and never more than one request
+  every 2 seconds (Oxy's machine lane allows the credential 60 a minute, shared
+  with queries). One request per document cost ~70 grants a minute and was
+  refused past 60 (2026-10-16).
+- **Failures:** a failed call (Kaana error, timeout, malformed answer) degrades
+  a query exactly as above and is logged at most once every five minutes with
+  the number of failures since the last log line. A failed chunk request backs
+  off the whole queue — for Kaana's `Retry-After`, and at least 5 seconds,
+  doubling to 5 minutes while failures continue. Rate-limited, unavailable and
+  timed-out chunks stay at the head of the queue and are sent again after the
+  back-off; chunks of any other failure are dropped and stay unembedded. The
+  SDK does not retry queued calls: the queue's back-off is the only one.
+- **Turning it on later, or a restart:** chunks without a current embedding are
+  `unembedded` (`documentChunkState`), so the next recrawl or feed delivery of
+  each document queues them again without rewriting anything else.
 
 ## Canonical product identity
 
