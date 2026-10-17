@@ -100,6 +100,31 @@ suite('ranked search on Postgres', () => {
     expect(hybrid).toHaveLength(2);
   });
 
+  it('reads the semantic candidates from the HNSW index, not by scanning every chunk', async () => {
+    // The ranking's inner query, as `rankedSearch` sends it: ordered by
+    // distance and limited, which is the only shape the index serves.
+    const vector = JSON.stringify(embedding);
+    const plan = await getDb().transaction(async (tx) => {
+      await tx.execute(sql.raw('set local enable_seqscan = off'));
+      return tx.execute<{ 'QUERY PLAN': string }>(sql`
+        explain select document_id, embedding <=> ${vector}::vector as distance
+        from clarity_search_chunks where embedding is not null
+        order by embedding <=> ${vector}::vector limit 400`);
+    });
+    expect(plan.map((row) => row['QUERY PLAN']).join('\n')).toContain(
+      'clarity_search_chunks_embedding_hnsw_idx',
+    );
+  });
+
+  it('applies a document filter to the semantic ranking', async () => {
+    const semantic = await rankedSearch(
+      { ...input('phone camera', 'semantic'), domains: ['phones.example'] },
+      embedding,
+      0,
+    );
+    expect(semantic.map((rank) => rank.documentId)).toEqual([documentIds[0]]);
+  });
+
   it('records web discoveries as `discovered`, never ranks them, and never overwrites an indexed page', async () => {
     const recorded = await recordDiscoveredPages(getDb(), [
       {
