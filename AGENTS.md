@@ -96,6 +96,8 @@ tests. See `docs/postgres-alia-migration.md` for backfill and cutover commands.
 
 - `docs/index.mdx` — current architecture and ownership.
 - `docs/assistant.mdx` — the Alia agent, the capability catalogue, plan gates.
+- `docs/product-feeds.mdx` — Oxy's one crawler of stores: Clarity keeps the source
+  documents, the consumer (Mercaria) reads them; only a finished walk prunes.
 - `docs/jobs.mdx` — Jobs vertical: extraction, projection, lifecycle, dedupe,
   ranking contract, ingestion boundary and portal.
 - `docs/postgres-alia-migration.md` — rehearsal, reconciliation and cutover.

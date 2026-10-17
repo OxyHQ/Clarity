@@ -58,6 +58,15 @@ import {
   searchPlaces,
 } from '../../search/places/repository.js';
 import { jobReportSchema, reportJobPosting } from '../../search/jobs/reports.js';
+import type { ProductFeedKind } from '@clarity/shared-types';
+import {
+  getProductFeed,
+  listProductFeedRecords,
+  PRODUCT_FEED_RECORD_PAGE_MAX,
+  ProductFeedError,
+  registerProductFeed,
+} from '../../search/products/feeds/feeds.js';
+import { PRODUCT_FEED_KINDS } from '../../search/products/feeds/providers.js';
 import {
   JOB_FEED_IDENTIFIER_MEANING,
   JOB_FEED_KINDS,
@@ -652,6 +661,71 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
   }
   res.status(202).json({ url: canonicalUrl, operationId: operation.id, status: 'queued' });
 });
+
+// Product feeds — public shop catalogues Clarity crawls (`docs/product-feeds.mdx`).
+// Registering one asks Clarity to crawl it, so it is `clarity:index`; reading
+// what a feed holds is the consumer's pull of the documents it asked for.
+// ---------------------------------------------------------------------------
+
+const productFeedRegistrationSchema = z.object({
+  kind: z.enum(PRODUCT_FEED_KINDS as [ProductFeedKind, ...ProductFeedKind[]]),
+  identifier: z.string().trim().min(1).max(253),
+  label: z.string().trim().min(1).max(200).optional(),
+});
+
+const productFeedRecordsQuerySchema = z.object({
+  cursor: z.string().min(1).max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(PRODUCT_FEED_RECORD_PAGE_MAX).optional(),
+});
+
+function sendProductFeedError(error: unknown, req: Request, res: Response): void {
+  if (error instanceof ProductFeedError) {
+    sendError(res, error.status, error.code, error.message, req);
+    return;
+  }
+  throw error;
+}
+
+router.put('/product-feeds', requireResourceScope('clarity:index'), async (req, res) => {
+  const input = parse(productFeedRegistrationSchema, req, res);
+  if (!input) return;
+  try {
+    res.json(await registerProductFeed(input));
+  } catch (error) {
+    sendProductFeedError(error, req, res);
+  }
+});
+
+router.get('/product-feeds/:id', requireResourceScope('clarity:index'), async (req, res) => {
+  try {
+    res.json(await getProductFeed(String(req.params.id)));
+  } catch (error) {
+    sendProductFeedError(error, req, res);
+  }
+});
+
+router.get(
+  '/product-feeds/:id/records',
+  requireResourceScope('clarity:index'),
+  async (req, res) => {
+    const query = productFeedRecordsQuerySchema.safeParse(req.query);
+    if (!query.success) {
+      sendError(
+        res,
+        400,
+        'invalid_request',
+        'cursor must be a cursor this feed issued; limit 1–500',
+        req,
+      );
+      return;
+    }
+    try {
+      res.json(await listProductFeedRecords(String(req.params.id), query.data));
+    } catch (error) {
+      sendProductFeedError(error, req, res);
+    }
+  },
+);
 
 // Places — the canonical gazetteer a publisher picks a job location from.
 // Reference data only; nothing here writes.

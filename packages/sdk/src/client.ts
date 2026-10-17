@@ -24,6 +24,9 @@ import type {
   Place,
   PlaceSearchRequest,
   PlaceSearchResponse,
+  ProductFeed,
+  ProductFeedRecordPage,
+  ProductFeedRegistration,
   Quotas,
   RequestOptions,
   ResolveRequest,
@@ -196,6 +199,34 @@ export class ClarityClient {
       ),
     stats: (options?: RequestOptions) =>
       this.request<JobCorpusStats>('GET', '/v1/jobs/stats', undefined, options),
+  };
+
+  /**
+   * Product feeds — public shop catalogues Clarity crawls under robots.txt, its
+   * own agent and a polite pace. `register` is idempotent: call it before
+   * reading, and it answers the feed already registered for that source.
+   */
+  readonly productFeeds = {
+    register: (request: ProductFeedRegistration, options?: RequestOptions) =>
+      this.request<ProductFeed>('PUT', '/v1/product-feeds', request, options),
+    get: (id: string, options?: RequestOptions) =>
+      this.request<ProductFeed>(
+        'GET',
+        `/v1/product-feeds/${encodeURIComponent(id)}`,
+        undefined,
+        options,
+      ),
+    records: (
+      id: string,
+      page: { cursor?: string; limit?: number } = {},
+      options?: RequestOptions,
+    ) =>
+      this.request<ProductFeedRecordPage>(
+        'GET',
+        `/v1/product-feeds/${encodeURIComponent(id)}/records${query(page)}`,
+        undefined,
+        options,
+      ),
   };
 
   /** Public work history, independently owned by Clarity; writes require a user session. */

@@ -55,3 +55,11 @@ export type {
   NewsStory,
   NewsResponse,
 } from './news.js';
+
+export type {
+  ProductFeed,
+  ProductFeedKind,
+  ProductFeedRecord,
+  ProductFeedRecordPage,
+  ProductFeedRegistration,
+} from './product-feeds.js';

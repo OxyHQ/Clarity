@@ -469,3 +469,55 @@ export interface PlaceSearchResponse {
   /** Prefix matches first, then by population. */
   data: Place[];
 }
+
+// ---------------------------------------------------------------------------
+// Product feeds — public shop catalogues Clarity crawls (docs/product-feeds.mdx).
+//
+// Clarity keeps each source document exactly as the store served it and does
+// not interpret it: what a product, a variant or a price means is the
+// consumer's reading. `clarity:index`.
+// ---------------------------------------------------------------------------
+
+/**
+ * - `shopify_storefront`: a store by domain. `meta` is its `/meta.json`; each
+ *   record one `/products.json` product object, keyed by product id.
+ * - `steam_store`: the Steam game search for one market (ISO country). `meta`
+ *   is `{ country, currency, language }`; each record `{ html }`, one result row,
+ *   keyed by app id.
+ */
+export type ProductFeedKind = 'shopify_storefront' | 'steam_store';
+
+export interface ProductFeed {
+  id: string;
+  kind: ProductFeedKind;
+  identifier: string;
+  label: string | null;
+  enabled: boolean;
+  pollIntervalSeconds: number;
+  lastPolledAt: string | null;
+  lastStatus: 'ok' | 'error' | null;
+  lastError: string | null;
+  /** When a walk last reached the end; `null` until the records are a whole catalogue. */
+  lastCompletedAt: string | null;
+  recordsSeen: number;
+  meta: Record<string, unknown> | null;
+}
+
+export interface ProductFeedRegistration {
+  kind: ProductFeedKind;
+  identifier: string;
+  label?: string;
+}
+
+export interface ProductFeedRecord {
+  externalId: string;
+  payload: unknown;
+  changedAt: string;
+  lastSeenAt: string;
+}
+
+export interface ProductFeedRecordPage {
+  feed: ProductFeed;
+  records: ProductFeedRecord[];
+  nextCursor: string | null;
+}

@@ -294,7 +294,7 @@ function reserveOriginSlot(origin: string, gapMs: number): number {
 }
 
 /** Reads a request the origin's robots.txt allows, after the pause the origin and this feed ask for. */
-async function politeRead(
+export async function politeRead(
   request: JobFeedRequest,
   pauseMs: number,
   maxBodyBytes?: number,

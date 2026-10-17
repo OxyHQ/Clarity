@@ -1,0 +1,59 @@
+---
+title: Product feeds
+description: Public shop catalogues Clarity crawls for products, and how a consumer pulls the documents it keeps.
+---
+
+# Product feeds
+
+> **Clarity is Oxy's one crawler of stores. It fetches and keeps the source
+> documents; what they mean commercially is the consumer's reading.**
+
+A product feed is a public shop catalogue Clarity polls: a Shopify store's
+`/meta.json` and `/products.json`, or the Steam store's game search for one
+market. Clarity reads it under robots.txt for ClarityBot (`Content-Signal:
+search=no` and `Crawl-delay` honoured, the delay shared across every feed on an
+origin), at the provider's own polite pause, and keeps each document exactly as
+the source served it. It does not price, match or identify anything: Mercaria
+pulls the documents through `@clarity.surf/sdk` and reads them with its own
+mapping, so variants, prices and identity mean what Mercaria says.
+
+## Where it lives
+
+| Piece | Where |
+|---|---|
+| Kinds: what they request, how a body splits into documents (pure) | `packages/backend/src/search/products/feeds/providers.ts` |
+| Registration, polling, pruning, record pages | `packages/backend/src/search/products/feeds/feeds.ts` |
+| Tables | `clarity_product_feeds`, `clarity_product_feed_records` (`0037`) |
+| Worker loop (its own, beside job feeds) | `runProductFeedLoop` in `src/worker.ts` |
+| API (`clarity:index`) | `PUT /v1/product-feeds`, `GET /v1/product-feeds/:id`, `GET /v1/product-feeds/:id/records?cursor=&limit=` |
+| SDK | `productFeeds.register / get / records` |
+
+## Kinds
+
+| Kind | Identifier | `meta` | One record | Bound |
+|---|---|---|---|---|
+| `shopify_storefront` | store domain | the store's `/meta.json` (must name a currency) | one `/products.json` product object, keyed by product id | 40 pages (10,000 products) a poll; a larger store finishes over the next polls |
+| `steam_store` | market country (`ES`, `PT`, `FR`, `IT`, `DE`, `GB`, `US`) | `{ country, currency, language }` | `{ html }`, one search row, keyed by app id; bundles skipped | the first 10,000 games in Steam's relevance order |
+
+## A poll is a walk; only a finished walk prunes
+
+- Each document read is upserted with `lastSeenAt`; `changedAt` moves only when
+  its content hash changes.
+- A walk that reaches the end DELETES what it did not see since it began: the
+  store stopped listing it, so Clarity stops serving it and the consumer's own
+  freshness rule retires the offer.
+- A walk cut short by its page budget resumes from its cursor five minutes
+  later and prunes nothing until it finishes. `lastCompletedAt` says when the
+  records last were a whole catalogue.
+- **A fresh walk that finds nothing prunes nothing** — an empty answer from a
+  store that listed products a moment ago is far likelier an outage than a
+  closed shop. `lastError` says so.
+- Feeds poll every six hours by default; a failing one backs off at least six.
+  Due feeds are claimed under `FOR UPDATE SKIP LOCKED`.
+
+## Registering is idempotent
+
+`PUT /v1/product-feeds { kind, identifier, label? }` answers the feed already
+registered for that source, or registers it — in its canonical spelling
+(`https://Shop.Example/` → `shop.example`). A consumer calls it before every
+read; an operator's settings on an existing feed are never overwritten.
