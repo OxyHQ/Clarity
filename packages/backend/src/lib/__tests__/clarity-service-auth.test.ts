@@ -6,6 +6,7 @@ import {
   assertExactClarityServiceClaims,
   hasExactClarityServiceConfiguration,
 } from '../clarity-service-auth.js';
+import { CLARITY_FILES_SCOPES } from '../../files/oxy-files.js';
 
 /** The retired backend credential's public client id. */
 const RETIRED_CLIENT_ID = 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78';
@@ -179,5 +180,21 @@ describe('Clarity service token claims', () => {
         'canonical Clarity service identity',
       );
     }
+  });
+  /**
+   * Once Oxy grants Clarity's file scopes, the workload's FULL grant is the
+   * backend's declared tuple plus `CLARITY_FILES_SCOPES`. That token is what the
+   * Oxy Files adapter's calls carry (an unscoped mint, cached apart from the
+   * scoped one), and it must never pass as the backend token checked exactly:
+   * that token is minted as the exact subset, so granting files leaves it unchanged.
+   */
+  it('refuses the full grant once the file scopes are added, so the backend token stays the exact subset', () => {
+    const backendScopes: readonly string[] = CLARITY_IDENTITY.backendApplication.scopes;
+    expect(CLARITY_FILES_SCOPES.some((scope) => backendScopes.includes(scope))).toBe(false);
+    expect(() =>
+      assertExactClarityServiceClaims(
+        serviceToken({ scopes: [...backendScopes, ...CLARITY_FILES_SCOPES] }),
+      ),
+    ).toThrow('canonical Clarity service identity');
   });
 });

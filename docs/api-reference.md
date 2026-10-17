@@ -75,11 +75,22 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   `/v1/index/urls` retains its exact operation-key semantics.
 - `POST /v1/index/urls`, `POST /v1/resolve`, `/v1/sites…`, `GET /v1/usage`, `GET /v1/quotas`
 - `GET /favicons/:host` — public, no credential (an `<img>` sends none): the
-  site's favicon, one per host, fetched by the worker and served by Clarity
-  with a week's cache. Hosts are registered as their pages are crawled or
-  discovered; an unknown host is registered on request and answers 404 until
-  fetched. Documents and search results carry `faviconUrl` pointing here once
-  the icon is stored; the SDK's `resolveFaviconUrl(host)` builds the same URL.
+  site's favicon, one per host, fetched by the worker. A stable address: it
+  answers `302` to the icon as a Clarity-owned Oxy file on Oxy's CDN (cached a
+  day), an SVG too, which Oxy serves as its sanitized document under a sandbox
+  CSP. An icon Clarity still holds itself (not yet moved, or an SVG an Oxy
+  without stage 4c refused) is sent by Clarity under the same CSP with a week's
+  cache (`docs/oxy-files.md`). Hosts are registered as their pages are
+  crawled or discovered; an unknown host is registered on request and answers
+  404 until fetched. Documents and search results carry `faviconUrl` pointing
+  here once the icon is stored; the SDK's `resolveFaviconUrl(host)` builds the
+  same URL.
+- `GET /images/documents/:id/:version`, `GET /images/jobs/:id/:version` —
+  public, no credential: a document's preview image or a job's employer logo,
+  as `imageUrl`/`logoUrl` in responses. A stable address that answers `302` to
+  the image's Clarity-owned Oxy file at `?variant=w320|w640|w1280` (default
+  `w1280`); `503 image_unavailable` (not cached) while Oxy cannot be reached
+  (`docs/oxy-files.md`).
 - `GET /v1/operations/:id`, `POST /v1/operations/:id/cancel` — asynchronous
   crawl/index work. This namespace used to be `/v1/jobs`; `jobs` now means
   employment everywhere, and `ResolveResult.jobId` is `operationId`.

@@ -3,22 +3,31 @@ import { Router } from 'express';
 import net from 'node:net';
 
 import { getDb } from '../db/index.js';
+import { oxyFileUrl } from '../files/oxy-files.js';
 import { readSiteIcon, registerHosts } from '../search/site-icons.js';
 
 /**
  * `GET /favicons/:host` — a site's favicon, served by Clarity.
  *
- * Public and credential-free, because an `<img>` sends no bearer. It serves
- * only what the worker stored (search/site-icons.ts); a host Clarity has not
- * fetched yet is registered here and answers 404 briefly, so the next load
- * finds it. The body is an image whose type Clarity sniffed, sent with a
- * sandboxing CSP so an SVG cannot run anything even opened directly.
+ * A STABLE address (the frontend and every API response build it from the
+ * host alone): it answers with a `302` to the icon's Clarity-owned Oxy file
+ * (ADR 0043) — an SVG included, which Oxy serves as its sanitized document
+ * under a sandboxing CSP (stage 4c). An icon not yet moved into Oxy (the soak),
+ * or an SVG an Oxy without stage 4c refused, is still sent from Clarity: an
+ * image whose type Clarity sniffed, with the same sandboxing CSP, so an SVG
+ * cannot run anything even opened directly.
+ *
+ * Public and credential-free, because an `<img>` sends no bearer. A host
+ * Clarity has no icon for yet is registered here and answers 404 briefly, so
+ * the next load finds it.
  */
 const router = Router();
 // This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
 router.use(optionalAuth);
 
 const ICON_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+/** The redirect is cached for a day: a refreshed icon is a new file. */
+const REDIRECT_MAX_AGE_SECONDS = 24 * 60 * 60;
 const MISS_MAX_AGE_SECONDS = 5 * 60;
 const HOST_PATTERN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 
@@ -47,6 +56,14 @@ router.get('/:host', async (req, res) => {
     res.status(404).json({
       error: { code: 'icon_not_found', message: 'Clarity has no icon for this host yet' },
     });
+    return;
+  }
+  if (icon.kind === 'oxy') {
+    res.setHeader(
+      'Cache-Control',
+      `public, max-age=${REDIRECT_MAX_AGE_SECONDS}, stale-while-revalidate=86400`,
+    );
+    res.redirect(302, oxyFileUrl(icon.oxyFileId));
     return;
   }
   res.setHeader('Content-Type', icon.contentType);

@@ -425,6 +425,36 @@ describe('architecture gates', () => {
     expect(schema).not.toMatch(/agentId|agentInfo|aliaAgentIdSha256/);
   });
 
+  it('reaches Oxy Files through one adapter, whose scopes never join the backend token tuple', () => {
+    const sources = filesUnder(join(packageRoot, 'src')).filter(
+      (file) => file.endsWith('.ts') && !file.includes('__tests__'),
+    );
+    const clientUsers = sources
+      .filter((file) => readFileSync(file, 'utf8').includes('getClarityFilesClient('))
+      .map(relativeToRepo)
+      .sort();
+    expect(clientUsers).toEqual([
+      'packages/backend/src/files/oxy-files.ts',
+      'packages/backend/src/lib/clarity-service-auth.ts',
+    ]);
+    // The backend token is minted as exactly its declared tuple, and no file
+    // scope is declared in it or requested beside it.
+    const auth = readFileSync(join(packageRoot, 'src', 'lib', 'clarity-service-auth.ts'), 'utf8');
+    expect(auth).not.toMatch(/files:/);
+    const identity = readFileSync(join(packageRoot, 'src', 'lib', 'clarity-identity.ts'), 'utf8');
+    expect(identity).not.toMatch(/files:/);
+    const triggers = readFileSync(
+      join(packageRoot, 'drizzle', '0032_oxy_file_reference_triggers.sql'),
+      'utf8',
+    );
+    for (const table of [
+      'clarity_image_references',
+      'clarity_search_documents',
+      'clarity_job_postings',
+    ])
+      expect(triggers).toContain(`ON ${table}`);
+  });
+
   it('keeps every generated migration explicitly phased and bind-free', () => {
     const sqlFiles = filesUnder(join(packageRoot, 'drizzle')).filter((file) =>
       file.endsWith('.sql'),
