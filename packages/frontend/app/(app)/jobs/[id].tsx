@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Linking, Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,7 +23,8 @@ import { useColorScheme } from '@/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { bloomIcon } from '@/lib/bloom-icon';
 import { Button, GlyphButton } from '@oxy.so/bloom/button';
-import { AliaMarkdown } from '@alia.onl/sdk';
+// Long-text listing fields are Markdown with no raw HTML (Clarity Jobs contract).
+import { Markdown } from '@oxy.so/bloom/markdown';
 
 const REPORT_REASONS: JobReportReason[] = [
   'scam',
@@ -38,11 +39,6 @@ export default function JobDetailScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { colors } = useColorScheme();
-  // Long-text listing fields are Markdown with no raw HTML (Clarity Jobs contract).
-  const markdownColors = useMemo(
-    () => ({ text: colors.mutedForeground }),
-    [colors.mutedForeground],
-  );
   const insets = useSafeAreaInsets();
   const job = useJobPosting(typeof id === 'string' ? id : undefined);
   const report = useReportJobPosting(typeof id === 'string' ? id : undefined);
@@ -206,7 +202,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.descriptionHeading')}
                   </Text>
-                  <AliaMarkdown content={posting.description} colors={markdownColors} />
+                  <Markdown size="sm">{posting.description}</Markdown>
                 </View>
               ) : null}
 
@@ -230,7 +226,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.qualificationsHeading')}
                   </Text>
-                  <AliaMarkdown content={posting.qualifications} colors={markdownColors} />
+                  <Markdown size="sm">{posting.qualifications}</Markdown>
                 </View>
               ) : null}
 
@@ -239,7 +235,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.responsibilitiesHeading')}
                   </Text>
-                  <AliaMarkdown content={posting.responsibilities} colors={markdownColors} />
+                  <Markdown size="sm">{posting.responsibilities}</Markdown>
                 </View>
               ) : null}
 
@@ -248,7 +244,7 @@ export default function JobDetailScreen() {
                   <Text className="text-sm font-medium text-foreground">
                     {t('jobs.benefitsHeading')}
                   </Text>
-                  <AliaMarkdown content={posting.benefits} colors={markdownColors} />
+                  <Markdown size="sm">{posting.benefits}</Markdown>
                 </View>
               ) : null}
 
