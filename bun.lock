@@ -179,7 +179,7 @@
     },
     "packages/sdk": {
       "name": "@clarity.surf/sdk",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "devDependencies": {
         "typescript": "~6.0.3",
         "vitest": "^4.1.10",
