@@ -521,3 +521,96 @@ export interface ProductFeedRecordPage {
   records: ProductFeedRecord[];
   nextCursor: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Products — shopping search, answered by Mercaria.
+//
+// Mercaria owns the catalogue and Clarity keeps no copy: show `source` beside
+// the results. Order is Mercaria's (results by relevance, offers ranked) and
+// Clarity re-ranks neither. Every amount is integer minor units in its OWN
+// currency, converted by nobody; `null` when it cannot be stated.
+// ---------------------------------------------------------------------------
+
+export interface ProductSource {
+  name: 'Mercaria';
+  url: string;
+}
+
+export interface ProductMoney {
+  amount: number;
+  currency: string;
+}
+
+export type ProductAvailability =
+  | 'in_stock'
+  | 'out_of_stock'
+  | 'preorder'
+  | 'unavailable'
+  | 'unknown';
+
+export type ProductOfferKind = 'native' | 'external' | 'affiliate' | 'informational';
+
+export interface ProductSearchRequest {
+  /** Words, or a barcode (GTIN) — answered by exact identifier. */
+  query: string;
+  /** ISO 3166-1 alpha-2: only offers published for this country. */
+  market?: string;
+  /** 1–50. Default 20. */
+  limit?: number;
+  /** The previous page's `nextCursor`, verbatim, with the same query. */
+  cursor?: string;
+}
+
+export interface ProductSummary {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  url: string;
+  /** `null` when nobody offers it right now. */
+  offers: {
+    count: number;
+    availability: ProductAvailability;
+    lowestPrice: ProductMoney | null;
+  } | null;
+}
+
+export interface ProductSearchResponse {
+  results: ProductSummary[];
+  nextCursor: string | null;
+  source: ProductSource;
+}
+
+export interface ProductOffer {
+  id: string;
+  kind: ProductOfferKind;
+  variantId: string;
+  seller:
+    | { kind: 'merchant'; name: string; domain: string | null }
+    | { kind: 'store'; name: string }
+    | { kind: 'person'; name: string }
+    | { kind: 'unknown' };
+  price: ProductMoney | null;
+  availability: ProductAvailability;
+  condition: { key: string; group: string } | null;
+  observedAt: string | null;
+  /** Mercaria's redirect for a retailer's offer, its Mercaria page for a native one, or `null`. */
+  link: string | null;
+  /** Publish an external link under this `rel`, naming `destinationHost` beside it. */
+  rel: string | null;
+  destinationHost: string | null;
+  /** Open-data attribution its licence requires. */
+  attribution: { name: string; homepage: string; licence: string } | null;
+}
+
+export interface ProductDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  images: string[];
+  url: string;
+  variants: { id: string; name: string | null; gtins: string[] }[];
+  /** Ranked by Mercaria. `null` while Mercaria is not serving price comparison. */
+  offers: ProductOffer[] | null;
+  source: ProductSource;
+}

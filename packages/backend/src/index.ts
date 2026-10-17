@@ -24,6 +24,7 @@ import { flushLegacyReads } from './files/legacy-reads.js';
 import experienceRouter from './routes/experience.js';
 import jobsRouter from './routes/jobs.js';
 import marketRouter from './routes/market.js';
+import productsRouter from './routes/products.js';
 import newsRouter from './routes/news.js';
 // Socket.io
 import { initSocket } from './socket.js';
@@ -212,6 +213,7 @@ app.use('/jobs', jobsRouter);
 app.use('/api/experience', experienceRouter);
 app.use('/market', marketRouter);
 app.use('/news', newsRouter);
+app.use('/products', productsRouter);
 
 // Root route
 app.get('/', (_req, res) => {
@@ -229,6 +231,7 @@ app.get('/', (_req, res) => {
       '/jobs',
       '/market',
       '/news',
+      '/products',
       '/api/experience',
       '/_oxy/mcp',
     ],

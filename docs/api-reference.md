@@ -101,6 +101,10 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   `GET /v1/product-feeds/:id/records` (`clarity:index`) — public shop
   catalogues Clarity crawls, and the source documents it keeps for each
   (`docs/product-feeds.mdx`). Registering is idempotent.
+- `POST /v1/products/search`, `GET /v1/products/:id` — shopping search,
+  answered by Mercaria (`clarity:search`; a search counts against
+  `search_month`). Public door for the site: `GET /products/search`,
+  `GET /products/:id`, no credential. `docs/products.mdx`.
 - `POST /v1/jobs/ingest` — the publisher boundary (`clarity:index`). A
   structured `JobPosting` payload requires a verified site for the URL's host.
 - `GET/POST /v1/jobs/feeds`, `DELETE /v1/jobs/feeds/:id` (`clarity:index`) —

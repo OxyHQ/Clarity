@@ -1,0 +1,64 @@
+---
+title: Clarity Products
+description: Shopping search in Clarity, answered by Mercaria's catalogue through @mercaria.co/sdk.
+---
+
+# Clarity Products
+
+> **Mercaria owns the catalogue. Clarity searches it and keeps no copy.**
+
+Clarity Products is shopping search: products to buy new from shops,
+secondhand from people, and the retailers and open-data prices Mercaria
+ingests. It is not a second catalogue. Canonical products, every seller's offer,
+GTIN matching and prices are Mercaria's (`~/Oxy/docs/api-conventions.md`,
+"Cross-app references"), and Clarity reads them at query time through
+`@mercaria.co/sdk` (`catalog.search` / `catalog.get`, Mercaria's
+`/public/v1/catalog/*`). Nothing is stored: no table, no cached price.
+
+## Where it lives
+
+| Piece | Where |
+|---|---|
+| The ONE importer of `@mercaria.co/sdk`, mapping and refusals | `packages/backend/src/search/products/mercaria-catalog.ts` |
+| Public door for clarity.surf (no credential, address-keyed burst limit) | `GET /products/search?q=&market=&limit=&cursor=`, `GET /products/:id` (`routes/products.ts`) |
+| Credentialed door (`oxy_sk`, `clarity:search`; a search counts against `search_month`) | `POST /v1/products/search`, `GET /v1/products/:id` (`routes/v1/search-platform.ts`) |
+| Agent tools (`search.products.read`) | `searchProducts`, `getProduct` (`capabilities/catalog/products.ts`) |
+| Shapes | `@clarity/shared-types` `products.ts`; `@clarity.surf/sdk` `products.search/get` |
+
+All three doors call the same two functions with the same zod schema, so a
+query means one thing everywhere.
+
+## Rules
+
+- **Order is Mercaria's.** Results keep Mercaria's relevance order and offers
+  its versioned ranked order. Clarity sorts nothing and weights nothing; no
+  commercial signal of Clarity's (plans, payments, Mercaria or Mention
+  engagement) reaches a product's position — the Jobs rule, applied here.
+- **Say who answered.** Every response carries `source: { name: 'Mercaria' }`;
+  a surface shows it, and links each product's `url` on mercaria.co.
+- **Prices are native.** Integer minor units in the offer's own currency,
+  converted by nobody. `null` means Mercaria cannot state one; never invent it.
+- **Follow an offer only by its `link`.** For a retailer's offer that is
+  Mercaria's redirect, which re-checks the offer at click time; publish it with
+  `rel` and name `destinationHost` beside it. The retailer's own URL is never
+  published.
+- **Show `attribution`** when an offer has one: open-data licences require it.
+- **`offers: null` is not "nobody sells it"** — Mercaria is not serving price
+  comparison right now. A product with no current offer is still a result.
+
+## Who Clarity is to Mercaria
+
+Every request carries Clarity's Oxy backend service token
+(`getClarityServiceToken`), so Mercaria meters Clarity as one service
+application (`service:<appId>`) rather than as one anonymous address. The token
+grants no read an anonymous caller lacks. A process without a service identity
+reads anonymously.
+
+## Refusals
+
+| Mercaria said | Clarity answers |
+|---|---|
+| `not_found` | 404 `not_found` |
+| `gone` (withdrawn) | 410 `gone` |
+| bad request / validation | 400 `invalid_request` |
+| anything else — unavailable, timeout, network | 503 `products_unavailable`, never an empty page |

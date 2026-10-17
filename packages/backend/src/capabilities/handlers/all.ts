@@ -6,6 +6,7 @@ import { JOB_HANDLERS } from './jobs.js';
 import { MARKET_HANDLERS } from './market.js';
 import { NOTIFICATION_HANDLERS } from './notifications.js';
 import { PLACE_HANDLERS } from './places.js';
+import { PRODUCT_HANDLERS } from './products.js';
 import { SEARCH_HANDLERS } from './search.js';
 
 export const CLARITY_TOOL_HANDLERS: ClarityToolHandlers = {
@@ -13,6 +14,7 @@ export const CLARITY_TOOL_HANDLERS: ClarityToolHandlers = {
   ...JOB_HANDLERS,
   ...PLACE_HANDLERS,
   ...MARKET_HANDLERS,
+  ...PRODUCT_HANDLERS,
   ...EXPERIENCE_HANDLERS,
   ...NOTIFICATION_HANDLERS,
   ...FEEDBACK_HANDLERS,

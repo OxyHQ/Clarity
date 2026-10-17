@@ -19,8 +19,8 @@ const catalog = CLARITY_CAPABILITY_CATALOG;
  * copy the new pair here.
  */
 const PINNED = {
-  version: '1.0.0',
-  digest: 'a77e444b5c59c6f975e10ceb00d17c942c6891f7df9fd42adc3b2382eb2996fe',
+  version: '1.1.0',
+  digest: '9a2f6bfb480669960c6159d98591a28b4d83d4158f01e17d24c82c47888d98c6',
 };
 
 describe('CLARITY_CAPABILITY_CATALOG', () => {

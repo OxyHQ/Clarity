@@ -173,6 +173,54 @@ describe('ClarityClient', () => {
     );
   });
 
+  it('searches and reads products, answered by Mercaria', async () => {
+    const page = {
+      results: [
+        {
+          id: 'cp_1',
+          name: 'Phone X',
+          imageUrl: null,
+          url: 'https://mercaria.co/p/phone-x',
+          offers: null,
+        },
+      ],
+      nextCursor: null,
+      source: { name: 'Mercaria', url: 'https://mercaria.co' },
+    };
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(page), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ ...page.results[0], offers: null, variants: [], images: [] }),
+          {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          },
+        ),
+      );
+    const client = new ClarityClient({
+      apiKey: 'oxy_sk_test',
+      baseUrl: 'https://clarity.test',
+      fetch: fetcher,
+    });
+
+    const results = await client.products.search({ query: 'phone x', market: 'ES' });
+    await client.products.get('cp/1');
+
+    const [searchUrl, searchInit] = fetcher.mock.calls[0];
+    expect(searchUrl).toBe('https://clarity.test/v1/products/search');
+    expect(searchInit?.method).toBe('POST');
+    expect(JSON.parse(String(searchInit?.body))).toEqual({ query: 'phone x', market: 'ES' });
+    expect(results.source.name).toBe('Mercaria');
+    expect(fetcher.mock.calls[1][0]).toBe('https://clarity.test/v1/products/cp%2F1');
+  });
+
   it('hands a newly published listing to Clarity through jobs.ingest', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(

@@ -27,6 +27,9 @@ import type {
   ProductFeed,
   ProductFeedRecordPage,
   ProductFeedRegistration,
+  ProductDetail,
+  ProductSearchRequest,
+  ProductSearchResponse,
   Quotas,
   RequestOptions,
   ResolveRequest,
@@ -224,6 +227,26 @@ export class ClarityClient {
       this.request<ProductFeedRecordPage>(
         'GET',
         `/v1/product-feeds/${encodeURIComponent(id)}/records${query(page)}`,
+        undefined,
+        options,
+      ),
+  };
+
+  /**
+   * Clarity Products — shopping search, answered by Mercaria.
+   *
+   * Mercaria owns the catalogue (every seller, new and secondhand, plus the
+   * retailers and open-data prices it ingests); Clarity reads it at query time
+   * and keeps no copy. Results and offers keep Mercaria's order. A search counts
+   * against the monthly search quota.
+   */
+  readonly products = {
+    search: (request: ProductSearchRequest, options?: RequestOptions) =>
+      this.request<ProductSearchResponse>('POST', '/v1/products/search', request, options),
+    get: (id: string, options?: RequestOptions) =>
+      this.request<ProductDetail>(
+        'GET',
+        `/v1/products/${encodeURIComponent(id)}`,
         undefined,
         options,
       ),

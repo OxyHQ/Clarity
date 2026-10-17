@@ -202,7 +202,8 @@
     "security": "Security",
     "discover": "Discover",
     "finance": "Finance",
-    "jobs": "Empleo"
+    "jobs": "Empleo",
+    "shopping": "Compras"
   },
   "sidebar": {
     "newChat": "New Chat",
@@ -238,13 +239,15 @@
     "privacyPolicy": "Privacy Policy",
     "jobs": "Empleo",
     "askAlia": "Preguntar a Alia",
-    "seeAll": "Ver todo"
+    "seeAll": "Ver todo",
+    "shopping": "Compras"
   },
   "askAlia": {
     "clientContext": "La persona usa Clarity, una aplicación de búsqueda e investigación con IA con citas de fuentes, investigación profunda, un feed Descubrir y un índice público de empleos.",
     "onConversation": "Está leyendo una de sus conversaciones de Clarity.",
     "onDiscover": "Está explorando el feed Descubrir.",
     "onJobs": "Está explorando el índice de empleos.",
+    "onShopping": "Está buscando productos en la página de Compras.",
     "onHistory": "Está viendo su historial de búsquedas.",
     "onHome": "Está en la pantalla de inicio de Clarity, a punto de iniciar una búsqueda.",
     "suggestion": {
@@ -340,6 +343,99 @@
       "removed": "Esta oferta se eliminó del índice de Clarity.",
       "stale": "Esta oferta no se ha vuelto a observar en su fuente recientemente."
     }
+  },
+  "shopping": {
+    "title": "Compras",
+    "heading": "Encuentra productos y compara ofertas",
+    "subheading": "Búsqueda de productos respondida por Mercaria: su catálogo y la oferta de cada vendedor, en el orden de Mercaria. Los precios se muestran en la moneda de cada vendedor.",
+    "queryPlaceholder": "Producto, marca o modelo",
+    "searchAction": "Buscar",
+    "promptTitle": "Busca un producto",
+    "promptBody": "Escribe lo que buscas para ver los productos que coinciden y quién los vende.",
+    "loadMore": "Cargar más",
+    "loadingMore": "Cargando...",
+    "loadMoreError": "No se pudieron cargar más resultados. Inténtalo de nuevo.",
+    "retry": "Reintentar",
+    "backToSearch": "Volver a Compras",
+    "emptyTitle": "Sin productos coincidentes",
+    "emptyBody": "Prueba con una búsqueda más amplia u otras palabras.",
+    "errorTitle": "La búsqueda de productos no está disponible",
+    "searchError": {
+      "gone": "Esta búsqueda ya no está disponible.",
+      "not_found": "No se encontró la búsqueda de productos.",
+      "unavailable": "Mercaria no está disponible temporalmente. Inténtalo de nuevo en un momento.",
+      "rate_limited": "Demasiadas búsquedas en poco tiempo. Espera un momento e inténtalo de nuevo.",
+      "other": "Clarity no pudo conectar con la búsqueda de productos. Tu búsqueda se ha conservado."
+    },
+    "detailError": {
+      "gone": {
+        "title": "Ya no está disponible",
+        "body": "Este producto ya no está disponible en Mercaria."
+      },
+      "not_found": {
+        "title": "Producto no encontrado",
+        "body": "No hay ningún producto en esta dirección. Puede que el enlace sea incorrecto."
+      },
+      "unavailable": {
+        "title": "La información del producto no está disponible temporalmente",
+        "body": "No se pudo conectar con Mercaria. Inténtalo de nuevo en un momento."
+      },
+      "rate_limited": {
+        "title": "Demasiadas solicitudes",
+        "body": "Espera un momento e inténtalo de nuevo."
+      },
+      "other": {
+        "title": "No se pudo cargar este producto",
+        "body": "Algo salió mal al cargarlo. Inténtalo de nuevo."
+      }
+    },
+    "resultsFrom": "Resultados de %{name}",
+    "offerCount": {
+      "one": "%{count} oferta",
+      "other": "%{count} ofertas"
+    },
+    "fromPrice": "Desde %{price}",
+    "noPrice": "Sin precio",
+    "noCurrentOffers": "Sin ofertas actuales",
+    "priceNotStated": "Precio no indicado",
+    "offersUnavailableShort": "La comparación de precios no está disponible temporalmente",
+    "offersUnavailable": "La comparación de precios no está disponible temporalmente. Esto no significa que nadie venda este producto.",
+    "offersHeading": "Ofertas",
+    "descriptionHeading": "Sobre este producto",
+    "variantsHeading": "Variantes",
+    "unnamedVariant": "Variante sin nombre",
+    "unknownSeller": "Vendedor desconocido",
+    "seen": "Visto %{when}",
+    "buyOnMercaria": "Comprar en Mercaria",
+    "viewOn": "Ver en %{host}",
+    "viewOffer": "Ver oferta",
+    "imageLabel": "%{name}, imagen %{index}",
+    "availability": {
+      "in_stock": "En stock",
+      "out_of_stock": "Agotado",
+      "preorder": "Reserva",
+      "unavailable": "No disponible",
+      "unknown": "Disponibilidad desconocida"
+    },
+    "condition": {
+      "new": "Nuevo",
+      "open_box": "Caja abierta",
+      "refurbished_manufacturer": "Reacondicionado por el fabricante",
+      "refurbished_seller": "Reacondicionado por el vendedor",
+      "used_like_new": "Usado - como nuevo",
+      "used_good": "Usado - buen estado",
+      "used_fair": "Usado - estado aceptable",
+      "used_poor": "Usado - mal estado",
+      "for_parts": "Para piezas"
+    },
+    "conditionGroup": {
+      "new": "Nuevo",
+      "open_box": "Caja abierta",
+      "refurbished": "Reacondicionado",
+      "used": "Usado",
+      "for_parts": "Para piezas"
+    },
+    "disclaimer": "Los productos y las ofertas proceden de Mercaria. Clarity no los vende, no los reordena y no convierte precios. Buscar nunca te identifica."
   },
   "finance": {
     "title": "Finance",
