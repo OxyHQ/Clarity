@@ -597,6 +597,11 @@ async function finishJobIfComplete(
 /**
  * Re-queues job documents that are due for verification, under the same owner
  * that originally requested them, so a listing's disappearance is noticed.
+ *
+ * The longest-overdue first, read from `clarity_search_documents_job_recrawl_due_idx`
+ * (migration 0033). Without the order the planner chose a sequential scan of the
+ * whole documents table whenever many listings were due, and walked it until it
+ * had a batch: one scan per maintenance pass, up to 32 s (production, 2026-10-17).
  */
 interface DueJobDocument extends Record<string, unknown> {
   documentId: string;
@@ -626,6 +631,7 @@ export async function enqueueJobRecrawls(): Promise<number> {
       and ${searchDocuments.status} = 'indexed'
       and ${searchDocuments.nextFetchAt} is not null
       and ${searchDocuments.nextFetchAt} <= now()
+    order by ${searchDocuments.nextFetchAt}
     limit ${jobRecrawlBatchSize}`);
   if (due.length === 0) return 0;
 

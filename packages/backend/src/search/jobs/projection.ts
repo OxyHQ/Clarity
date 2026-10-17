@@ -32,12 +32,7 @@ import {
 } from '../chunking.js';
 import { canonicalSourceRank, jobClusterSignatures, type JobSignature } from './dedupe.js';
 import { extractJobPostings, type ExtractedJobPosting } from './extract.js';
-import {
-  JOB_RECRAWL_INTERVAL_SECONDS,
-  JOB_RETENTION_DAYS,
-  jobLifecycleStatus,
-  type JobClosureReason,
-} from './lifecycle.js';
+import { JOB_RETENTION_DAYS, jobLifecycleStatus, type JobClosureReason } from './lifecycle.js';
 import { markdownToPlainText } from './markdown.js';
 import { resolveJobLocations } from './locations.js';
 import { createPlaceResolver } from '../places/repository.js';
@@ -610,7 +605,12 @@ export async function ingestJobPosting(
       documentType: 'job',
       fetchedAt: input.fetchedAt ?? input.observedAt,
       indexedAt: input.observedAt,
-      nextFetchAt: new Date(input.observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000),
+      // No `nextFetchAt`: an ingested listing is re-observed by the source that
+      // delivered it (its feed, feeds/presence.ts), not by Clarity's recrawl,
+      // which only re-queues a URL a crawl page fetched. Scheduled anyway, it
+      // stayed due forever and the recrawl sweep walked every one of them
+      // (~490k, production 2026-10-17). A crawl of the same URL still schedules
+      // it (worker.ts), and an ingest leaves that schedule as it is.
       updatedAt: input.observedAt,
     };
     // The same payload again leaves the document's text, structured data and

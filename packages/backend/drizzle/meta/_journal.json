@@ -267,6 +267,13 @@
       "when": 1792238869246,
       "tag": "0037_product_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792241045719,
+      "tag": "0038_clear_ingested_recrawl_schedules",
+      "breakpoints": true
     }
   ]
 }

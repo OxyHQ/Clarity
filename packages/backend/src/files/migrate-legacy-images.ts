@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, asc, eq, gt, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
 import {
@@ -382,9 +382,17 @@ async function migrateFavicons(
 }
 
 /**
- * Record the uses of moved images by the entities that show them, a page of
- * entities at a time (joined on the source URL, which has no index of its own
- * on the entity tables). Idempotent: an entity with a use keeps it.
+ * Record the uses of moved images by the entities that show them. Idempotent:
+ * an entity with a use keeps it.
+ *
+ * One statement per entity table, driven by the moved images: those are a few
+ * hundred rows of the image cache, so they are the hash side of the join and
+ * each entity table is read once, in one sequential pass, matched on the source
+ * URL (which has no index on the entity tables). It used to page through every
+ * entity with an image in id order, 5,000 at a time: random heap reads over the
+ * whole documents and postings tables on every run — the largest reader on the
+ * shared database while the backfill ran in production (2026-10-17), for runs
+ * that moved 100 images.
  */
 async function recordEntityUses(
   options: MigrationOptions,
@@ -392,62 +400,29 @@ async function recordEntityUses(
 ): Promise<void> {
   if (!options.apply) return;
   const now = options.now ?? Date.now();
-  const usedSince = new Date(now - IMAGE_IDLE_TTL_MS);
-  const page = 5000;
+  const usedSince = new Date(now - IMAGE_IDLE_TTL_MS).toISOString();
+  const moved = sql`c.status = 'ready' and c.oxy_file_id is not null
+    and c.last_accessed_at >= ${usedSince}::timestamptz`;
 
-  let after = '';
-  for (;;) {
-    const ids = await getDb()
-      .select({ id: searchDocuments.id })
-      .from(searchDocuments)
-      .where(and(isNotNull(searchDocuments.imageUrl), gt(searchDocuments.id, after)))
-      .orderBy(asc(searchDocuments.id))
-      .limit(page);
-    if (ids.length === 0) break;
-    after = ids[ids.length - 1].id;
-    const recorded = await getDb().execute<{ entity_id: string }>(sql`
-      insert into ${imageReferences} (entity_type, entity_id, oxy_file_id, image_key, last_used_at)
-      select 'search_document', d.id, c.oxy_file_id, c.key, c.last_accessed_at
-      from ${searchDocuments} d
-      join ${imageCache} c on c.source_url = d.image_url
-      where ${inArray(
-        sql`d.id`,
-        ids.map((row) => row.id),
-      )}
-        and c.status = 'ready' and c.oxy_file_id is not null
-        and c.last_accessed_at >= ${usedSince.toISOString()}::timestamptz
-      on conflict do nothing
-      returning entity_id`);
-    summary.usesRecorded += Array.isArray(recorded) ? recorded.length : 0;
-    if (ids.length < page) break;
-  }
+  const documents = await getDb().execute<{ entity_id: string }>(sql`
+    insert into ${imageReferences} (entity_type, entity_id, oxy_file_id, image_key, last_used_at)
+    select 'search_document', d.id, c.oxy_file_id, c.key, c.last_accessed_at
+    from ${imageCache} c
+    join ${searchDocuments} d on d.image_url = c.source_url
+    where ${moved}
+    on conflict do nothing
+    returning entity_id`);
+  summary.usesRecorded += Array.isArray(documents) ? documents.length : 0;
 
-  after = '';
-  for (;;) {
-    const ids = await getDb()
-      .select({ id: jobPostings.id })
-      .from(jobPostings)
-      .where(and(isNotNull(jobPostings.employerLogoUrl), gt(jobPostings.id, after)))
-      .orderBy(asc(jobPostings.id))
-      .limit(page);
-    if (ids.length === 0) break;
-    after = ids[ids.length - 1].id;
-    const recorded = await getDb().execute<{ entity_id: string }>(sql`
-      insert into ${imageReferences} (entity_type, entity_id, oxy_file_id, image_key, last_used_at)
-      select 'job_posting', j.id, c.oxy_file_id, c.key, c.last_accessed_at
-      from ${jobPostings} j
-      join ${imageCache} c on c.source_url = j.employer_logo_url
-      where ${inArray(
-        sql`j.id`,
-        ids.map((row) => row.id),
-      )}
-        and c.status = 'ready' and c.oxy_file_id is not null
-        and c.last_accessed_at >= ${usedSince.toISOString()}::timestamptz
-      on conflict do nothing
-      returning entity_id`);
-    summary.usesRecorded += Array.isArray(recorded) ? recorded.length : 0;
-    if (ids.length < page) break;
-  }
+  const postings = await getDb().execute<{ entity_id: string }>(sql`
+    insert into ${imageReferences} (entity_type, entity_id, oxy_file_id, image_key, last_used_at)
+    select 'job_posting', j.id, c.oxy_file_id, c.key, c.last_accessed_at
+    from ${imageCache} c
+    join ${jobPostings} j on j.employer_logo_url = c.source_url
+    where ${moved}
+    on conflict do nothing
+    returning entity_id`);
+  summary.usesRecorded += Array.isArray(postings) ? postings.length : 0;
 }
 
 /** Run the migration (or its preview). */
