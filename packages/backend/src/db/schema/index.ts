@@ -828,12 +828,24 @@ export const searchChunks = pgTable(
   (table) => [
     unique('clarity_search_chunks_document_position_unique').on(table.documentId, table.position),
     index('clarity_search_chunks_fts_idx').using('gin', table.searchVector),
-    index('clarity_search_chunks_embedding_hnsw_idx').using(
+    // The semantic index holds each vector at half precision: half the pages
+    // for an insert to walk and a search to read, on an instance whose disk is
+    // the bottleneck. `searchChunkHalfvec` is the expression it indexes, and
+    // the only one a query may order by to use it.
+    index('clarity_search_chunks_embedding_halfvec_hnsw_idx').using(
       'hnsw',
-      table.embedding.op('vector_cosine_ops'),
+      sql`(${table.embedding}::halfvec(1024)) halfvec_cosine_ops`,
     ),
   ],
 );
+
+/**
+ * A chunk's embedding as the semantic index holds it, at half precision. A
+ * nearest-neighbour query orders by this expression (against a
+ * `::halfvec(1024)` query vector) to be served by
+ * `clarity_search_chunks_embedding_halfvec_hnsw_idx`.
+ */
+export const searchChunkHalfvec = sql`(${searchChunks.embedding}::halfvec(1024))`;
 
 export const crawlJobs = pgTable(
   'clarity_crawl_jobs',

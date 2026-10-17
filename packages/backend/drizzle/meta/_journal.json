@@ -239,6 +239,20 @@
       "when": 1792223233480,
       "tag": "0033_search_document_due_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792223463913,
+      "tag": "0034_search_chunk_halfvec_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792223470105,
+      "tag": "0035_drop_full_precision_chunk_index",
+      "breakpoints": true
     }
   ]
 }
