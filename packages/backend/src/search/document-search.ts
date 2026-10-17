@@ -67,7 +67,7 @@ export type SearchInput = z.infer<typeof searchSchema>;
 export class SearchError extends Error {
   constructor(
     readonly status: number,
-    readonly code: 'semantic_unavailable' | 'invalid_cursor',
+    readonly code: 'semantic_unavailable' | 'invalid_cursor' | 'search_timeout',
     message: string,
   ) {
     super(message);
@@ -145,6 +145,37 @@ export async function searchIndex(input: SearchInput) {
   };
 }
 
+/**
+ * How many nearest CHUNKS the semantic arm reads from the HNSW index before it
+ * groups them into documents and applies the document filters. Ordering the
+ * chunks by distance and limiting is the only shape the index serves: the
+ * earlier `min(embedding <=> q)` grouped by document compared the query with
+ * every embedded chunk (549k in production, 2026-10-17) and ran past two
+ * minutes, so every hybrid search outlived its callers. A filter is applied
+ * after the nearest chunks are found, so a filtered search reads a wider pool —
+ * up to pgvector's ceiling for `hnsw.ef_search`, which bounds what the index
+ * can return.
+ */
+const SEMANTIC_CANDIDATE_CHUNKS = 400;
+const FILTERED_SEMANTIC_CANDIDATE_CHUNKS = 1_000;
+
+/**
+ * The longest a ranking may run. A caller that gives up does not stop a query
+ * already in Postgres, so without this an abandoned search keeps reading the
+ * index and slows the searches behind it. Sized so the whole search — query
+ * embedding (2.5 s), ranking, web discovery (5 s) — answers inside the SDK's
+ * 15 s default.
+ */
+const SEARCH_STATEMENT_TIMEOUT_MS = 7_000;
+const QUERY_CANCELED = '57014';
+
+function isStatementTimeout(error: unknown): boolean {
+  for (let cause: unknown = error; cause instanceof Error; cause = cause.cause) {
+    if ((cause as { code?: unknown }).code === QUERY_CANCELED) return true;
+  }
+  return false;
+}
+
 /** The ranking behind `searchIndex`; exported for its Postgres suite. */
 export async function rankedSearch(
   input: SearchInput,
@@ -188,6 +219,14 @@ export async function rankedSearch(
     );
   }
   const where = sql.join(filters, sql` and `);
+  const filtered = Boolean(
+    input.types?.length ||
+      input.language ||
+      input.publishedAfter ||
+      input.publishedBefore ||
+      input.domains?.length,
+  );
+  const candidateChunks = filtered ? FILTERED_SEMANTIC_CANDIDATE_CHUNKS : SEMANTIC_CANDIDATE_CHUNKS;
   // Candidates first, one indexed arm each — the chunks' full-text index and
   // the title trigram index — and only those documents are scored. Written as
   // one join filtered by an OR across both tables, no index could serve it:
@@ -216,12 +255,22 @@ export async function rankedSearch(
     where ${where}
     group by ${searchDocuments.id}
     order by rank limit 100`;
-  const semantic = embedding
+  // The nearest chunks first, straight from the HNSW index (see
+  // SEMANTIC_CANDIDATE_CHUNKS), then each document at its nearest chunk.
+  const queryVector = embedding ? sql`${JSON.stringify(embedding)}::vector` : undefined;
+  const semantic = queryVector
     ? sql`
     select ${searchDocuments.id} as document_id,
-      row_number() over (order by min(${searchChunks.embedding} <=> ${JSON.stringify(embedding)}::vector) asc, ${searchDocuments.id}) as rank
-    from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
-    where ${where} and ${searchChunks.embedding} is not null
+      row_number() over (order by min(nearest.distance) asc, ${searchDocuments.id}) as rank
+    from (
+      select ${searchChunks.documentId} as document_id, ${searchChunks.embedding} <=> ${queryVector} as distance
+      from ${searchChunks}
+      where ${searchChunks.embedding} is not null
+      order by ${searchChunks.embedding} <=> ${queryVector}
+      limit ${candidateChunks}
+    ) nearest
+    inner join ${searchDocuments} on ${searchDocuments.id} = nearest.document_id
+    where ${where}
     group by ${searchDocuments.id}
     order by rank limit 100`
     : undefined;
@@ -240,7 +289,24 @@ export async function rankedSearch(
         : sql`
     with lexical as (${lexical}) select document_id as "documentId", 1.0 / (60 + rank) as score
     from lexical order by score desc, document_id limit ${input.limit + 1} offset ${offset}`;
-  return getDb().execute<{ documentId: string; score: number }>(statement);
+  try {
+    return await getDb().transaction(async (tx) => {
+      // `set local` takes no bind parameter; both values are this module's constants.
+      await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
+      // The index returns at most `ef_search` rows, so it must cover the pool.
+      if (embedding) await tx.execute(sql.raw(`set local hnsw.ef_search = ${candidateChunks}`));
+      return tx.execute<{ documentId: string; score: number }>(statement);
+    });
+  } catch (error) {
+    if (isStatementTimeout(error)) {
+      throw new SearchError(
+        503,
+        'search_timeout',
+        'Search took too long; try a more specific query',
+      );
+    }
+    throw error;
+  }
 }
 
 export type PublicDocument = ReturnType<typeof publicDocument>;
