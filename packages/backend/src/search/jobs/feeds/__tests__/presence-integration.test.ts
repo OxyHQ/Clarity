@@ -61,7 +61,12 @@ suite('withdrawal by absence and retention (PostgreSQL)', () => {
   afterAll(async () => {
     await getDb()
       .delete(searchDocuments)
-      .where(inArray(searchDocuments.canonicalUrl, ['a', 'b', 'c', 'old', 'live'].map(url)));
+      .where(
+        inArray(
+          searchDocuments.canonicalUrl,
+          ['a', 'b', 'c', 'old', 'live', 'unscheduled', 'crawled'].map(url),
+        ),
+      );
     await getDb().delete(jobFeeds).where(inArray(jobFeeds.id, feedIds));
     await closePostgres();
   });
@@ -81,6 +86,29 @@ suite('withdrawal by absence and retention (PostgreSQL)', () => {
 
     await ingest('c');
     expect(await statusOf('c')).toBe('active');
+  });
+
+  it('schedules no recrawl for an ingested listing, and keeps the schedule a crawl gave it', async () => {
+    const nextFetchOf = async (id: string) =>
+      (
+        await getDb()
+          .select({ nextFetchAt: searchDocuments.nextFetchAt })
+          .from(searchDocuments)
+          .where(eq(searchDocuments.id, id))
+      )[0]?.nextFetchAt;
+
+    // Its feed re-observes it; Clarity's recrawl cannot (no crawl page fetched it).
+    expect(await nextFetchOf(await ingest('unscheduled'))).toBeNull();
+
+    // A URL a crawl scheduled stays scheduled when a feed delivers it again.
+    const crawled = await ingest('crawled');
+    const scheduled = new Date(Date.now() + 86_400_000);
+    await getDb()
+      .update(searchDocuments)
+      .set({ nextFetchAt: scheduled })
+      .where(eq(searchDocuments.id, crawled));
+    await ingest('crawled');
+    expect((await nextFetchOf(crawled))?.getTime()).toBe(scheduled.getTime());
   });
 
   it('deletes job documents with no active listing and no sighting for the retention window, and nothing else', async () => {
