@@ -46,7 +46,8 @@ unattested cutover.
 | `packages/backend/src/db/*-repository.ts` | Product read/write boundaries |
 | `packages/backend/src/capabilities/clarity.catalog.ts` | The capability catalogue: every tool the assistant has in Clarity |
 | `packages/backend/src/capabilities/mount.ts` | `/_oxy/mcp` (Alia) and `mcp.clarity.surf/mcp` (OAuth clients) |
-| `packages/frontend/components/chat/clarity-conversation.tsx` | The conversation, drawn by `@alia.onl/sdk` |
+| `packages/frontend/components/chat-page-content.tsx` | Clarity's search page, over Alia's conversation runtime |
+| `packages/frontend/hooks/useChatConversation.ts` | The conversation, from `@alia.onl/sdk`'s `useConversationThread` |
 | `packages/frontend/components/chat/clarity-tool-renderers.tsx` | Catalogue results as Clarity's own cards |
 
 ## 5. Validate

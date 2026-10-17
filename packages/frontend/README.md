@@ -6,11 +6,16 @@ inference providers or Kaana directly.
 
 ## Runtime boundaries
 
-- The conversation is Alia's. `AliaChatContent agent={CLARITY_AGENT}`
-  (`components/chat/clarity-conversation.tsx`) opens Clarity's agent, an
-  ordinary public Alia agent confined to Clarity (`lib/clarity-agent.ts`), under
-  the person's own Oxy session; the person's Alia credits pay for it. History is
-  Alia's list of conversations with that agent (`useConversations({ agentId })`).
+- The search page is Clarity's own: the landing, the composer and its modes, the
+  answer with its sources and citations, research progress, reasoning and the
+  power level (`components/chat-page-content.tsx`, `components/chat-interface.tsx`).
+  The conversation under it is Alia's: `useConversationThread` from
+  `@alia.onl/sdk` (`hooks/useChatConversation.ts`, configured by
+  `components/chat/clarity-chat-runtime.tsx`) streams and stores it with
+  Clarity's agent, an ordinary public Alia agent confined to Clarity
+  (`lib/clarity-agent.ts`), under the person's own Oxy session; the person's
+  Alia credits pay for it. History is Alia's list of conversations with that
+  agent (`useConversations({ agentId })`).
 - The app's one "Ask" sheet (`components/chat/clarity-ask-provider.tsx`) opens
   Alia or Clarity's agent from anywhere.
 - Clarity's catalogue tools draw with Clarity's own cards, keyed `clarity:<tool>`
@@ -24,7 +29,7 @@ inference providers or Kaana directly.
 
 ## Existing screens
 
-- `app/(app)/index.tsx` — a new conversation with Clarity's agent
+- `app/(app)/index.tsx` — Clarity's search page; the first search creates the conversation
 - `app/(app)/c/[id]/index.tsx` — a conversation
 - `app/(app)/history.tsx` — the conversations with Clarity's agent
 - `app/(app)/discover.tsx`, `jobs/*`, `finance.tsx` — Discover, Jobs, Finance

@@ -1,14 +1,51 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { ClarityConversation } from '@/components/chat/clarity-conversation';
-import { useConversationChrome } from '@/components/chat/conversation-header';
+import { ClarityChatRuntime } from '@/components/chat/clarity-chat-runtime';
+import { ChatPageContent } from '@/components/chat-page-content';
+import { UsageLimitDialog } from '@/components/usage-limit-dialog';
+import { useChatConversation } from '@/hooks/useChatConversation';
 
-/** One of the person's conversations with Clarity's agent (Alia's, by id). */
+function Conversation({ conversationId }: { conversationId: string }) {
+  const {
+    messages,
+    isLoading,
+    conversationLoading,
+    error,
+    scrollViewRef,
+    sendMessage,
+    editMessage,
+    stopGeneration,
+    clearConversation,
+    clearError,
+  } = useChatConversation({ conversationId });
+
+  return (
+    <>
+      <ChatPageContent
+        conversationId={conversationId}
+        messages={messages}
+        scrollViewRef={scrollViewRef}
+        isLoading={isLoading}
+        conversationLoading={conversationLoading}
+        onSubmit={sendMessage}
+        onSuggestionPress={sendMessage}
+        onEditMessage={editMessage}
+        onStop={stopGeneration}
+        onClear={clearConversation}
+      />
+      <UsageLimitDialog error={error} onDismiss={clearError} />
+    </>
+  );
+}
+
+/** A conversation with Clarity: Alia keeps it, Clarity draws it. */
 const ChatConversationPage = () => {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const chrome = useConversationChrome();
-  // Keyed: another conversation is another mount, not this one re-pointed.
-  return <ClarityConversation key={id} conversationId={id} chrome={chrome} />;
+  return (
+    <ClarityChatRuntime conversationId={id}>
+      <Conversation conversationId={id} />
+    </ClarityChatRuntime>
+  );
 };
 
 export default ChatConversationPage;

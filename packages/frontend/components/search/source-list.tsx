@@ -3,7 +3,8 @@ import { View, Pressable, Linking } from 'react-native';
 import { Image } from 'expo-image';
 import { Button } from '@oxy.so/bloom/button';
 import { Text } from '@/components/ui/text';
-import { faviconUrl, type Source } from '@/lib/sources';
+import { faviconUrl } from '@/lib/favicon';
+import type { Source } from '@/lib/sources';
 import { cn } from '@/lib/utils';
 
 /** How many chips the collapsed row shows before "+N". */

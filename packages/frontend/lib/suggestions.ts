@@ -1,8 +1,7 @@
 /**
- * Clarity's suggestions (its own product data, `POST /suggestions/*`) as the
- * chat offers them. Pure: nothing here loads React Native.
+ * Clarity's suggestions (its own product data, `POST /suggestions/*`), offered by
+ * the search page. Pure: nothing here loads React Native.
  */
-import type { AliaSuggestion } from '@alia.onl/sdk';
 
 /** One suggestion as `/suggestions/welcome` and `/suggestions/search` answer it. */
 export interface Suggestion {
@@ -25,13 +24,4 @@ const SUGGESTION_LANGUAGE = /^[a-z]{2}-[A-Z]{2}$/;
 export function suggestionLanguage(locale: string): string | undefined {
   const tag = locale.replace('_', '-');
   return SUGGESTION_LANGUAGE.test(tag) ? tag : undefined;
-}
-
-/** A Clarity suggestion as the SDK's composer offers it: its prompt, and whether it has blanks. */
-export function toAliaSuggestion(suggestion: Suggestion): AliaSuggestion {
-  return {
-    id: suggestion.suggestionId,
-    text: suggestion.text,
-    ...(suggestion.isTemplate ? { template: true } : {}),
-  };
 }

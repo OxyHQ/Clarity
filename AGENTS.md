@@ -16,9 +16,12 @@ ordinary Alia agent (Alia ADR 0020): `docs/assistant.mdx`.
   ceiling, feature gates), its conversations, memory, deep research, credits
   and checkout, usage, audit, triggers and channel bots. **The backend never
   calls Alia** — no proxy, no relay of a person as a header, no agent id, no
-  product-paid chat. Never re-add a Clarity conversation table or a Clarity
-  chat UI; the frontend draws every conversation with `@alia.onl/sdk`
-  (`AliaChatContent agent={CLARITY_AGENT}`), under the person's own session.
+  product-paid chat. Never re-add a Clarity conversation table, a Clarity stream
+  or a backend chat route. Clarity's interface IS the product, so the search page
+  is Clarity's own (`components/chat-page-content.tsx`), drawn over Alia's
+  conversation runtime (`useConversationThread` from `@alia.onl/sdk`, opened with
+  Clarity's agent, `hooks/useChatConversation.ts`) under the person's own
+  session — the runtime owns streaming and storage, Clarity owns every pixel.
 - Alia reaches Clarity only through the capability catalogue
   (`packages/backend/src/capabilities/`): one tool per person action, calling
   the same use case as its route. The account a tool acts as comes ONLY from
