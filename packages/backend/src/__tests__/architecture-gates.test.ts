@@ -110,6 +110,7 @@ describe('architecture gates', () => {
         'CLARITY_ALIA_AGENT_ID',
         'OXY_SERVICE_API_KEY',
         'OXY_SERVICE_API_SECRET',
+        'CLARITY_INTROSPECTION_CACHE_HMAC_KEY',
       ]),
     );
   });

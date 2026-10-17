@@ -146,8 +146,10 @@ jobs:
           # The assistant is an ordinary Alia agent the frontend opens, so the
           # backend has no Alia origin or agent id (Alia ADR 0020); and the key
           # pair is retired, the tasks attest their role (oxy ADR 0026), and a
-          # process that still receives either half refuses to start.
-          TASK_CONFIGURATION_REMOVALS_JSON: '["ALIA_API_URL","CLARITY_ALIA_AGENT_ID","OXY_SERVICE_API_KEY","OXY_SERVICE_API_SECRET"]'
+          # process that still receives either half refuses to start. The
+          # introspection-cache HMAC key went with the cache it keyed (#124);
+          # oxy-infra stops granting it once no revision names it.
+          TASK_CONFIGURATION_REMOVALS_JSON: '["ALIA_API_URL","CLARITY_ALIA_AGENT_ID","OXY_SERVICE_API_KEY","OXY_SERVICE_API_SECRET","CLARITY_INTROSPECTION_CACHE_HMAC_KEY"]'
         run: bash .github/scripts/deploy-ecs-service.sh
 
       - name: Smoke API
