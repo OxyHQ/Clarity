@@ -10,7 +10,7 @@ import {
   searchHosts,
 } from '../db/schema/index.js';
 import { STORED_IMAGE_RENDITION, renderStoredImage } from '../search/image-render.js';
-import { isBlocked, isSvg, oxyFiles, svgUploadRefusal } from './oxy-files.js';
+import { isBlocked, isSvg, oxyErrorOf, oxyFiles, svgUploadRefusal } from './oxy-files.js';
 import { IMAGE_IDLE_TTL_MS } from './references.js';
 
 /**
@@ -31,6 +31,12 @@ import { IMAGE_IDLE_TTL_MS } from './references.js';
  * - RESUMABLE: a row is moved (file id written, bytes cleared) in one statement
  *   after its own upload, so an interrupted run resumes where it stopped, and a
  *   repeated upload is free — Oxy deduplicates an application's bytes.
+ * - WITHIN OXY'S RATE LIMIT: Oxy admits 30 application-file uploads a minute
+ *   per application, shared with Clarity's live imports and icon refreshes.
+ *   `perMinute` paces the run below it; a 429 waits the window out and retries
+ *   THE SAME ROW, so a run never skips ahead or has to be restarted. Bytes the
+ *   run already moved under another row (many hosts share one icon) reuse that
+ *   verified file without another upload.
  * - The entities showing a moved image get their use recorded (documents and
  *   jobs pointing at its source URL, if it was read in the last 30 days; the
  *   host of an icon), so Oxy does not collect what Clarity still serves.
@@ -56,6 +62,8 @@ export interface MigrationReportLine {
   oxyFileId?: string;
   /** The SHA-256 Oxy stored, when it is not Clarity's: a sanitized SVG. */
   storedSha256?: string;
+  /** The same bytes were moved earlier in this run: their file, not a new upload. */
+  reused?: true;
 }
 
 export interface MigrationSummary {
@@ -63,6 +71,12 @@ export interface MigrationSummary {
   images: Record<string, number>;
   favicons: Record<string, number>;
   usesRecorded: number;
+  /** Uploads Oxy answered 429 to; each was waited out and retried. */
+  rateLimited: number;
+  /** Rows moved onto a file this run had already uploaded and verified. */
+  uploadsReused: number;
+  /** The run stopped on persistent 429s before the end; running it again resumes. */
+  stoppedOnRateLimit: boolean;
 }
 
 export interface MigrationOptions {
@@ -80,6 +94,87 @@ export interface MigrationOptions {
    * served from Postgres, and blocks the storage retirement until decided.
    */
   releaseInvalidSvg?: boolean;
+  /**
+   * At most this many uploads a minute. Oxy's limit is 30 per application and
+   * the live API shares it, so a production run leaves it headroom. Unpaced
+   * when absent.
+   */
+  perMinute?: number;
+  /** How long to wait after a 429 before retrying the same row (default 60 s, Oxy's window). */
+  rateLimitWaitMs?: number;
+  /** Consecutive 429s after which the run stops (default 30); re-running resumes. */
+  maxRateLimitWaits?: number;
+  /** Tests only: how the run waits. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** Oxy said "too many requests" — not the bytes, not Oxy being down. */
+class OxyRateLimitExhausted extends Error {
+  constructor(waits: number) {
+    super(
+      `Oxy kept answering 429 after ${waits} waits; stopped. Re-run the same command to resume.`,
+    );
+  }
+}
+
+function isRateLimited(error: unknown): boolean {
+  const { status, code } = oxyErrorOf(error);
+  return status === 429 || code === 'RATE_LIMITED' || code === 'TOO_MANY_REQUESTS';
+}
+
+/** One run's upload lane: paced, waiting out 429s, and reusing bytes it already moved. */
+class Uploader {
+  private nextAt = 0;
+  private readonly moved = new Map<string, { oxyFileId: string; storedSha256?: string }>();
+  private readonly sleep: (ms: number) => Promise<void>;
+
+  constructor(
+    private readonly options: MigrationOptions,
+    private readonly summary: MigrationSummary,
+  ) {
+    this.sleep = options.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  }
+
+  async upload(
+    bytes: Buffer,
+    contentType: string,
+    digest: string,
+  ): Promise<Pick<MigrationReportLine, 'outcome' | 'oxyFileId' | 'storedSha256' | 'reused'>> {
+    const known = this.moved.get(`${contentType}\0${digest}`);
+    if (known) {
+      this.summary.uploadsReused += 1;
+      return { outcome: 'uploaded', ...known, reused: true };
+    }
+    const waitMs = this.options.rateLimitWaitMs ?? 60_000;
+    const maxWaits = this.options.maxRateLimitWaits ?? 30;
+    for (let waits = 0; ; waits += 1) {
+      await this.pace();
+      try {
+        const result = await upload(bytes, contentType);
+        if (result.outcome === 'uploaded' && result.oxyFileId) {
+          this.moved.set(`${contentType}\0${digest}`, {
+            oxyFileId: result.oxyFileId,
+            ...(result.storedSha256 ? { storedSha256: result.storedSha256 } : {}),
+          });
+        }
+        return result;
+      } catch (error) {
+        if (!isRateLimited(error)) throw error;
+        this.summary.rateLimited += 1;
+        if (waits >= maxWaits) throw new OxyRateLimitExhausted(waits);
+        await this.sleep(waitMs);
+      }
+    }
+  }
+
+  private async pace(): Promise<void> {
+    const perMinute = this.options.perMinute;
+    if (!perMinute) return;
+    const now = Date.now();
+    if (this.nextAt > now) await this.sleep(this.nextAt - now);
+    // Counted from when this upload starts, so the gaps are never shorter.
+    this.nextAt = Date.now() + Math.ceil(60_000 / perMinute);
+  }
 }
 
 function sha256(bytes: Uint8Array): string {
@@ -111,6 +206,8 @@ async function upload(
     }
     return { outcome: 'uploaded', oxyFileId: file.id };
   } catch (error) {
+    // Not an outcome: the caller waits the window out and retries this row.
+    if (isRateLimited(error)) throw error;
     if (isBlocked(error)) return { outcome: 'blocked' };
     if (isSvg(contentType) && svgUploadRefusal(error) === 'invalid_svg')
       return { outcome: 'invalid_svg' };
@@ -120,7 +217,11 @@ async function upload(
   }
 }
 
-async function migrateImages(options: MigrationOptions, summary: MigrationSummary): Promise<void> {
+async function migrateImages(
+  options: MigrationOptions,
+  summary: MigrationSummary,
+  uploader: Uploader,
+): Promise<void> {
   const batch = options.batchSize ?? 100;
   let after = '';
   let seen = 0;
@@ -175,7 +276,7 @@ async function migrateImages(options: MigrationOptions, summary: MigrationSummar
         count(summary.images, 'would_upload');
         continue;
       }
-      const result = await upload(rendered, 'image/webp');
+      const result = await uploader.upload(rendered, 'image/webp', digest);
       options.report?.({ kind: 'image', sha256: digest, bytes: rendered.length, ...result });
       count(summary.images, result.outcome);
       if (result.outcome === 'uploaded' && result.oxyFileId) {
@@ -194,6 +295,7 @@ async function migrateImages(options: MigrationOptions, summary: MigrationSummar
 async function migrateFavicons(
   options: MigrationOptions,
   summary: MigrationSummary,
+  uploader: Uploader,
 ): Promise<void> {
   const batch = options.batchSize ?? 100;
   let after = '';
@@ -234,7 +336,7 @@ async function migrateFavicons(
         count(summary.favicons, 'would_upload');
         continue;
       }
-      const uploaded = await upload(row.bytes, row.contentType);
+      const uploaded = await uploader.upload(row.bytes, row.contentType, digest);
       const result =
         uploaded.outcome === 'invalid_svg' && options.releaseInvalidSvg
           ? { outcome: 'released_invalid_svg' as const }
@@ -355,9 +457,20 @@ export async function migrateLegacyImages(options: MigrationOptions): Promise<Mi
     images: {},
     favicons: {},
     usesRecorded: 0,
+    rateLimited: 0,
+    uploadsReused: 0,
+    stoppedOnRateLimit: false,
   };
-  await migrateImages(options, summary);
-  await migrateFavicons(options, summary);
-  await recordEntityUses(options, summary);
+  const uploader = new Uploader(options, summary);
+  try {
+    await migrateImages(options, summary, uploader);
+    await migrateFavicons(options, summary, uploader);
+  } catch (error) {
+    if (!(error instanceof OxyRateLimitExhausted)) throw error;
+    summary.stoppedOnRateLimit = true;
+  } finally {
+    // Also after a stop on 429s: what moved so far gets its uses recorded.
+    await recordEntityUses(options, summary);
+  }
   return summary;
 }

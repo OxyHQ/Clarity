@@ -25,7 +25,8 @@
     "import:oxy-link-previews": "bun src/scripts/import-oxy-link-previews.ts",
     "places:import": "bun src/scripts/import-geonames-places.ts",
     "images:migrate-to-oxy": "bun src/scripts/migrate-images-to-oxy.ts",
-    "images:storage-status": "bun src/scripts/image-storage-status.ts"
+    "images:storage-status": "bun src/scripts/image-storage-status.ts",
+    "images:reconcile-references": "bun src/scripts/reconcile-oxy-file-references.ts"
   },
   "dependencies": {
     "@clarity/shared-types": "workspace:*",

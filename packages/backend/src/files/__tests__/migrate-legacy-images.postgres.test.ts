@@ -26,7 +26,7 @@ import { storageRetirementStatus } from '../legacy-reads.js';
 import { type MigrationReportLine, migrateLegacyImages } from '../migrate-legacy-images.js';
 import { setOxyFilesForTesting } from '../oxy-files.js';
 import { IMAGE_IDLE_TTL_MS } from '../references.js';
-import { FakeOxyFiles, sanitizeSvg } from './fake-oxy-files.js';
+import { FakeOxyFiles, oxyError, sanitizeSvg } from './fake-oxy-files.js';
 
 /**
  * The move of Clarity's own image bytes into Oxy, against real Postgres and a
@@ -209,6 +209,99 @@ suite('moving legacy images into Oxy Files', () => {
     expect(again.images).toEqual({});
     expect(again.favicons).toEqual({});
     expect(oxy.calls).toEqual([]);
+  });
+
+  it('waits out a 429 and retries the same row, never skipping it', async () => {
+    const real = oxy.uploadAppFile.bind(oxy);
+    let refusals = 1;
+    oxy.uploadAppFile = async (bytes, mime) => {
+      if (refusals-- > 0) throw oxyError(429, 'RATE_LIMITED');
+      return real(bytes, mime);
+    };
+    const waits: number[] = [];
+
+    const summary = await migrateLegacyImages({
+      apply: true,
+      now,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+
+    expect(waits).toEqual([60_000]);
+    expect(summary).toMatchObject({
+      rateLimited: 1,
+      stoppedOnRateLimit: false,
+      images: { uploaded: 2 },
+      favicons: { uploaded: 2 },
+    });
+    expect(summary.images.oxy_unavailable).toBeUndefined();
+    const legacy = await getDb().select().from(imageCache).where(like(imageCache.key, 'mli-%'));
+    expect(legacy.every((row) => row.bytes === null && row.oxyFileId)).toBe(true);
+  });
+
+  it('stops on persistent 429s with the rows untouched, and resumes on the next run', async () => {
+    const real = oxy.uploadAppFile.bind(oxy);
+    let limited = true;
+    oxy.uploadAppFile = async (bytes, mime) => {
+      if (limited) throw oxyError(429, 'RATE_LIMITED');
+      return real(bytes, mime);
+    };
+
+    const stopped = await migrateLegacyImages({
+      apply: true,
+      now,
+      maxRateLimitWaits: 2,
+      sleep: async () => {},
+    });
+    expect(stopped).toMatchObject({ stoppedOnRateLimit: true, rateLimited: 3, images: {} });
+    const untouched = await getDb().select().from(imageCache).where(like(imageCache.key, 'mli-%'));
+    expect(untouched.every((row) => row.bytes !== null && row.oxyFileId === null)).toBe(true);
+
+    limited = false;
+    const resumed = await migrateLegacyImages({ apply: true, now });
+    expect(resumed).toMatchObject({ images: { uploaded: 2 }, favicons: { uploaded: 2 } });
+  });
+
+  it('paces uploads to the rate it is given', async () => {
+    const waits: number[] = [];
+    await migrateLegacyImages({
+      apply: true,
+      now,
+      perMinute: 2,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    // Four uploads at two a minute: the first goes at once, each later one waits.
+    expect(waits).toHaveLength(3);
+    expect(waits.every((ms) => ms > 25_000 && ms <= 30_000)).toBe(true);
+  });
+
+  it('moves rows sharing bytes onto one verified upload', async () => {
+    await getDb().insert(searchHosts).values({
+      host: 'mli-png-twin.example',
+      iconStatus: 'ready',
+      iconContentType: 'image/png',
+      iconBytes: PNG_ICON,
+    });
+
+    const summary = await migrateLegacyImages({ apply: true, now });
+
+    expect(summary.favicons.uploaded).toBe(3);
+    expect(summary.uploadsReused).toBe(1);
+    expect(oxy.calls.filter((call) => call === 'upload:image/png')).toHaveLength(1);
+    const hosts = await getDb()
+      .select({ host: searchHosts.host, file: searchHosts.iconOxyFileId })
+      .from(searchHosts)
+      .where(like(searchHosts.host, 'mli-png%'));
+    expect(new Set(hosts.map((h) => h.file)).size).toBe(1);
+    expect(hosts.every((h) => h.file)).toBe(true);
+    const uses = await getDb()
+      .select({ id: imageReferences.entityId })
+      .from(imageReferences)
+      .where(like(imageReferences.entityId, 'mli-png%'));
+    expect(uses).toHaveLength(2);
   });
 
   it('leaves a row as it was when Oxy did not store exactly its bytes', async () => {
