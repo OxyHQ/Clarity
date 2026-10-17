@@ -11,7 +11,7 @@ import { eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { getDb } from '../db/index.js';
-import { searchChunks, searchDocuments } from '../db/schema/index.js';
+import { searchChunkHalfvec, searchChunks, searchDocuments } from '../db/schema/index.js';
 import { embedQuery } from './chunking.js';
 import { iconHostsOf, publicDocument, searchResult } from './public-document.js';
 import {
@@ -261,16 +261,19 @@ export async function rankedSearch(
     order by rank limit 100`;
   // The nearest chunks first, straight from the HNSW index (see
   // SEMANTIC_CANDIDATE_CHUNKS), then each document at its nearest chunk.
-  const queryVector = embedding ? sql`${JSON.stringify(embedding)}::vector` : undefined;
+  // Half precision on both sides: `searchChunkHalfvec` is the expression the
+  // HNSW index holds (schema, migration 0034), and the planner uses the index
+  // only for an ORDER BY on exactly that expression.
+  const queryVector = embedding ? sql`${JSON.stringify(embedding)}::halfvec(1024)` : undefined;
   const semantic = queryVector
     ? sql`
     select ${searchDocuments.id} as document_id,
       row_number() over (order by min(nearest.distance) asc, ${searchDocuments.id}) as rank
     from (
-      select ${searchChunks.documentId} as document_id, ${searchChunks.embedding} <=> ${queryVector} as distance
+      select ${searchChunks.documentId} as document_id, ${searchChunkHalfvec} <=> ${queryVector} as distance
       from ${searchChunks}
       where ${searchChunks.embedding} is not null
-      order by ${searchChunks.embedding} <=> ${queryVector}
+      order by ${searchChunkHalfvec} <=> ${queryVector}
       limit ${candidateChunks}
     ) nearest
     inner join ${searchDocuments} on ${searchDocuments.id} = nearest.document_id

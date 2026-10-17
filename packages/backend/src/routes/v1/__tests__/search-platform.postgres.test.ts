@@ -2,7 +2,7 @@ import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
-import { searchDocuments } from '../../../db/schema/index.js';
+import { searchChunkHalfvec, searchChunks, searchDocuments } from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
 import { answeredToAny } from '../../../search/public-document.js';
 import { recordDiscoveredPages } from '../../../search/web-discovery.js';
@@ -101,18 +101,19 @@ suite('ranked search on Postgres', () => {
   });
 
   it('reads the semantic candidates from the HNSW index, not by scanning every chunk', async () => {
-    // The ranking's inner query, as `rankedSearch` sends it: ordered by
-    // distance and limited, which is the only shape the index serves.
+    // The ranking's inner query, as `rankedSearch` sends it: ordered by the
+    // half-precision distance and limited, which is the only shape the index
+    // serves (`searchChunkHalfvec`, migration 0034).
     const vector = JSON.stringify(embedding);
     const plan = await getDb().transaction(async (tx) => {
       await tx.execute(sql.raw('set local enable_seqscan = off'));
       return tx.execute<{ 'QUERY PLAN': string }>(sql`
-        explain select document_id, embedding <=> ${vector}::vector as distance
-        from clarity_search_chunks where embedding is not null
-        order by embedding <=> ${vector}::vector limit 400`);
+        explain select ${searchChunks.documentId}, ${searchChunkHalfvec} <=> ${vector}::halfvec(1024) as distance
+        from ${searchChunks} where ${searchChunks.embedding} is not null
+        order by ${searchChunkHalfvec} <=> ${vector}::halfvec(1024) limit 400`);
     });
     expect(plan.map((row) => row['QUERY PLAN']).join('\n')).toContain(
-      'clarity_search_chunks_embedding_hnsw_idx',
+      'clarity_search_chunks_embedding_halfvec_hnsw_idx',
     );
   });
 
