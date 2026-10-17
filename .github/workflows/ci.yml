@@ -121,6 +121,16 @@ jobs:
       - name: Lint and format check (Biome)
         run: bunx biome ci .
 
+      # Every Oxy app shares ONE Postgres, so a migration that holds an ACCESS
+      # EXCLUSIVE lock on a table read per request while it backfills or builds
+      # an index stalls every product on it (oxy, 2026-10-16). The rules are
+      # oxy's MIGRATION-CONTRACT.md ("Every migration keeps its locks short"),
+      # checked by @oxy.so/db's own gate for every migration after 0030; the
+      # hot tables are the ones a search request reads or writes. A reviewed
+      # exception says why in its file: `-- oxy:lock-review=<reason>`.
+      - name: Check migration locks
+        run: bun run --filter @clarity/backend db:check-locks
+
       # The API is bundled with esbuild, which strips types without checking
       # them, so a type error reached main unnoticed until this step existed.
       # The backend resolves @clarity/shared-types from its built dist.
