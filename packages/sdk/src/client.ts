@@ -18,7 +18,6 @@ import type {
   JobReportRequest,
   JobSearchRequest,
   JobSearchResponse,
-  JobsCapability,
   NewsRequest,
   NewsStory,
   Page,
@@ -197,9 +196,6 @@ export class ClarityClient {
       ),
     stats: (options?: RequestOptions) =>
       this.request<JobCorpusStats>('GET', '/v1/jobs/stats', undefined, options),
-    /** Tool descriptor for agents that must ground employment facts. */
-    capability: (options?: RequestOptions) =>
-      this.request<JobsCapability>('GET', '/v1/jobs/capability', undefined, options),
   };
 
   /** Public work history, independently owned by Clarity; writes require a user session. */

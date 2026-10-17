@@ -1,5 +1,4 @@
 import * as esbuild from 'esbuild';
-import { cp } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 await esbuild.build({
@@ -47,13 +46,5 @@ await esbuild.build({
   minify: false,
   logLevel: 'info',
 });
-
-// Copy prompts directory to dist
-try {
-  await cp('prompts', 'dist/prompts', { recursive: true });
-  console.log('✅ Copied prompts to dist/');
-} catch (error) {
-  console.error('⚠️ Failed to copy prompts:', error);
-}
 
 console.log('✅ Build complete');

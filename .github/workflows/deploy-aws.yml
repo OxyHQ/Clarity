@@ -142,6 +142,12 @@ jobs:
           # Node image means reverting these two lines with it.
           PRE_DEPLOY_TASK_COMMAND_JSON: '["bun","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=pre"]'
           POST_DEPLOY_TASK_COMMAND_JSON: '["bun","packages/backend/dist/db/migrate.js","--target-database=clarity","--phase=post"]'
+          # Configuration the code no longer reads, stripped from both services.
+          # The assistant is an ordinary Alia agent the frontend opens, so the
+          # backend has no Alia origin or agent id (Alia ADR 0020); and the key
+          # pair is retired, the tasks attest their role (oxy ADR 0026), and a
+          # process that still receives either half refuses to start.
+          TASK_CONFIGURATION_REMOVALS_JSON: '["ALIA_API_URL","CLARITY_ALIA_AGENT_ID","OXY_SERVICE_API_KEY","OXY_SERVICE_API_SECRET"]'
         run: bash .github/scripts/deploy-ecs-service.sh
 
       - name: Smoke API

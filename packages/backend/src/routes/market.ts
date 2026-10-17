@@ -27,10 +27,12 @@ import { optionalAuth } from '../middleware/auth.js';
 import { Router } from 'express';
 import { z } from 'zod';
 
-import type { MarketQuoteResult } from '@clarity/shared-types';
-
-import { log } from '../lib/logger.js';
-import { CLARITY_MARKET_CAPABILITY, MarketDataError, getMarketQuote } from '../lib/market-data.js';
+import {
+  CLARITY_MARKET_CAPABILITY,
+  getMarketQuoteSummaries,
+  MARKET_ASSET_PATTERN,
+  MAX_QUOTE_ASSETS,
+} from '../lib/market-data.js';
 import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
 import { sendError } from '../middleware/resource-auth.js';
 
@@ -47,19 +49,7 @@ router.use(optionalAuth);
  */
 router.use(anonymousRateLimit('anon:market:'));
 
-/** A CoinGecko id, symbol or name, or a FairCoin alias. Never a URL or a path. */
-const assetSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(64)
-  .regex(/^[a-z0-9][a-z0-9 .-]*$/i);
-
-/**
- * One page of cards, and no more. Each asset costs several upstream calls on a
- * cold cache, so the batch bounds what a single anonymous request can spend.
- */
-const MAX_ASSETS = 8;
+const assetSchema = z.string().trim().min(1).max(64).regex(MARKET_ASSET_PATTERN);
 
 const quotesQuerySchema = z
   .object({
@@ -79,8 +69,8 @@ const quotesQuerySchema = z
       .regex(/^[a-z]{2,10}$/i)
       .default('usd'),
   })
-  .refine((query) => query.assets.length > 0 && query.assets.length <= MAX_ASSETS, {
-    message: `assets must name between 1 and ${MAX_ASSETS} assets`,
+  .refine((query) => query.assets.length > 0 && query.assets.length <= MAX_QUOTE_ASSETS, {
+    message: `assets must name between 1 and ${MAX_QUOTE_ASSETS} assets`,
     path: ['assets'],
   })
   .refine((query) => query.assets.every((asset) => assetSchema.safeParse(asset).success), {
@@ -108,55 +98,7 @@ router.get('/quotes', async (req, res) => {
     );
     return;
   }
-  const { assets, currency } = query.data;
-  const results = await Promise.all(assets.map((asset) => quoteResult(asset, currency)));
-  res.json({ results });
+  res.json(await getMarketQuoteSummaries(query.data.assets, query.data.currency));
 });
-
-/**
- * One asset's outcome. An upstream that is down for FairCoin must not take
- * Bitcoin's price off the page with it, so a failure is a value here rather
- * than a rejection.
- */
-async function quoteResult(requested: string, currency: string): Promise<MarketQuoteResult> {
-  try {
-    const quote = await getMarketQuote(requested, { currency });
-    // Named field by field rather than spread-minus-`series`: a field added to
-    // the summary type is then a compile error here rather than a field this
-    // door silently stops serving.
-    return {
-      requested,
-      status: 'quoted',
-      quote: {
-        asset: quote.asset,
-        name: quote.name,
-        symbol: quote.symbol,
-        currency: quote.currency,
-        price: quote.price,
-        changePct: quote.changePct,
-        changeAbs: quote.changeAbs,
-        marketCap: quote.marketCap,
-        volume24h: quote.volume24h,
-        liquidityUsd: quote.liquidityUsd,
-        source: quote.source,
-        updatedAt: quote.updatedAt,
-      },
-    };
-  } catch (error) {
-    if (error instanceof MarketDataError) {
-      return {
-        requested,
-        status: 'unavailable',
-        error: { code: error.code, message: error.message },
-      };
-    }
-    log.general.error({ err: error, asset: requested }, 'Market quote failed');
-    return {
-      requested,
-      status: 'unavailable',
-      error: { code: 'quote_unavailable', message: 'This quote is temporarily unavailable' },
-    };
-  }
-}
 
 export default router;

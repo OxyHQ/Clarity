@@ -1,0 +1,109 @@
+---
+title: Clarity's assistant
+description: An ordinary Alia agent, confined to Clarity, that reaches Clarity through its capability catalogue.
+---
+
+# Clarity's assistant
+
+Clarity's assistant is an ordinary Alia agent (Alia ADR 0020). It is not a
+lane of its own, and Clarity's backend never calls Alia.
+
+| Fact | Where it is decided |
+| --- | --- |
+| The agent row `01a0646a-078f-7642-95ef-439952f4f3f9`, its bot account `01a0646a-078f-7120-a993-a03c180c81b0`, owned by Clarity's project account | Alia |
+| Its prompt, character, starters, families, ceiling and feature gates | Alia's agent editor, by whoever operates the project account |
+| `public`: anybody can use it | Alia (`access`) |
+| Confined to Clarity: unreachable from any other app's session | Oxy, `application_agents` (Oxy ADR 0044, Alia ADR 0021) |
+| Who pays a turn | The person present, from their Alia credits (Alia ADR 0020 §4) |
+| What it may do in Clarity | Its owner's ceiling over Clarity's catalogue (Oxy ADR 0042) |
+
+No agent asks for approval: its configuration is its permission, and Oxy
+enforces it on every call.
+
+## The conversation is the SDK's
+
+The frontend opens the agent through `@alia.onl/sdk` 19 under the person's own
+Oxy session — `AliaChatContent agent={CLARITY_AGENT}` on `/` and `/c/:id`
+(`packages/frontend/components/chat/clarity-conversation.tsx`), and one
+`AliaAskProvider` sheet that opens Alia or Clarity's agent from anywhere. History
+is Alia's list of the person's conversations with that agent
+(`useConversations({ agentId })`). Clarity stores no conversation, message,
+memory, credit or usage record; those are the person's, in Alia.
+
+Clarity brings only what is Clarity's:
+
+- **Cards.** `toolRenderers` keyed `clarity:<tool>` draw catalogue results with
+  Clarity's own components: search sources, news stories, job cards and market
+  quotes (`components/chat/clarity-tool-renderers.tsx`).
+- **Suggestions.** The empty chat offers Clarity's welcome suggestions, the
+  composer completes from Clarity's suggestion search, and a pick is counted
+  (`/suggestions/*`, in the app's language).
+- **The power level** the person picked, offered through the SDK's selector.
+- **The upsell.** `onFeatureLocked` opens Clarity's subscribe screen.
+
+## The capability catalogue
+
+`packages/backend/src/capabilities/clarity.catalog.ts` is how the agent — or
+any OAuth MCP client — acts in Clarity, as the person:
+
+| Area | Tools |
+| --- | --- |
+| Search | `search`, `getDocument`, `getDocumentByUrl`, `listNews` |
+| Jobs | `searchJobs`, `getJob`, `getJobByUrl`, `getJobStats`, `reportJob` |
+| Places | `searchPlaces`, `getPlace` |
+| Market | `getMarketQuotes` |
+| Experience | `listMyExperience`, `addExperience`, `updateExperience`, `deleteExperience` |
+| Notifications | `listMyNotifications`, `markNotificationRead`, `markAllNotificationsRead`, `dismissNotification` |
+| Feedback | `submitFeedback`, `listMyFeedback`, `getFeedback` |
+| Plan features | `checkDeepResearch`, `checkPowerLevelHigh`, `checkPowerLevelXhigh`, `checkPowerLevelPro`, `checkPowerLevelUltra` (internal only) |
+
+Each tool calls the same use case its Express route calls and answers exactly
+what the route answers. The account a tool acts as is the verified ticket's
+`effectiveAccountId`, or the OAuth connection's active account — never one named
+in the input. Jobs tools never receive that account at all, so searching,
+viewing or reporting a listing is never attributable to a person. An effectful
+call with an `Idempotency-Key` stores its answer
+(`clarity_capability_effect_receipts`, 30 days, erased with the account), so a
+retried turn does not repeat it.
+
+What has no tool, and why — publisher indexing, sites and feeds (an `oxy_sk`
+credential's machine surface), device push registration, Stripe checkout and
+subscription changes, bulk profile erasure, the suggestion pool — is
+`capabilities/exclusions.ts`.
+
+Two lanes serve it from the API process, both mounted before CORS, the body
+parsers and runtime readiness:
+
+- `POST https://api.clarity.surf/_oxy/mcp` — Alia (`internalTransport: 'mcp'`).
+  Every request carries `Authorization: Capability <ticket>`, verified against
+  Oxy's JWKS and then by live introspection, bound to the catalogue registration
+  this process made at startup, and audited with Oxy. Until the catalogue
+  registers it answers 503 and retries.
+- `https://mcp.clarity.surf/mcp` — Claude, ChatGPT and any OAuth MCP client, with
+  Oxy as the authorization server. 401 with `resource_metadata` without a token,
+  421 on any other host. The plan-feature tools are absent here.
+
+**Bump the catalogue's `version` with any tool change**; `catalog.test.ts` pins
+the digest Oxy registers.
+
+## Plans unlock features through Alia's gates
+
+Clarity's plans unlock premium features of the conversation without Alia
+knowing what a Clarity plan is (Alia ADR 0020 §6). The catalogue declares
+`features`:
+
+| Feature key | Check tool | Answered from the plan feature |
+| --- | --- | --- |
+| `deep_research` | `checkDeepResearch` | `deep-research` |
+| `power_level.high` | `checkPowerLevelHigh` | `power-level-high` |
+| `power_level.xhigh` | `checkPowerLevelXhigh` | `power-level-xhigh` |
+| `power_level.pro` | `checkPowerLevelPro` | `power-level-pro` |
+| `power_level.ultra` | `checkPowerLevelUltra` | `power-level-ultra` |
+
+The agent's owner maps Alia's gateable features to these in the agent editor.
+Alia calls the check, with no input and under the person's ticket, before the
+turn reserves any credit; it answers `{ available }`, true only when one of the
+person's active plans (the free plan when they have none) enables that plan
+feature outright. None is
+metered, so none has a consume tool. A refusal ends the turn with
+`feature_entitlement_required` and the SDK calls `onFeatureLocked`.

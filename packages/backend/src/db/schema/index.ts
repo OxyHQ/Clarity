@@ -25,68 +25,6 @@ const timestampColumns = () => ({
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const conversations = pgTable(
-  'clarity_conversations',
-  {
-    /** Exact legacy source `_id`; backfill never generates a replacement. */
-    id: text('id').primaryKey(),
-    oxyUserId: text('oxy_user_id').notNull(),
-    conversationId: text('conversation_id').notNull(),
-    title: text('title').notNull().default('New chat'),
-    isManualTitle: boolean('is_manual_title').notNull().default(false),
-    lastMessage: text('last_message'),
-    source: text('source').notNull().default('app'),
-    folderId: text('folder_id'),
-    icon: text('icon'),
-    iconColor: text('icon_color'),
-    isFavorite: boolean('is_favorite').notNull().default(false),
-    isPublic: boolean('is_public').notNull().default(false),
-    ...timestampColumns(),
-  },
-  (table) => [
-    unique('clarity_conversations_user_conversation_unique').on(
-      table.oxyUserId,
-      table.conversationId,
-    ),
-    index('clarity_conversations_user_updated_idx').on(table.oxyUserId, table.updatedAt),
-    check(
-      'clarity_conversations_source_check',
-      sql`${table.source} in ('app', 'telegram', 'api', 'web', 'discord', 'whatsapp', 'slack')`,
-    ),
-  ],
-);
-
-export const messages = pgTable(
-  'clarity_messages',
-  {
-    /** Exact legacy source `_id`; distinct from the optional product message ID. */
-    id: text('id').primaryKey(),
-    messageId: text('message_id'),
-    oxyUserId: text('oxy_user_id').notNull(),
-    conversationId: text('conversation_id').notNull(),
-    role: text('role').notNull(),
-    content: jsonb('content').notNull(),
-    vote: text('vote'),
-    toolInvocations: jsonb('tool_invocations').notNull().default(sql`'[]'::jsonb`),
-    audioUrl: text('audio_url'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [
-    foreignKey({
-      name: 'clarity_messages_conversation_fk',
-      columns: [table.oxyUserId, table.conversationId],
-      foreignColumns: [conversations.oxyUserId, conversations.conversationId],
-    }).onDelete('cascade'),
-    index('clarity_messages_conversation_created_idx').on(table.conversationId, table.createdAt),
-    index('clarity_messages_user_conversation_idx').on(table.oxyUserId, table.conversationId),
-    check('clarity_messages_role_check', sql`${table.role} in ('user', 'assistant', 'system')`),
-    check(
-      'clarity_messages_vote_check',
-      sql`${table.vote} is null or ${table.vote} in ('up', 'down')`,
-    ),
-  ],
-);
-
 export const suggestions = pgTable(
   'clarity_suggestions',
   {
@@ -150,7 +88,6 @@ export const plans = pgTable(
     creditsLabel: text('credits_label').notNull().default(''),
     isFeatured: boolean('is_featured').notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
-    modelIds: text('model_ids').array().notNull().default(sql`'{}'::text[]`),
     isActive: boolean('is_active').notNull().default(true),
     isFree: boolean('is_free').notNull().default(false),
     stripeProductId: text('stripe_product_id'),
@@ -419,7 +356,6 @@ export const runtimeState = pgTable(
     id: text('id').primaryKey(),
     status: text('status').notNull(),
     sourceSnapshotHash: text('source_snapshot_hash'),
-    aliaAgentIdSha256: text('alia_agent_id_sha256'),
     reconciledAt: timestamp('reconciled_at', { withTimezone: true }),
     sourceCounts: jsonb('source_counts'),
     targetCounts: jsonb('target_counts'),
@@ -1359,3 +1295,53 @@ export const accountEventCursors = pgTable('clarity_account_event_cursors', {
   cursor: text('cursor'),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * The durable answer to "did this capability tool call already happen?"
+ * (`capabilities/effect-receipts.ts`).
+ *
+ * Alia may retry an effectful catalogue tool with the same `Idempotency-Key`
+ * after a network error or a replayed turn. The second call must return what
+ * the first did, not do it again: a second feedback message, a second
+ * experience entry, a second job report.
+ *
+ * One row per (account, tool, key hash). The row is CLAIMED as `pending`
+ * before the effect runs, so two concurrent calls cannot both execute; it
+ * becomes `completed` with the tool's result, and a failed effect deletes its
+ * claim so an honest retry can run. The key itself is never stored, only its
+ * SHA-256, and the input's digest is kept so a key reused with DIFFERENT input
+ * is refused instead of replaying an unrelated answer. Rows expire after 30
+ * days (the worker's maintenance pass deletes them) and go with the account
+ * when Oxy reports it deleted.
+ */
+export const capabilityEffectReceipts = pgTable(
+  'clarity_capability_effect_receipts',
+  {
+    id: text('id').primaryKey(),
+    oxyUserId: text('oxy_user_id').notNull(),
+    tool: text('tool').notNull(),
+    idempotencyKeyHash: text('idempotency_key_hash').notNull(),
+    inputDigest: text('input_digest').notNull(),
+    status: text('status').notNull().default('pending'),
+    result: jsonb('result'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    unique('clarity_capability_effect_receipts_key_unique').on(
+      table.oxyUserId,
+      table.tool,
+      table.idempotencyKeyHash,
+    ),
+    index('clarity_capability_effect_receipts_expires_idx').on(table.expiresAt),
+    check(
+      'clarity_capability_effect_receipts_status_check',
+      sql`${table.status} in ('pending', 'completed')`,
+    ),
+    check(
+      'clarity_capability_effect_receipts_completed_check',
+      sql`(${table.status} = 'completed') = (${table.completedAt} is not null and ${table.result} is not null)`,
+    ),
+  ],
+);

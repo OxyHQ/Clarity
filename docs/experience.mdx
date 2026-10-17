@@ -129,10 +129,10 @@ records a minimal tombstone containing the Oxy ID, event ID and erasure time.
 The same per-user lock used by creation prevents an in-flight session from
 recreating history after erasure. Redelivery is idempotent. The endpoint returns
 202 only after the deletion commits and asks Oxy to retry when verification or
-the database is unavailable. It is mounted before runtime/agent readiness so
-an unrelated inference outage does not prevent deletion. This hook currently
-covers the new Experience domain; it does not claim to erase older Clarity
-conversation or billing domains.
+the database is unavailable. It is mounted before runtime readiness so
+an unrelated outage does not prevent deletion. The same transaction deletes the
+account's capability effect receipts (stored tool answers). It does not claim to
+erase the billing domain.
 
 The existing Clarity worker also reconciles the signed Oxy feed every minute.
 Its application-scoped cursor lives in PostgreSQL. Each page is fully verified
@@ -141,7 +141,7 @@ in one transaction. A failed verification/database write leaves the cursor
 unchanged; competing workers cannot overwrite a newer checkpoint. Each pass
 is bounded to ten pages of 100 events and resumes durably after a restart. This
 covers webhook outages beyond Oxy's push retry window without retaining copies
-of event payloads or relying on Alia availability.
+of event payloads.
 
 Before deployment:
 
@@ -149,7 +149,7 @@ Before deployment:
 2. Apply `0028_profile_experience` using the documented pre-phase migration flow.
 3. Register `https://api.clarity.surf/webhooks/oxy/account-events` as the account
    event delivery target for the exact Clarity backend application ID in
-   `clarity-agent-manifest.ts` and verify a deletion/retry delivery in staging.
+   `clarity-identity.ts` and verify a deletion/retry delivery in staging.
 4. Release the SDK (0.5.0; 0.6.0 replaced its Zod schemas with plain checks)
    and install its registry version in Mention. No public SDK
    release or production database change is performed by this source change.

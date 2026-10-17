@@ -5,13 +5,11 @@ import {
   getPlans,
   getFeatures,
   getPlanFeatures,
-  getAllClarityModels,
   type PlanFeatureData,
 } from '../lib/product-catalogue.js';
 import { ensureStripePriceId } from '../lib/stripe-prices.js';
 import { stripeApiVersion } from '../lib/stripe-api-version.js';
 import { getUserEntitlements, invalidateEntitlementsCache } from '../lib/plan-access.js';
-import { proxyAliaJson } from '../lib/alia-agent-client.js';
 import {
   findActiveSubscription,
   findActiveSubscriptions,
@@ -116,45 +114,6 @@ async function getOrCreateStripeCustomer(userId: string): Promise<string> {
   return customer.id;
 }
 
-router.get('/packages', authenticateToken, async (req: Request, res: Response) => {
-  await proxyAliaJson(req, res, '/billing/packages');
-});
-
-const createCheckoutSchema = z.object({
-  packageId: z.string(),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
-});
-
-router.post('/checkout/credits', authenticateToken, async (req: Request, res: Response) => {
-  const parsed = createCheckoutSchema.safeParse(req.body);
-  if (!parsed.success)
-    return res.status(400).json({ error: 'Invalid input', details: parsed.error.issues });
-  await proxyAliaJson(req, res, '/billing/checkout/credits');
-});
-
-// Custom credit amount purchase
-const MIN_CUSTOM_CREDITS = 100;
-const MAX_CUSTOM_CREDITS = 1_000_000;
-
-const customCreditsSchema = z.object({
-  credits: z.number().int().min(MIN_CUSTOM_CREDITS).max(MAX_CUSTOM_CREDITS),
-  successUrl: z.string().url(),
-  cancelUrl: z.string().url(),
-});
-
-router.post('/checkout/custom-credits', authenticateToken, async (req: Request, res: Response) => {
-  const parsed = customCreditsSchema.safeParse(req.body);
-  if (!parsed.success)
-    return res.status(400).json({ error: 'Invalid input', details: parsed.error.issues });
-  await proxyAliaJson(req, res, '/billing/checkout/custom-credits');
-});
-
-// Expose the per-credit rate so the frontend can show live pricing
-router.get('/credit-price', authenticateToken, async (req: Request, res: Response) => {
-  await proxyAliaJson(req, res, '/billing/credit-price');
-});
-
 router.get('/plans', optionalAuth, async (req: Request, res: Response) => {
   try {
     const product = req.query.product as string | undefined;
@@ -177,13 +136,6 @@ router.get('/plans', optionalAuth, async (req: Request, res: Response) => {
     for (const pf of allPlanFeatures) {
       if (!pfMap[pf.planId]) pfMap[pf.planId] = {};
       pfMap[pf.planId][pf.featureId] = pf;
-    }
-
-    // Load the Clarity product catalogue.
-    const modelMap: Record<string, { displayName: string; description?: string }> = {};
-    const clarityModels = await getAllClarityModels();
-    for (const model of clarityModels) {
-      modelMap[model.id] = { displayName: model.name, description: model.description };
     }
 
     const plans = dbPlans.map((p) => {
@@ -215,20 +167,6 @@ router.get('/plans', optionalAuth, async (req: Request, res: Response) => {
         if (items && items.length > 0) {
           features.push({ category: feat.category, items });
           seenCategories.add(feat.category);
-        }
-      }
-
-      // Insert "Models" group from modelIds (after Credits if present, else at start)
-      const modelIds: string[] = p.modelIds || [];
-      if (modelIds.length > 0) {
-        const modelItems = modelIds.flatMap((id) => {
-          const model = modelMap[id];
-          return model ? [{ label: model.displayName, description: model.description }] : [];
-        });
-
-        if (modelItems.length > 0) {
-          const insertAt = features.length > 0 && features[0].category === 'Credits' ? 1 : 0;
-          features.splice(insertAt, 0, { category: 'Models', items: modelItems });
         }
       }
 
@@ -524,10 +462,6 @@ router.post('/subscription/change-plan', authenticateToken, async (req: Request,
   }
 });
 
-router.get('/transactions', authenticateToken, async (req: Request, res: Response) => {
-  await proxyAliaJson(req, res, '/billing/transactions');
-});
-
 router.post('/portal', authenticateToken, async (req: Request, res: Response) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });
@@ -550,7 +484,7 @@ router.post('/portal', authenticateToken, async (req: Request, res: Response) =>
   }
 });
 
-// Entitlements: returns allowed models + feature flags for the current user
+// Entitlements: the current user's plan features and highest plan
 router.get('/entitlements', authenticateToken, async (req: Request, res: Response) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: 'Unauthorized' });

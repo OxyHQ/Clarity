@@ -1,31 +1,21 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  ArrowLeft,
-  Briefcase,
-  Building2,
-  CalendarClock,
-  ExternalLink,
-  MapPin,
-  Search,
-  Wallet,
-} from 'lucide-react-native';
+import { ArrowLeft, MapPin, Search, Wallet } from 'lucide-react-native';
 
 import type {
   JobEmploymentType,
   JobSearchRequest,
-  JobSearchResult,
   JobSeniority,
   JobWorkplaceType,
 } from '@clarity/shared-types';
 
+import { JobCard } from '@/components/jobs/job-card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useJobSearch } from '@/lib/hooks/use-jobs';
-import { formatLocations, formatPostedAt, formatSalary } from '@/lib/jobs-format';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { cn } from '@/lib/utils';
@@ -55,108 +45,6 @@ type Recency = keyof typeof RECENCY_WINDOWS;
 
 function toggle<T>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
-}
-
-function MetaRow({ job }: { job: JobSearchResult }) {
-  const { colors } = useColorScheme();
-  const { t } = useTranslation();
-  const location = formatLocations(job.locations, job.applicantLocationRequirements);
-  const salary = formatSalary(job.salary);
-  const posted = formatPostedAt(job.publishedAt ?? job.firstSeenAt);
-
-  return (
-    <View className="flex-row flex-wrap items-center gap-x-4 gap-y-1">
-      {job.workplaceType ? (
-        <View className="flex-row items-center gap-1">
-          <Briefcase size={12} color={colors.mutedForeground} />
-          <Text className="text-xs text-muted-foreground">
-            {t(`jobs.workplace.${job.workplaceType}`)}
-          </Text>
-        </View>
-      ) : null}
-      {location ? (
-        <View className="flex-row items-center gap-1">
-          <MapPin size={12} color={colors.mutedForeground} />
-          <Text className="text-xs text-muted-foreground">{location}</Text>
-        </View>
-      ) : null}
-      {salary ? (
-        <View className="flex-row items-center gap-1">
-          <Wallet size={12} color={colors.mutedForeground} />
-          <Text className="text-xs text-muted-foreground">{salary}</Text>
-        </View>
-      ) : null}
-      {posted ? (
-        <View className="flex-row items-center gap-1">
-          <CalendarClock size={12} color={colors.mutedForeground} />
-          <Text className="text-xs text-muted-foreground">{posted}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function JobCard({ job, onPress }: { job: JobSearchResult; onPress: () => void }) {
-  const { colors } = useColorScheme();
-  const { t } = useTranslation();
-
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      className="rounded-xl border border-border/50 bg-card p-4 gap-2 hover:bg-accent/30"
-    >
-      <Text className="text-base font-medium text-foreground" numberOfLines={2}>
-        {job.title}
-      </Text>
-      <View className="flex-row items-center gap-1.5">
-        <Building2 size={13} color={colors.mutedForeground} />
-        <Text className="text-sm text-muted-foreground" numberOfLines={1}>
-          {job.employer.name}
-        </Text>
-      </View>
-
-      <MetaRow job={job} />
-
-      {job.seniority || job.employmentTypes.length > 0 ? (
-        <View className="flex-row flex-wrap gap-1.5 pt-0.5">
-          {job.seniority ? (
-            <View className="rounded-md bg-muted px-2 py-0.5">
-              <Text className="text-[10px] font-medium text-muted-foreground">
-                {t(`jobs.seniority.${job.seniority}`)}
-              </Text>
-            </View>
-          ) : null}
-          {job.employmentTypes.map((type) => (
-            <View key={type} className="rounded-md bg-muted px-2 py-0.5">
-              <Text className="text-[10px] font-medium text-muted-foreground">
-                {t(`jobs.employment.${type}`)}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
-      {job.snippet ? (
-        <Text className="text-sm text-muted-foreground leading-relaxed" numberOfLines={3}>
-          {job.snippet}
-        </Text>
-      ) : null}
-
-      {/* Clarity indexed this listing; the employer's page stays the source. */}
-      <View className="flex-row items-center gap-1.5 pt-1 border-t border-border/40 mt-1">
-        <ExternalLink size={12} color={colors.mutedForeground} />
-        <Text className="text-xs text-muted-foreground" numberOfLines={1}>
-          {t('jobs.sourceOn', { domain: job.source.domain })}
-        </Text>
-        {job.otherSources.length > 0 ? (
-          <Text className="text-xs text-muted-foreground">
-            {t('jobs.alsoPublished', { count: job.otherSources.length })}
-          </Text>
-        ) : null}
-      </View>
-    </Pressable>
-  );
 }
 
 export default function JobsScreen() {

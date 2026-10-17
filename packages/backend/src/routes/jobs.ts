@@ -15,7 +15,6 @@ import { Router, type Request, type Response } from 'express';
 import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
 import { log } from '../lib/logger.js';
 import { sendError } from '../middleware/resource-auth.js';
-import { CLARITY_JOBS_CAPABILITY } from '../search/jobs/capability.js';
 import { jobReportSchema, reportJobPosting } from '../search/jobs/reports.js';
 import {
   JobsError,
@@ -50,8 +49,6 @@ router.post('/search', async (req, res) => {
     respond(error, req, res);
   }
 });
-
-router.get('/capability', (_req, res) => res.json(CLARITY_JOBS_CAPABILITY));
 
 router.get('/stats', async (_req, res) => res.json(await jobCorpusStats()));
 

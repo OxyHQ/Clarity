@@ -16,8 +16,8 @@ vi.mock('../middleware/auth.js', () => ({
 }));
 vi.mock('../lib/clarity-service-auth.js', () => ({ assertExactClarityServiceClaims: mock.claims }));
 const { reconcileAccountEvents } = await import('../lib/account-event-reconciliation.js');
-import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
-const applicationId = CLARITY_AGENT_MANIFEST.backendApplication.applicationId;
+import { CLARITY_IDENTITY } from '../lib/clarity-identity.js';
+const applicationId = CLARITY_IDENTITY.backendApplication.applicationId;
 beforeEach(() => {
   vi.resetAllMocks();
   mock.cursor.mockResolvedValue('cursor-old');
@@ -33,7 +33,7 @@ describe('signed account event feed reconciliation', () => {
     mock.verify.mockResolvedValue({ userId: 'verified-person', eventId: 'verified-event' });
     expect(await reconcileAccountEvents()).toBe(1);
     expect(mock.token).toHaveBeenCalledWith(undefined, undefined, {
-      scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+      scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
     });
     expect(mock.claims).toHaveBeenCalledWith('service-token');
     expect(mock.list).toHaveBeenCalledWith({ after: 'cursor-old', limit: 100 });

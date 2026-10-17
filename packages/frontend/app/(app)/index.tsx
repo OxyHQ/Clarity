@@ -1,21 +1,11 @@
-import { useModelStore } from '@/lib/stores/model-store';
-import { useChatConversation } from '@/hooks/useChatConversation';
-import { ChatPageContent } from '@/components/chat-page-content';
 import Head from 'expo-router/head';
 
+import { ClarityConversation } from '@/components/chat/clarity-conversation';
+import { useConversationChrome } from '@/components/chat/conversation-header';
+
+/** Clarity's home: a new conversation with its agent, made by the first turn. */
 const SearchPage = () => {
-  const selectedModel = useModelStore((s) => s.selectedModel);
-  const setSelectedModel = useModelStore((s) => s.setSelectedModel);
-
-  const {
-    messages,
-    isLoading,
-    scrollViewRef,
-    createNewConversation,
-    editMessage,
-    clearConversation,
-  } = useChatConversation({ selectedModel });
-
+  const chrome = useConversationChrome();
   return (
     <>
       <Head>
@@ -32,17 +22,7 @@ const SearchPage = () => {
         />
         <meta property="og:image" content="https://clarity.surf/og-image-default.png" />
       </Head>
-      <ChatPageContent
-        messages={messages}
-        scrollViewRef={scrollViewRef}
-        isLoading={isLoading}
-        onSubmit={createNewConversation}
-        onSuggestionPress={createNewConversation}
-        onEditMessage={editMessage}
-        onClear={clearConversation}
-        selectedModel={selectedModel}
-        onModelChange={setSelectedModel}
-      />
+      <ClarityConversation chrome={chrome} />
     </>
   );
 };

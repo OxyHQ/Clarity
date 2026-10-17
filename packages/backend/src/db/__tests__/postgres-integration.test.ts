@@ -14,22 +14,13 @@ import {
   sha256,
   type CutoverManifest,
 } from '../cutover-manifest.js';
-import { closePostgres, connectPostgres } from '../index.js';
-import {
-  countMessages,
-  deleteConversation,
-  findConversation,
-  listMessages,
-  replaceConversation,
-} from '../chat-repository.js';
-import { CLARITY_AGENT_MANIFEST } from '../../lib/clarity-agent-manifest.js';
+import { closePostgres } from '../index.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
 const suite = databaseUrl ? describe : describe.skip;
 const workspace = mkdtempSync(join(tmpdir(), 'clarity-pg-cutover-'));
 const manifestPath = join(workspace, 'manifest.json');
 const badManifestPath = join(workspace, 'bad-manifest.json');
-const agentId = CLARITY_AGENT_MANIFEST.agentId;
 let snapshotHash = '';
 
 function sourceRow(id: string, fields: Record<string, unknown>): Record<string, unknown> {
@@ -43,25 +34,6 @@ function sourceRow(id: string, fields: Record<string, unknown>): Record<string, 
 
 function writeManifest(): void {
   const rows: Partial<Record<(typeof LOCAL_TARGETS)[number], Record<string, unknown>[]>> = {
-    clarity_conversations: [
-      sourceRow('conversation-row', {
-        oxyUserId: 'user-1',
-        conversationId: 'conversation-1',
-        title: 'Imported',
-        source: 'app',
-        createdAt: { $date: { $numberLong: '1788307200000' } },
-        updatedAt: { $date: { $numberLong: '1788307200000' } },
-      }),
-    ],
-    clarity_messages: [
-      sourceRow('message-row', {
-        id: 'message-1',
-        oxyUserId: 'user-1',
-        conversationId: 'conversation-1',
-        role: 'user',
-        content: 'hello',
-      }),
-    ],
     clarity_suggestions: [
       sourceRow('suggestion-row', {
         suggestionId: 'suggestion-1',
@@ -77,7 +49,6 @@ function writeManifest(): void {
         planId: 'clarity-test-plan',
         name: 'Test plan',
         product: 'clarity',
-        modelIds: ['clarity-v1'],
       }),
     ],
     clarity_features: [
@@ -94,7 +65,6 @@ function writeManifest(): void {
       }),
     ],
   };
-  delete rows.clarity_messages?.[0]?.updatedAt;
   const collections = LOCAL_TARGETS.map((targetTable) => {
     const targetRows = rows[targetTable] ?? [];
     const content =
@@ -124,13 +94,6 @@ function writeManifest(): void {
       inventorySha256: '',
     },
     collections,
-    runtimeEvidence: {
-      aliaAgentIdSha256: sha256(agentId),
-      aliaAgentChat: { receiptId: 'chat-ok', verifiedAt: '2026-09-02T00:00:00.000Z' },
-      oxyInference: { receiptId: 'oxy-ok', verifiedAt: '2026-09-02T00:00:00.000Z' },
-      kaanaRoute: { receiptId: 'kaana-ok', verifiedAt: '2026-09-02T00:00:00.000Z' },
-      billingCreditGrant: { receiptId: 'billing-ok', verifiedAt: '2026-09-02T00:00:00.000Z' },
-    },
   };
   snapshotHash = sha256(canonicalJson(inventoryPayload(manifest)));
   manifest.snapshot.inventorySha256 = snapshotHash;
@@ -145,8 +108,6 @@ suite('PostgreSQL backfill and repository integration', () => {
     const sql = postgres(databaseUrl, { max: 1 });
     await sql.unsafe(`truncate table
       clarity_backfill_receipts,
-      clarity_messages,
-      clarity_conversations,
       clarity_suggestions,
       clarity_plan_features,
       clarity_features,
@@ -204,10 +165,6 @@ suite('PostgreSQL backfill and repository integration', () => {
     `;
     await sql.end();
     expect(mapping?.id).toBe('plan-feature-row');
-
-    connectPostgres(databaseUrl);
-    expect((await findConversation('user-1', 'conversation-1'))?.id).toBe('conversation-row');
-    expect((await listMessages('user-1', 'conversation-1'))[0]?.id).toBe('message-row');
   });
 
   it('rejects a same-count target substitution even when an old receipt remains', async () => {
@@ -233,40 +190,28 @@ suite('PostgreSQL backfill and repository integration', () => {
     await runBackfill(manifestPath, databaseUrl);
   });
 
-  it('requires explicit evidence before attesting cutover', async () => {
+  it('attests cutover only for the exact reconciled snapshot and confirmation', async () => {
     await expect(
       attestCutover({
         databaseUrl,
         manifestPath,
         expectedSnapshotHash: snapshotHash,
-        confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
-        agentId: 'wrong-agent',
+        confirmation: 'yes',
       }),
-    ).rejects.toThrow('canonical Clarity agent');
+    ).rejects.toThrow('CUTOVER_CLARITY_TO_POSTGRES');
+    await expect(
+      attestCutover({
+        databaseUrl,
+        manifestPath,
+        expectedSnapshotHash: '0'.repeat(64),
+        confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
+      }),
+    ).rejects.toThrow('does not match the manifest');
     await attestCutover({
       databaseUrl,
       manifestPath,
       expectedSnapshotHash: snapshotHash,
       confirmation: 'CUTOVER_CLARITY_TO_POSTGRES',
-      agentId,
     });
-  });
-
-  it('rolls back metadata and message replacement together, then cascades deletes', async () => {
-    connectPostgres(databaseUrl);
-    await expect(
-      replaceConversation({
-        oxyUserId: 'user-1',
-        conversationId: 'conversation-1',
-        title: 'Must roll back',
-        titleOnInsert: 'unused',
-        messages: [{ role: 'invalid' as 'user', content: 'bad' }],
-      }),
-    ).rejects.toThrow();
-    expect((await findConversation('user-1', 'conversation-1'))?.title).toBe('Imported');
-    expect(await countMessages('user-1', 'conversation-1')).toBe(1);
-
-    expect(await deleteConversation('user-1', 'conversation-1')).toBe(true);
-    expect(await countMessages('user-1', 'conversation-1')).toBe(0);
   });
 });

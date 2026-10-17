@@ -6,27 +6,18 @@ import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
 import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
 import { requireRuntimeReady } from './middleware/runtime-ready.js';
+import { createCapabilityLanes, mountCapabilityLanes } from './capabilities/mount.js';
 
 // Routes
 import healthRouter from './routes/health.js';
 import faviconsRouter from './routes/favicons.js';
 import imagesRouter from './routes/images.js';
 import authRouter from './routes/auth.js';
-import conversationsRouter from './routes/conversations.js';
-import chatRouter from './routes/chat.js';
-import creditsRouter from './routes/credits.js';
 import v1Router from './routes/v1.js';
 import billingRouter from './routes/billing.js';
 import feedbackRouter from './routes/feedback.js';
-import modelsStatsRouter from './routes/models-stats.js';
-import internalRouter from './routes/internal.js';
-import analyticsRouter from './routes/analytics.js';
 import suggestionsRouter from './routes/suggestions.js';
 import notificationsRouter from './routes/notifications.js';
-import memoryRouter from './routes/memory.js';
-import auditRouter from './routes/audit.js';
-import triggersRouter from './routes/triggers.js';
-import botsRouter from './routes/bots.js';
 import oxyAccountEventsRouter from './routes/oxy-account-events.js';
 import experienceRouter from './routes/experience.js';
 import jobsRouter from './routes/jobs.js';
@@ -74,6 +65,16 @@ server.on('connection', (socket) => {
 });
 
 initSocket(server).on('connection', (socket) => activity?.observeSocket(socket));
+
+/**
+ * The capability catalogue's two MCP lanes — `/_oxy/mcp` (Alia, capability
+ * tickets, host `api.clarity.surf`) and `/mcp` (OAuth clients, host
+ * `mcp.clarity.surf`). FIRST, above CORS, the body parsers and runtime
+ * readiness: each lane owns its raw body, its host check and its auth
+ * challenge (`capabilities/mount.ts`).
+ */
+const capabilityLanes = createCapabilityLanes();
+mountCapabilityLanes(app, capabilityLanes);
 
 // Public API routes (/v1) use the documented cross-origin API contract.
 app.use(
@@ -168,7 +169,6 @@ app.use((req, res, next) => {
       'X-Signature',
       'X-Session-Id',
       'X-Device-Info',
-      'X-Oxy-User-Id',
       'X-Workspace-Id',
       'X-Oxy-Edge-Region',
       'X-Oxy-Activity-Id',
@@ -186,51 +186,27 @@ app.use((_req, res, next) => {
 // Stripe webhook needs raw body for signature verification
 app.use('/billing/webhook', express.raw({ type: 'application/json' }));
 
-// Increase body size limit for large chat contexts
+// JSON bodies: job postings (JSON-LD), resolve batches, product writes
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Optimize SSE routes for real-time streaming
-app.use('/clarity/search', (_req, res, next) => {
-  // Disable all buffering for SSE
-  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
-
-  // Disable Nagle's algorithm for lower latency
-  if (res.socket) {
-    res.socket.setNoDelay(true);
-    res.socket.setTimeout(0); // No timeout for SSE connections
-  }
-
-  next();
-});
-
 // Routes
 app.use('/health', healthRouter);
-// Keep every product/data route closed until the exact PostgreSQL snapshot and
-// provisioned Clarity Alia agent identity have both been attested.
+// Keep every product/data route closed until the exact PostgreSQL snapshot has
+// been attested and this process can attest its own Oxy service identity.
 app.use(requireRuntimeReady);
 app.use('/auth', authRouter);
-app.use('/conversations', conversationsRouter);
-app.use('/credits', creditsRouter);
-app.use('/clarity/search', chatRouter);
 app.use('/v1', v1Router);
 app.use('/favicons', faviconsRouter);
 app.use('/images', imagesRouter);
 app.use('/billing', billingRouter);
 app.use('/feedback', feedbackRouter);
-app.use('/models', modelsStatsRouter);
-app.use('/analytics', analyticsRouter);
 app.use('/suggestions', suggestionsRouter);
 app.use('/notifications', notificationsRouter);
-app.use('/memory', memoryRouter);
-app.use('/audit', auditRouter);
-app.use('/triggers', triggersRouter);
-app.use('/bots', botsRouter);
 app.use('/jobs', jobsRouter);
 app.use('/api/experience', experienceRouter);
 app.use('/market', marketRouter);
 app.use('/news', newsRouter);
-app.use('/internal', internalRouter);
 
 // Root route
 app.get('/', (_req, res) => {
@@ -240,23 +216,16 @@ app.get('/', (_req, res) => {
     endpoints: [
       '/health',
       '/auth',
-      '/conversations',
-      '/credits',
-      '/clarity/search',
       '/v1',
       '/billing',
       '/feedback',
-      '/models',
-      '/analytics',
       '/suggestions',
       '/notifications',
-      '/memory',
-      '/audit',
-      '/triggers',
-      '/bots',
       '/jobs',
+      '/market',
       '/news',
-      '/internal',
+      '/api/experience',
+      '/_oxy/mcp',
     ],
   });
 });
@@ -311,6 +280,10 @@ if (!database) {
     .then(() => {
       server.listen(PORT, '0.0.0.0', () => {
         log.general.info({ port: PORT }, `API Server running on http://0.0.0.0:${PORT}`);
+        // Register the capability catalogue now, so a refusal is in the log
+        // the moment the task starts. A failure leaves `/_oxy/mcp` answering
+        // 503 and retrying.
+        void capabilityLanes.internal.bound();
         // Verify Redis connectivity (non-blocking)
         import('./lib/redis.js').then(({ getRedisClient }) => {
           const redis = getRedisClient();
@@ -342,7 +315,7 @@ if (!database) {
           log.general.info('HTTP server closed (no new connections)');
         });
 
-        // Give in-flight requests 30 seconds to complete (agent sessions can be long)
+        // Give in-flight requests 30 seconds to complete
         const forceTimeout = setTimeout(() => {
           log.general.error('Force exit after 30s grace period');
           process.exit(1);

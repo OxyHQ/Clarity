@@ -23,9 +23,6 @@ PORT="${PORT:-3001}"
 NAME="clarity-api-smoke-$$"
 WORKER="clarity-worker-smoke-$$"
 MIGRATOR="clarity-migrator-smoke-$$"
-# The canonical agent (packages/backend/src/lib/clarity-agent-manifest.ts);
-# readiness requires it configured and attested.
-AGENT_ID=01a0646a-078f-7642-95ef-439952f4f3f9
 # Readiness asks only whether the task CAN attest (ECS sets this variable);
 # nothing in this smoke calls it. Unroutable on purpose.
 CREDENTIALS_URI=http://127.0.0.1:9/no-credentials
@@ -148,7 +145,7 @@ for phase in pre post; do
   assert_no_app_writes "$MIGRATOR" "The migrator (--phase=$phase)"
   docker rm "$MIGRATOR" >/dev/null
 done
-run -e DATABASE_URL -e CLARITY_ALIA_AGENT_ID="$AGENT_ID" "$IMAGE" \
+run -e DATABASE_URL "$IMAGE" \
   bun packages/backend/dist/db/attest-fresh-install.js --confirm=FRESH_INSTALL_NO_DATA_TO_MIGRATE
 
 # The worker's command against the migrated database: it must stay up (an
@@ -167,7 +164,7 @@ docker rm -f "$WORKER" >/dev/null
 
 # 4. The image's default CMD serves readiness.
 docker run -d --name "$NAME" --network host \
-  -e DATABASE_URL -e PORT="$PORT" -e CLARITY_ALIA_AGENT_ID="$AGENT_ID" \
+  -e DATABASE_URL -e PORT="$PORT" \
   -e AWS_CONTAINER_CREDENTIALS_FULL_URI="$CREDENTIALS_URI" \
   "$IMAGE" >/dev/null
 

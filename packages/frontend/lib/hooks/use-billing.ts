@@ -2,15 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useOxy } from '@oxy.so/services';
 import { useApiClient } from '../api/use-api-client';
 import { queryKeys } from './query-keys';
-import { useAuthQuery } from './create-query';
-
-export interface CreditPackage {
-  id: string;
-  name: string;
-  credits: number;
-  price: number;
-  currency: string;
-}
 
 export interface PlanFeatureItem {
   label: string;
@@ -59,41 +50,6 @@ export interface Subscription {
   };
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Transaction {
-  _id: string;
-  userId: string;
-  stripeCustomerId?: string;
-  stripePaymentIntentId?: string;
-  type: 'credit_purchase' | 'subscription_payment' | 'refund';
-  amount: number;
-  currency: string;
-  credits: number;
-  status: 'pending' | 'completed' | 'failed' | 'refunded';
-  description?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ======================
-// Credit Packages
-// ======================
-
-export function useCreditPackages() {
-  const { isAuthenticated } = useOxy();
-  const client = useApiClient();
-
-  return useQuery({
-    queryKey: queryKeys.billing.packages,
-    queryFn: async () => {
-      const data = await client.get<{ packages: CreditPackage[] }>('/billing/packages');
-      return data.packages;
-    },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 2,
-    enabled: isAuthenticated,
-  });
 }
 
 // ======================
@@ -180,78 +136,6 @@ export function useSubscriptionPolling(
   });
 }
 
-// ======================
-// Transactions
-// ======================
-
-export function useTransactions(limit: number = 20, offset: number = 0) {
-  return useAuthQuery<{ transactions: Transaction[]; total: number }>(
-    queryKeys.billing.transactions(limit, offset),
-    '/billing/transactions',
-    { limit, offset },
-    { staleTime: 60_000, retry: 1 },
-  );
-}
-
-// ======================
-// Checkout
-// ======================
-
-export function useCreateCheckout() {
-  const client = useApiClient();
-  return useMutation({
-    mutationFn: ({
-      packageId,
-      successUrl,
-      cancelUrl,
-    }: {
-      packageId: string;
-      successUrl: string;
-      cancelUrl: string;
-    }) =>
-      client.post<{ url: string }>('/billing/checkout/credits', {
-        packageId,
-        successUrl,
-        cancelUrl,
-      }),
-  });
-}
-
-export function useCreateCustomCheckout() {
-  const client = useApiClient();
-  return useMutation({
-    mutationFn: ({
-      credits,
-      successUrl,
-      cancelUrl,
-    }: {
-      credits: number;
-      successUrl: string;
-      cancelUrl: string;
-    }) =>
-      client.post<{ url: string }>('/billing/checkout/custom-credits', {
-        credits,
-        successUrl,
-        cancelUrl,
-      }),
-  });
-}
-
-export interface CreditPriceInfo {
-  pricePerCreditCents: number;
-  minCredits: number;
-  maxCredits: number;
-}
-
-export function useCreditPrice() {
-  return useAuthQuery<CreditPriceInfo>(
-    queryKeys.credits.price,
-    '/billing/credit-price',
-    undefined,
-    { staleTime: 600_000 },
-  );
-}
-
 export function useCreateSubscriptionCheckout() {
   const client = useApiClient();
   return useMutation({
@@ -291,7 +175,6 @@ export function useChangePlan() {
         { planId, billingPeriod },
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.entitlements });
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscriptions });
     },
   });
@@ -304,7 +187,6 @@ export function useCancelSubscription() {
     mutationFn: (input?: { subscriptionId: string }) =>
       client.post('/billing/subscription/cancel', input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.billing.entitlements });
       queryClient.invalidateQueries({ queryKey: queryKeys.billing.subscriptions });
     },
   });
@@ -318,31 +200,4 @@ export function useCreatePortalSession() {
       return data.url;
     },
   });
-}
-
-// ======================
-// Entitlements
-// ======================
-
-export interface Entitlements {
-  allowedModelIds: string[];
-  features: Record<string, boolean | number>;
-  planId: string | null;
-}
-
-const FREE_ENTITLEMENTS: Entitlements = {
-  allowedModelIds: ['clarity-fast', 'clarity-v1', 'clarity-v1'],
-  features: {},
-  planId: 'free',
-};
-
-export function useEntitlements() {
-  return useAuthQuery<Entitlements>(
-    queryKeys.billing.entitlements,
-    '/billing/entitlements',
-    undefined,
-    {
-      placeholderData: FREE_ENTITLEMENTS,
-    },
-  );
 }

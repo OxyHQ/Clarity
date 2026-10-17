@@ -94,7 +94,6 @@ export function sanitizeForLog(value: string): string {
 // Pre-built loggers for common subsystems
 export const log = {
   auth: createLogger('auth'),
-  chat: createLogger('chat'),
   credits: createLogger('credits'),
   rateLimit: createLogger('rate-limit'),
   webhook: createLogger('webhook'),

@@ -3,8 +3,9 @@
 ## 1. Read the boundaries
 
 Read the repository `AGENTS.md`, then `docs/index.mdx`. The important split is:
-Clarity persists product state in PostgreSQL; its assistant runs as one Alia
-agent; Oxy and Kaana own inference.
+Clarity persists its product in PostgreSQL; its assistant is an ordinary Alia
+agent the frontend opens through `@alia.onl/sdk`, reaching Clarity through the
+capability catalogue; Oxy and Kaana own inference.
 
 ## 2. Install and configure
 
@@ -13,11 +14,12 @@ bun install
 cp packages/backend/.env.example packages/backend/.env
 ```
 
-Set `DATABASE_URL` to a local PostgreSQL database and the canonical
-`CLARITY_ALIA_AGENT_ID` byte for byte. Chat additionally needs a Clarity service
-identity, and that is the ECS task role (see `docs/deployment.md`): there is no
-Oxy key pair to set, so on a laptop readiness stays unavailable
-(`clarity_service_identity_unconfigured`).
+Set `DATABASE_URL` to a local PostgreSQL database. The backend's Oxy service
+identity is the ECS task role (see `docs/deployment.md`): there is no Oxy key
+pair to set, so on a laptop readiness stays unavailable
+(`clarity_service_identity_unconfigured`) and the capability catalogue cannot
+register. The chat itself needs no backend: the frontend talks to Alia under
+your own Oxy session.
 
 ## 3. Run
 
@@ -42,10 +44,10 @@ unattested cutover.
 | --- | --- |
 | `packages/backend/src/db/schema/index.ts` | Drizzle product schema |
 | `packages/backend/src/db/*-repository.ts` | Product read/write boundaries |
-| `packages/backend/src/lib/alia-agent-client.ts` | Authenticated fixed-agent proxy and SSE translation |
-| `packages/backend/src/lib/clarity-models.ts` | Exact Clarity ID to Alia profile mapping |
-| `packages/backend/src/routes/v1/chat-completions.ts` | Public compatibility endpoint |
-| `packages/frontend/hooks/useStreamingChat.ts` | Clarity SSE consumer |
+| `packages/backend/src/capabilities/clarity.catalog.ts` | The capability catalogue: every tool the assistant has in Clarity |
+| `packages/backend/src/capabilities/mount.ts` | `/_oxy/mcp` (Alia) and `mcp.clarity.surf/mcp` (OAuth clients) |
+| `packages/frontend/components/chat/clarity-conversation.tsx` | The conversation, drawn by `@alia.onl/sdk` |
+| `packages/frontend/components/chat/clarity-tool-renderers.tsx` | Catalogue results as Clarity's own cards |
 
 ## 5. Validate
 

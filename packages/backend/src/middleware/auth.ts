@@ -1,4 +1,4 @@
-import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
@@ -27,13 +27,6 @@ declare global {
 
 /** Canonical Oxy user-session middleware. */
 export const authenticateToken = createOxyAuthMiddleware(oxyClient, { auth: { debug: true } });
-
-/** Canonical Oxy service-principal middleware for fail-closed internal routes. */
-// `middleware.service()` is typed against core's framework-neutral request, whose
-// `user` is the full profile; this app's Express request carries `OxyRequestUser`.
-export const oxyServiceAuth = oxyClient.middleware.service({
-  debug: true,
-}) as unknown as RequestHandler;
 
 const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, {
   auth: { debug: true, strictOptionalBearer: true },

@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import { eraseDeletedAccountExperience } from '../db/experience-repository.js';
 import { oxyClient } from '../middleware/auth.js';
-import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
+import { CLARITY_IDENTITY } from '../lib/clarity-identity.js';
 import { log } from '../lib/logger.js';
 
 const router = Router();
@@ -24,7 +24,7 @@ router.post(
     let event;
     try {
       event = await oxyClient.accountEvents.verify(req.body, {
-        audience: CLARITY_AGENT_MANIFEST.backendApplication.applicationId,
+        audience: CLARITY_IDENTITY.backendApplication.applicationId,
       });
     } catch {
       // Also covers unavailable signing keys: Oxy must retry, never acknowledge erasure.

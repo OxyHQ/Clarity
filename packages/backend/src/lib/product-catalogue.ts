@@ -1,29 +1,6 @@
 import { and, eq, type SQL } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
-import { creditPackages, features, planFeatures, plans } from '../db/schema/index.js';
-import {
-  getAllClarityModels,
-  getAvailableModels,
-  getClarityModel,
-  getClarityModelsByCategory,
-  getDefaultClarityModel,
-  getDefaultModelForCategory,
-  isClarityModel,
-  type ClarityModel,
-  type ClarityModelWithAvailability,
-  type ModelCategory,
-} from './clarity-models.js';
-
-export {
-  getAllClarityModels,
-  getAvailableModels,
-  getClarityModel,
-  getClarityModelsByCategory,
-  getDefaultClarityModel,
-  getDefaultModelForCategory,
-  isClarityModel,
-};
-export type { ClarityModel, ClarityModelWithAvailability, ModelCategory };
+import { features, planFeatures, plans } from '../db/schema/index.js';
 
 export interface PlanData {
   planId: string;
@@ -38,24 +15,11 @@ export interface PlanData {
   creditsLabel: string;
   isFeatured: boolean;
   sortOrder: number;
-  modelIds: string[];
   isActive: boolean;
   isFree: boolean;
   stripeProductId?: string;
   stripeMonthlyPriceId?: string;
   stripeAnnualPriceId?: string;
-  description?: string;
-}
-
-export interface CreditPackageData {
-  packageId: string;
-  name: string;
-  credits: number;
-  price: number;
-  currency: string;
-  stripePriceId?: string;
-  sortOrder: number;
-  isActive: boolean;
   description?: string;
 }
 
@@ -90,15 +54,6 @@ export async function getPlans(filter?: Record<string, unknown>): Promise<PlanDa
     .select()
     .from(plans)
     .where(conditions.length > 0 ? and(...conditions) : undefined) as Promise<PlanData[]>;
-}
-
-export async function getCreditPackages(active?: boolean): Promise<CreditPackageData[]> {
-  return getDb()
-    .select()
-    .from(creditPackages)
-    .where(active === undefined ? undefined : eq(creditPackages.isActive, active)) as Promise<
-    CreditPackageData[]
-  >;
 }
 
 export async function getFeatures(): Promise<FeatureData[]> {

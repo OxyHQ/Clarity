@@ -25,6 +25,7 @@ import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { answeredToAny } from './search/public-document.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
+import { sweepExpiredEffectReceipts } from './db/capability-receipt-repository.js';
 import { sweepImageCache, upgradeImageRenditions } from './search/image-cache.js';
 
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
@@ -707,6 +708,18 @@ async function runImageCacheSweep(): Promise<void> {
   }
 }
 
+/** Delete capability effect receipts past their retention (capabilities/effect-receipts.ts). */
+async function runEffectReceiptSweep(): Promise<void> {
+  try {
+    const removed = await sweepExpiredEffectReceipts();
+    if (removed > 0) console.info('Capability effect receipts swept', { removed });
+  } catch (error) {
+    console.error('Capability effect receipt sweep failed', {
+      error: error instanceof Error ? error.message : 'unknown sweep failure',
+    });
+  }
+}
+
 async function runJobMaintenance(): Promise<void> {
   try {
     const sweep = await sweepJobLifecycle();
@@ -787,6 +800,7 @@ async function main() {
       nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
       await runJobMaintenance();
       await runImageCacheSweep();
+      await runEffectReceiptSweep();
     }
     if (Date.now() >= nextIconRefreshAt) {
       nextIconRefreshAt = Date.now() + iconRefreshIntervalMs;

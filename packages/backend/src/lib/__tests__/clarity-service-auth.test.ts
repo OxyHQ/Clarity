@@ -1,16 +1,17 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
-import { CLARITY_AGENT_MANIFEST } from '../clarity-agent-manifest.js';
+import { CLARITY_IDENTITY } from '../clarity-identity.js';
 import {
   assertExactClarityServiceClaims,
   hasExactClarityServiceConfiguration,
 } from '../clarity-service-auth.js';
 
-const CLIENT_ID = CLARITY_AGENT_MANIFEST.backendApplication.clientId;
-/** The backend credential retired with its key pair. */
-const RETIRED_CREDENTIAL_ID = CLARITY_AGENT_MANIFEST.backendApplication.credentialId;
-const ATTESTATION_ID = CLARITY_AGENT_MANIFEST.workloadIdentity.attestationId;
+/** The retired backend credential's public client id. */
+const RETIRED_CLIENT_ID = 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78';
+/** The backend credential retired with its key pair (oxy ADR 0026); no token naming it is Clarity's. */
+const RETIRED_CREDENTIAL_ID = '01a0648b-8d74-7240-adba-80707fdfdf9c';
+const ATTESTATION_ID = CLARITY_IDENTITY.workloadIdentity.attestationId;
 
 /** What ECS puts in a task's environment; its presence is what makes attesting possible. */
 const ON_ECS = { AWS_CONTAINER_CREDENTIALS_RELATIVE_URI: '/v2/credentials/abc-123' };
@@ -22,10 +23,10 @@ function env(overrides: Record<string, string | undefined> = {}): NodeJS.Process
 function serviceToken(overrides: Record<string, unknown> = {}): string {
   const payload = {
     type: 'service',
-    appId: CLARITY_AGENT_MANIFEST.backendApplication.applicationId,
+    appId: CLARITY_IDENTITY.backendApplication.applicationId,
     credentialId: ATTESTATION_ID,
-    ownerAccountId: CLARITY_AGENT_MANIFEST.projectAccountId,
-    scopes: [...CLARITY_AGENT_MANIFEST.backendApplication.scopes],
+    ownerAccountId: CLARITY_IDENTITY.projectAccountId,
+    scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
     exp: Math.floor(Date.now() / 1000) + 3600,
     ...overrides,
   };
@@ -44,7 +45,7 @@ function serviceToken(overrides: Record<string, unknown> = {}): string {
 describe('the pinned workload attestation handle', () => {
   it('is exactly what oxy derives from the task role ARN', () => {
     const derived = `wl_${createHash('sha256')
-      .update(CLARITY_AGENT_MANIFEST.workloadIdentity.roleArn)
+      .update(CLARITY_IDENTITY.workloadIdentity.roleArn)
       .digest('hex')
       .slice(0, 24)}`;
     expect(ATTESTATION_ID).toBe(derived);
@@ -54,7 +55,7 @@ describe('the pinned workload attestation handle', () => {
   it('names the dedicated Clarity task role, never the shared one', () => {
     // The shared `oxy-ecs-task` is bound to no application by design; a service
     // attesting it would have no identity at all.
-    expect(CLARITY_AGENT_MANIFEST.workloadIdentity.roleArn).toBe(
+    expect(CLARITY_IDENTITY.workloadIdentity.roleArn).toBe(
       'arn:aws:iam::237343248947:role/oxy-clarity-task',
     );
   });
@@ -62,56 +63,32 @@ describe('the pinned workload attestation handle', () => {
 
 describe('Clarity service configuration', () => {
   /**
-   * The key pair is retired: the credential it authenticated is revoked. A
-   * secret still reaching the process is refused even where the role could
+   * The key pair is retired: the credential it authenticated is revoked. Either
+   * half still reaching the process is refused even where the role could
    * attest, so a task definition that still injects one fails readiness
    * instead of carrying the pair along unnoticed.
    */
   it.each([
-    ['beside the exact client id', { OXY_SERVICE_API_KEY: CLIENT_ID }],
-    ['beside the exact client id on ECS', { OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS }],
-    ['alone on ECS', ON_ECS],
-    ['alone', {}],
-  ])('refuses the retired secret %s', (_label, overrides) => {
-    expect(
-      hasExactClarityServiceConfiguration(
-        env({ ...overrides, OXY_SERVICE_API_SECRET: 'a-retired-secret' }),
-      ),
-    ).toBe(false);
+    ['OXY_SERVICE_API_SECRET', 'a-retired-secret'],
+    ['OXY_SERVICE_API_KEY', RETIRED_CLIENT_ID],
+    ['OXY_SERVICE_API_KEY', CLARITY_IDENTITY.publicApplication.clientId],
+  ])('refuses a retired %s, on ECS or not', (name, value) => {
+    expect(hasExactClarityServiceConfiguration(env({ [name]: value, ...ON_ECS }))).toBe(false);
+    expect(hasExactClarityServiceConfiguration(env({ [name]: value }))).toBe(false);
   });
 
-  it('accepts a task that carries no secret but can attest its role', () => {
-    // A leftover client id is tolerated (it is only a public id) while it is
-    // still exactly Clarity's.
-    expect(
-      hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS })),
-    ).toBe(true);
-    // And once the environment variable goes too.
+  it('accepts a task that carries neither half of the pair and can attest its role', () => {
     expect(hasExactClarityServiceConfiguration(env(ON_ECS))).toBe(true);
-  });
-
-  it('refuses a process with neither a secret nor anything to attest', () => {
-    // A laptop. Readiness must keep reporting this rather than serving traffic
-    // it cannot authenticate.
-    expect(hasExactClarityServiceConfiguration(env())).toBe(false);
-    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID }))).toBe(
-      false,
+    // An empty value is what an unset variable looks like in some runners.
+    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: '', ...ON_ECS }))).toBe(
+      true,
     );
   });
 
-  it('still pins a leftover client id byte for byte', () => {
-    const foreign = 'oxy_dk_0000000000000000000000000000000000000000000000';
-    // A foreign client id left behind is a deployment error even when nothing
-    // would read it, so attestation does not excuse it.
-    expect(
-      hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: foreign, ...ON_ECS })),
-    ).toBe(false);
-    // Clarity's PUBLIC app is a different application; it must not mint here.
-    expect(
-      hasExactClarityServiceConfiguration(
-        env({ OXY_SERVICE_API_KEY: CLARITY_AGENT_MANIFEST.publicApplication.clientId, ...ON_ECS }),
-      ),
-    ).toBe(false);
+  it('refuses a process with nothing to attest', () => {
+    // A laptop. Readiness must keep reporting this rather than serving traffic
+    // it cannot authenticate.
+    expect(hasExactClarityServiceConfiguration(env())).toBe(false);
   });
 
   it('keeps enforcing the canonical Oxy origin in production', () => {
@@ -168,7 +145,7 @@ describe('Clarity service token claims', () => {
     { name: 'the handle with a suffix', credentialId: `${ATTESTATION_ID}x` },
     {
       name: 'Clarity’s public-app credential',
-      credentialId: CLARITY_AGENT_MANIFEST.publicApplication.credentialId,
+      credentialId: CLARITY_IDENTITY.publicApplication.credentialId,
     },
     { name: 'a missing credential id', credentialId: undefined },
     { name: 'a non-string credential id', credentialId: { id: ATTESTATION_ID } },
@@ -180,13 +157,20 @@ describe('Clarity service token claims', () => {
 
   it('still refuses a token from another application, payer or scope set', () => {
     const wrong = [
-      { appId: CLARITY_AGENT_MANIFEST.publicApplication.applicationId },
-      { ownerAccountId: CLARITY_AGENT_MANIFEST.botAccountId },
+      { appId: CLARITY_IDENTITY.publicApplication.applicationId },
+      // The Clarity agent's bot account: a token it pays for is not the backend's.
+      { ownerAccountId: '01a0646a-078f-7120-a993-a03c180c81b0' },
       { type: 'user' },
       { scopes: ['user:read'] },
-      { scopes: ['user:read', 'inference:invoke', 'files:read'] },
-      { scopes: ['user:read', 'inference:invoke', 'safety:decide'] },
-      { scopes: ['user:read', 'user:read'] },
+      // The scope set before the capability catalogue: one the backend no longer runs on.
+      { scopes: ['user:read', 'inference:invoke'] },
+      { scopes: [...CLARITY_IDENTITY.backendApplication.scopes, 'files:read'] },
+      {
+        scopes: [
+          ...CLARITY_IDENTITY.backendApplication.scopes.slice(1),
+          CLARITY_IDENTITY.backendApplication.scopes[1],
+        ],
+      },
       { scopes: [] },
     ];
     for (const overrides of wrong) {

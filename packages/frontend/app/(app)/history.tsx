@@ -22,8 +22,14 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useColorScheme } from '@/lib/useColorScheme';
-import { useConversations, useDeleteConversation } from '@/lib/hooks/use-conversations';
-import type { HydratedConversation } from '@/lib/hooks/use-conversations';
+import {
+  aliaQueryKeys,
+  type Conversation,
+  useConversations,
+  useDeleteConversation,
+} from '@alia.onl/sdk';
+import { useQueryClient } from '@tanstack/react-query';
+import { CLARITY_AGENT_ID, conversationPath } from '@/lib/clarity-agent';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,14 +39,12 @@ import {
   DropdownMenuTrigger,
 } from '@oxy.so/bloom/dropdown-menu';
 import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
-import { Tabs, TabsTrigger } from '@oxy.so/bloom/tabs';
 import { Button, GlyphButton } from '@oxy.so/bloom/button';
 
 /* ================================================================
    Types
    ================================================================ */
 
-type TabId = 'threads' | 'media' | 'apps' | 'documents';
 type SortOrder = 'newest' | 'oldest';
 
 /* ================================================================
@@ -65,40 +69,6 @@ function relativeTime(date: Date): string {
     day: 'numeric',
     year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
   });
-}
-
-/* ================================================================
-   Tab bar
-   ================================================================ */
-
-const TABS: { id: TabId; labelKey: string }[] = [
-  { id: 'threads', labelKey: 'history.tabs.threads' },
-  { id: 'media', labelKey: 'history.tabs.media' },
-  { id: 'apps', labelKey: 'history.tabs.apps' },
-  { id: 'documents', labelKey: 'history.tabs.documents' },
-];
-
-function TabBar({
-  activeTab,
-  onTabChange,
-}: {
-  activeTab: TabId;
-  onTabChange: (tab: TabId) => void;
-}) {
-  const { t } = useTranslation();
-
-  return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(v) => onTabChange(v as TabId)}
-      variant="underline"
-      label={t('history.title')}
-    >
-      {TABS.map((tab) => (
-        <TabsTrigger key={tab.id} value={tab.id} label={t(tab.labelKey)} />
-      ))}
-    </Tabs>
-  );
 }
 
 /* ================================================================
@@ -134,22 +104,14 @@ const ThreadItem = React.memo(function ThreadItem({
   onNavigate,
   onDelete,
 }: {
-  conversation: HydratedConversation;
+  conversation: Conversation;
   onNavigate: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
 
-  const preview = useMemo(() => {
-    if (conversation.lastMessage) return conversation.lastMessage;
-    const assistantMsg = conversation.messages?.find((m) => m.role === 'assistant');
-    if (assistantMsg) {
-      const content = typeof assistantMsg.content === 'string' ? assistantMsg.content : '';
-      return content.slice(0, 150);
-    }
-    return '';
-  }, [conversation.lastMessage, conversation.messages]);
+  const preview = conversation.lastMessage ?? '';
 
   return (
     <View className="py-4 flex-row items-center border-b border-border/50">
@@ -210,7 +172,7 @@ const ThreadItem = React.memo(function ThreadItem({
    Empty state
    ================================================================ */
 
-function EmptyState({ tab }: { tab: TabId }) {
+function EmptyState() {
   const { t } = useTranslation();
 
   return (
@@ -218,7 +180,7 @@ function EmptyState({ tab }: { tab: TabId }) {
       <Clock size={32} className="text-muted-foreground mb-3" />
       <Text className="text-base font-medium text-foreground mb-1">{t('history.empty_title')}</Text>
       <Text className="text-sm text-muted-foreground text-center">
-        {tab === 'threads' ? t('history.empty_threads') : t('history.empty_other')}
+        {t('history.empty_threads')}
       </Text>
     </View>
   );
@@ -234,12 +196,15 @@ export default function HistoryScreen() {
   const { t } = useTranslation();
   const { colors } = useColorScheme();
 
-  const [activeTab, setActiveTab] = useState<TabId>('threads');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useConversations();
-  const deleteMut = useDeleteConversation();
+  // Clarity's conversations are Alia's, with Clarity's agent.
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useConversations({
+    agentId: CLARITY_AGENT_ID,
+  });
+  const queryClient = useQueryClient();
+  const { mutate: deleteConversation } = useDeleteConversation();
 
   // Flatten and sort all conversations
   const allConversations = useMemo(() => {
@@ -260,16 +225,21 @@ export default function HistoryScreen() {
 
   const handleNavigate = useCallback(
     (id: string) => {
-      router.push(`/(app)/c/${id}`);
+      router.push(conversationPath(id));
     },
     [router],
   );
 
   const handleDelete = useCallback(
     (id: string) => {
-      deleteMut.mutate(id);
+      deleteConversation(id, {
+        onSuccess: () =>
+          queryClient.invalidateQueries({
+            queryKey: aliaQueryKeys.conversations.withAgent(CLARITY_AGENT_ID),
+          }),
+      });
     },
-    [deleteMut],
+    [deleteConversation, queryClient],
   );
 
   const handleNewThread = useCallback(() => {
@@ -313,11 +283,6 @@ export default function HistoryScreen() {
             </Text>
           </View>
 
-          {/* Center: Tabs (visible on larger screens) */}
-          <View className="hidden md:flex flex-row items-center">
-            <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
-          </View>
-
           {/* Right: New Thread button */}
           <View className="flex-row items-center gap-2">
             <Button
@@ -330,11 +295,6 @@ export default function HistoryScreen() {
               {t('history.newThread')}
             </Button>
           </View>
-        </View>
-
-        {/* Tabs row on mobile (below header) */}
-        <View className="md:hidden">
-          <TabBar activeTab={activeTab} onTabChange={setActiveTab} />
         </View>
       </View>
 
@@ -366,9 +326,7 @@ export default function HistoryScreen() {
           </View>
 
           {/* Thread list or empty state */}
-          {activeTab !== 'threads' ? (
-            <EmptyState tab={activeTab} />
-          ) : isLoading ? (
+          {isLoading ? (
             <View className="items-center justify-center py-16">
               <ActivityIndicator size="small" color={colors.mutedForeground} />
             </View>
@@ -383,7 +341,7 @@ export default function HistoryScreen() {
                 </Text>
               </View>
             ) : (
-              <EmptyState tab="threads" />
+              <EmptyState />
             )
           ) : (
             <>

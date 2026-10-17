@@ -3,8 +3,6 @@ import { eq } from 'drizzle-orm';
 
 import { closePostgres, connectPostgres, getDb } from './index.js';
 import { runtimeState } from './schema/index.js';
-import { CLARITY_AGENT_MANIFEST } from '../lib/clarity-agent-manifest.js';
-import { sha256 } from './cutover-manifest.js';
 
 function argument(argv: readonly string[], name: string): string {
   const prefix = `--${name}=`;
@@ -27,11 +25,7 @@ function argument(argv: readonly string[], name: string): string {
 export async function attestFreshInstall(input: {
   databaseUrl: string;
   confirmation: string;
-  agentId: string;
 }): Promise<void> {
-  if (input.agentId !== CLARITY_AGENT_MANIFEST.agentId) {
-    throw new Error('CLARITY_ALIA_AGENT_ID must match the canonical Clarity agent');
-  }
   if (input.confirmation !== 'FRESH_INSTALL_NO_DATA_TO_MIGRATE') {
     throw new Error('exact --confirm=FRESH_INSTALL_NO_DATA_TO_MIGRATE is required');
   }
@@ -50,13 +44,7 @@ export async function attestFreshInstall(input: {
       );
     }
 
-    await getDb()
-      .insert(runtimeState)
-      .values({
-        id: 'postgres-cutover',
-        status: 'fresh_install',
-        aliaAgentIdSha256: sha256(input.agentId),
-      });
+    await getDb().insert(runtimeState).values({ id: 'postgres-cutover', status: 'fresh_install' });
 
     const [after] = await getDb()
       .select({ status: runtimeState.status })
@@ -76,12 +64,9 @@ export async function attestFreshInstall(input: {
 if (import.meta.main) {
   const argv = process.argv.slice(2);
   const databaseUrl = process.env.DATABASE_URL;
-  const agentId = process.env.CLARITY_ALIA_AGENT_ID;
   if (!databaseUrl) throw new Error('DATABASE_URL is required');
-  if (!agentId) throw new Error('CLARITY_ALIA_AGENT_ID is required');
   attestFreshInstall({
     databaseUrl,
-    agentId,
     confirmation: argument(argv, 'confirm'),
   }).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : error);

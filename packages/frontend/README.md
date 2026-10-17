@@ -1,33 +1,35 @@
 # Clarity frontend
 
-Expo app for web, iOS, and Android. The app presents Clarity product model IDs
-and consumes Clarity's API; it does not call inference providers or Kaana
-directly.
+Expo app for web, iOS, and Android. It calls Clarity's API for Clarity's own
+product and Alia, through `@alia.onl/sdk`, for the conversation. It never calls
+inference providers or Kaana directly.
 
 ## Runtime boundaries
 
-- Chat streams from `/v1/chat/completions`. The Clarity API fixes the
-  provisioned Alia agent and translates Alia events to `clarity.*` events.
-- Conversations, product plans, entitlements, suggestions, feedback, and
-  notifications are Clarity PostgreSQL resources.
-- Memory, agent audit, trigger execution, inference credits, and inference
-  telemetry are Alia resources reached through explicit Clarity API routes.
-- Agent permission editing remains unavailable until Alia publishes an
-  agent-scoped settings contract; the UI states that limitation instead of
-  pretending to save unsupported fields.
+- The conversation is Alia's. `AliaChatContent agent={CLARITY_AGENT}`
+  (`components/chat/clarity-conversation.tsx`) opens Clarity's agent, an
+  ordinary public Alia agent confined to Clarity (`lib/clarity-agent.ts`), under
+  the person's own Oxy session; the person's Alia credits pay for it. History is
+  Alia's list of conversations with that agent (`useConversations({ agentId })`).
+- The app's one "Ask" sheet (`components/chat/clarity-ask-provider.tsx`) opens
+  Alia or Clarity's agent from anywhere.
+- Clarity's catalogue tools draw with Clarity's own cards, keyed `clarity:<tool>`
+  (`components/chat/clarity-tool-renderers.tsx`). A locked feature gate
+  (`deep_research`, `power_level.<level>`, `attachments.*`) opens the subscribe
+  screen.
+- Plans, subscriptions, suggestions, feedback, notifications, experience, jobs,
+  news and market quotes are Clarity's, from Clarity's API.
+- Credits and usage, memory, channel bots and the agent audit are Alia's and are
+  managed in Alia (`components/settings/alia-settings-links.tsx`).
 
 ## Existing screens
 
-- `app/(app)/index.tsx` — new conversation
-- `app/(app)/c/[id]/index.tsx` — conversation
-- `app/(app)/history.tsx` — history
+- `app/(app)/index.tsx` — a new conversation with Clarity's agent
+- `app/(app)/c/[id]/index.tsx` — a conversation
+- `app/(app)/history.tsx` — the conversations with Clarity's agent
+- `app/(app)/discover.tsx`, `jobs/*`, `finance.tsx` — Discover, Jobs, Finance
 - `app/(app)/notifications.tsx` — notification feed
-- `app/(app)/settings/*` — account, general, usage, personalization, security,
-  and feedback
-
-The API exposes authenticated Alia trigger routes for compatibility, but this
-checkout has no trigger-management screen. Webhook delivery uses the Alia URL
-returned when a trigger is created.
+- `app/(app)/settings/*` — account, general, billing, experience and feedback
 
 ## Development
 

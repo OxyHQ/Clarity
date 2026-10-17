@@ -1,37 +1,24 @@
 import { getErrorStatus } from '@oxy.so/core';
 import { Router, type ErrorRequestHandler, type Request, type Response } from 'express';
-import { validateExperienceInput, type ExperienceErrorCode } from '@clarity.surf/sdk/experience';
+import type { ExperienceErrorCode } from '@clarity.surf/sdk/experience';
 import {
-  ExperienceLimitError,
-  ExperienceAccountErasedError,
   createExperience,
   deleteExperience,
   eraseUserExperience,
   listExperience,
   updateExperience,
 } from '../db/experience-repository.js';
+import {
+  canonicalEmployerId,
+  experienceWriteError,
+  parseExperienceInput,
+  requirePersonalAccount,
+} from '../lib/experience.js';
 import { experienceAuth, experienceOptionalAuth, oxyClient } from '../middleware/auth.js';
 import { log } from '../lib/logger.js';
 
 const router = Router();
 
-/** Oxy resolves merged identities; Clarity never copies the employer's mutable profile. */
-async function canonicalEmployerId(accountId: string, res: Response): Promise<string | null> {
-  try {
-    const organization = await oxyClient.organizations.get(accountId);
-    if (organization.status !== 'active' && organization.status !== 'inactive') {
-      error(res, 422, 'invalid_employer', 'Choose an available organization');
-      return null;
-    }
-    return organization.accountId;
-  } catch (err) {
-    if ([403, 404, 410].includes(getErrorStatus(err) ?? 0)) {
-      error(res, 422, 'invalid_employer', 'Choose an available organization');
-      return null;
-    }
-    throw err;
-  }
-}
 function authenticatedUserId(req: Request, res: Response): string | null {
   if (req.user?.id && !req.serviceApp) return req.user.id;
   error(res, 401, 'unauthorized', 'An authenticated user session is required');
@@ -113,55 +100,26 @@ router.use(async (req, res, next) => {
     error(res, 401, 'unauthorized', 'An authenticated user session is required');
     return;
   }
-  const account = req.user.kind
-    ? req.user
-    : await oxyClient.users.get(req.user.id, { cache: false });
-  if (account.kind !== 'personal') {
-    error(res, 403, 'forbidden', 'Experience belongs to personal accounts');
-    return;
-  }
+  await requirePersonalAccount(
+    req.user.id,
+    typeof req.user.kind === 'string' ? req.user.kind : undefined,
+  );
   next();
 });
 router.post('/', async (req, res) => {
   const userId = authenticatedUserId(req, res);
   if (!userId) return;
-  const result = validateExperienceInput(req.body);
-  if (!result.success) {
-    const malformed = result.issues.some(
-      (issue) => issue.code === 'invalid_type' || issue.code === 'unrecognized_keys',
-    );
-    error(
-      res,
-      malformed ? 400 : 422,
-      malformed ? 'bad_request' : 'validation_failed',
-      'Check the experience fields',
-    );
-    return;
-  }
-  const employerOxyAccountId = await canonicalEmployerId(result.data.employerOxyAccountId, res);
-  if (!employerOxyAccountId) return;
-  res.status(201).json(await createExperience(userId, { ...result.data, employerOxyAccountId }));
+  const input = parseExperienceInput(req.body);
+  const employerOxyAccountId = await canonicalEmployerId(input.employerOxyAccountId);
+  res.status(201).json(await createExperience(userId, { ...input, employerOxyAccountId }));
 });
 router.put('/:id', async (req, res) => {
   const userId = authenticatedUserId(req, res);
   if (!userId) return;
-  const result = validateExperienceInput(req.body);
-  if (!result.success) {
-    const malformed = result.issues.some(
-      (issue) => issue.code === 'invalid_type' || issue.code === 'unrecognized_keys',
-    );
-    error(
-      res,
-      malformed ? 400 : 422,
-      malformed ? 'bad_request' : 'validation_failed',
-      'Check the experience fields',
-    );
-    return;
-  }
-  const employerOxyAccountId = await canonicalEmployerId(result.data.employerOxyAccountId, res);
-  if (!employerOxyAccountId) return;
+  const input = parseExperienceInput(req.body);
+  const employerOxyAccountId = await canonicalEmployerId(input.employerOxyAccountId);
   const entry = await updateExperience(userId, String(req.params.id), {
-    ...result.data,
+    ...input,
     employerOxyAccountId,
   });
   if (!entry) {
@@ -186,17 +144,9 @@ router.delete('/:id', async (req, res) => {
   res.status(204).end();
 });
 const handleError: ErrorRequestHandler = (err, _req, res, _next) => {
-  if (err instanceof ExperienceLimitError) {
-    error(
-      res,
-      422,
-      'experience_limit_reached',
-      'A profile can have at most 100 experience entries',
-    );
-    return;
-  }
-  if (err instanceof ExperienceAccountErasedError) {
-    error(res, 403, 'forbidden', 'This account has been erased');
+  const refusal = experienceWriteError(err);
+  if (refusal) {
+    error(res, refusal.status, refusal.code, refusal.message);
     return;
   }
   log.general.error({ err }, 'Experience request failed');

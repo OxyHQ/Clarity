@@ -1,7 +1,7 @@
 {
   "name": "@clarity/backend",
   "version": "1.0.0",
-  "description": "Clarity product API and Alia agent client",
+  "description": "Clarity product API and capability catalogue",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -22,15 +22,16 @@
     "db:attest-cutover": "bun src/db/attest-cutover.ts",
     "db:attest-fresh-install": "bun src/db/attest-fresh-install.ts",
     "import:oxy-link-previews": "bun src/scripts/import-oxy-link-previews.ts",
-    "agent:bootstrap-manifest": "bun src/scripts/render-clarity-agent-bootstrap.ts",
     "places:import": "bun src/scripts/import-geonames-places.ts"
   },
   "dependencies": {
     "@clarity/shared-types": "workspace:*",
     "@kaana.ai/sdk": "1.0.1",
     "@mozilla/readability": "^0.6.0",
-    "@oxy.so/core": "4.17.0",
+    "@oxy.so/contracts": "4.24.0",
+    "@oxy.so/core": "4.21.0",
     "@oxy.so/db": "^1.0.0",
+    "@oxy.so/mcp": "1.3.0",
     "@oxy.so/utils": "^1.2.0",
     "@socket.io/redis-adapter": "^8.3.0",
     "cheerio": "^1.2.0",

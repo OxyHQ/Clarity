@@ -1,36 +1,37 @@
 # Clarity product API
 
-Express API for Clarity-owned state and the fixed Alia agent boundary.
+Express API for Clarity's own product: search, Jobs, places, market, news,
+Experience, notifications, feedback, suggestions, plans, subscriptions and
+entitlements — and the capability catalogue through which Clarity's assistant
+reaches all of it.
 
 ## Runtime ownership
 
-- PostgreSQL/Drizzle: conversations, messages, suggestions, feedback,
-  notifications, product catalogue, subscriptions and entitlements.
-- Alia: agent execution, tools, research, citations, credits and telemetry.
-- Oxy: identity, inference accounting and exact route authorization/order.
+- PostgreSQL/Drizzle: the search index and Jobs, suggestions, feedback,
+  notifications, experience, product catalogue, subscriptions and entitlements.
+- Alia: Clarity's assistant is an ordinary Alia agent, opened by the frontend
+  through `@alia.onl/sdk` under the person's own session and paid by the
+  person's Alia credits. Its conversations, memory, credits and telemetry are
+  Alia's. This backend never calls Alia.
+- Oxy: identity, capability tickets, inference accounting and route authorization.
 - Kaana: adapters, provider-key custody and execution/failover within Oxy's
-  signed order.
+  signed order. Clarity's one inference call is search embeddings on
+  `https://kaana.ai/v1`; it never stores provider keys or uses an `oxy.so` alias.
 
-Kaana is the only hosted inference data plane and its only canonical signed
-origin is `https://kaana.ai`. Clarity never stores provider keys, addresses
-Kaana directly or uses an `oxy.so` alias for it. Its Oxy backend credential is
-a product-service identity, not a provider credential.
+## Capability catalogue
 
-The two chat entry points use the same handler:
+`src/capabilities/` declares what a signed-in person can do in Clarity as
+tools (`clarity.catalog.ts`) and serves them on two lanes from this process:
 
-- `POST /clarity/search`
-- `POST /v1/chat/completions`
+- `POST /_oxy/mcp` on `api.clarity.surf` — Alia, with Oxy capability tickets
+  verified live (JWKS signature, then introspection) and audited;
+- `/mcp` on `mcp.clarity.surf` — any OAuth MCP client, acting as the
+  connection's active account.
 
-Only an authenticated Oxy user can invoke product chat. Clarity does not
-forward that bearer: it calls Alia with its exact backend service credential
-and `X-Oxy-User-Id`. The separate internal-trigger route remains `503` because
-machine-triggered product work has no approved requester contract.
-
-Memory, agent audit, authenticated triggers and the two channel-link endpoints
-used by Clarity are fixed, allowlisted proxies into Alia. They never accept a
-caller-supplied upstream URL. Alia returns its own webhook URL and validates
-webhook tokens, signatures and source IPs at that origin; Clarity does not
-forward webhook ingestion.
+Both are mounted before CORS, the body parsers and runtime readiness. The
+catalogue registers itself at startup; until Oxy accepts it `/_oxy/mcp`
+answers 503 and retries. The effective account comes only from the verified
+ticket or OAuth connection. Bump `version` with any tool change.
 
 ## Development
 
@@ -42,8 +43,8 @@ bun run build
 ```
 
 The service does not start without `DATABASE_URL`. `/health/live` proves only
-process liveness; `/health/ready` requires PostgreSQL, an attested cutover, the
-canonical Alia agent and the exact backend service configuration.
+process liveness; `/health/ready` requires PostgreSQL, an attested cutover and
+an attestable backend service identity.
 All product HTTP routes and Socket.IO handshakes enforce that same gate.
 
 Database scripts:

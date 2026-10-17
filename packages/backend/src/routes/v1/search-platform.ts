@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
@@ -10,7 +10,6 @@ import {
   jobFeeds,
   searchDocuments,
   searchSites,
-  searchChunks,
   searchUsageRollups,
 } from '../../db/schema/index.js';
 import {
@@ -27,23 +26,21 @@ import {
   SANDBOX_QUOTAS,
   type QuotaMetric,
 } from '../../search/quotas.js';
-import { embedQuery } from '../../search/chunking.js';
-import { discoverWeb, recordDiscoveredPages } from '../../search/web-discovery.js';
+import {
+  findDocument,
+  findDocumentByUrl,
+  SearchError,
+  searchIndex,
+  searchSchema,
+} from '../../search/document-search.js';
 import {
   answeredToAny,
   iconHostsOf,
   publicDocument,
-  searchResult,
   type DocumentRow,
 } from '../../search/public-document.js';
 import { listNewsStories } from '../../search/news.js';
-import {
-  decodeSearchCursor,
-  encodeSearchCursor,
-  escapeLike,
-  publicUrlSchema,
-} from '../../search/query-primitives.js';
-import { CLARITY_JOBS_CAPABILITY } from '../../search/jobs/capability.js';
+import { publicUrlSchema } from '../../search/query-primitives.js';
 import {
   JobsError,
   getJobPostingById,
@@ -72,41 +69,6 @@ const router = Router();
 router.use(authenticateResource);
 router.use(requireResourceRequestRate);
 
-const documentTypes = [
-  'page',
-  'article',
-  'news',
-  'job',
-  'product',
-  'video',
-  'event',
-  'recipe',
-  'profile',
-  'documentation',
-  'other',
-] as const;
-const searchSchema = z.object({
-  query: z.string().trim().min(1).max(500),
-  mode: z.enum(['lexical', 'semantic', 'hybrid']).default('hybrid'),
-  types: z.array(z.enum(documentTypes)).max(documentTypes.length).optional(),
-  domains: z
-    .array(
-      z
-        .string()
-        .trim()
-        .max(253)
-        .regex(
-          /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i,
-        ),
-    )
-    .max(50)
-    .optional(),
-  language: z.string().max(35).optional(),
-  publishedAfter: z.coerce.date().optional(),
-  publishedBefore: z.coerce.date().optional(),
-  limit: z.number().int().min(1).max(100).default(20),
-  cursor: z.string().optional(),
-});
 const urlsSchema = z.object({ urls: z.array(publicUrlSchema).min(1).max(50) });
 const resolveSchema = urlsSchema.extend({ waitMs: z.number().int().min(0).max(10_000).optional() });
 const createSiteSchema = z.object({
@@ -115,13 +77,6 @@ const createSiteSchema = z.object({
   sitemapUrls: z.array(z.string().url()).max(20).default([]),
   feedUrls: z.array(z.string().url()).max(20).default([]),
 });
-
-/**
- * How long a search waits for its query embedding. The embedding call's own
- * default (30 s) is sized for indexing; a search that has not got one by now
- * ranks lexically and says so (`degraded`), as it does when the route fails.
- */
-const QUERY_EMBEDDING_TIMEOUT_MS = 2_500;
 
 router.post('/search', requireResourceScope('clarity:search'), async (req, res) => {
   const input = parse(searchSchema, req, res);
@@ -140,172 +95,16 @@ router.post('/search', requireResourceScope('clarity:search'), async (req, res) 
     );
     return;
   }
-  let queryEmbedding: number[] | undefined;
-  let degraded:
-    | { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' }
-    | undefined;
-  if (input.mode !== 'lexical') {
-    queryEmbedding = await embedQuery(input.query, AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS));
-    if (!queryEmbedding) {
-      if (input.mode === 'semantic') {
-        sendError(
-          res,
-          503,
-          'semantic_unavailable',
-          'Semantic search is temporarily unavailable',
-          req,
-        );
-        return;
-      }
-      degraded = { from: 'hybrid', to: 'lexical', reason: 'embedding_route_unavailable' };
+  try {
+    res.json(await searchIndex(input));
+  } catch (error) {
+    if (error instanceof SearchError) {
+      sendError(res, error.status, error.code, error.message, req);
+      return;
     }
+    throw error;
   }
-  const offset = decodeSearchCursor(input.cursor);
-  if (offset === undefined) {
-    sendError(res, 400, 'invalid_cursor', 'The search cursor is invalid', req);
-    return;
-  }
-  const ranks = await rankedSearch(input, queryEmbedding, offset);
-  const ids = ranks.slice(0, input.limit).map((row) => row.documentId);
-  const documents = ids.length
-    ? await getDb().select().from(searchDocuments).where(inArray(searchDocuments.id, ids))
-    : [];
-  const documentsById = new Map(documents.map((row) => [row.id, row]));
-  const data = ranks.slice(0, input.limit).flatMap((rank) => {
-    const row = documentsById.get(rank.documentId);
-    return row ? [{ row, score: Number(rank.score) }] : [];
-  });
-  // What the index could not fill on the first page, the public web does. Not
-  // for a type or date filter: a search engine's snippet can honour neither.
-  const discoverable =
-    offset === 0 &&
-    data.length < input.limit &&
-    !input.types?.length &&
-    !input.publishedAfter &&
-    !input.publishedBefore;
-  if (discoverable) {
-    const seen = new Set(data.map((result) => result.row.canonicalUrl));
-    const pages = await discoverWeb({
-      query: input.query,
-      language: input.language,
-      domains: input.domains,
-      limit: input.limit,
-    });
-    const discovered = await recordDiscoveredPages(
-      getDb(),
-      pages.filter((page) => !seen.has(page.canonicalUrl)),
-    );
-    // Below every indexed match: the index read the page, the engines did not.
-    data.push(...discovered.slice(0, input.limit - data.length).map((row) => ({ row, score: 0 })));
-  }
-  const icons = await iconHostsOf(data.map((result) => result.row));
-  res.json({
-    data: data.map((result) => searchResult(result.row, result.score, icons)),
-    mode: input.mode,
-    ...(degraded ? { degraded } : {}),
-    ...(ranks.length > input.limit ? { nextCursor: encodeSearchCursor(offset + input.limit) } : {}),
-  });
 });
-
-export type SearchInput = z.infer<typeof searchSchema>;
-
-/** The ranking behind `POST /v1/search`; exported for its Postgres suite. */
-export async function rankedSearch(
-  input: SearchInput,
-  embedding: number[] | undefined,
-  offset: number,
-) {
-  const filters: SQL[] = [
-    sql`${searchDocuments.status} = 'indexed'`,
-    sql`${searchDocuments.noindex} = false`,
-  ];
-  if (input.types?.length)
-    filters.push(
-      sql`${searchDocuments.documentType} in (${sql.join(
-        input.types.map((type) => sql`${type}`),
-        sql`, `,
-      )})`,
-    );
-  if (input.language) filters.push(sql`${searchDocuments.language} = ${input.language}`);
-  // A raw `sql` parameter carries no column type, so bind timestamps as ISO
-  // text with an explicit cast rather than handing the driver a Date.
-  if (input.publishedAfter)
-    filters.push(
-      sql`${searchDocuments.publishedAt} >= ${input.publishedAfter.toISOString()}::timestamptz`,
-    );
-  if (input.publishedBefore)
-    filters.push(
-      sql`${searchDocuments.publishedAt} <= ${input.publishedBefore.toISOString()}::timestamptz`,
-    );
-  if (input.domains?.length) {
-    const domains = input.domains.map((domain) =>
-      new URL(`https://${domain}`).hostname.toLowerCase(),
-    );
-    filters.push(
-      sql`(${sql.join(
-        domains.map(
-          (domain) =>
-            sql`${searchDocuments.canonicalUrl} like ${`%://${escapeLike(domain)}/%`} escape '\\'`,
-        ),
-        sql` or `,
-      )})`,
-    );
-  }
-  const where = sql.join(filters, sql` and `);
-  // Candidates first, one indexed arm each — the chunks' full-text index and
-  // the title trigram index — and only those documents are scored. Written as
-  // one join filtered by an OR across both tables, no index could serve it:
-  // every chunk of every document was scored, and a search took 18 s.
-  //
-  // The description takes no part, as an arm or in the score. Descriptions
-  // average ~1.7k characters (whole listings): trigram similarity against text
-  // that long matches almost every row and ranks nothing, and computing it cost
-  // seconds; the text they hold is already in the chunks the full-text arm reads.
-  //
-  // Both rankings group by the DOCUMENT's primary key, not the chunk's foreign
-  // key: the score reads the document's title and description, which Postgres
-  // accepts ungrouped only when they depend on a grouped primary key.
-  const tsquery = sql`websearch_to_tsquery('simple', ${input.query})`;
-  const lexical = sql`
-    with candidates as (
-      select ${searchChunks.documentId} as id from ${searchChunks} where ${searchChunks.searchVector} @@ ${tsquery}
-      union
-      select ${searchDocuments.id} from ${searchDocuments} where ${searchDocuments.title} % ${input.query}
-    )
-    select ${searchDocuments.id} as document_id,
-      row_number() over (order by coalesce(max(ts_rank_cd(${searchChunks.searchVector}, ${tsquery})), 0) + similarity(coalesce(${searchDocuments.title}, ''), ${input.query}) desc, ${searchDocuments.id}) as rank
-    from candidates
-    inner join ${searchDocuments} on ${searchDocuments.id} = candidates.id
-    left join ${searchChunks} on ${searchChunks.documentId} = ${searchDocuments.id} and ${searchChunks.searchVector} @@ ${tsquery}
-    where ${where}
-    group by ${searchDocuments.id}
-    order by rank limit 100`;
-  const semantic = embedding
-    ? sql`
-    select ${searchDocuments.id} as document_id,
-      row_number() over (order by min(${searchChunks.embedding} <=> ${JSON.stringify(embedding)}::vector) asc, ${searchDocuments.id}) as rank
-    from ${searchChunks} inner join ${searchDocuments} on ${searchDocuments.id} = ${searchChunks.documentId}
-    where ${where} and ${searchChunks.embedding} is not null
-    group by ${searchDocuments.id}
-    order by rank limit 100`
-    : undefined;
-  const statement =
-    input.mode === 'hybrid' && semantic
-      ? sql`
-    with lexical as (${lexical}), semantic as (${semantic}), fused as (
-      select coalesce(lexical.document_id, semantic.document_id) as document_id,
-        coalesce(1.0 / (60 + lexical.rank), 0) + coalesce(1.0 / (60 + semantic.rank), 0) as score
-      from lexical full outer join semantic on lexical.document_id = semantic.document_id
-    ) select document_id as "documentId", score from fused order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
-      : input.mode === 'semantic' && semantic
-        ? sql`
-    with semantic as (${semantic}) select document_id as "documentId", 1.0 / (60 + rank) as score
-    from semantic order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
-        : sql`
-    with lexical as (${lexical}) select document_id as "documentId", 1.0 / (60 + rank) as score
-    from lexical order by score desc, document_id limit ${input.limit + 1} offset ${offset}`;
-  return getDb().execute<{ documentId: string; score: number }>(statement);
-}
 
 router.post('/index/urls', requireResourceScope('clarity:index'), async (req, res) => {
   const input = parse(urlsSchema, req, res);
@@ -435,29 +234,21 @@ router.get('/documents/by-url', requireResourceScope('clarity:search'), async (r
     sendError(res, 400, 'invalid_request', 'url must be a public HTTP(S) URL', req);
     return;
   }
-  const [row] = await getDb()
-    .select()
-    .from(searchDocuments)
-    .where(eq(searchDocuments.canonicalUrl, url.data))
-    .limit(1);
-  if (!row) {
+  const document = await findDocumentByUrl(url.data);
+  if (!document) {
     sendError(res, 404, 'document_not_found', 'Document not found', req);
     return;
   }
-  res.json(publicDocument(row, await iconHostsOf([row])));
+  res.json(document);
 });
 
 router.get('/documents/:id', requireResourceScope('clarity:search'), async (req, res) => {
-  const [row] = await getDb()
-    .select()
-    .from(searchDocuments)
-    .where(eq(searchDocuments.id, String(req.params.id)))
-    .limit(1);
-  if (!row) {
+  const document = await findDocument(String(req.params.id));
+  if (!document) {
     sendError(res, 404, 'document_not_found', 'Document not found', req);
     return;
   }
-  res.json(publicDocument(row, await iconHostsOf([row])));
+  res.json(document);
 });
 
 router.get('/news', requireResourceScope('clarity:search'), async (req, res) => {
@@ -689,10 +480,6 @@ router.post('/jobs/search', requireResourceScope('clarity:search'), async (req, 
     sendJobsError(error, req, res);
   }
 });
-
-router.get('/jobs/capability', requireResourceScope('clarity:search'), (_req, res) =>
-  res.json(CLARITY_JOBS_CAPABILITY),
-);
 
 router.get('/jobs/stats', requireResourceScope('clarity:search'), async (_req, res) =>
   res.json(await jobCorpusStats()),

@@ -4,8 +4,6 @@ import { dirname, isAbsolute, relative, resolve } from 'node:path';
 import { z } from 'zod';
 
 export const LOCAL_TARGETS = [
-  'clarity_conversations',
-  'clarity_messages',
   'clarity_suggestions',
   'clarity_plans',
   'clarity_features',
@@ -42,16 +40,24 @@ const externalDispositionSchema = z.object({
   receipt: receiptSchema,
 });
 
+/**
+ * A source collection the owner decided not to carry over (2026-10-16: Clarity's
+ * own conversations and messages; the person's conversations are Alia's). It is
+ * still enumerated and counted, so the inventory stays complete.
+ */
+const discardedDispositionSchema = z.object({
+  kind: z.literal('discarded'),
+});
+
 const collectionSchema = z.object({
   sourceName: z.string().min(1).max(200),
   sourceCount: z.number().int().nonnegative(),
   sourceIdSha256: sha256Schema,
-  disposition: z.discriminatedUnion('kind', [localDispositionSchema, externalDispositionSchema]),
-});
-
-const runtimeReceiptSchema = z.object({
-  receiptId: z.string().min(1).max(500),
-  verifiedAt: z.iso.datetime({ offset: true }),
+  disposition: z.discriminatedUnion('kind', [
+    localDispositionSchema,
+    externalDispositionSchema,
+    discardedDispositionSchema,
+  ]),
 });
 
 export const cutoverManifestSchema = z.object({
@@ -64,13 +70,6 @@ export const cutoverManifestSchema = z.object({
     inventorySha256: sha256Schema,
   }),
   collections: z.array(collectionSchema).min(1),
-  runtimeEvidence: z.object({
-    aliaAgentIdSha256: sha256Schema,
-    aliaAgentChat: runtimeReceiptSchema,
-    oxyInference: runtimeReceiptSchema,
-    kaanaRoute: runtimeReceiptSchema,
-    billingCreditGrant: runtimeReceiptSchema,
-  }),
 });
 
 export type CutoverManifest = z.infer<typeof cutoverManifestSchema>;
@@ -151,20 +150,6 @@ export function validateCutoverManifest(value: unknown): CutoverManifest {
       if (Date.parse(item.disposition.receipt.completedAt) < exportedAt) {
         throw new Error(`${item.sourceName} external receipt predates the source snapshot`);
       }
-    }
-  }
-
-  const runtimeReceipts = Object.values(manifest.runtimeEvidence).filter(
-    (value): value is { receiptId: string; verifiedAt: string } =>
-      typeof value === 'object' && value !== null && 'receiptId' in value && 'verifiedAt' in value,
-  );
-  const runtimeReceiptIds = runtimeReceipts.map((receipt) => receipt.receiptId);
-  if (new Set(runtimeReceiptIds).size !== runtimeReceiptIds.length) {
-    throw new Error('runtime evidence receipt IDs must be unique');
-  }
-  for (const receipt of runtimeReceipts) {
-    if (Date.parse(receipt.verifiedAt) < exportedAt) {
-      throw new Error(`${receipt.receiptId} runtime evidence predates the source snapshot`);
     }
   }
 

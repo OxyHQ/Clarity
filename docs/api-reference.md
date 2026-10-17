@@ -2,8 +2,9 @@
 
 The source of truth is the mounted routers in `packages/backend/src/index.ts`.
 Examples below require an Oxy user session unless marked public.
-Except for health, every route remains `503` until the PostgreSQL snapshot and
-exact Clarity Alia agent identity have been attested.
+Except for health, the account-event webhook and the two MCP lanes, every route
+remains `503` until the PostgreSQL snapshot has been attested and the process can
+attest its Oxy service identity.
 
 ## SDK favicon resolution
 
@@ -25,20 +26,18 @@ is needed.
 
 - `GET /`
 - `GET /health`, `GET /health/live`, `GET /health/ready`
-- `GET /v1/models`, `GET /v1/models/:modelId`
-- `GET /models/stats`, `GET /models/stats/:modelId`
 - `GET /notifications/vapid-public-key`
 
-## Chat
+## Capability catalogue (MCP)
 
-- `POST /v1/chat/completions`
-- `POST /clarity/search`
+- `POST /_oxy/mcp` on `api.clarity.surf` — Alia, with an Oxy capability ticket
+  (`Authorization: Capability <ticket>`), verified live and audited.
+- `/mcp` and `/.well-known/oauth-protected-resource` on `mcp.clarity.surf` — any
+  OAuth MCP client, with Oxy as the authorization server.
 
-Both call the same fixed Clarity agent in Alia. Clarity authenticates the human
-at its edge, then calls Alia with the dedicated Clarity backend service token
-and `X-Oxy-User-Id`. The browser bearer is never forwarded. Client-provided
-agent IDs, modes, skills, MCP servers, fallback/reasoning controls and
-system/tool roles are rejected.
+The tools, their account rule and the plan-feature gates are in
+[Clarity's assistant](assistant). There is no chat endpoint: the conversation is
+the person's, in Alia.
 
 ## Search platform and Jobs
 
@@ -85,8 +84,8 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   crawl/index work. This namespace used to be `/v1/jobs`; `jobs` now means
   employment everywhere, and `ResolveResult.jobId` is `operationId`.
 - `POST /v1/jobs/search`, `GET /v1/jobs/:id`, `GET /v1/jobs/by-url`,
-  `POST /v1/jobs/:id/report`, `GET /v1/jobs/stats`, `GET /v1/jobs/capability` —
-  employment search (`clarity:search`).
+  `POST /v1/jobs/:id/report`, `GET /v1/jobs/stats` — employment search
+  (`clarity:search`).
 - `POST /v1/jobs/ingest` — the publisher boundary (`clarity:index`). A
   structured `JobPosting` payload requires a verified site for the URL's host.
 - `GET/POST /v1/jobs/feeds`, `DELETE /v1/jobs/feeds/:id` (`clarity:index`) —
@@ -105,8 +104,9 @@ Credentialed `/v1` routes under their own scope, `clarity:market`:
 - `GET /v1/market/capability` — what the surface can and cannot answer.
 
 The scope is deliberately not `clarity:search`: quotes are neither indexed by
-Clarity nor billable as searches, and neither consumer — Clarity's Finance page
-or Alia's tool layer — should need a corpus-search credential to read a price.
+Clarity nor billable as searches, and no consumer should need a corpus-search
+credential to read a price. A person's agent reads quotes through the
+catalogue's `getMarketQuotes`.
 
 Crypto comes from CoinGecko and FairCoin from the FairCoin explorer, both public
 and keyless, so no provider credential is held here. **Equities are not served.**
@@ -142,7 +142,7 @@ public door falls back to every language when those have no news.
 
 The unauthenticated portal surface behind `clarity.surf/jobs` mirrors the read
 routes at `POST /jobs/search`, `GET /jobs/:id`, `GET /jobs/by-url`,
-`POST /jobs/:id/report`, `GET /jobs/stats` and `GET /jobs/capability`. It
+`POST /jobs/:id/report` and `GET /jobs/stats`. It
 carries no user identity by
 design, so searching or viewing a listing never discloses a named user to an
 employer. See [Clarity Jobs](jobs) for the ranking contract, lifecycle policy
@@ -150,42 +150,15 @@ and deduplication rules.
 
 ## Product persistence
 
-- conversations: list, get, create/save, vote and delete under `/conversations`
-- suggestions: list, welcome, create, update, delete, search and usage under `/suggestions`
+- suggestions: list, welcome, create, update, delete, search and usage under
+  `/suggestions`; list, welcome, create and search read the language from the
+  body's `language` (`xx-YY`, default `en-US`)
 - notifications and push registrations under `/notifications`
 - feedback under `/feedback`
-- product plans, subscriptions, portal, webhook and entitlements under `/billing`
+- product plans, subscriptions, portal, webhook and entitlements under
+  `/billing`; `/billing/entitlements` answers `{ features, planId }`
+- `GET /v1/me` — the signed-in person (`id`, `email`, `name`)
 
-These resources use Clarity PostgreSQL.
-
-## Alia-owned accounting
-
-- `/credits` and `/credits/usage`
-- `/analytics/usage`, `/analytics/models`, `/analytics/credits`
-- credit-package/custom-credit checkout and `/billing/transactions`
-
-These routes delegate the authenticated user with Clarity's backend service
-identity. Clarity does not maintain a
-second inference balance or telemetry ledger.
-
-## Alia-owned product runtime
-
-- memory profile, search, import/export and settings under `/memory`
-- agent audit summary, threats and export under `/audit`
-- authenticated trigger CRUD, executions and manual runs under `/triggers`
-- public token check and authenticated account link for the allowlisted
-  Telegram/Discord channel bots under `/bots`
-
-These are explicit, path-by-path proxies and require an Oxy user session. Alia
-returns its own webhook URL so token, HMAC and source-IP validation happens at
-the owning edge without losing request metadata in an intermediary. Clarity does not
-store a second memory, audit or automation ledger, and exposes no catch-all
-channel-webhook endpoint. Stripe product billing remains on its dedicated
-`/billing/webhook` route.
-
-## Compatibility removals
-
-`POST /v1/resolve-model` and `POST /v1/report-usage` return `410`. Routing and
-usage reporting are internal to Alia/Oxy/Kaana. Old Clarity-local developer
-keys are not accepted; machine/service agent calls remain fail closed until the
-Oxy/Alia delegation contract is provisioned.
+These resources use Clarity PostgreSQL. Credits, credit checkout and
+transactions, usage analytics, memory, the agent audit, triggers and channel
+bots are Alia's and are used in Alia; Clarity has no route for any of them.

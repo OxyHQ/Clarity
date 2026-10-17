@@ -28,6 +28,12 @@ function validManifest(): CutoverManifest {
     },
   }));
   collections.push({
+    sourceName: 'source_conversations',
+    sourceCount: 2,
+    sourceIdSha256: sha256('conversation-1\nconversation-2'),
+    disposition: { kind: 'discarded' as const },
+  });
+  collections.push({
     sourceName: 'source_external_history',
     sourceCount: 0,
     sourceIdSha256: EMPTY_ID_SET_SHA256,
@@ -52,13 +58,6 @@ function validManifest(): CutoverManifest {
       inventorySha256: '',
     },
     collections,
-    runtimeEvidence: {
-      aliaAgentIdSha256: sha256('agent-id'),
-      aliaAgentChat: { receiptId: 'chat', verifiedAt: '2026-09-02T00:00:00.000Z' },
-      oxyInference: { receiptId: 'oxy', verifiedAt: '2026-09-02T00:00:00.000Z' },
-      kaanaRoute: { receiptId: 'kaana', verifiedAt: '2026-09-02T00:00:00.000Z' },
-      billingCreditGrant: { receiptId: 'billing', verifiedAt: '2026-09-02T00:00:00.000Z' },
-    },
   };
   manifest.snapshot.inventorySha256 = sha256(canonicalJson(inventoryPayload(manifest)));
   return manifest;
@@ -67,7 +66,7 @@ function validManifest(): CutoverManifest {
 describe('cutover manifest', () => {
   it('requires every local target exactly once and a content-bound inventory', () => {
     expect(validateCutoverManifest(validManifest()).collections).toHaveLength(
-      LOCAL_TARGETS.length + 1,
+      LOCAL_TARGETS.length + 2,
     );
 
     const missing = validManifest();
@@ -108,15 +107,14 @@ describe('cutover manifest', () => {
     expect(() => validateCutoverManifest(manifest)).toThrow('predates the source snapshot');
   });
 
-  it('rejects stale or reused runtime evidence', () => {
-    const stale = validManifest();
-    stale.runtimeEvidence.aliaAgentChat.verifiedAt = '2026-09-01T23:59:59.999Z';
-    expect(() => validateCutoverManifest(stale)).toThrow('runtime evidence predates');
-
-    const duplicate = validManifest();
-    duplicate.runtimeEvidence.oxyInference.receiptId =
-      duplicate.runtimeEvidence.aliaAgentChat.receiptId;
-    expect(() => validateCutoverManifest(duplicate)).toThrow('receipt IDs must be unique');
+  it('counts a discarded collection in the inventory without a Clarity target', () => {
+    const manifest = validManifest();
+    expect(LOCAL_TARGETS).not.toContain('clarity_conversations');
+    expect(LOCAL_TARGETS).not.toContain('clarity_messages');
+    const discarded = manifest.collections.find((item) => item.disposition.kind === 'discarded');
+    expect(discarded?.sourceCount).toBe(2);
+    discarded!.sourceCount = 3;
+    expect(() => validateCutoverManifest(manifest)).toThrow('inventory hash does not match');
   });
 
   it('rejects data files that escape through a symlink', () => {
