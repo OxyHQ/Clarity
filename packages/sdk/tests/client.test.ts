@@ -130,6 +130,49 @@ describe('ClarityClient', () => {
     expect(results.data[0]).not.toHaveProperty('sponsored');
   });
 
+  it('registers a product feed and pages through its records', async () => {
+    const feed = {
+      id: 'feed_1',
+      kind: 'shopify_storefront',
+      identifier: 'shop.example',
+      label: null,
+      enabled: true,
+      pollIntervalSeconds: 21600,
+      lastPolledAt: null,
+      lastStatus: null,
+      lastError: null,
+      lastCompletedAt: null,
+      recordsSeen: 0,
+      meta: null,
+    };
+    const respond = (body: unknown) =>
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(respond(feed))
+      .mockResolvedValueOnce(respond({ feed, records: [], nextCursor: null }));
+    const client = new ClarityClient({
+      apiKey: 'oxy_sk_test',
+      baseUrl: 'https://clarity.test',
+      fetch: fetcher,
+    });
+
+    const registered = await client.productFeeds.register({
+      kind: 'shopify_storefront',
+      identifier: 'Shop.Example',
+    });
+    await client.productFeeds.records(registered.id, { cursor: 'abc', limit: 100 });
+
+    expect(fetcher.mock.calls[0][0]).toBe('https://clarity.test/v1/product-feeds');
+    expect(fetcher.mock.calls[0][1]?.method).toBe('PUT');
+    expect(fetcher.mock.calls[1][0]).toBe(
+      'https://clarity.test/v1/product-feeds/feed_1/records?cursor=abc&limit=100',
+    );
+  });
+
   it('hands a newly published listing to Clarity through jobs.ingest', async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(

@@ -260,6 +260,13 @@
       "when": 1792237070348,
       "tag": "0036_job_document_retention_index",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792238869246,
+      "tag": "0037_product_feeds",
+      "breakpoints": true
     }
   ]
 }

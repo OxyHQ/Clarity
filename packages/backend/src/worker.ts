@@ -22,6 +22,7 @@ import {
   pruneInactiveJobDocuments,
 } from './search/jobs/projection.js';
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
+import { pollDueProductFeeds } from './search/products/feeds/feeds.js';
 import { answeredToAny } from './search/public-document.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
@@ -781,6 +782,29 @@ async function runFeedLoop(isStopping: () => boolean): Promise<void> {
   }
 }
 
+/**
+ * Product feeds walk whole shop catalogues at a polite pace — minutes for a
+ * large store or a Steam market — so they get a loop of their own and never
+ * hold up job feeds. Claimed under SKIP LOCKED like job feeds.
+ */
+async function runProductFeedLoop(isStopping: () => boolean): Promise<void> {
+  while (!isStopping()) {
+    let idle = true;
+    try {
+      const feeds = await pollDueProductFeeds();
+      idle = feeds.polled + feeds.failed === 0;
+      if (!idle) console.info('Product feeds polled', feeds);
+    } catch (error) {
+      console.error('Product feed polling failed', {
+        error: error instanceof Error ? error.message : 'unknown feed failure',
+      });
+    }
+    for (let waited = 0; idle && waited < feedIdleMs && !isStopping(); waited += 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+}
+
 function header(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -805,6 +829,7 @@ async function main() {
     stopping = true;
   });
   const feedLoop = runFeedLoop(() => stopping);
+  const productFeedLoop = runProductFeedLoop(() => stopping);
   while (!stopping) {
     if (Date.now() >= nextAccountEventSyncAt) {
       nextAccountEventSyncAt = Date.now() + 60_000;
@@ -835,6 +860,7 @@ async function main() {
     else await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   await feedLoop;
+  await productFeedLoop;
   await activity?.stop();
   await closePostgres();
 }

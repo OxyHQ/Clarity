@@ -1391,6 +1391,88 @@ export const jobFeedListings = pgTable(
 );
 
 /**
+ * Public shop catalogues Clarity polls for products — Oxy's ONE crawler of
+ * stores (`docs/product-feeds.mdx`).
+ *
+ * Clarity fetches and keeps the SOURCE DOCUMENTS (a Shopify store's
+ * `/meta.json` and each `/products.json` product, a Steam search row) under
+ * robots.txt, its own agent and a polite pace; the commerce reading of them is
+ * Mercaria's, which pulls them through `@clarity.surf/sdk`. A feed is a row, not
+ * a deploy, and holds no credential: every kind is a public endpoint.
+ */
+export const productFeeds = pgTable(
+  'clarity_product_feeds',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind').notNull(),
+    /** A store domain (`shopify_storefront`) or a market country (`steam_store`). */
+    identifier: text('identifier').notNull(),
+    label: text('label'),
+    enabled: boolean('enabled').notNull().default(true),
+    pollIntervalSeconds: integer('poll_interval_seconds').notNull().default(21600),
+    nextPollAt: timestamp('next_poll_at', { withTimezone: true }).notNull().defaultNow(),
+    lastPolledAt: timestamp('last_polled_at', { withTimezone: true }),
+    lastStatus: text('last_status'),
+    lastError: text('last_error'),
+    /** The feed-level document: a store's `/meta.json`, a Steam market's terms. */
+    meta: jsonb('meta'),
+    /** Where an unfinished walk resumes, or null when the last walk reached the end. */
+    cursor: text('cursor'),
+    /** When the walk in progress began: records not seen since are pruned when it completes. */
+    walkStartedAt: timestamp('walk_started_at', { withTimezone: true }),
+    /** When a walk last reached the end: until then, a consumer is reading a partial catalogue. */
+    lastCompletedAt: timestamp('last_completed_at', { withTimezone: true }),
+    recordsSeen: integer('records_seen').notNull().default(0),
+    ...timestampColumns(),
+  },
+  (table) => [
+    unique('clarity_product_feeds_kind_identifier_unique').on(table.kind, table.identifier),
+    index('clarity_product_feeds_due_idx').on(table.enabled, table.nextPollAt),
+    check(
+      'clarity_product_feeds_kind_check',
+      sql`${table.kind} in ('shopify_storefront', 'steam_store')`,
+    ),
+    check(
+      'clarity_product_feeds_status_check',
+      sql`${table.lastStatus} is null or ${table.lastStatus} in ('ok', 'error')`,
+    ),
+    check('clarity_product_feeds_interval_check', sql`${table.pollIntervalSeconds} >= 3600`),
+    check('clarity_product_feeds_records_check', sql`${table.recordsSeen} >= 0`),
+  ],
+);
+
+/**
+ * The current source document of each product a feed lists, keyed by the
+ * source's own id. A walk that reaches the end prunes what it did not see, so a
+ * product the store withdrew stops being served — the consumer's freshness rule
+ * then retires its offer, exactly as if it had read the store itself.
+ */
+export const productFeedRecords = pgTable(
+  'clarity_product_feed_records',
+  {
+    feedId: text('feed_id').notNull(),
+    /** The source's own id: a Shopify product id, a Steam app id. */
+    externalId: text('external_id').notNull(),
+    /** The document exactly as the source served it. */
+    payload: jsonb('payload').notNull(),
+    contentHash: text('content_hash').notNull(),
+    /** When the payload last CHANGED — what a consumer's incremental read keys on. */
+    changedAt: timestamp('changed_at', { withTimezone: true }).notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.feedId, table.externalId] }),
+    // Named: the generated name passes Postgres's 63 characters and is truncated.
+    foreignKey({
+      name: 'clarity_product_feed_records_feed_fk',
+      columns: [table.feedId],
+      foreignColumns: [productFeeds.id],
+    }).onDelete('cascade'),
+    index('clarity_product_feed_records_seen_idx').on(table.feedId, table.lastSeenAt),
+  ],
+);
+
+/**
  * Places — the canonical gazetteer job locations resolve against.
  *
  * Keyed by GeoNames id and populated by `bun run places:import` from the
