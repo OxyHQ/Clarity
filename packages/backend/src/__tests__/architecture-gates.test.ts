@@ -158,7 +158,10 @@ describe('architecture gates', () => {
     expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
     // Clarity's interface is Clarity's; the conversation under it — the stream, the
     // messages, the history — is Alia's runtime, opened with Clarity's agent.
-    const conversation = readFileSync(join(frontendRoot, 'hooks', 'useChatConversation.ts'), 'utf8');
+    const conversation = readFileSync(
+      join(frontendRoot, 'hooks', 'useChatConversation.ts'),
+      'utf8',
+    );
     expect(conversation).toContain('useConversationThread(');
     expect(conversation).toContain('agentId: CLARITY_AGENT_ID');
 
