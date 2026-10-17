@@ -26,7 +26,8 @@
     "user": "User",
     "done": "Done",
     "tryAgain": "Try Again",
-    "retry": "Inténtalo de nuevo"
+    "retry": "Inténtalo de nuevo",
+    "confirm": "Confirmar"
   },
   "login": {
     "title": "Sign in or sign up",
@@ -236,7 +237,8 @@
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "jobs": "Empleo",
-    "askAlia": "Preguntar a Alia"
+    "askAlia": "Preguntar a Alia",
+    "seeAll": "Ver todo"
   },
   "askAlia": {
     "clientContext": "La persona usa Clarity, una aplicación de búsqueda e investigación con IA con citas de fuentes, investigación profunda, un feed Descubrir y un índice público de empleos.",
@@ -434,7 +436,10 @@
     "moreResults": {
       "one": "{{count}} resultado más",
       "other": "{{count}} resultados más"
-    }
+    },
+    "copiedToClipboard": "Copiado al portapapeles",
+    "sendButton": "Enviar",
+    "thanksFeedback": "¡Gracias por tu opinión!"
   },
   "subscribe": {
     "title": "Choose your plan",
@@ -482,7 +487,8 @@
     "confirmDowngrade": "Confirm",
     "upgradeSuccess": "Plan upgraded successfully!",
     "downgradeSuccess": "Plan changed successfully.",
-    "failedPlanChange": "Failed to change plan. Please try again."
+    "failedPlanChange": "Failed to change plan. Please try again.",
+    "featureRequiresPlan": "{{feature}} requiere un plan de pago"
   },
   "forgotPassword": {
     "title": "Reset password",
@@ -588,7 +594,24 @@
   },
   "actions": {
     "more": "Más opciones",
-    "like": "Me gusta"
+    "like": "Me gusta",
+    "addAttachment": "Añadir adjunto",
+    "badResponse": "Mala respuesta",
+    "cancelEdit": "Cancelar edición",
+    "collapse": "Contraer",
+    "conversationViews": "Vistas de la conversación",
+    "copy": "Copiar",
+    "download": "Descargar",
+    "expand": "Ampliar",
+    "goodResponse": "Buena respuesta",
+    "openMenu": "Abrir menú",
+    "rewrite": "Reescribir",
+    "scrollToBottom": "Ir al final",
+    "searchModes": "Modos de búsqueda",
+    "share": "Compartir",
+    "stop": "Detener la generación",
+    "voiceInput": "Entrada de voz",
+    "webSearch": "Búsqueda web"
   },
   "profile": {
     "experience": {
@@ -670,5 +693,85 @@
     "error": "No pudimos comprobar la configuración de tu cuenta. Inténtalo de nuevo.",
     "manage": "Ajustes de supervisión",
     "experienceHint": "Puedes gestionar tu propia experiencia laboral. La privacidad y la supervisión de Oxy determinan quién puede verla."
+  },
+  "chatHeader": {
+    "clear": "Borrar",
+    "clearConfirmDescription": "¿Seguro que quieres borrar esta conversación? No se puede deshacer.",
+    "clearConfirmTitle": "Borrar conversación",
+    "clearConversation": "Borrar conversación",
+    "export": "Exportar",
+    "exportComingSoon": "¡Exportar conversaciones llegará pronto!",
+    "help": "Ayuda",
+    "helpComingSoon": "¡La ayuda llegará pronto!",
+    "settings": "Ajustes",
+    "share": "Compartir",
+    "tabAnswer": "Respuesta",
+    "tabLinks": "Enlaces",
+    "tabImages": "Imágenes",
+    "shareCopied": "Enlace copiado: quien lo tenga podrá leer esta búsqueda durante 24 horas",
+    "shareFailed": "No se pudo crear el enlace. Inténtalo de nuevo.",
+    "shareNothingYet": "Pregunta algo primero: todavía no hay nada que compartir"
+  },
+  "models": {
+    "selectModel": "Nivel de potencia"
+  },
+  "modes": {
+    "searchOn": "Se usará la búsqueda web",
+    "searchOff": "Búsqueda web desactivada",
+    "deepResearchOn": "Investigación profunda activada",
+    "deepResearchOff": "Investigación profunda desactivada",
+    "searchLabel": "Búsqueda",
+    "deepResearchLabel": "Investigación profunda"
+  },
+  "powerLevels": {
+    "auto": {
+      "label": "Auto",
+      "description": "Clarity elige la potencia que necesita cada búsqueda"
+    },
+    "instant": {
+      "label": "Instantáneo",
+      "description": "Las respuestas más rápidas"
+    },
+    "medium": {
+      "label": "Medio",
+      "description": "Rápido y capaz"
+    },
+    "high": {
+      "label": "Alto",
+      "description": "Piensa antes de responder"
+    },
+    "xhigh": {
+      "label": "Muy alto",
+      "description": "Piensa más, para preguntas difíciles"
+    },
+    "pro": {
+      "label": "Pro",
+      "description": "Los modelos más capaces"
+    },
+    "ultra": {
+      "label": "Ultra",
+      "description": "La máxima potencia para el trabajo más difícil"
+    }
+  },
+  "usageLimit": {
+    "buyCredits": "Conseguir créditos en Alia",
+    "gotIt": "Entendido",
+    "inputDisabledPlaceholder": "Límite de uso alcanzado",
+    "limitReachedBanner": "Has alcanzado el límite de uso. Mejora tu plan o espera para continuar.",
+    "limitReachedDescription": "Has alcanzado el límite de tu plan. Mejóralo para tener más.",
+    "limitReachedTitle": "Límite alcanzado",
+    "modelLockedDesc": "Mejora tu plan de Clarity para usar este nivel de potencia.",
+    "modelLockedTitle": "Nivel de potencia bloqueado",
+    "outOfCreditsDescription": "Las búsquedas se pagan con tus créditos de Alia. Consigue más en Alia para seguir buscando.",
+    "outOfCreditsTitle": "Sin créditos",
+    "slowDownDescription": "Has alcanzado tu límite de velocidad. Inténtalo de nuevo en {{time}}.",
+    "slowDownGeneric": "Has alcanzado tu límite de velocidad. Inténtalo de nuevo en un momento.",
+    "slowDownTitle": "Más despacio",
+    "tryAgain": "Reintentar",
+    "tryAgainIn": "Reintentar en {{time}}",
+    "upgradePlan": "Mejorar plan"
+  },
+  "welcome": {
+    "suggestionsTitle": "Prueba a preguntar"
   }
 }

@@ -18,7 +18,7 @@
     "build:ios": "eas build --platform ios"
   },
   "dependencies": {
-    "@alia.onl/sdk": "^20.0.0",
+    "@alia.onl/sdk": "^21.2.0",
     "@clarity.surf/sdk": "workspace:*",
     "@clarity/shared-types": "workspace:*",
     "@expo/html-elements": "^57.0.0",

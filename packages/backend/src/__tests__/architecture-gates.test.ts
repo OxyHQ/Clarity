@@ -146,20 +146,21 @@ describe('architecture gates', () => {
     expect(schema).not.toMatch(/clarity_conversations|clarity_messages|model_ids/);
   });
 
-  it('draws every conversation with Alia’s SDK and keeps no chat of its own (Alia ADR 0018/0020)', () => {
+  it('draws its own search page over Alia’s conversation runtime, with no chat backend of its own (Alia ADR 0018/0020)', () => {
     const frontendRoot = join(repoRoot, 'packages', 'frontend');
     const frontendPackage = JSON.parse(readFileSync(join(frontendRoot, 'package.json'), 'utf8'));
     // 19.1.0 is the first SDK that sends the app assertion, without which Alia
-    // cannot tell the assistant is opened inside Clarity (Alia ADR 0021); 20.0.0
-    // draws replies with Bloom's Markdown, which the job listings use too.
-    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('^20.0.0');
+    // cannot tell the assistant is opened inside Clarity (Alia ADR 0021); 21.0.0
+    // labels the conversations Clarity starts; 21.2.0 lets Clarity's pure `lib/`
+    // tell its catalogue's results apart (`@alia.onl/sdk/tools`).
+    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('^21.2.0');
     const agent = readFileSync(join(frontendRoot, 'lib', 'clarity-agent.ts'), 'utf8');
     expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
-    const conversation = readFileSync(
-      join(frontendRoot, 'components', 'chat', 'clarity-conversation.tsx'),
-      'utf8',
-    );
-    expect(conversation).toContain('agent={CLARITY_AGENT}');
+    // Clarity's interface is Clarity's; the conversation under it — the stream, the
+    // messages, the history — is Alia's runtime, opened with Clarity's agent.
+    const conversation = readFileSync(join(frontendRoot, 'hooks', 'useChatConversation.ts'), 'utf8');
+    expect(conversation).toContain('useConversationThread(');
+    expect(conversation).toContain('agentId: CLARITY_AGENT_ID');
 
     const frontend = ['app', 'components', 'hooks', 'lib']
       .flatMap((dir) => filesUnder(join(frontendRoot, dir)))

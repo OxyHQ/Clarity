@@ -16,7 +16,7 @@ import { useMemo } from 'react';
 import { CLARITY_TOOL_RENDERERS } from '@/components/chat/clarity-tool-renderers';
 import { useClarityChatLabels, useFeatureLockedHandler } from '@/hooks/useClarityChat';
 import { useTranslation } from '@/hooks/useTranslation';
-import { CLARITY_ASK_AGENTS } from '@/lib/clarity-agent';
+import { CLARITY_APP, CLARITY_ASK_AGENTS } from '@/lib/clarity-agent';
 import { usePowerLevelStore } from '@/lib/stores/power-level-store';
 
 /** Where the person is, as far as the route says. */
@@ -53,6 +53,7 @@ export function ClarityAskProvider({ children }: { children: React.ReactNode }) 
 
   return (
     <AliaAskProvider
+      app={CLARITY_APP}
       agents={CLARITY_ASK_AGENTS}
       toolRenderers={CLARITY_TOOL_RENDERERS}
       labels={labels}

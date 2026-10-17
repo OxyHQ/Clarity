@@ -5,6 +5,9 @@
  * Alia's agent editor; the only thing pinned here is the id the app opens it by.
  */
 
+/** Clarity's Oxy app slug: the conversations it starts are labelled with it. */
+export const CLARITY_APP = 'clarity';
+
 /** Clarity's Alia agent id. */
 export const CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9';
 

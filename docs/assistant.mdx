@@ -20,26 +20,42 @@ lane of its own, and Clarity's backend never calls Alia.
 No agent asks for approval: its configuration is its permission, and Oxy
 enforces it on every call.
 
-## The conversation is the SDK's
+## Clarity's page, Alia's conversation
 
-The frontend opens the agent through `@alia.onl/sdk` 19 under the person's own
-Oxy session — `AliaChatContent agent={CLARITY_AGENT}` on `/` and `/c/:id`
-(`packages/frontend/components/chat/clarity-conversation.tsx`), and one
-`AliaAskProvider` sheet that opens Alia or Clarity's agent from anywhere. History
-is Alia's list of the person's conversations with that agent
+Clarity's interface is the product, so the search page is Clarity's own: the
+landing and its composer, the search and deep-research modes, the answer with its
+sources and citations, research progress, reasoning, the power level and the
+upsell (`packages/frontend/components/chat-page-content.tsx`,
+`packages/frontend/components/chat-interface.tsx`).
+
+The conversation under it is Alia's. The page reads it through the SDK's
+runtime — `useConversationThread` (`packages/frontend/hooks/useChatConversation.ts`)
+under `ClarityChatRuntime` (`packages/frontend/components/chat/clarity-chat-runtime.tsx`)
+— with Clarity's agent as the lead, under the person's own Oxy session. The
+runtime streams the turn, stores it, sends the app assertion and labels the
+conversation `clarity`; Clarity parses no stream and calls no chat route of its
+own. History is Alia's list of the person's conversations with that agent
 (`useConversations({ agentId })`). Clarity stores no conversation, message,
 memory, credit or usage record; those are the person's, in Alia.
 
-Clarity brings only what is Clarity's:
+What the page sends with each turn comes from Clarity:
 
-- **Cards.** `toolRenderers` keyed `clarity:<tool>` draw catalogue results with
-  Clarity's own components: search sources, news stories, job cards and market
-  quotes (`components/chat/clarity-tool-renderers.tsx`).
-- **Suggestions.** The empty chat offers Clarity's welcome suggestions, the
-  composer completes from Clarity's suggestion search, and a pick is counted
-  (`/suggestions/*`, in the app's language).
-- **The power level** the person picked, offered through the SDK's selector.
-- **The upsell.** `onFeatureLocked` opens Clarity's subscribe screen.
+- **Modes.** Web search (on unless the person turns it off) and deep research,
+  through the runtime's `turnRequest`. Deep research is gated by Clarity's plans.
+- **The power level** the person picked (`components/model-selector.tsx`): one of
+  Alia's seven levels, never a model. A level Clarity's agent gates
+  (`power_level.<level>`) is shown locked when the plan does not unlock it.
+- **The upsell.** A refused gate (`onFeatureLocked`) opens Clarity's subscribe
+  screen; running out of Alia credits points to Alia.
+
+What the page draws comes from Clarity too: the pages Clarity's index returned
+(`oxy_clarity__search`, `getDocument`) are the answer's sources, and jobs, news
+and market quotes are drawn with the cards the product pages use
+(`components/chat/clarity-tool-renderers.tsx`, keyed `clarity:<tool>`). A search
+is shared through Alia (`https://alia.onl/shared/<token>`, 24 hours).
+
+The app's one `AliaAskProvider` sheet still opens Alia or Clarity's agent from
+any page, with the same cards.
 
 ## The capability catalogue
 

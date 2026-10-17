@@ -235,7 +235,7 @@ export default function HistoryScreen() {
       deleteConversation(id, {
         onSuccess: () =>
           queryClient.invalidateQueries({
-            queryKey: aliaQueryKeys.conversations.withAgent(CLARITY_AGENT_ID),
+            queryKey: aliaQueryKeys.conversations.filtered({ agentId: CLARITY_AGENT_ID }),
           }),
       });
     },

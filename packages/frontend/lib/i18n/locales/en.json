@@ -26,7 +26,8 @@
     "user": "User",
     "done": "Done",
     "tryAgain": "Try Again",
-    "retry": "Try again"
+    "retry": "Try again",
+    "confirm": "Confirm"
   },
   "login": {
     "title": "Sign in or sign up",
@@ -236,7 +237,8 @@
     "termsOfService": "Terms of Service",
     "privacyPolicy": "Privacy Policy",
     "jobs": "Jobs",
-    "askAlia": "Ask Alia"
+    "askAlia": "Ask Alia",
+    "seeAll": "See all"
   },
   "askAlia": {
     "clientContext": "The person is using Clarity, an AI search and research app with source citations, deep research, a Discover feed and a public jobs index.",
@@ -434,7 +436,10 @@
     "moreResults": {
       "one": "{{count}} more result",
       "other": "{{count}} more results"
-    }
+    },
+    "copiedToClipboard": "Copied to clipboard",
+    "sendButton": "Send",
+    "thanksFeedback": "Thanks for your feedback!"
   },
   "subscribe": {
     "title": "Choose your plan",
@@ -482,7 +487,8 @@
     "confirmDowngrade": "Confirm",
     "upgradeSuccess": "Plan upgraded successfully!",
     "downgradeSuccess": "Plan changed successfully.",
-    "failedPlanChange": "Failed to change plan. Please try again."
+    "failedPlanChange": "Failed to change plan. Please try again.",
+    "featureRequiresPlan": "{{feature}} requires a paid plan"
   },
   "forgotPassword": {
     "title": "Reset password",
@@ -588,7 +594,24 @@
   },
   "actions": {
     "more": "More options",
-    "like": "Like"
+    "like": "Like",
+    "addAttachment": "Add attachment",
+    "badResponse": "Bad response",
+    "cancelEdit": "Cancel edit",
+    "collapse": "Collapse",
+    "conversationViews": "Conversation views",
+    "copy": "Copy",
+    "download": "Download",
+    "expand": "Expand",
+    "goodResponse": "Good response",
+    "openMenu": "Open menu",
+    "rewrite": "Rewrite",
+    "scrollToBottom": "Scroll to bottom",
+    "searchModes": "Search modes",
+    "share": "Share",
+    "stop": "Stop generating",
+    "voiceInput": "Voice input",
+    "webSearch": "Web search"
   },
   "profile": {
     "experience": {
@@ -670,5 +693,85 @@
     "error": "We could not check your account settings. Please try again.",
     "manage": "Supervision settings",
     "experienceHint": "You can manage your own work history. Your Oxy privacy and supervision settings control who can see it."
+  },
+  "chatHeader": {
+    "clear": "Clear",
+    "clearConfirmDescription": "Are you sure you want to clear this conversation? This action cannot be undone.",
+    "clearConfirmTitle": "Clear conversation",
+    "clearConversation": "Clear conversation",
+    "export": "Export",
+    "exportComingSoon": "Export conversation functionality coming soon!",
+    "help": "Help",
+    "helpComingSoon": "Help functionality coming soon!",
+    "settings": "Settings",
+    "share": "Share",
+    "tabAnswer": "Answer",
+    "tabLinks": "Links",
+    "tabImages": "Images",
+    "shareCopied": "Link copied: anyone with it can read this search for 24 hours",
+    "shareFailed": "Couldn't create a share link. Try again.",
+    "shareNothingYet": "Ask something first: there is nothing to share yet"
+  },
+  "models": {
+    "selectModel": "Power level"
+  },
+  "modes": {
+    "searchOn": "Web search will be used",
+    "searchOff": "Web search turned off",
+    "deepResearchOn": "Deep research mode activated",
+    "deepResearchOff": "Deep research disabled",
+    "searchLabel": "Search",
+    "deepResearchLabel": "Deep research"
+  },
+  "powerLevels": {
+    "auto": {
+      "label": "Auto",
+      "description": "Clarity picks the power each search needs"
+    },
+    "instant": {
+      "label": "Instant",
+      "description": "The fastest answers"
+    },
+    "medium": {
+      "label": "Medium",
+      "description": "Quick and capable"
+    },
+    "high": {
+      "label": "High",
+      "description": "Thinks before it answers"
+    },
+    "xhigh": {
+      "label": "Extra high",
+      "description": "Thinks longer, for harder questions"
+    },
+    "pro": {
+      "label": "Pro",
+      "description": "The most capable models"
+    },
+    "ultra": {
+      "label": "Ultra",
+      "description": "Maximum power for the hardest work"
+    }
+  },
+  "usageLimit": {
+    "buyCredits": "Get credits in Alia",
+    "gotIt": "Got it",
+    "inputDisabledPlaceholder": "Usage limit reached",
+    "limitReachedBanner": "Usage limit reached. Upgrade or wait to continue.",
+    "limitReachedDescription": "You've reached the limit for your plan. Upgrade for more.",
+    "limitReachedTitle": "Limit reached",
+    "modelLockedDesc": "Upgrade your Clarity plan to use this power level.",
+    "modelLockedTitle": "Power level locked",
+    "outOfCreditsDescription": "Searches are paid with your Alia credits. Get more in Alia to keep searching.",
+    "outOfCreditsTitle": "Out of credits",
+    "slowDownDescription": "You've hit your rate limit. Try again in {{time}}.",
+    "slowDownGeneric": "You've hit your rate limit. Please try again shortly.",
+    "slowDownTitle": "Slow down",
+    "tryAgain": "Try again",
+    "tryAgainIn": "Try again in {{time}}",
+    "upgradePlan": "Upgrade plan"
+  },
+  "welcome": {
+    "suggestionsTitle": "Try asking"
   }
 }
