@@ -476,6 +476,19 @@ export const searchDocuments = pgTable(
       .where(sql`${table.finalUrl} is not null`),
     index('clarity_search_documents_site_status_idx').on(table.siteId, table.status),
     index('clarity_search_documents_published_idx').on(table.publishedAt),
+    // The two sweeps that ask "what is due?" (`enqueueJobRecrawls`, the news
+    // feed's candidates) read only these rows. Unindexed, each run read the
+    // whole table, and with nothing due a LIMIT never stops one early.
+    index('clarity_search_documents_job_recrawl_due_idx')
+      .on(table.nextFetchAt)
+      .where(
+        sql`${table.documentType} = 'job' and ${table.status} = 'indexed' and ${table.nextFetchAt} is not null`,
+      ),
+    index('clarity_search_documents_news_recent_idx')
+      .on(sql`(coalesce(${table.publishedAt}, ${table.indexedAt})) desc nulls last`)
+      .where(
+        sql`${table.documentType} = 'news' and ${table.status} = 'indexed' and ${table.noindex} = false`,
+      ),
     index('clarity_search_documents_title_trgm_idx').using(
       'gin',
       table.title.asc().op('gin_trgm_ops'),
