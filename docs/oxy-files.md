@@ -49,6 +49,11 @@ request imports the image again.
 A **nightly reconciliation** per entity type (`references.reconcile`, ADR 0043
 D6) sends the whole inventory. Oxy adds any use it is missing and removes any
 it holds that Clarity no longer lists. This catches whatever the outbox missed.
+`images:reconcile-references` (in production
+`dist/files/reconcile-references.js`, an ECS one-shot like the migration
+below) previews it for every entity type — `{ added, removed, refused }`,
+changing nothing, the worker's schedule included — and with `--apply` runs it
+live now.
 
 ## Getting an image into Oxy
 
@@ -185,6 +190,31 @@ DATABASE_URL=… bun run --filter @clarity/backend images:migrate-to-oxy -- \
 DATABASE_URL=… bun run --filter @clarity/backend images:migrate-to-oxy -- \
   --target-database=<db> --apply --report=apply.jsonl
 ```
+
+**In production these run only as one-shot ECS tasks.** Clarity authenticates
+to Oxy solely by attesting its task role, so `--apply` (and the reconciliation
+below) cannot run from a laptop. The image carries them as
+`packages/backend/dist/files/{migrate-images-to-oxy,reconcile-references,image-storage-status}.js`;
+run them on the clarity-api task definition and network, as the deploy runs
+its migrations (`.github/scripts/deploy-ecs-service.sh`, `run_one_shot`):
+
+```bash
+aws ecs run-task --cluster oxy-cluster --launch-type FARGATE \
+  --task-definition <clarity-api's current revision> \
+  --network-configuration "$(aws ecs describe-services --cluster oxy-cluster \
+      --services clarity-api --query 'services[0].networkConfiguration')" \
+  --overrides '{"containerOverrides":[{"name":"clarity-api","command":
+    ["bun","packages/backend/dist/files/migrate-images-to-oxy.js","--target-database=clarity"]}]}'
+```
+
+The report goes to the task's log, one line per image. A full `--apply` is
+long: Oxy admits 30 application-file uploads a minute per application, shared
+with Clarity's live imports and icon refreshes, so the run paces itself at
+`--per-minute` (default 24). A 429 is waited out (60 s) and the SAME row
+retried; after 30 in a row the run stops, records the uses of what it moved,
+and exits 3 — start it again and it resumes. Rows whose bytes the run already
+moved (hosts sharing one icon) reuse that verified file without uploading
+(`uploadsReused`).
 
 The migration copies `clarity_image_cache.bytes`, which are WebP renditions.
 A row an older pipeline kept as an original is rendered first. It also copies

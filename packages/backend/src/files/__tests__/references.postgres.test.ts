@@ -253,6 +253,39 @@ suite('Clarity file references on Postgres', () => {
     expect(await reconcileDueReferences()).toEqual({});
   });
 
+  it('previews a reconciliation without changing references or the schedule', async () => {
+    oxy.files.set('f1', {
+      ...(await oxy.uploadAppFile(Buffer.from('one'), 'image/png')).file,
+      id: 'f1',
+      bytes: Buffer.from('one'),
+    });
+    await getDb()
+      .insert(imageReferences)
+      .values({ entityType: 'search_document', entityId: DOC, oxyFileId: 'f1', imageKey: KEY });
+    oxy.refs.add('f1|search_document|rft-stale');
+
+    const preview = await reconcileDueReferences({ dryRun: true });
+    expect(preview.search_document).toMatchObject({ dryRun: true, added: 1, removed: 1 });
+    expect(oxy.referencesOf('search_document', DOC)).toEqual([]);
+    expect(oxy.referencesOf('search_document', 'rft-stale')).toEqual(['f1']);
+    // A preview is not a run: nothing scheduled, so the real one is still due now.
+    expect(await getDb().select().from(oxyFileJobs)).toEqual([]);
+    expect(await reconcileDueReferences()).toMatchObject({
+      search_document: { added: 1, removed: 1 },
+    });
+    expect(oxy.referencesOf('search_document', DOC)).toEqual(['f1']);
+  });
+
+  it('runs every entity type now when forced, even before its turn', async () => {
+    expect(Object.keys(await reconcileDueReferences())).toHaveLength(3);
+    expect(await reconcileDueReferences()).toEqual({});
+    expect(Object.keys(await reconcileDueReferences({ force: true }))).toEqual([
+      'search_document',
+      'job_posting',
+      'search_host',
+    ]);
+  });
+
   it('hides a blocked file, shows it again, and re-sends the uses of a trashed one', async () => {
     await getDb().insert(searchHosts).values({
       host: 'rft-host.example',

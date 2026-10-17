@@ -356,11 +356,31 @@ async function* inventoryOf(
  * Reconcile each entity type whose turn has come (D6): Oxy adds the uses it
  * is missing and removes the ones Clarity no longer lists — never one made
  * after the reconciliation began. Run by the worker; returns what each did.
+ *
+ * `dryRun` asks Oxy what it WOULD add, remove and refuse for every entity
+ * type, now, and changes nothing — neither Oxy's references nor the schedule:
+ * a preview is not a run, so it never postpones the worker's next real one.
+ * `force` runs every entity type now (live) and schedules the next a day on.
+ * `scripts/reconcile-oxy-file-references.ts` is the operator's entry to both.
  */
 export async function reconcileDueReferences(
   options: { dryRun?: boolean; force?: boolean } = {},
 ): Promise<Record<string, unknown>> {
   const outcome: Record<string, unknown> = {};
+  if (options.dryRun) {
+    for (const entityType of REFERENCE_ENTITY_TYPES) {
+      try {
+        outcome[entityType] = await oxyFiles().references.reconcile(
+          entityType,
+          inventoryOf(entityType),
+          { dryRun: true },
+        );
+      } catch (error) {
+        outcome[entityType] = { error: error instanceof Error ? error.message : 'unknown error' };
+      }
+    }
+    return outcome;
+  }
   for (const entityType of REFERENCE_ENTITY_TYPES) {
     const job = `reconcile:${entityType}`;
     if (options.force) {
@@ -371,9 +391,7 @@ export async function reconcileDueReferences(
     }
     if (!(await leaseJob(job))) continue;
     try {
-      const result = await oxyFiles().references.reconcile(entityType, inventoryOf(entityType), {
-        dryRun: options.dryRun === true,
-      });
+      const result = await oxyFiles().references.reconcile(entityType, inventoryOf(entityType));
       outcome[entityType] = result;
       await finishJob(job, RECONCILE_INTERVAL_MS, result);
     } catch (error) {

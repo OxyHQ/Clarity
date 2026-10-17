@@ -8,7 +8,16 @@ import { migrateLegacyImages } from '../files/migrate-legacy-images.js';
 
 /**
  * `bun run images:migrate-to-oxy -- --target-database=<db> [--apply]
- *   [--release-invalid-svg] [--limit=N] [--batch=N] [--report=<file.jsonl>]`
+ *   [--release-invalid-svg] [--limit=N] [--batch=N] [--per-minute=N]
+ *   [--report=<file.jsonl>]`
+ *
+ * In production it runs as a one-shot ECS task on the clarity-api task
+ * definition, the only place Clarity's attested identity exists:
+ * `bun packages/backend/dist/files/migrate-images-to-oxy.js --target-database=clarity …`
+ * (docs/oxy-files.md). `--per-minute` (default 24) keeps the run under Oxy's 30
+ * uploads a minute per application, which Clarity's live imports share; a 429
+ * is waited out and the same row retried. Exits 3 if it stopped on persistent
+ * 429s: run the same command again and it resumes.
  *
  * Copies the images Clarity kept itself into Clarity-owned Oxy files
  * (files/migrate-legacy-images.ts; docs/oxy-files.md). Without `--apply` it is a
@@ -39,6 +48,7 @@ async function main(): Promise<void> {
   if (releaseInvalidSvg && !apply) throw new Error('--release-invalid-svg requires --apply');
   const limit = positiveInteger(flag(argv, 'limit'), 'limit');
   const batchSize = positiveInteger(flag(argv, 'batch'), 'batch');
+  const perMinute = positiveInteger(flag(argv, 'per-minute'), 'per-minute') ?? 24;
   const reportPath = flag(argv, 'report');
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
 
@@ -55,6 +65,7 @@ async function main(): Promise<void> {
       releaseInvalidSvg,
       limit,
       batchSize,
+      perMinute,
       report: (line) => {
         const text = `${JSON.stringify(line)}\n`;
         if (report) report.write(text);
@@ -62,6 +73,7 @@ async function main(): Promise<void> {
       },
     });
     console.info(JSON.stringify({ summary }, null, 2));
+    if (summary.stoppedOnRateLimit) process.exitCode = 3;
   } finally {
     await new Promise<void>((resolve) => (report ? report.end(resolve) : resolve()));
     await closePostgres();
