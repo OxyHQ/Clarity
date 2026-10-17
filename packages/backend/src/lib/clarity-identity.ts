@@ -22,8 +22,6 @@ export const CLARITY_IDENTITY = Object.freeze({
   }),
   backendApplication: Object.freeze({
     applicationId: '01a0648b-8d73-70ad-8e67-1c07ddc5eb6e',
-    /** The only value a leftover `OXY_SERVICE_API_KEY` may hold (`clarity-service-auth.ts`). */
-    clientId: 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78',
     /**
      * The exact scope set of the backend's service token, and why each is there:
      *

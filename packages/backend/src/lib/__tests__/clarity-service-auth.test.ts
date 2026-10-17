@@ -7,7 +7,8 @@ import {
   hasExactClarityServiceConfiguration,
 } from '../clarity-service-auth.js';
 
-const CLIENT_ID = CLARITY_IDENTITY.backendApplication.clientId;
+/** The retired backend credential's public client id. */
+const RETIRED_CLIENT_ID = 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78';
 /** The backend credential retired with its key pair (oxy ADR 0026); no token naming it is Clarity's. */
 const RETIRED_CREDENTIAL_ID = '01a0648b-8d74-7240-adba-80707fdfdf9c';
 const ATTESTATION_ID = CLARITY_IDENTITY.workloadIdentity.attestationId;
@@ -62,56 +63,32 @@ describe('the pinned workload attestation handle', () => {
 
 describe('Clarity service configuration', () => {
   /**
-   * The key pair is retired: the credential it authenticated is revoked. A
-   * secret still reaching the process is refused even where the role could
+   * The key pair is retired: the credential it authenticated is revoked. Either
+   * half still reaching the process is refused even where the role could
    * attest, so a task definition that still injects one fails readiness
    * instead of carrying the pair along unnoticed.
    */
   it.each([
-    ['beside the exact client id', { OXY_SERVICE_API_KEY: CLIENT_ID }],
-    ['beside the exact client id on ECS', { OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS }],
-    ['alone on ECS', ON_ECS],
-    ['alone', {}],
-  ])('refuses the retired secret %s', (_label, overrides) => {
-    expect(
-      hasExactClarityServiceConfiguration(
-        env({ ...overrides, OXY_SERVICE_API_SECRET: 'a-retired-secret' }),
-      ),
-    ).toBe(false);
+    ['OXY_SERVICE_API_SECRET', 'a-retired-secret'],
+    ['OXY_SERVICE_API_KEY', RETIRED_CLIENT_ID],
+    ['OXY_SERVICE_API_KEY', CLARITY_IDENTITY.publicApplication.clientId],
+  ])('refuses a retired %s, on ECS or not', (name, value) => {
+    expect(hasExactClarityServiceConfiguration(env({ [name]: value, ...ON_ECS }))).toBe(false);
+    expect(hasExactClarityServiceConfiguration(env({ [name]: value }))).toBe(false);
   });
 
-  it('accepts a task that carries no secret but can attest its role', () => {
-    // A leftover client id is tolerated (it is only a public id) while it is
-    // still exactly Clarity's.
-    expect(
-      hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID, ...ON_ECS })),
-    ).toBe(true);
-    // And once the environment variable goes too.
+  it('accepts a task that carries neither half of the pair and can attest its role', () => {
     expect(hasExactClarityServiceConfiguration(env(ON_ECS))).toBe(true);
-  });
-
-  it('refuses a process with neither a secret nor anything to attest', () => {
-    // A laptop. Readiness must keep reporting this rather than serving traffic
-    // it cannot authenticate.
-    expect(hasExactClarityServiceConfiguration(env())).toBe(false);
-    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: CLIENT_ID }))).toBe(
-      false,
+    // An empty value is what an unset variable looks like in some runners.
+    expect(hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: '', ...ON_ECS }))).toBe(
+      true,
     );
   });
 
-  it('still pins a leftover client id byte for byte', () => {
-    const foreign = 'oxy_dk_0000000000000000000000000000000000000000000000';
-    // A foreign client id left behind is a deployment error even when nothing
-    // would read it, so attestation does not excuse it.
-    expect(
-      hasExactClarityServiceConfiguration(env({ OXY_SERVICE_API_KEY: foreign, ...ON_ECS })),
-    ).toBe(false);
-    // Clarity's PUBLIC app is a different application; it must not mint here.
-    expect(
-      hasExactClarityServiceConfiguration(
-        env({ OXY_SERVICE_API_KEY: CLARITY_IDENTITY.publicApplication.clientId, ...ON_ECS }),
-      ),
-    ).toBe(false);
+  it('refuses a process with nothing to attest', () => {
+    // A laptop. Readiness must keep reporting this rather than serving traffic
+    // it cannot authenticate.
+    expect(hasExactClarityServiceConfiguration(env())).toBe(false);
   });
 
   it('keeps enforcing the canonical Oxy origin in production', () => {

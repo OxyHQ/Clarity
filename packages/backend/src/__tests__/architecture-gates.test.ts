@@ -30,7 +30,17 @@ function backendRuntimeSource(): string {
     join(repoRoot, '.github', 'workflows', 'deploy-aws.yml'),
     join(repoRoot, '.github', 'scripts', 'smoke-backend-image.sh'),
   ].filter((file) => !file.endsWith('architecture-gates.test.ts'));
-  return files.map((file) => `${relativeToRepo(file)}\n${readFileSync(file, 'utf8')}`).join('\n');
+  return files
+    .map((file) => `${relativeToRepo(file)}\n${withoutRemovalList(readFileSync(file, 'utf8'))}`)
+    .join('\n');
+}
+
+/**
+ * The deploy's removal list names configuration that must be GONE, so it is
+ * the one place a retired name belongs; the gates below read everything else.
+ */
+function withoutRemovalList(source: string): string {
+  return source.replace(/^\s*TASK_CONFIGURATION_REMOVALS_JSON: .*$/gm, '');
 }
 
 describe('architecture gates', () => {
@@ -44,7 +54,6 @@ describe('architecture gates', () => {
       },
       backendApplication: {
         applicationId: '01a0648b-8d73-70ad-8e67-1c07ddc5eb6e',
-        clientId: 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78',
       },
     });
     expect(CLARITY_IDENTITY.workloadIdentity).toEqual({
@@ -89,6 +98,20 @@ describe('architecture gates', () => {
     expect(deployScript).toContain('Provision it in oxy-infra first');
     expect(deployScript).toContain('Rolling $service back');
     expect(deployScript).not.toContain('--force-new-deployment');
+    // Each revision is derived from the running one, so configuration the code
+    // stopped reading is stripped here, from both services, or it rides along
+    // on every release.
+    expect(deployScript).toContain('TASK_CONFIGURATION_REMOVALS_JSON');
+    expect(deployScript).toContain('would still carry removed configuration');
+    const removals = deployment.match(/TASK_CONFIGURATION_REMOVALS_JSON: '(\[[^']*\])'/);
+    expect(JSON.parse(removals?.[1] ?? '[]')).toEqual(
+      expect.arrayContaining([
+        'ALIA_API_URL',
+        'CLARITY_ALIA_AGENT_ID',
+        'OXY_SERVICE_API_KEY',
+        'OXY_SERVICE_API_SECRET',
+      ]),
+    );
   });
 
   it('never calls Alia: the assistant is an ordinary Alia agent the frontend opens (Alia ADR 0020)', () => {

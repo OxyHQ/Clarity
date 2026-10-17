@@ -82,9 +82,9 @@ named in the task definition: a task naming a missing parameter fails at start.
   it is the only value `clarity-service-auth.ts` accepts. The former backend
   credential `01a0648b-8d74-7240-adba-80707fdfdf9c` and its
   `/oxy/clarity/OXY_SERVICE_API_*` pair are retired: a process that still
-  receives `OXY_SERVICE_API_SECRET` fails readiness, and a leftover
-  `OXY_SERVICE_API_KEY` must still be exactly the backend client id. A local
-  checkout has no role to attest and cannot reach Oxy as Clarity.
+  receives `OXY_SERVICE_API_KEY` or `OXY_SERVICE_API_SECRET` fails readiness,
+  and the deploy strips both from every revision it renders. A local checkout
+  has no role to attest and cannot reach Oxy as Clarity.
 - Stripe secrets only when local product subscription checkout is enabled
 - VAPID secrets only when browser push is enabled
 - Redis/Valkey only for cache and burst limiting

@@ -24,6 +24,14 @@ POST_DEPLOY_TASK_COMMAND_JSON="${POST_DEPLOY_TASK_COMMAND_JSON:-}"
 # failing rolls BOTH back, so the two never end on different releases.
 COMPANION_SERVICE="${COMPANION_SERVICE:-}"
 COMPANION_CONTAINER_NAME="${COMPANION_CONTAINER_NAME:-$COMPANION_SERVICE}"
+# Environment variables and secrets that must NOT survive into the revision this
+# deploy registers, as a JSON array of names. Each revision is derived from the
+# one the service RUNS, so a variable the code stopped reading is otherwise
+# carried forward on every release. The names come off the deployed container
+# of every service this run rolls (the API and its companion), and the
+# rendered revision is checked before it is registered.
+TASK_CONFIGURATION_REMOVALS_JSON="${TASK_CONFIGURATION_REMOVALS_JSON:-}"
+[[ -n "$TASK_CONFIGURATION_REMOVALS_JSON" ]] || TASK_CONFIGURATION_REMOVALS_JSON='[]'
 
 if [[ ! "$IMAGE_URI" =~ @sha256:[0-9a-f]{64}$ ]]; then
   echo "::error::IMAGE_URI must use an immutable sha256 digest."
@@ -33,6 +41,12 @@ fi
 if ! jq -e 'type == "object" and all(.[]; type == "string" and test("@sha256:[0-9a-f]{64}$"))' \
   <<<"$SIDECAR_IMAGES_JSON" >/dev/null; then
   echo "::error::SIDECAR_IMAGES_JSON must map container names to immutable sha256 image digests."
+  exit 1
+fi
+
+if ! jq -e 'type == "array" and all(.[]; type == "string" and test("^[A-Z][A-Z0-9_]*$"))' \
+  <<<"$TASK_CONFIGURATION_REMOVALS_JSON" >/dev/null; then
+  echo "::error::TASK_CONFIGURATION_REMOVALS_JSON must be a JSON array of environment variable names."
   exit 1
 fi
 
@@ -82,7 +96,8 @@ prepare_service() {
     done
   fi
 
-  jq --arg name "$container" --arg image "$IMAGE_URI" --argjson sidecars "$sidecar_images" '
+  jq --arg name "$container" --arg image "$IMAGE_URI" --argjson sidecars "$sidecar_images" \
+    --argjson removals "$TASK_CONFIGURATION_REMOVALS_JSON" '
     del(
       .taskDefinitionArn,
       .revision,
@@ -93,11 +108,24 @@ prepare_service() {
       .registeredBy
     ) |
     .containerDefinitions |= map(
-      if .name == $name then .image = $image
+      if .name == $name then
+        .image = $image |
+        .environment = [(.environment // [])[] | select(.name as $n | $removals | index($n) | not)] |
+        .secrets = [(.secrets // [])[] | select(.name as $n | $removals | index($n) | not)]
       elif $sidecars[.name] then .image = $sidecars[.name]
       else . end
     )
   ' "$work_dir/$service.current-td.json" >"$work_dir/$service.rendered-td.json"
+
+  local remaining
+  remaining="$(jq -r --arg name "$container" --argjson removals "$TASK_CONFIGURATION_REMOVALS_JSON" '
+    [.containerDefinitions[] | select(.name == $name) | ((.environment // []) + (.secrets // []))[].name
+      | select(. as $n | $removals | index($n))] | unique | join(",")
+  ' "$work_dir/$service.rendered-td.json")"
+  if [[ -n "$remaining" ]]; then
+    echo "::error::$service would still carry removed configuration: $remaining."
+    return 1
+  fi
 
   aws ecs register-task-definition \
     --cli-input-json "file://$work_dir/$service.rendered-td.json" \

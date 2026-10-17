@@ -35,14 +35,6 @@ interface ClarityServiceConfiguration {
   baseUrl: string;
 }
 
-function requireExact(value: string | undefined, expected: string, name: string): string {
-  if (value !== expected)
-    throw new ClarityServiceConfigurationError(
-      `${name} does not match the canonical Clarity identity.`,
-    );
-  return value;
-}
-
 /** The Oxy API origin this process talks to: `OXY_API_URL`, and only the canonical one in production. */
 export function canonicalBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
   const rawBaseUrl = env.OXY_API_URL || CANONICAL_OXY_API_URL;
@@ -82,28 +74,24 @@ export function canonicalBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
  *
  * ## The retired key pair
  *
- * `OXY_SERVICE_API_SECRET` used to select a credential mode. The credential it
- * authenticated is revoked, so that mode could only ever fail — and a secret
- * still reaching this process means something is still injecting a retired
- * credential. It is refused outright rather than ignored, so the deployment
- * that carries it is the thing that fails readiness, loudly, instead of the pair
- * quietly surviving in a task definition.
- *
- * A leftover `OXY_SERVICE_API_KEY` is only a public id, but it is still pinned:
- * a FOREIGN client id in the environment is a deployment error worth refusing
- * even when nothing reads it.
+ * `OXY_SERVICE_API_KEY` and `OXY_SERVICE_API_SECRET` used to select a
+ * credential mode. The credential they authenticated is revoked, so that mode
+ * could only ever fail — and either variable still reaching this process means
+ * something is still injecting a retired credential. Both are refused outright
+ * rather than ignored, so the deployment that carries one is the thing that
+ * fails readiness, loudly, instead of the pair quietly surviving in a task
+ * definition. The deploy strips both from every revision it renders
+ * (`TASK_CONFIGURATION_REMOVALS_JSON` in deploy-aws.yml).
  */
 function serviceConfiguration(env: NodeJS.ProcessEnv): ClarityServiceConfiguration {
   const baseUrl = canonicalBaseUrl(env);
-  const secret = env.OXY_SERVICE_API_SECRET;
-  if (secret !== undefined && secret.trim() !== '') {
-    throw new ClarityServiceConfigurationError(
-      'OXY_SERVICE_API_SECRET is retired: Clarity authenticates only by attesting its task role.',
-    );
-  }
-  const publicKey = env.OXY_SERVICE_API_KEY;
-  if (publicKey !== undefined && publicKey !== '') {
-    requireExact(publicKey, CLARITY_IDENTITY.backendApplication.clientId, 'OXY_SERVICE_API_KEY');
+  for (const name of ['OXY_SERVICE_API_KEY', 'OXY_SERVICE_API_SECRET'] as const) {
+    const value = env[name];
+    if (value !== undefined && value.trim() !== '') {
+      throw new ClarityServiceConfigurationError(
+        `${name} is retired: Clarity authenticates only by attesting its task role.`,
+      );
+    }
   }
   if (!canAttestWorkloadIdentity(env)) {
     /**
