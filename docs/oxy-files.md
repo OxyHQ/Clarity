@@ -132,24 +132,26 @@ event id once (`clarity_oxy_file_events`, kept 30 days):
 
 ### Before the grant: exact scope subsets (done)
 
-Clarity's token to Alia must carry exactly `user:read` and `inference:invoke`
-(`assertExactClarityServiceClaims`, and the AGENTS.md hard boundary). Clarity
-mints it from its attested workload, so before scope subsets every scope granted
-to the Clarity Backend workload appeared on it, and a file grant would have made
-every Alia call and readiness check fail closed.
+Clarity's backend token must carry exactly the scope set declared in
+`lib/clarity-identity.ts` (`assertExactClarityServiceClaims`, and the AGENTS.md
+hard boundary). Clarity mints it from its attested workload, so without scope
+subsets every scope granted to the Clarity Backend workload would appear on it,
+and a file grant would make every exact check, readiness included, fail closed.
 
 That is closed: `@oxy.so/core` mints exact scope subsets (oxy #1718), and
-Clarity #123 requests the agent tuple as one (`getClarityServiceToken` and
-`getClarityServiceTokenFor`). The Oxy Files adapter's calls mint the unscoped
-token, which `OxyServer` caches apart from the subset, so the file scopes reach
-only Oxy Files. `clarity-service-auth.test.ts` refuses the full grant (agent
-tuple plus `CLARITY_FILES_SCOPES`) as an agent token.
+`getClarityServiceToken` and `getClarityServiceTokenFor` request the declared
+tuple as one (Clarity #123; the backend no longer calls Alia since #122). The
+Oxy Files adapter's calls mint the unscoped token, which `OxyServer` caches
+apart from the subset, so the file scopes reach only Oxy Files.
+`clarity-service-auth.test.ts` refuses the full grant (the declared tuple plus
+`CLARITY_FILES_SCOPES`) as the backend token, and the architecture gate keeps
+`files:` out of the identity and the auth module.
 
-Order: grant the scopes below only once Clarity #123 runs in production (it is
-the code that requests the subset), and before deploying this change. A deploy
-without the grant is safe but degraded: Oxy refuses the imports (403, never
-remembered as a missing image), so an image Clarity does not already hold
-answers `503 image_unavailable` until the grant lands.
+Order: grant the scopes below before deploying this change (the subset code is
+already in production). A deploy without the grant is safe but degraded: Oxy
+refuses the imports (403, never remembered as a missing image), so an image
+Clarity does not already hold answers `503 image_unavailable` until the grant
+lands.
 
 ### Before Oxy stage 4c
 
@@ -170,7 +172,7 @@ an operator, after Oxy #1774 (stage 4c) is deployed.
    `https://api.clarity.surf/webhooks/oxy/files`. Store the secret shown once
    as SSM `/oxy/clarity/OXY_FILES_WEBHOOK_SECRET`, and add it to both task
    definitions in oxy-infra.
-3. Deploy. Migrations `0029_oxy_files` and `0030_oxy_file_reference_triggers`
+3. Deploy. Migrations `0031_oxy_files` and `0032_oxy_file_reference_triggers`
    are both `pre` and additive.
 
 ### Copying what Clarity holds

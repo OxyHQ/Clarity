@@ -97,7 +97,7 @@ tests. See `docs/postgres-alia-migration.md` for backfill and cutover commands.
   ranking contract, ingestion boundary and portal.
 - `docs/postgres-alia-migration.md` — rehearsal, reconciliation and cutover.
 - `docs/oxy-files.md` — images are Clarity-owned Oxy files (ADR 0043); only
-  `src/files/oxy-files.ts` calls Oxy Files, and its scopes are never agent scopes.
+  `src/files/oxy-files.ts` calls Oxy Files; its scopes never join the backend token tuple.
 - `packages/backend/src/db/schema/index.ts` — product schema.
 - `packages/backend/src/capabilities/clarity.catalog.ts` — the capability catalogue.
 - `packages/backend/src/search/jobs/` — Jobs extraction, projection and search.

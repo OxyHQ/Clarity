@@ -23,9 +23,10 @@ import {
  * {@link CLARITY_FILES_SCOPES}: `files:app:write` to import, upload and list its
  * own files, and `files:references:write` to say which entity uses which file.
  * Clarity never deletes a file itself — Oxy's lifecycle does — so it does not
- * ask for `files:app:delete`. These are NOT agent scopes: the token Clarity
- * sends to Alia must stay exactly `CLARITY_AGENT_MANIFEST.backendApplication
- * .scopes` (docs/oxy-files.md, "Before the grant").
+ * ask for `files:app:delete`. They are not in the backend token's declared
+ * tuple: that token is minted as exactly `CLARITY_IDENTITY.backendApplication
+ * .scopes`, so a file grant never rides along on it (docs/oxy-files.md,
+ * "Before the grant").
  *
  * ## SVG (Oxy stage 4c)
  *

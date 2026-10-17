@@ -180,12 +180,14 @@ function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
 /**
  * The attested Clarity client, for its Oxy Files calls (`files/oxy-files.ts`).
  * Those calls mint their own token through the client, carrying whatever the
- * workload is granted (the agent tuple plus `CLARITY_FILES_SCOPES` once Oxy
- * grants them); they never pass through {@link assertExactClarityServiceClaims},
- * which pins the AGENT identity Alia sees. `OxyServer` caches a token per
- * requested scope set (oxy #1718), so that unscoped token is a separate entry
- * from the exact subset {@link getClarityServiceToken} requests, and granting
- * the file scopes never widens the token Alia or Kaana receives.
+ * workload is granted (the backend's declared tuple plus `CLARITY_FILES_SCOPES`
+ * once Oxy grants them); they never pass through
+ * {@link assertExactClarityServiceClaims}, which pins the backend token's exact
+ * scope set. `OxyServer` caches a token per requested scope set (oxy #1718), so
+ * that unscoped token is a separate entry from the exact subset
+ * {@link getClarityServiceToken} and {@link getClarityServiceTokenFor} request,
+ * and granting the file scopes never widens the token Oxy's other surfaces or
+ * Kaana receive.
  */
 export function getClarityFilesClient(env: NodeJS.ProcessEnv = process.env): OxyServer {
   return clarityServiceClient(env);

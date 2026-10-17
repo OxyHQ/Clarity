@@ -183,17 +183,17 @@ describe('Clarity service token claims', () => {
   });
   /**
    * Once Oxy grants Clarity's file scopes, the workload's FULL grant is the
-   * agent tuple plus `CLARITY_FILES_SCOPES`. That token is what the Oxy Files
-   * adapter's calls carry (an unscoped mint, cached apart from the scoped one),
-   * and it must never pass as the token Alia checks exactly: the agent token is
-   * minted as the exact subset, so granting files leaves it unchanged.
+   * backend's declared tuple plus `CLARITY_FILES_SCOPES`. That token is what the
+   * Oxy Files adapter's calls carry (an unscoped mint, cached apart from the
+   * scoped one), and it must never pass as the backend token checked exactly:
+   * that token is minted as the exact subset, so granting files leaves it unchanged.
    */
-  it('refuses the full grant once the file scopes are added, so Alia only ever sees the subset', () => {
-    const agentScopes: readonly string[] = CLARITY_AGENT_MANIFEST.backendApplication.scopes;
-    expect(CLARITY_FILES_SCOPES.some((scope) => agentScopes.includes(scope))).toBe(false);
+  it('refuses the full grant once the file scopes are added, so the backend token stays the exact subset', () => {
+    const backendScopes: readonly string[] = CLARITY_IDENTITY.backendApplication.scopes;
+    expect(CLARITY_FILES_SCOPES.some((scope) => backendScopes.includes(scope))).toBe(false);
     expect(() =>
       assertExactClarityServiceClaims(
-        serviceToken({ scopes: [...agentScopes, ...CLARITY_FILES_SCOPES] }),
+        serviceToken({ scopes: [...backendScopes, ...CLARITY_FILES_SCOPES] }),
       ),
     ).toThrow('canonical Clarity service identity');
   });
