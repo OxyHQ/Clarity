@@ -485,7 +485,7 @@ export const searchDocuments = pgTable(
         sql`${table.documentType} = 'job' and ${table.status} = 'indexed' and ${table.nextFetchAt} is not null`,
       ),
     // Job retention reads the documents whose retention clock ran out, oldest
-    // first (`pruneInactiveJobDocuments`); the clock is `jobDocumentRetentionClock`.
+    // first (`pruneInactiveJobDocuments`, `jobDocumentRetentionClock`).
     index('clarity_search_documents_job_retention_idx')
       .on(sql`(coalesce(${table.fetchedAt}, ${table.updatedAt}))`)
       .where(sql`${table.documentType} = 'job'`),
@@ -851,13 +851,6 @@ export const searchChunks = pgTable(
  * `clarity_search_chunks_embedding_halfvec_hnsw_idx`.
  */
 export const searchChunkHalfvec = sql`(${searchChunks.embedding}::halfvec(1024))`;
-
-/**
- * When a job document last showed it was alive: its last fetch, or its last
- * write when it was never fetched. `pruneInactiveJobDocuments` compares and
- * orders by exactly this expression, which `clarity_search_documents_job_retention_idx` holds.
- */
-export const jobDocumentRetentionClock = sql`(coalesce(${searchDocuments.fetchedAt}, ${searchDocuments.updatedAt}))`;
 
 export const crawlJobs = pgTable(
   'clarity_crawl_jobs',

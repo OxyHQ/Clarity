@@ -20,7 +20,6 @@ import type {
 import { getDb, type ClarityExecutor } from '../../db/index.js';
 import {
   jobClusters,
-  jobDocumentRetentionClock,
   jobPostings,
   jobPostingSignatures,
   searchDocuments,
@@ -457,6 +456,14 @@ async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<v
       ),
     );
 }
+
+/**
+ * When a job document last showed it was alive: its last fetch, or its last
+ * write when it was never fetched. Retention compares and orders by exactly
+ * this expression, which `clarity_search_documents_job_retention_idx` holds
+ * (migration 0036); any other spelling is not served by it.
+ */
+const jobDocumentRetentionClock = sql`(coalesce(${searchDocuments.fetchedAt}, ${searchDocuments.updatedAt}))`;
 
 /** Job documents deleted per retention pass, so one pass never holds long locks. */
 const RETENTION_BATCH = 500;
