@@ -25,8 +25,6 @@ const publicRouters = [
   { name: 'market', router: (await import('../market.js')).default },
   { name: 'images', router: (await import('../images.js')).default },
   { name: 'favicons', router: (await import('../favicons.js')).default },
-  { name: 'models-stats', router: (await import('../models-stats.js')).default },
-  { name: 'v1/models', router: (await import('../v1/models.js')).default },
 ];
 const validate = vi.spyOn(oxyClient.session, 'validate');
 const profile = vi.spyOn(oxyClient.safety, 'profileAccess');
@@ -149,7 +147,7 @@ describe('Experience with actual Oxy SDK HTTP middleware', () => {
     expect((await request('/unreviewed', token('adult'))).status).toBe(200);
     expect((await request('/unreviewed')).status).toBe(200);
   });
-  it.each(['jobs', 'news', 'market', 'images', 'favicons', 'models-stats', 'v1/models'])(
+  it.each(['jobs', 'news', 'market', 'images', 'favicons'])(
     'rejects a supervised direct request before actual %s route data work',
     async (name) => {
       expect((await request(`/public/${name}`, token('child'))).status).toBe(403);

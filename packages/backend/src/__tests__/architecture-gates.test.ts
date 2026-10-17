@@ -125,7 +125,9 @@ describe('architecture gates', () => {
   it('draws every conversation with Alia’s SDK and keeps no chat of its own (Alia ADR 0018/0020)', () => {
     const frontendRoot = join(repoRoot, 'packages', 'frontend');
     const frontendPackage = JSON.parse(readFileSync(join(frontendRoot, 'package.json'), 'utf8'));
-    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('^19.0.0');
+    // 19.1.0 is the first SDK that sends the app assertion, without which Alia
+    // cannot tell the assistant is opened inside Clarity (Alia ADR 0021).
+    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('^19.1.0');
     const agent = readFileSync(join(frontendRoot, 'lib', 'clarity-agent.ts'), 'utf8');
     expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
     const conversation = readFileSync(
