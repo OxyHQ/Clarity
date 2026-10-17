@@ -484,6 +484,11 @@ export const searchDocuments = pgTable(
       .where(
         sql`${table.documentType} = 'job' and ${table.status} = 'indexed' and ${table.nextFetchAt} is not null`,
       ),
+    // Job retention reads the documents whose retention clock ran out, oldest
+    // first (`pruneInactiveJobDocuments`, `jobDocumentRetentionClock`).
+    index('clarity_search_documents_job_retention_idx')
+      .on(sql`(coalesce(${table.fetchedAt}, ${table.updatedAt}))`)
+      .where(sql`${table.documentType} = 'job'`),
     index('clarity_search_documents_news_recent_idx')
       .on(sql`(coalesce(${table.publishedAt}, ${table.indexedAt})) desc nulls last`)
       .where(

@@ -457,6 +457,14 @@ async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<v
     );
 }
 
+/**
+ * When a job document last showed it was alive: its last fetch, or its last
+ * write when it was never fetched. Retention compares and orders by exactly
+ * this expression, which `clarity_search_documents_job_retention_idx` holds
+ * (migration 0036); any other spelling is not served by it.
+ */
+const jobDocumentRetentionClock = sql`(coalesce(${searchDocuments.fetchedAt}, ${searchDocuments.updatedAt}))`;
+
 /** Job documents deleted per retention pass, so one pass never holds long locks. */
 const RETENTION_BATCH = 500;
 
@@ -466,19 +474,28 @@ const RETENTION_BATCH = 500;
  * signatures, reports and feed links go with it by cascade. The clusters its
  * listings belonged to re-elect a canonical copy, or disappear when empty.
  * Returns how many documents were deleted.
+ *
+ * The pass starts from the documents whose retention clock has run out, read
+ * from `clarity_search_documents_job_retention_idx` oldest first, and only
+ * those are checked against their listings. A live listing is re-fetched
+ * daily, so its document's clock never gets that old and the candidates are
+ * the abandoned ones. Ordered by anything else, the planner answered "which
+ * documents have no live listing?" by hashing every listing: a parallel
+ * sequential scan of the whole postings table every 15 minutes, which found
+ * nothing (production, 2026-10-17).
  */
 export async function pruneInactiveJobDocuments(limit = RETENTION_BATCH): Promise<number> {
   return getDb().transaction(async (tx) => {
     const doomed = await tx.execute<{ id: string }>(sql`
       select ${searchDocuments.id} as id from ${searchDocuments}
       where ${searchDocuments.documentType} = 'job'
-        and coalesce(${searchDocuments.fetchedAt}, ${searchDocuments.updatedAt}) < now() - interval '${sql.raw(String(JOB_RETENTION_DAYS))} days'
+        and ${jobDocumentRetentionClock} < now() - interval '${sql.raw(String(JOB_RETENTION_DAYS))} days'
         and not exists (
           select 1 from ${jobPostings}
           where ${jobPostings.documentId} = ${searchDocuments.id}
             and (${jobPostings.status} = 'active' or ${jobPostings.lastSeenAt} >= now() - interval '${sql.raw(String(JOB_RETENTION_DAYS))} days')
         )
-      order by ${searchDocuments.updatedAt}
+      order by ${jobDocumentRetentionClock}
       limit ${limit}
       for update skip locked`);
     const ids = doomed.map((row) => row.id);

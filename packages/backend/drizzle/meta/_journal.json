@@ -253,6 +253,13 @@
       "when": 1792223470105,
       "tag": "0035_drop_full_precision_chunk_index",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792237070348,
+      "tag": "0036_job_document_retention_index",
+      "breakpoints": true
     }
   ]
 }
