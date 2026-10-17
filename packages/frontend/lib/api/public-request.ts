@@ -1,8 +1,9 @@
 import config from '../config';
+import { PublicApiError } from './public-api-error';
 
 /**
- * A request to one of Clarity's PUBLIC product surfaces — Jobs and the market
- * quotes behind Finance.
+ * A request to one of Clarity's PUBLIC product surfaces — Jobs, the market
+ * quotes behind Finance, and Shopping's product search.
  *
  * These carry no session and no user identity, which is the mechanism behind
  * the privacy rule rather than a convenience: searching a listing never
@@ -24,9 +25,14 @@ export async function requestPublicApi<T>(path: string, init: RequestInit): Prom
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => undefined)) as
-      | { error?: { code?: string; message?: string } }
+      | { error?: { code?: string; message?: string; requestId?: string } }
       | undefined;
-    throw new Error(body?.error?.message ?? `Clarity request failed with ${response.status}`);
+    throw new PublicApiError({
+      status: response.status,
+      code: body?.error?.code,
+      message: body?.error?.message,
+      requestId: body?.error?.requestId,
+    });
   }
   return (await response.json()) as T;
 }

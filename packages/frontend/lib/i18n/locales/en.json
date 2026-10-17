@@ -202,7 +202,8 @@
     "security": "Security",
     "discover": "Discover",
     "finance": "Finance",
-    "jobs": "Jobs"
+    "jobs": "Jobs",
+    "shopping": "Shopping"
   },
   "sidebar": {
     "newChat": "New Chat",
@@ -238,13 +239,15 @@
     "privacyPolicy": "Privacy Policy",
     "jobs": "Jobs",
     "askAlia": "Ask Alia",
-    "seeAll": "See all"
+    "seeAll": "See all",
+    "shopping": "Shopping"
   },
   "askAlia": {
     "clientContext": "The person is using Clarity, an AI search and research app with source citations, deep research, a Discover feed and a public jobs index.",
     "onConversation": "They are reading one of their Clarity conversations.",
     "onDiscover": "They are browsing the Discover feed.",
     "onJobs": "They are browsing the jobs index.",
+    "onShopping": "They are searching for products on the Shopping page.",
     "onHistory": "They are looking at their search history.",
     "onHome": "They are on the Clarity home screen, about to start a search.",
     "suggestion": {
@@ -340,6 +343,99 @@
       "removed": "This listing was removed from Clarity's index.",
       "stale": "This listing has not been seen at its source recently."
     }
+  },
+  "shopping": {
+    "title": "Shopping",
+    "heading": "Find products and compare offers",
+    "subheading": "Product search answered by Mercaria: its catalogue, every seller's offer, in Mercaria's own order. Prices are shown in each seller's own currency.",
+    "queryPlaceholder": "Product, brand or model",
+    "searchAction": "Search",
+    "promptTitle": "Search for a product",
+    "promptBody": "Type what you are looking for to see matching products and who sells them.",
+    "loadMore": "Load more",
+    "loadingMore": "Loading...",
+    "loadMoreError": "More results could not be loaded. Try again.",
+    "retry": "Try again",
+    "backToSearch": "Back to Shopping",
+    "emptyTitle": "No matching products",
+    "emptyBody": "Try a broader query or different words.",
+    "errorTitle": "Product search is unavailable",
+    "searchError": {
+      "gone": "This search is no longer available.",
+      "not_found": "Product search could not be found.",
+      "unavailable": "Mercaria is temporarily unavailable. Please try again in a moment.",
+      "rate_limited": "Too many searches in a short time. Wait a moment, then try again.",
+      "other": "Clarity could not reach product search. Your query was kept."
+    },
+    "detailError": {
+      "gone": {
+        "title": "No longer available",
+        "body": "This product is no longer available on Mercaria."
+      },
+      "not_found": {
+        "title": "Product not found",
+        "body": "There is no product at this address. The link may be wrong."
+      },
+      "unavailable": {
+        "title": "Product information is temporarily unavailable",
+        "body": "Mercaria could not be reached. Please try again in a moment."
+      },
+      "rate_limited": {
+        "title": "Too many requests",
+        "body": "Wait a moment, then try again."
+      },
+      "other": {
+        "title": "This product could not be loaded",
+        "body": "Something went wrong while loading it. Please try again."
+      }
+    },
+    "resultsFrom": "Results from %{name}",
+    "offerCount": {
+      "one": "%{count} offer",
+      "other": "%{count} offers"
+    },
+    "fromPrice": "From %{price}",
+    "noPrice": "No price",
+    "noCurrentOffers": "No current offers",
+    "priceNotStated": "Price not stated",
+    "offersUnavailableShort": "Price comparison is temporarily unavailable",
+    "offersUnavailable": "Price comparison is temporarily unavailable. This does not mean nobody sells this product.",
+    "offersHeading": "Offers",
+    "descriptionHeading": "About this product",
+    "variantsHeading": "Variants",
+    "unnamedVariant": "Unnamed variant",
+    "unknownSeller": "Unknown seller",
+    "seen": "Seen %{when}",
+    "buyOnMercaria": "Buy on Mercaria",
+    "viewOn": "View on %{host}",
+    "viewOffer": "View offer",
+    "imageLabel": "%{name}, image %{index}",
+    "availability": {
+      "in_stock": "In stock",
+      "out_of_stock": "Out of stock",
+      "preorder": "Pre-order",
+      "unavailable": "Unavailable",
+      "unknown": "Availability unknown"
+    },
+    "condition": {
+      "new": "New",
+      "open_box": "Open box",
+      "refurbished_manufacturer": "Manufacturer refurbished",
+      "refurbished_seller": "Seller refurbished",
+      "used_like_new": "Used - like new",
+      "used_good": "Used - good",
+      "used_fair": "Used - fair",
+      "used_poor": "Used - poor",
+      "for_parts": "For parts"
+    },
+    "conditionGroup": {
+      "new": "New",
+      "open_box": "Open box",
+      "refurbished": "Refurbished",
+      "used": "Used",
+      "for_parts": "For parts"
+    },
+    "disclaimer": "Products and offers come from Mercaria. Clarity does not sell them, does not re-rank them and does not convert prices. Searching never identifies you."
   },
   "finance": {
     "title": "Finance",

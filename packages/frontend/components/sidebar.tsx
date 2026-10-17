@@ -30,6 +30,7 @@ import {
   RiLogoutBoxRLine,
   RiLoginBoxLine,
   RiUserAddLine,
+  RiShoppingBag3Line,
 } from '@oxy.so/bloom/icons';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useUIStore } from '@/lib/stores/ui-store';
@@ -219,6 +220,7 @@ export function useSearchSidebarConfig(): SidebarProps {
   const handleHistory = React.useCallback(() => router.push('/(app)/history'), [router]);
   const handleDiscover = React.useCallback(() => router.push('/(app)/discover'), [router]);
   const handleJobs = React.useCallback(() => router.push('/(app)/jobs'), [router]);
+  const handleShopping = React.useCallback(() => router.push('/(app)/shopping'), [router]);
   const handleSettings = React.useCallback(() => router.push('/(app)/settings'), [router]);
   const handleAccount = React.useCallback(
     () => showBottomSheet?.('ManageAccount'),
@@ -242,6 +244,12 @@ export function useSearchSidebarConfig(): SidebarProps {
     { key: 'imagine', label: t('sidebar.imagine'), icon: RiImageLine, onPress: () => {} },
     { key: 'discover', label: t('sidebar.discover'), icon: RiEarthLine, onPress: handleDiscover },
     { key: 'jobs', label: t('sidebar.jobs'), icon: Briefcase, onPress: handleJobs },
+    {
+      key: 'shopping',
+      label: t('sidebar.shopping'),
+      icon: RiShoppingBag3Line,
+      onPress: handleShopping,
+    },
     { key: 'history', label: t('sidebar.history'), icon: RiTimeLine, onPress: handleHistory },
     {
       key: 'ask-alia',
@@ -255,6 +263,7 @@ export function useSearchSidebarConfig(): SidebarProps {
     if (openId && allConvs.some((c) => c.id === openId)) return openId;
     if (pathname.startsWith('/discover')) return 'discover';
     if (pathname.startsWith('/jobs')) return 'jobs';
+    if (pathname.startsWith('/shopping')) return 'shopping';
     if (pathname.startsWith('/history')) return 'history';
     return undefined;
   }, [allConvs, openId, pathname]);

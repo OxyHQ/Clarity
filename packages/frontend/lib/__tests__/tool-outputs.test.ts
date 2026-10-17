@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   jobOf,
   jobsOfSearch,
+  productOf,
+  productsOfSearch,
   quotesOf,
   sourceOfDocument,
   sourcesOfSearch,
@@ -113,5 +115,62 @@ describe('unshownCount', () => {
   it('says how many a preview leaves out', () => {
     expect(unshownCount(11, 4)).toBe(7);
     expect(unshownCount(2, 4)).toBe(0);
+  });
+});
+
+const mercaria = { name: 'Mercaria', url: 'https://mercaria.co' };
+
+describe('productsOfSearch', () => {
+  it("reads a searchProducts output in Mercaria's order, with its source", () => {
+    const results = [
+      { id: 'b', name: 'B', imageUrl: null, url: 'https://mercaria.co/p/b', offers: null },
+      {
+        id: 'a',
+        name: 'A',
+        imageUrl: null,
+        url: 'https://mercaria.co/p/a',
+        offers: {
+          count: 2,
+          availability: 'in_stock',
+          lowestPrice: { amount: 100, currency: 'EUR' },
+        },
+      },
+    ];
+    expect(productsOfSearch({ results, nextCursor: null, source: mercaria })).toEqual({
+      results,
+      source: mercaria,
+    });
+  });
+
+  it('drops a result a card cannot draw, and draws nothing without a source', () => {
+    expect(
+      productsOfSearch({ results: [{ id: 'x' }], nextCursor: null, source: mercaria }),
+    ).toEqual({ results: [], source: mercaria });
+    expect(productsOfSearch({ results: [], nextCursor: null })).toBeNull();
+    expect(productsOfSearch(undefined)).toBeNull();
+  });
+});
+
+describe('productOf', () => {
+  const product = {
+    id: 'p1',
+    name: 'Kettle',
+    description: null,
+    imageUrl: null,
+    images: [],
+    url: 'https://mercaria.co/p/p1',
+    variants: [],
+    offers: null,
+    source: mercaria,
+  };
+
+  it('reads a getProduct output, including one with price comparison unavailable', () => {
+    expect(productOf(product)).toBe(product);
+  });
+
+  it('reads nothing that is not a product detail', () => {
+    expect(productOf({ ...product, offers: 'none' })).toBeNull();
+    expect(productOf({ ...product, source: undefined })).toBeNull();
+    expect(productOf(null)).toBeNull();
   });
 });

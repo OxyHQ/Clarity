@@ -58,6 +58,13 @@ import {
   searchPlaces,
 } from '../../search/places/repository.js';
 import { jobReportSchema, reportJobPosting } from '../../search/jobs/reports.js';
+import {
+  getProduct,
+  ProductCatalogError,
+  productIdSchema,
+  productSearchSchema,
+  searchProducts,
+} from '../../search/products/mercaria-catalog.js';
 import type { ProductFeedKind } from '@clarity/shared-types';
 import {
   getProductFeed,
@@ -726,6 +733,55 @@ router.get(
     }
   },
 );
+
+// Products — shopping search, answered by Mercaria (`search/products/`).
+// A search counts against the monthly search quota like any other; the read of
+// one product is a hydration and does not.
+// ---------------------------------------------------------------------------
+
+router.post('/products/search', requireResourceScope('clarity:search'), async (req, res) => {
+  const input = parse(productSearchSchema, req, res);
+  const principal = req.resourcePrincipal;
+  if (!input || !principal) return;
+  const usage = await consumeUsage({ principal, operation: 'search' });
+  if (!usage.accepted) {
+    sendError(
+      res,
+      429,
+      'monthly_quota_exceeded',
+      'The monthly search quota has been exhausted',
+      req,
+      { metric: 'search_month', limit: usage.limit, used: usage.used },
+    );
+    return;
+  }
+  try {
+    res.json(await searchProducts(input));
+  } catch (error) {
+    sendProductsError(error, req, res);
+  }
+});
+
+router.get('/products/:id', requireResourceScope('clarity:search'), async (req, res) => {
+  const id = productIdSchema.safeParse(req.params.id);
+  if (!id.success) {
+    sendError(res, 404, 'not_found', 'No such product', req);
+    return;
+  }
+  try {
+    res.json(await getProduct(id.data));
+  } catch (error) {
+    sendProductsError(error, req, res);
+  }
+});
+
+function sendProductsError(error: unknown, req: Request, res: Response): void {
+  if (error instanceof ProductCatalogError) {
+    sendError(res, error.status, error.code, error.message, req);
+    return;
+  }
+  throw error;
+}
 
 // Places — the canonical gazetteer a publisher picks a job location from.
 // Reference data only; nothing here writes.

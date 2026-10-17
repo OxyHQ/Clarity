@@ -9,6 +9,11 @@ export const queryKeys = {
     search: (request: unknown) => ['jobs', 'search', request] as const,
     detail: (id: string) => ['jobs', 'detail', id] as const,
   },
+  products: {
+    search: (query: string, market: string | undefined) =>
+      ['products', 'search', query, market] as const,
+    detail: (id: string) => ['products', 'detail', id] as const,
+  },
   news: {
     list: (limit: number, languages: readonly string[]) =>
       ['news', 'list', limit, ...languages] as const,

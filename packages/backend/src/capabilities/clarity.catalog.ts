@@ -24,12 +24,13 @@ import { JOB_TOOLS } from './catalog/jobs.js';
 import { MARKET_TOOLS } from './catalog/market.js';
 import { NOTIFICATION_TOOLS } from './catalog/notifications.js';
 import { PLACE_TOOLS } from './catalog/places.js';
+import { PRODUCT_TOOLS } from './catalog/products.js';
 import { SEARCH_TOOLS } from './catalog/search.js';
 
 export const CLARITY_CAPABILITY_CATALOG: AppCapabilityCatalog = {
   schemaVersion: '1',
   appId: 'clarity',
-  version: '1.0.0',
+  version: '1.1.0',
   audience: 'oxy-clarity-api',
   internalBaseUrl: 'https://api.clarity.surf',
   internalTransport: 'mcp',
@@ -41,6 +42,7 @@ export const CLARITY_CAPABILITY_CATALOG: AppCapabilityCatalog = {
     ...JOB_TOOLS,
     ...PLACE_TOOLS,
     ...MARKET_TOOLS,
+    ...PRODUCT_TOOLS,
     ...EXPERIENCE_TOOLS,
     ...NOTIFICATION_TOOLS,
     ...FEEDBACK_TOOLS,

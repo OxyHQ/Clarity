@@ -24,6 +24,7 @@ function screenOf(pathname: string): string {
   if (pathname.startsWith('/c/')) return 'onConversation';
   if (pathname.startsWith('/discover')) return 'onDiscover';
   if (pathname.startsWith('/jobs')) return 'onJobs';
+  if (pathname.startsWith('/shopping')) return 'onShopping';
   if (pathname.startsWith('/finance')) return 'onFinance';
   if (pathname.startsWith('/history')) return 'onHistory';
   return 'onHome';

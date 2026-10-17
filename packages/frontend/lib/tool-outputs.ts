@@ -8,7 +8,14 @@
  * nothing rather than a broken card. Pure: nothing here loads React Native.
  */
 
-import type { JobPosting, MarketQuoteResult, NewsStory } from '@clarity/shared-types';
+import type {
+  JobPosting,
+  MarketQuoteResult,
+  NewsStory,
+  ProductDetail,
+  ProductSearchResponse,
+  ProductSummary,
+} from '@clarity/shared-types';
 
 import type { Source } from './sources';
 
@@ -98,6 +105,56 @@ export function quotesOf(output: unknown): MarketQuoteResult[] {
       ((result.status === 'quoted' && isRecord(result.quote)) ||
         (result.status === 'unavailable' && isRecord(result.error))),
   );
+}
+
+function isProductSummary(value: unknown): value is ProductSummary {
+  return (
+    isRecord(value) &&
+    nonEmpty(value.id) &&
+    nonEmpty(value.name) &&
+    nonEmpty(value.url) &&
+    (value.offers === null ||
+      (isRecord(value.offers) &&
+        typeof value.offers.count === 'number' &&
+        (value.offers.lowestPrice === null || isMoney(value.offers.lowestPrice))))
+  );
+}
+
+function isMoney(value: unknown): boolean {
+  return isRecord(value) && typeof value.amount === 'number' && nonEmpty(value.currency);
+}
+
+function isProductSource(value: unknown): value is ProductSearchResponse['source'] {
+  return isRecord(value) && nonEmpty(value.name) && nonEmpty(value.url);
+}
+
+/**
+ * The products of a `searchProducts` output (`ProductSearchResponse`), in
+ * Mercaria's order, with the source that answered them. `null` for an output
+ * that is not a product search: there is then no answer to attribute.
+ */
+export function productsOfSearch(
+  output: unknown,
+): { results: ProductSummary[]; source: ProductSearchResponse['source'] } | null {
+  if (!isRecord(output) || !Array.isArray(output.results) || !isProductSource(output.source))
+    return null;
+  return { results: output.results.filter(isProductSummary), source: output.source };
+}
+
+/** The one product of a `getProduct` output (`ProductDetail`), or null. */
+export function productOf(output: unknown): ProductDetail | null {
+  if (
+    !isRecord(output) ||
+    !nonEmpty(output.id) ||
+    !nonEmpty(output.name) ||
+    !nonEmpty(output.url) ||
+    !Array.isArray(output.images) ||
+    !Array.isArray(output.variants) ||
+    !(output.offers === null || Array.isArray(output.offers)) ||
+    !isProductSource(output.source)
+  )
+    return null;
+  return output as unknown as ProductDetail;
 }
 
 /** How many of `total` a preview of `max` leaves unshown — said, never hidden. */

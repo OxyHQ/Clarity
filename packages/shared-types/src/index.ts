@@ -63,3 +63,14 @@ export type {
   ProductFeedRecordPage,
   ProductFeedRegistration,
 } from './product-feeds.js';
+
+export type {
+  ProductAvailability,
+  ProductDetail,
+  ProductMoney,
+  ProductOffer,
+  ProductOfferKind,
+  ProductSearchResponse,
+  ProductSource,
+  ProductSummary,
+} from './products.js';
