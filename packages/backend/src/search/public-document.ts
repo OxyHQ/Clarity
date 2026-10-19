@@ -1,4 +1,4 @@
-import { inArray, type SQL, sql } from 'drizzle-orm';
+import { getTableColumns, inArray, type SQL, sql } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
 import { searchDocuments } from '../db/schema/index.js';
@@ -12,8 +12,27 @@ import { publicImageUrl } from './image-cache.js';
  * never disagree about which fields a caller sees.
  */
 export type DocumentRow = typeof searchDocuments.$inferSelect;
+
+/** How much page text a snippet is cut from (`excerpt` keeps 300 characters). */
+const SNIPPET_SOURCE_LENGTH = 1_000;
 /** A document read without its page text, as lists that never show it do. */
 export type DocumentCardRow = Omit<DocumentRow, 'mainContent'> & { mainContent?: string | null };
+
+// `_mainContent` is dropped on purpose: a card never needs the page text.
+const { mainContent: _mainContent, ...cardColumns } = getTableColumns(searchDocuments);
+
+/** The document columns a card needs: everything but the page text. */
+export const documentCardColumns = cardColumns;
+
+/**
+ * Card columns plus the start of the page text, enough for a result's snippet
+ * when the page has no description. A page holds up to 5 MB of text; a search
+ * read every result's whole text to cut 300 characters from it.
+ */
+export const searchResultColumns = {
+  ...cardColumns,
+  mainContent: sql<string | null>`left(${searchDocuments.mainContent}, ${SNIPPET_SOURCE_LENGTH})`,
+};
 
 /**
  * The documents that answered to any of these URLs. A crawl stores a page under
@@ -33,9 +52,15 @@ export function iconHostsOf(rows: readonly DocumentCardRow[]): Promise<Set<strin
     rows.flatMap((row) => hostOf(row.canonicalUrl) ?? []),
   );
 }
-export function searchResult(row: DocumentRow, score: number, icons: ReadonlySet<string>) {
+/**
+ * One search result: the document without its page text — `getDocument` and
+ * `/v1/documents/:id` return that — plus a snippet, as the SDK's
+ * `SearchResult` has always declared it.
+ */
+export function searchResult(row: DocumentCardRow, score: number, icons: ReadonlySet<string>) {
+  const { content: _content, ...document } = publicDocument(row, icons);
   return {
-    ...publicDocument(row, icons),
+    ...document,
     snippet: row.description ?? excerpt(row.mainContent),
     highlights: [],
     score,

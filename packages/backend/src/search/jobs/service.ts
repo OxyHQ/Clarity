@@ -35,8 +35,19 @@ import type {
 } from '@clarity/shared-types';
 
 import { getDb } from '../../db/index.js';
-import { jobClusters, jobPostings, searchChunks, searchDocuments } from '../../db/schema/index.js';
+import {
+  jobClusters,
+  jobPostings,
+  searchChunkHalfvec,
+  searchChunks,
+  searchDocuments,
+} from '../../db/schema/index.js';
 import { embedQuery } from '../chunking.js';
+import {
+  isStatementTimeout,
+  QUERY_EMBEDDING_TIMEOUT_MS,
+  SEARCH_STATEMENT_TIMEOUT_MS,
+} from '../document-search.js';
 import {
   canonicalizePublicUrl,
   decodeSearchCursor,
@@ -63,6 +74,13 @@ export { JOB_FORBIDDEN_RANKING_SIGNALS, JOB_RANKING_SIGNALS } from './ranking-co
 
 const RECIPROCAL_RANK_CONSTANT = 60;
 const CANDIDATE_DEPTH = 200;
+/**
+ * Nearest chunks the semantic arm reads from the HNSW index before the job
+ * filters apply. Most of the index is job listings, but the filters (active,
+ * country, type…) always apply after the nearest are found, so the pool is
+ * the filtered size `rankedSearch` uses, at pgvector's `ef_search` ceiling.
+ */
+const SEMANTIC_CANDIDATE_CHUNKS = 1_000;
 /** Relevance dominates; freshness and completeness only break near-ties. */
 const FRESHNESS_WEIGHT = 0.004;
 const COMPLETENESS_WEIGHT = 0.002;
@@ -319,6 +337,10 @@ function scoredWithQuery(
   where: SQL,
   query: string,
 ): SQL {
+  // Candidates come from the two indexed arms: the full-text vector (which
+  // holds the employer's name too, projection.ts `textIndexSource`) and the
+  // title trigram index. `employer_name % query` had no index, and as a third
+  // arm of the OR it made Postgres scan every listing for every query.
   const lexical = sql`
     select ${jobPostings.id} as job_id, row_number() over (
       order by ts_rank_cd(${jobPostings.searchVector}, websearch_to_tsquery('simple', ${query}))
@@ -329,18 +351,28 @@ function scoredWithQuery(
     where ${where} and (
       ${jobPostings.searchVector} @@ websearch_to_tsquery('simple', ${query})
       or ${jobPostings.title} % ${query}
-      or ${jobPostings.employerName} % ${query}
     )
     order by rank limit ${CANDIDATE_DEPTH}`;
 
-  const semantic = embedding
+  // The nearest chunks straight from the HNSW index, then each listing at its
+  // nearest chunk — the shape `rankedSearch` (document-search.ts) uses. Taking
+  // `min(embedding <=> q)` over every chunk of every matching listing, at full
+  // precision, compared the query with each of them and could use no index.
+  const queryVector = embedding ? sql`${JSON.stringify(embedding)}::halfvec(1024)` : undefined;
+  const semantic = queryVector
     ? sql`
     select ${jobPostings.id} as job_id, row_number() over (
-      order by min(${searchChunks.embedding} <=> ${JSON.stringify(embedding)}::vector) asc, ${jobPostings.id}
+      order by min(nearest.distance) asc, ${jobPostings.id}
     ) as rank
-    from ${jobPostings}
-    inner join ${searchChunks} on ${searchChunks.documentId} = ${jobPostings.documentId}
-    where ${where} and ${searchChunks.embedding} is not null
+    from (
+      select ${searchChunks.documentId} as document_id, ${searchChunkHalfvec} <=> ${queryVector} as distance
+      from ${searchChunks}
+      where ${searchChunks.embedding} is not null
+      order by ${searchChunkHalfvec} <=> ${queryVector}
+      limit ${SEMANTIC_CANDIDATE_CHUNKS}
+    ) nearest
+    inner join ${jobPostings} on ${jobPostings.documentId} = nearest.document_id
+    where ${where}
     group by ${jobPostings.id}
     order by rank limit ${CANDIDATE_DEPTH}`
     : undefined;
@@ -372,6 +404,29 @@ function scoredWithQuery(
     left join ${jobClusters} on ${jobClusters.id} = ${jobPostings.clusterId}`;
 }
 
+/**
+ * Runs the ranking under the same bounds as a document search: a statement
+ * timeout, so an abandoned query stops reading, and an `ef_search` that lets
+ * the HNSW index return the whole semantic pool.
+ */
+async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, offset: number) {
+  try {
+    return await getDb().transaction(async (tx) => {
+      // `set local` takes no bind parameter; both values are module constants.
+      await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
+      if (embedding)
+        await tx.execute(sql.raw(`set local hnsw.ef_search = ${SEMANTIC_CANDIDATE_CHUNKS}`));
+      return tx.execute<{ jobId: string; score: number }>(
+        rankedStatement(input, embedding, offset),
+      );
+    });
+  } catch (error) {
+    if (isStatementTimeout(error))
+      throw new JobsError(503, 'search_timeout', 'Search took too long; try a more specific query');
+    throw error;
+  }
+}
+
 /** Takes input already validated by {@link jobSearchSchema}. */
 export async function searchJobs(input: JobSearchInput): Promise<JobSearchResponse> {
   const offset = decodeSearchCursor(input.cursor);
@@ -381,7 +436,7 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   let embedding: number[] | undefined;
   let degraded: JobSearchResponse['degraded'];
   if (input.query && input.mode !== 'lexical') {
-    embedding = await embedQuery(input.query);
+    embedding = await embedQuery(input.query, AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS));
     if (!embedding) {
       if (input.mode === 'semantic')
         throw new JobsError(
@@ -393,9 +448,7 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
     }
   }
 
-  const ranks = await getDb().execute<{ jobId: string; score: number }>(
-    rankedStatement(input, embedding, offset),
-  );
+  const ranks = await rankJobs(input, embedding, offset);
   const page = ranks.slice(0, input.limit);
   const jobsById = await hydrate(page.map((row) => row.jobId));
   const data: JobSearchResult[] = page.flatMap((rank) => {
@@ -546,32 +599,69 @@ export interface JobCorpusStats {
 /**
  * Aggregate corpus health. Operational counters only — nothing here is per
  * viewer, and no query is attributable to a person.
+ *
+ * Counting every listing is a full scan of the largest table in the corpus,
+ * and the route that asks is anonymous, so the answer is reused for five
+ * minutes and computed by one caller at a time: counters of a corpus this
+ * size do not move meaningfully faster than that.
  */
 export async function jobCorpusStats(): Promise<JobCorpusStats> {
+  const now = Date.now();
+  if (corpusStats && corpusStats.at > now - CORPUS_STATS_TTL_MS) return corpusStats.value;
+  corpusStatsInFlight ??= countJobCorpus()
+    .then((value) => {
+      corpusStats = { value, at: Date.now() };
+      return value;
+    })
+    .finally(() => {
+      corpusStatsInFlight = undefined;
+    });
+  return corpusStatsInFlight;
+}
+
+const CORPUS_STATS_TTL_MS = 5 * 60 * 1000;
+let corpusStats: { value: JobCorpusStats; at: number } | undefined;
+let corpusStatsInFlight: Promise<JobCorpusStats> | undefined;
+
+/** One pass over the listings (by status and source type) and one count of clusters. */
+async function countJobCorpus(): Promise<JobCorpusStats> {
   const database = getDb();
-  const [totals] = await database.execute<{
+  const groups = await database.execute<{
+    status: string;
+    sourceType: string;
+    total: number;
     active: number;
     withSalary: number;
     grouped: number;
   }>(sql`
-    select
+    select ${jobPostings.status} as "status", ${jobPostings.sourceType} as "sourceType",
+      count(*)::int as "total",
       count(*) filter (where ${activeJobPredicate()})::int as "active",
       count(*) filter (where ${jobPostings.salaryCurrency} is not null)::int as "withSalary",
       count(*) filter (where ${jobPostings.clusterId} is not null)::int as "grouped"
-    from ${jobPostings}`);
-  const statuses = await database.execute<{ key: string; total: number }>(sql`
-    select ${jobPostings.status} as key, count(*)::int as total from ${jobPostings} group by ${jobPostings.status}`);
-  const sourceTypes = await database.execute<{ key: string; total: number }>(sql`
-    select ${jobPostings.sourceType} as key, count(*)::int as total from ${jobPostings} group by ${jobPostings.sourceType}`);
+    from ${jobPostings}
+    group by ${jobPostings.status}, ${jobPostings.sourceType}`);
   const [clusters] = await database.execute<{ total: number }>(
     sql`select count(*)::int as total from ${jobClusters}`,
   );
+  const byStatus: Record<string, number> = {};
+  const bySourceType: Record<string, number> = {};
+  let active = 0;
+  let withSalary = 0;
+  let grouped = 0;
+  for (const group of groups) {
+    byStatus[group.status] = (byStatus[group.status] ?? 0) + group.total;
+    bySourceType[group.sourceType] = (bySourceType[group.sourceType] ?? 0) + group.total;
+    active += group.active;
+    withSalary += group.withSalary;
+    grouped += group.grouped;
+  }
   return {
-    active: totals?.active ?? 0,
-    byStatus: Object.fromEntries(statuses.map((row) => [row.key, row.total])),
-    bySourceType: Object.fromEntries(sourceTypes.map((row) => [row.key, row.total])),
-    withSalary: totals?.withSalary ?? 0,
-    grouped: totals?.grouped ?? 0,
+    active,
+    byStatus,
+    bySourceType,
+    withSalary,
+    grouped,
     clusters: clusters?.total ?? 0,
   };
 }

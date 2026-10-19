@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { ClarityExecutor } from '../db/index.js';
 import { searchDocuments } from '../db/schema/index.js';
 import { log } from '../lib/logger.js';
+import { type DocumentCardRow, searchResultColumns } from './public-document.js';
 import { canonicalizePublicUrl } from './query-primitives.js';
 import { registerHosts } from './site-icons.js';
 
@@ -128,7 +129,7 @@ export async function discoverWeb(input: WebDiscoveryQuery): Promise<DiscoveredP
 export async function recordDiscoveredPages(
   executor: ClarityExecutor,
   pages: readonly DiscoveredPage[],
-): Promise<(typeof searchDocuments.$inferSelect)[]> {
+): Promise<DocumentCardRow[]> {
   if (pages.length === 0) return [];
   await executor
     .insert(searchDocuments)
@@ -149,7 +150,7 @@ export async function recordDiscoveredPages(
     pages.map((page) => ({ url: page.canonicalUrl })),
   );
   const rows = await executor
-    .select()
+    .select(searchResultColumns)
     .from(searchDocuments)
     .where(
       inArray(

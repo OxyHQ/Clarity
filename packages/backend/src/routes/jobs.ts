@@ -50,7 +50,11 @@ router.post('/search', async (req, res) => {
   }
 });
 
-router.get('/stats', async (_req, res) => res.json(await jobCorpusStats()));
+router.get('/stats', async (_req, res) => {
+  // The counters are reused for five minutes server side (jobCorpusStats).
+  res.set('Cache-Control', 'public, max-age=300');
+  res.json(await jobCorpusStats());
+});
 
 router.get('/by-url', async (req, res) => {
   if (typeof req.query.url !== 'string') {

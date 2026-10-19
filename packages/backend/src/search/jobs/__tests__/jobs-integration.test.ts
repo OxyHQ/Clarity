@@ -513,5 +513,7 @@ suite('Clarity Jobs corpus', () => {
       'grouped',
       'clusters',
     ]);
+    // Reused, not recounted: the route asking for it is anonymous.
+    expect(await jobCorpusStats()).toBe(stats);
   });
 });

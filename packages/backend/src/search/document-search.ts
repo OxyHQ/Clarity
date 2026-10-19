@@ -13,7 +13,13 @@ import { z } from 'zod';
 import { getDb } from '../db/index.js';
 import { searchChunkHalfvec, searchChunks, searchDocuments } from '../db/schema/index.js';
 import { embedQuery } from './chunking.js';
-import { iconHostsOf, publicDocument, searchResult } from './public-document.js';
+import {
+  iconHostsOf,
+  publicDocument,
+  searchResult,
+  searchResultColumns,
+  type DocumentCardRow,
+} from './public-document.js';
 import {
   canonicalizePublicUrl,
   decodeSearchCursor,
@@ -79,7 +85,7 @@ export class SearchError extends Error {
  * default (30 s) is sized for indexing; a search that has not got one by now
  * ranks lexically and says so (`degraded`), as it does when the route fails.
  */
-const QUERY_EMBEDDING_TIMEOUT_MS = 2_500;
+export const QUERY_EMBEDDING_TIMEOUT_MS = 2_500;
 
 export async function searchIndex(input: SearchInput) {
   let queryEmbedding: number[] | undefined;
@@ -106,13 +112,18 @@ export async function searchIndex(input: SearchInput) {
   const ranks = await rankedSearch(input, queryEmbedding, offset);
   const ids = ranks.slice(0, input.limit).map((row) => row.documentId);
   const documents = ids.length
-    ? await getDb().select().from(searchDocuments).where(inArray(searchDocuments.id, ids))
+    ? await getDb()
+        .select(searchResultColumns)
+        .from(searchDocuments)
+        .where(inArray(searchDocuments.id, ids))
     : [];
   const documentsById = new Map(documents.map((row) => [row.id, row]));
-  const data = ranks.slice(0, input.limit).flatMap((rank) => {
-    const row = documentsById.get(rank.documentId);
-    return row ? [{ row, score: Number(rank.score) }] : [];
-  });
+  const data: { row: DocumentCardRow; score: number }[] = ranks
+    .slice(0, input.limit)
+    .flatMap((rank) => {
+      const row = documentsById.get(rank.documentId);
+      return row ? [{ row, score: Number(rank.score) }] : [];
+    });
   // What the index could not fill on the first page, the public web does. Not
   // for a type or date filter: a search engine's snippet can honour neither.
   const discoverable =
@@ -170,10 +181,10 @@ const FILTERED_SEMANTIC_CANDIDATE_CHUNKS = 1_000;
  * the SDK's 15 s whenever the index fills the page; web discovery (5 s) runs
  * only when it does not.
  */
-const SEARCH_STATEMENT_TIMEOUT_MS = 10_000;
+export const SEARCH_STATEMENT_TIMEOUT_MS = 10_000;
 const QUERY_CANCELED = '57014';
 
-function isStatementTimeout(error: unknown): boolean {
+export function isStatementTimeout(error: unknown): boolean {
   for (let cause: unknown = error; cause instanceof Error; cause = cause.cause) {
     if ((cause as { code?: unknown }).code === QUERY_CANCELED) return true;
   }
