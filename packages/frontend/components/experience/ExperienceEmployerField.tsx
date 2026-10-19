@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useOxy } from '@oxy.so/services';
-import { useSupervision } from '@oxy.so/services/ui';
-import { useAuth } from '@oxy.so/services/ui/client';
+import { useAuth, useOxy, useSupervision } from '@oxy.so/services/ui/client';
 import {
   ORGANIZATION_TYPES,
   createOrganizationSchema,

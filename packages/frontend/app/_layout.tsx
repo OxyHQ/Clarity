@@ -3,7 +3,7 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
-import { OxyProvider } from '@oxy.so/services';
+import { OxyProvider } from '@oxy.so/services/ui/client';
 import { BloomThemeProvider } from '@oxy.so/bloom/theme';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';

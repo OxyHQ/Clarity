@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useOxy } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import type { LinkedHttpClient } from '@oxy.so/core';
 import config from '../config';
 

@@ -153,8 +153,10 @@ describe('architecture gates', () => {
     // cannot tell the assistant is opened inside Clarity (Alia ADR 0021); 21.0.0
     // labels the conversations Clarity starts; 21.2.0 lets Clarity's pure `lib/`
     // tell its catalogue's results apart (`@alia.onl/sdk/tools`); 21.3.0 is the
-    // first that runs on Expo SDK 58 / React Native 0.88.
-    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('^21.3.0');
+    // first that runs on Expo SDK 58 / React Native 0.88; 21.5.0 takes
+    // `useAppAssertion` from services' lean `ui/client` entry, which keeps the
+    // account screens out of first paint.
+    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('^21.5.0');
     const agent = readFileSync(join(frontendRoot, 'lib', 'clarity-agent.ts'), 'utf8');
     expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
     // Clarity's interface is Clarity's; the conversation under it — the stream, the

@@ -10,7 +10,7 @@ import {
   useCreateSubscriptionCheckout,
   type SubscriptionPlan,
 } from '@/lib/hooks/use-billing';
-import { OxySignInButton, useAuth } from '@oxy.so/services';
+import { OxySignInButton, useAuth } from '@oxy.so/services/ui/client';
 import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';

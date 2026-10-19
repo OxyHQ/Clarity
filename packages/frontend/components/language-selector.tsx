@@ -2,7 +2,7 @@ import { View, Pressable } from 'react-native';
 import { Text } from '@/components/ui/text';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ChevronRight, Globe2 } from 'lucide-react-native';
-import { useAuth, useOxy } from '@oxy.so/services';
+import { useAuth, useOxy } from '@oxy.so/services/ui/client';
 import { getNativeLanguageName } from '@oxy.so/core';
 
 /**
