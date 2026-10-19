@@ -23,19 +23,15 @@ export function initSocket(server: http.Server) {
     transports: ['websocket', 'polling'],
   });
 
-  // Attach Redis adapter for horizontal scaling
+  // Attach Redis adapter for horizontal scaling. The clients connect on
+  // construction and queue commands until ready, so the adapter attaches now:
+  // calling `connect()` again rejects ("already connecting/connected"), which
+  // left every API task on an in-memory adapter that never reached the others.
   const pubClient = getRedisClient();
   const subClient = getRedisSubClient();
   if (pubClient && subClient) {
-    const socketServer = io;
-    Promise.all([pubClient.connect(), subClient.connect()])
-      .then(() => {
-        socketServer.adapter(createAdapter(pubClient, subClient));
-        log.general.info('Socket.IO Redis adapter attached');
-      })
-      .catch((err) => {
-        log.general.warn({ err }, 'Socket.IO Redis adapter failed — using in-memory');
-      });
+    io.adapter(createAdapter(pubClient, subClient));
+    log.general.info('Socket.IO Redis adapter attached');
   }
 
   // Direct socket connections cannot bypass the HTTP cutover gate.

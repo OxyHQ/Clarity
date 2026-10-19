@@ -3,6 +3,7 @@ import { parseHTML } from 'linkedom';
 
 import { dateFromUrl, metadataFromStructuredData, plausibleDate } from './article-metadata.js';
 import { hasJobPosting } from './jobs/extract.js';
+import { storableUrl } from './query-primitives.js';
 
 export interface ExtractedDocument {
   title?: string;
@@ -125,10 +126,12 @@ function content(
   return document.querySelector(selector)?.getAttribute(attribute)?.trim() || undefined;
 }
 
+/** A page's own URL reference, absolute, or `undefined` when unusable or too long to store. */
 function absolute(value: string | undefined, base: string): string | undefined {
   if (!value) return undefined;
   try {
-    return new URL(value, base).toString();
+    const url = new URL(value, base).toString();
+    return storableUrl(url) ? url : undefined;
   } catch {
     return undefined;
   }

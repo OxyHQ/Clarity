@@ -38,6 +38,7 @@ import {
 } from './taxonomy.js';
 import { markdownToPlainText, toJobMarkdown } from './markdown.js';
 import { geonamesIdFromUri } from '../places/resolve.js';
+import { storableUrl } from '../query-primitives.js';
 
 export interface ExtractedJobPosting {
   /** Stable key for this listing inside its document. */
@@ -195,7 +196,8 @@ function absoluteUrl(value: unknown, base: string): string | undefined {
         : undefined;
   if (typeof candidate !== 'string') return undefined;
   try {
-    return new URL(candidate, base).toString();
+    const url = new URL(candidate, base).toString();
+    return storableUrl(url) ? url : undefined;
   } catch {
     return undefined;
   }

@@ -15,7 +15,7 @@
       "dockerfile": "packages/searxng/Dockerfile",
       "context": "packages/searxng",
       "target": null,
-      "buildInputsSha256": "bc333caf4bff96a686d43a078292f03ea8f5d1351f1b515eaee053c0b9088c7f"
+      "buildInputsSha256": "6422150070b6914f8bb32f08898626d39587714fde682e4e8d26dcda1baa527b"
     }
   ]
 }

@@ -40,6 +40,9 @@ RUN install -d -m 0700 -o searxng -g searxng \
 # /usr/local/searxng: the entrypoint copies it with `cp -p`, which as a
 # non-root user cannot preserve a root owner.
 COPY --chown=977:977 settings.yml /usr/local/searxng/settings.template.yml
+# Bot detection reads limiter.toml beside the settings even with the limiter
+# off, and warned on every start that it was missing.
+COPY --chown=977:977 limiter.toml /var/lib/searxng/config/limiter.toml
 
 ENV __SEARXNG_CONFIG_PATH=/var/lib/searxng/config \
     __SEARXNG_DATA_PATH=/var/lib/searxng/data \

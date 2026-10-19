@@ -6,6 +6,10 @@ use_default_settings:
     # SearXNG waits on it before giving up; the others answer in 1–3 s.
     remove:
       - duckduckgo
+      # Onion search: needs a Tor proxy this instance does not have, so both
+      # failed to load on every start.
+      - ahmia
+      - torch
 
 general:
   instance_name: Clarity

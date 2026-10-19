@@ -40,7 +40,7 @@ import {
   type DocumentRow,
 } from '../../search/public-document.js';
 import { listNewsStories } from '../../search/news.js';
-import { publicUrlSchema } from '../../search/query-primitives.js';
+import { MAX_URL_LENGTH, publicUrlSchema } from '../../search/query-primitives.js';
 import {
   JobsError,
   getJobPostingById,
@@ -88,7 +88,7 @@ router.use(requireResourceRequestRate);
 const urlsSchema = z.object({ urls: z.array(publicUrlSchema).min(1).max(50) });
 const resolveSchema = urlsSchema.extend({ waitMs: z.number().int().min(0).max(10_000).optional() });
 const createSiteSchema = z.object({
-  origin: z.string().url(),
+  origin: z.string().url().max(MAX_URL_LENGTH),
   verifiedDomainId: z.string().min(1),
   sitemapUrls: z.array(z.string().url()).max(20).default([]),
   feedUrls: z.array(z.string().url()).max(20).default([]),

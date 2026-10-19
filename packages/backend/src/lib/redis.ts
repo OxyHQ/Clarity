@@ -10,7 +10,7 @@ import { log } from './logger.js';
 let client: Redis | null = null;
 let subClient: Redis | null = null;
 
-const MAX_RETRIES = 10;
+const MAX_RECONNECT_DELAY_MS = 30_000;
 const ERROR_LOG_INTERVAL_MS = 60_000;
 let lastErrorLogTime = 0;
 
@@ -20,6 +20,15 @@ function throttledErrorLog(label: string, err: Error) {
     log.general.error({ err }, `${label} (suppressing repeats for 60s)`);
     lastErrorLogTime = now;
   }
+}
+
+/**
+ * Reconnects for as long as the process lives, backing off to 30 s. Giving up
+ * left the client closed until the task restarted: rate limiting, caches and
+ * the Socket.IO adapter silently off after one long outage.
+ */
+function reconnectDelay(times: number): number {
+  return Math.min(times * 500, MAX_RECONNECT_DELAY_MS);
 }
 
 function parseRedisUrl(): {
@@ -66,13 +75,7 @@ export function getRedisClient(): Redis | null {
     maxRetriesPerRequest: 3,
     connectTimeout: 5000,
     commandTimeout: 2000,
-    retryStrategy: (times) => {
-      if (times > MAX_RETRIES) {
-        log.general.warn(`Redis client giving up after ${MAX_RETRIES} retries`);
-        return null; // Stop reconnecting
-      }
-      return Math.min(times * 500, 5000);
-    },
+    retryStrategy: reconnectDelay,
   });
 
   client.on('error', (err) => {
@@ -101,13 +104,7 @@ export function getRedisSubClient(): Redis | null {
     maxRetriesPerRequest: 3,
     connectTimeout: 5000,
     commandTimeout: 2000,
-    retryStrategy: (times) => {
-      if (times > MAX_RETRIES) {
-        log.general.warn(`Redis subscriber giving up after ${MAX_RETRIES} retries`);
-        return null;
-      }
-      return Math.min(times * 500, 5000);
-    },
+    retryStrategy: reconnectDelay,
   });
 
   subClient.on('error', (err) => {
@@ -136,10 +133,13 @@ export function getRedisConnection():
 export const REDIS_TIMEOUT_MS = 1_000;
 
 export function withRedisTimeout<T>(promise: Promise<T>, ms = REDIS_TIMEOUT_MS): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return Promise.race([
     promise,
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Redis timeout')), ms)),
-  ]);
+    new Promise<T>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('Redis timeout')), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 /**

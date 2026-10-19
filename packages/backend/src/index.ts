@@ -4,7 +4,12 @@ import http from 'node:http';
 import cors from 'cors';
 import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
-import { isAbortError, isFatalError, isTransientNetworkError } from './lib/error-classification.js';
+import {
+  clientErrorStatus,
+  isAbortError,
+  isFatalError,
+  isTransientNetworkError,
+} from './lib/error-classification.js';
 import { requireRuntimeReady } from './middleware/runtime-ready.js';
 import { createCapabilityLanes, mountCapabilityLanes } from './capabilities/mount.js';
 
@@ -156,11 +161,9 @@ app.use((req, res, next) => {
       // Allow requests with no origin (like mobile apps or curl)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
+      // An unlisted origin gets no CORS headers, so its browser withholds the
+      // response. Passing an Error instead turned each such request into a 500.
+      callback(null, allowedOrigins.includes(origin));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
@@ -240,8 +243,15 @@ app.get('/', (_req, res) => {
 
 // Error handler
 app.use(
-  (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    log.general.error({ err }, 'Unhandled Express error');
+  (err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    // A client error raised by middleware (a malformed or oversized body) keeps
+    // its own status; only what is left is the server's fault.
+    const status = clientErrorStatus(err);
+    if (status) {
+      if (!res.headersSent) res.status(status).json({ error: (err as Error).message });
+      return;
+    }
+    log.general.error({ err, method: req.method, path: req.path }, 'Unhandled Express error');
     if (!res.headersSent) {
       res.status(500).json({ error: 'Something went wrong!' });
     }

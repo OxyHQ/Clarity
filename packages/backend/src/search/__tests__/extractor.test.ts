@@ -30,4 +30,12 @@ describe('extractDocument', () => {
     );
     expect(result).toMatchObject({ noindex: true, nofollow: true });
   });
+
+  it('ignores a declared canonical URL too long to be stored', () => {
+    const result = extractDocument(
+      `<html><head><link rel="canonical" href="/play?state=${'a'.repeat(3_000)}"></head><body>Body</body></html>`,
+      'https://example.com/play',
+    );
+    expect(result.canonicalUrl).toBeUndefined();
+  });
 });

@@ -1,7 +1,10 @@
 import { createDatabase, type OxyDatabase } from '@oxy.so/db';
 import type postgres from 'postgres';
 
+import { createLogger } from '../lib/logger.js';
 import * as schema from './schema/index.js';
+
+const log = createLogger('postgres');
 
 export type ClarityDatabase = OxyDatabase<typeof schema>;
 export type ClarityTransaction = Parameters<Parameters<ClarityDatabase['transaction']>[0]>[0];
@@ -12,7 +15,19 @@ let handle: { db: ClarityDatabase; client: postgres.Sql } | null = null;
 export function connectPostgres(databaseUrl: string | undefined): ClarityDatabase | null {
   if (handle) return handle.db;
   if (!databaseUrl) return null;
-  handle = createDatabase({ databaseUrl, schema });
+  handle = createDatabase({
+    databaseUrl,
+    schema,
+    client: {
+      // postgres.js prints every NOTICE with console.log by default (e.g.
+      // to_tsvector's "word is too long to be indexed"), as raw stdout objects.
+      onnotice: (notice) => log.debug({ code: notice.code }, notice.message),
+      // Release connections idle for 30 s, and fail a connect in 10 s instead
+      // of 30: the instance is shared by every Oxy product.
+      idle_timeout: 30,
+      connect_timeout: 10,
+    },
+  });
   return handle.db;
 }
 
