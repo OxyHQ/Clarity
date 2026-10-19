@@ -6,6 +6,19 @@
 
 import { z } from 'zod';
 
+/**
+ * The longest URL Clarity stores. URLs are keys of btree indexes (a crawl
+ * page's `(job_id, url)`, a document's canonical URL), and a btree entry cannot
+ * exceed ~2.7 kB: a longer URL failed the insert itself, as a 500. 2,048 is
+ * also what browsers and crawlers treat as the practical limit.
+ */
+export const MAX_URL_LENGTH = 2_048;
+
+/** Whether a URL fits what Clarity stores; see {@link MAX_URL_LENGTH}. */
+export function storableUrl(url: string): boolean {
+  return url.length <= MAX_URL_LENGTH;
+}
+
 /** Public HTTP(S) URL in the exact shape Clarity stores as a canonical URL. */
 export function canonicalizePublicUrl(value: string): string {
   const url = new URL(value);
@@ -19,7 +32,11 @@ export function canonicalizePublicUrl(value: string): string {
     (url.protocol === 'http:' && url.port === '80')
   )
     url.port = '';
-  return url.toString();
+  const canonical = url.toString();
+  if (!storableUrl(canonical)) {
+    throw new Error(`URLs longer than ${MAX_URL_LENGTH} characters are not supported`);
+  }
+  return canonical;
 }
 
 /**
@@ -30,8 +47,14 @@ export function canonicalizePublicUrl(value: string): string {
 export const publicUrlSchema = z.string().transform((value, ctx) => {
   try {
     return canonicalizePublicUrl(value);
-  } catch {
-    ctx.addIssue({ code: 'custom', message: 'Only public HTTP(S) URLs are supported' });
+  } catch (error) {
+    ctx.addIssue({
+      code: 'custom',
+      message:
+        value.length > MAX_URL_LENGTH && error instanceof Error
+          ? error.message
+          : 'Only public HTTP(S) URLs are supported',
+    });
     return z.NEVER;
   }
 });

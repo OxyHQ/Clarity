@@ -2,6 +2,7 @@
 import { reconcileAccountEvents } from './lib/account-event-reconciliation.js';
 import { createHash } from 'node:crypto';
 import { startPlatformActivity } from './lib/platform-activity.js';
+import { createLogger } from './lib/logger.js';
 import { and, eq, gt, gte, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
@@ -24,6 +25,7 @@ import {
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { pollDueProductFeeds } from './search/products/feeds/feeds.js';
 import { answeredToAny } from './search/public-document.js';
+import { storableUrl } from './search/query-primitives.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
 import { sweepExpiredEffectReceipts } from './db/capability-receipt-repository.js';
@@ -35,6 +37,7 @@ import {
   releaseIdleReferences,
 } from './files/references.js';
 
+const log = createLogger('worker');
 const workerId = process.env.CLARITY_WORKER_ID || `worker:${process.pid}:${crypto.randomUUID()}`;
 const leaseSeconds = 60;
 const maxBodyBytes = 5 * 1024 * 1024;
@@ -129,7 +132,7 @@ export async function renewPageLease(page: typeof crawlPages.$inferSelect): Prom
 
 export async function leaseNextPage() {
   const recovered = await recoverExpiredLeases();
-  if (recovered > 0) console.info('Recovered expired crawl leases', { count: recovered });
+  if (recovered > 0) log.info({ count: recovered }, 'Recovered expired crawl leases');
   return getDb().transaction(async (tx) => {
     const saturatedOwners: string[] = [];
     while (true) {
@@ -223,10 +226,7 @@ export async function processPage(page: typeof crawlPages.$inferSelect): Promise
   const heartbeat = setInterval(
     () => {
       void renewPageLease(page).catch((error: unknown) => {
-        console.error('Crawl lease heartbeat failed', {
-          crawlPageId: page.id,
-          error: error instanceof Error ? error.message : 'unknown lease failure',
-        });
+        log.error({ crawlPageId: page.id, err: error }, 'Crawl lease heartbeat failed');
       });
     },
     (leaseSeconds * 1000) / 3,
@@ -305,6 +305,11 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
       headersTimeoutMs: 15_000,
       signal: AbortSignal.timeout(30_000),
     });
+    // A redirect can land on a URL too long to be a document's key.
+    if (!storableUrl(result.finalUrl)) {
+      result.response.destroy();
+      throw new Error('url_too_long');
+    }
     // A listing that answers 404/410 has been withdrawn by its source. Record
     // the removal instead of indexing the error page.
     if (result.status === 404 || result.status === 410) {
@@ -688,11 +693,9 @@ export async function enqueueJobRecrawls(): Promise<number> {
 async function runIconRefresh(): Promise<void> {
   try {
     const { fetched, missing } = await refreshDueIcons(iconRefreshBatchSize);
-    if (fetched + missing > 0) console.info('Site icons refreshed', { fetched, missing });
+    if (fetched + missing > 0) log.debug({ fetched, missing }, 'Site icons refreshed');
   } catch (error) {
-    console.error('Site icon refresh failed', {
-      error: error instanceof Error ? error.message : 'unknown icon failure',
-    });
+    log.error({ err: error }, 'Site icon refresh failed');
   }
 }
 
@@ -700,20 +703,15 @@ async function runIconRefresh(): Promise<void> {
 async function runOxyFiles(): Promise<void> {
   try {
     const { sent, failed } = await drainReferenceOutbox();
-    if (sent > 0 || failed) console.info('Oxy file references sent', { sent, failed });
+    if (sent > 0 || failed) log.debug({ sent, failed }, 'Oxy file references sent');
   } catch (error) {
-    console.error('Oxy file reference drain failed', {
-      error: error instanceof Error ? error.message : 'unknown drain failure',
-    });
+    log.error({ err: error }, 'Oxy file reference drain failed');
   }
   try {
     const reconciled = await reconcileDueReferences();
-    if (Object.keys(reconciled).length > 0)
-      console.info('Oxy file references reconciled', reconciled);
+    if (Object.keys(reconciled).length > 0) log.info(reconciled, 'Oxy file references reconciled');
   } catch (error) {
-    console.error('Oxy file reconciliation failed', {
-      error: error instanceof Error ? error.message : 'unknown reconciliation failure',
-    });
+    log.error({ err: error }, 'Oxy file reconciliation failed');
   }
 }
 
@@ -727,11 +725,9 @@ async function runImageCacheSweep(): Promise<void> {
     const removed = await sweepImageCache();
     const events = await expireFileEvents();
     if (released + removed + events > 0)
-      console.info('Image uses released and cache swept', { released, removed, events });
+      log.info({ released, removed, events }, 'Image uses released and cache swept');
   } catch (error) {
-    console.error('Image cache sweep failed', {
-      error: error instanceof Error ? error.message : 'unknown sweep failure',
-    });
+    log.error({ err: error }, 'Image cache sweep failed');
   }
 }
 
@@ -739,11 +735,9 @@ async function runImageCacheSweep(): Promise<void> {
 async function runEffectReceiptSweep(): Promise<void> {
   try {
     const removed = await sweepExpiredEffectReceipts();
-    if (removed > 0) console.info('Capability effect receipts swept', { removed });
+    if (removed > 0) log.info({ removed }, 'Capability effect receipts swept');
   } catch (error) {
-    console.error('Capability effect receipt sweep failed', {
-      error: error instanceof Error ? error.message : 'unknown sweep failure',
-    });
+    log.error({ err: error }, 'Capability effect receipt sweep failed');
   }
 }
 
@@ -752,11 +746,9 @@ async function runJobMaintenance(): Promise<void> {
     const sweep = await sweepJobLifecycle();
     const recrawls = await enqueueJobRecrawls();
     const pruned = await pruneInactiveJobDocuments();
-    console.info('Job corpus maintenance completed', { ...sweep, recrawls, pruned });
+    log.info({ ...sweep, recrawls, pruned }, 'Job corpus maintenance completed');
   } catch (error) {
-    console.error('Job corpus maintenance failed', {
-      error: error instanceof Error ? error.message : 'unknown maintenance failure',
-    });
+    log.error({ err: error }, 'Job corpus maintenance failed');
   }
 }
 
@@ -775,11 +767,9 @@ async function runFeedLoop(isStopping: () => boolean): Promise<void> {
     try {
       const feeds = await pollDueJobFeeds();
       idle = feeds.polled + feeds.failed === 0;
-      if (!idle) console.info('Job feeds polled', feeds);
+      if (!idle) log.info(feeds, 'Job feeds polled');
     } catch (error) {
-      console.error('Job feed polling failed', {
-        error: error instanceof Error ? error.message : 'unknown feed failure',
-      });
+      log.error({ err: error }, 'Job feed polling failed');
     }
     // Rest in short steps so a shutdown is not held up by an idle wait.
     for (let waited = 0; idle && waited < feedIdleMs && !isStopping(); waited += 1000) {
@@ -799,11 +789,9 @@ async function runProductFeedLoop(isStopping: () => boolean): Promise<void> {
     try {
       const feeds = await pollDueProductFeeds();
       idle = feeds.polled + feeds.failed === 0;
-      if (!idle) console.info('Product feeds polled', feeds);
+      if (!idle) log.info(feeds, 'Product feeds polled');
     } catch (error) {
-      console.error('Product feed polling failed', {
-        error: error instanceof Error ? error.message : 'unknown feed failure',
-      });
+      log.error({ err: error }, 'Product feed polling failed');
     }
     for (let waited = 0; idle && waited < feedIdleMs && !isStopping(); waited += 1000) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -842,9 +830,10 @@ async function main() {
       try {
         await reconcileAccountEvents();
       } catch (error) {
-        console.error('Account event reconciliation failed; the durable cursor is unchanged', {
-          error: error instanceof Error ? error.message : 'unknown reconciliation failure',
-        });
+        log.error(
+          { err: error },
+          'Account event reconciliation failed; the durable cursor is unchanged',
+        );
       }
     }
     if (Date.now() >= nextMaintenanceAt) {
@@ -873,6 +862,6 @@ async function main() {
 
 if (import.meta.main)
   main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
+    log.fatal({ err: error }, 'Clarity worker failed');
     process.exit(1);
   });

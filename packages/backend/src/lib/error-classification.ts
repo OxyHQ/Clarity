@@ -96,3 +96,20 @@ export function isTransientNetworkError(err: unknown): boolean {
 
   return false;
 }
+
+/**
+ * The 4xx status of a client error raised by middleware — body-parser's
+ * malformed or oversized body is an http-error carrying `status` and
+ * `expose: true` — or `undefined` for anything that is the server's fault.
+ */
+export function clientErrorStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== 'object') return undefined;
+  const { status, statusCode, expose } = err as {
+    status?: unknown;
+    statusCode?: unknown;
+    expose?: unknown;
+  };
+  const code = typeof status === 'number' ? status : statusCode;
+  if (expose !== true || typeof code !== 'number') return undefined;
+  return code >= 400 && code < 500 ? code : undefined;
+}

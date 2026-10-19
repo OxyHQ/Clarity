@@ -74,6 +74,9 @@ export async function discoverWeb(input: WebDiscoveryQuery): Promise<DiscoveredP
   let body: unknown;
   try {
     const response = await fetch(`${origin}/search?${params}`, {
+      // Bot detection logs an error for a request without a client address;
+      // the only client is this process, on the task's loopback.
+      headers: { 'X-Real-IP': '127.0.0.1' },
       signal: AbortSignal.timeout(DISCOVERY_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`SearXNG answered ${response.status}`);

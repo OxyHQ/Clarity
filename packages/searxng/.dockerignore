@@ -1,5 +1,6 @@
-# The image needs settings.yml and nothing else from this directory (BuildKit
-# reads the Dockerfile separately), so the context is an allowlist: a file
-# dropped here locally can never reach the build.
+# The image needs settings.yml and limiter.toml and nothing else from this
+# directory (BuildKit reads the Dockerfile separately), so the context is an
+# allowlist: a file dropped here locally can never reach the build.
 *
 !settings.yml
+!limiter.toml
