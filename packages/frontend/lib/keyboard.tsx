@@ -2,8 +2,10 @@
 import React from 'react';
 import {
   View,
+  type ViewInstance,
   type ViewProps,
   ScrollView,
+  type ScrollViewInstance,
   type ScrollViewProps,
   KeyboardAvoidingView,
 } from 'react-native';
@@ -16,7 +18,7 @@ type KeyboardAwareScrollViewProps = ScrollViewProps & {
   extraKeyboardSpace?: number;
 };
 
-const KeyboardAwareScrollView = React.forwardRef<ScrollView, KeyboardAwareScrollViewProps>(
+const KeyboardAwareScrollView = React.forwardRef<ScrollViewInstance, KeyboardAwareScrollViewProps>(
   ({ bottomOffset, disableScrollOnKeyboardHide, enabled, extraKeyboardSpace, ...props }, ref) => (
     <ScrollView ref={ref} {...props} />
   ),
@@ -29,7 +31,7 @@ type KeyboardStickyViewProps = ViewProps & {
   enabled?: boolean;
 };
 
-const KeyboardStickyView = React.forwardRef<View, KeyboardStickyViewProps>(
+const KeyboardStickyView = React.forwardRef<ViewInstance, KeyboardStickyViewProps>(
   ({ offset, enabled, ...props }, ref) => <View ref={ref} {...props} />,
 );
 KeyboardStickyView.displayName = 'KeyboardStickyView';

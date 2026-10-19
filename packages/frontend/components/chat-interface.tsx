@@ -5,7 +5,7 @@ import { KeyboardAwareScrollView } from '@/lib/keyboard';
 import { CustomMarkdown } from '@/components/ui/markdown';
 import { Text } from '@/components/ui/text';
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import type { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import type { ScrollViewInstance } from 'react-native';
 import { processMessage } from '@/lib/message-processor';
 import { cn } from '@/lib/utils';
 import { ThinkingIndicator } from '@/components/chat/thinking-indicator';
@@ -91,7 +91,7 @@ type ChatInterfaceProps = {
   /** The conversation the votes are stored in; a new search has none yet. */
   conversationId?: string;
   messages: ProductMessage[];
-  scrollViewRef: React.RefObject<GHScrollView | null>;
+  scrollViewRef: React.RefObject<ScrollViewInstance | null>;
   isLoading?: boolean;
   conversationLoading?: boolean;
   onSuggestionPress?: (message: string) => void;

@@ -32,7 +32,7 @@
       "favicon": "./assets/icon-192.png"
     },
     "plugins": [
-      "expo-router",
+      ["expo-router", { "asyncRoutes": { "web": false } }],
       "expo-localization",
       "expo-audio",
       "expo-font",
