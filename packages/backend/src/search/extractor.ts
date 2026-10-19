@@ -118,6 +118,18 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
   };
 }
 
+/**
+ * The icon a page declares (`<link rel~="icon">`), absolute, read from its
+ * `<head>` alone. The same answer as {@link extractDocument}'s `faviconUrl`
+ * without parsing the body or running Readability over it, which is all the
+ * favicon refresh needs from a home page.
+ */
+export function declaredIconUrl(html: string, finalUrl: string): string | undefined {
+  const headEnd = html.search(/<\/head\s*>/i);
+  const { document } = parseHTML(headEnd === -1 ? html : html.slice(0, headEnd));
+  return absolute(content(document, 'link[rel~="icon"]', 'href'), finalUrl);
+}
+
 function content(
   document: ReturnType<typeof parseHTML>['document'],
   selector: string,

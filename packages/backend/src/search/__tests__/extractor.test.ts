@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractDocument } from '../extractor.js';
+import { declaredIconUrl, extractDocument } from '../extractor.js';
 
 describe('extractDocument', () => {
   it('extracts canonical metadata, JSON-LD and readable content', () => {
@@ -37,5 +37,18 @@ describe('extractDocument', () => {
       'https://example.com/play',
     );
     expect(result.canonicalUrl).toBeUndefined();
+  });
+});
+
+describe('declaredIconUrl', () => {
+  it("reads the icon from the page's head, as extractDocument does", () => {
+    const html = `<html><head><link rel="shortcut icon" href="/brand.png"></head><body>${'<p>Body</p>'.repeat(50)}<link rel="icon" href="/body.png"></body></html>`;
+    expect(declaredIconUrl(html, 'https://example.com/')).toBe('https://example.com/brand.png');
+    expect(declaredIconUrl(html, 'https://example.com/')).toBe(
+      extractDocument(html, 'https://example.com/').faviconUrl,
+    );
+    expect(declaredIconUrl('<html><head></head><body></body></html>', 'https://example.com/')).toBe(
+      undefined,
+    );
   });
 });

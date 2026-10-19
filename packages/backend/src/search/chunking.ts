@@ -9,7 +9,7 @@
  * queued ({@link queueChunkEmbeddings}), and the queue embeds chunks from many
  * documents per request and writes the vectors back (`embedding-queue.ts`).
  */
-import { and, eq, isNull, ne, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, or, type SQL, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
 import { searchChunks, searchDocuments } from '../db/schema/index.js';
@@ -129,6 +129,20 @@ export async function embedQuery(
   } catch {
     return undefined;
   }
+}
+
+/**
+ * SQL true when the document `documentId` names has no chunk still owed an
+ * embedding by the current model (always true without the capability, which
+ * never embeds). For a caller deciding whether re-indexing would queue any.
+ */
+export function noChunksOwedEmbedding(documentId: SQL): SQL {
+  if (!embeddingsEnabled()) return sql`true`;
+  return sql`not exists (
+    select 1 from ${searchChunks}
+    where ${searchChunks.documentId} = ${documentId}
+      and (${searchChunks.embedding} is null or ${searchChunks.embeddingModel} is distinct from ${CLARITY_EMBEDDING_MODEL})
+  )`;
 }
 
 export type DocumentChunkState = 'current' | 'unembedded' | 'stale';
