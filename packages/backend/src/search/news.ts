@@ -1,9 +1,14 @@
-import { and, desc, eq, getTableColumns, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
 import { newsStories, newsStoryArticles, searchDocuments } from '../db/schema/index.js';
 import { dateFromUrl, metadataFromStructuredData } from './article-metadata.js';
-import { iconHostsOf, publicDocument, type DocumentCardRow } from './public-document.js';
+import {
+  documentCardColumns,
+  iconHostsOf,
+  publicDocument,
+  type DocumentCardRow,
+} from './public-document.js';
 
 export const NEWS_DEFAULT_LIMIT = 20;
 export const NEWS_MAX_LIMIT = 100;
@@ -51,8 +56,7 @@ export interface NewsQuery {
 }
 
 /** The document columns a news card needs — everything but the page text. */
-// `_mainContent` is dropped on purpose: a card never needs the page text.
-const { mainContent: _mainContent, ...cardColumns } = getTableColumns(searchDocuments);
+const cardColumns = documentCardColumns;
 
 /**
  * The newest news stories, each with its articles as public documents.

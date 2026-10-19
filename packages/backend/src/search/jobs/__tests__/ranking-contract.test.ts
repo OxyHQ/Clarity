@@ -104,7 +104,14 @@ describe('Clarity Jobs ranking contract', () => {
     // Per file, not a shared pool: widening one module must be a deliberate
     // edit here. A file absent from this map may reach no table at all.
     const allowedTables: Readonly<Record<string, readonly string[]>> = {
-      'service.ts': ['jobPostings', 'jobClusters', 'searchChunks', 'searchDocuments'],
+      // `searchChunkHalfvec` is the chunks' embedding as their HNSW index holds it.
+      'service.ts': [
+        'jobPostings',
+        'jobClusters',
+        'searchChunks',
+        'searchChunkHalfvec',
+        'searchDocuments',
+      ],
       'projection.ts': ['jobClusters', 'jobPostings', 'jobPostingSignatures', 'searchDocuments'],
       'lifecycle.ts': ['jobPostings', 'searchDocuments'],
       'reports.ts': ['jobPostings', 'jobReports'],

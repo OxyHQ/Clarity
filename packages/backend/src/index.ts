@@ -195,9 +195,15 @@ app.use((_req, res, next) => {
 // Stripe webhook needs raw body for signature verification
 app.use('/billing/webhook', express.raw({ type: 'application/json' }));
 
-// JSON bodies: job postings (JSON-LD), resolve batches, product writes
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// JSON bodies. The credentialed /v1 surface takes up to 10 MB — job postings
+// (JSON-LD), resolve batches, product writes. Everything else, most of it open
+// to anonymous callers, takes 1 MB: a body is parsed synchronously before any
+// route or auth runs, and 10 MB of JSON holds a 0.5-vCPU task for a while.
+// A body the /v1 parser read is not parsed again by the global one.
+app.use('/v1', express.json({ limit: '10mb' }));
+app.use('/v1', express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Routes
 app.use('/health', healthRouter);

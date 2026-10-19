@@ -9,6 +9,8 @@
  * queued ({@link queueChunkEmbeddings}), and the queue embeds chunks from many
  * documents per request and writes the vectors back (`embedding-queue.ts`).
  */
+import { createHash } from 'node:crypto';
+
 import { and, eq, isNull, ne, or, type SQL, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
@@ -19,6 +21,7 @@ import {
   embeddingsEnabled,
 } from '../lib/kaana-embeddings.js';
 import { createLogger } from '../lib/logger.js';
+import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { EmbeddingQueue, type PendingChunk } from './embedding-queue.js';
 
 const CHUNK_STRIDE = 1600;
@@ -123,11 +126,61 @@ export async function embedQuery(
   signal?: AbortSignal,
 ): Promise<number[] | undefined> {
   if (!embeddingsEnabled()) return undefined;
+  const cached = await cachedQueryEmbedding(query);
+  if (cached) return cached;
   try {
     const [embedding] = await createEmbeddings([query], signal ? { signal } : {});
+    if (embedding) void cacheQueryEmbedding(query, embedding);
     return embedding;
   } catch {
     return undefined;
+  }
+}
+
+/**
+ * A query's embedding depends only on the model and the text, so it is kept
+ * in Redis for a week: a repeated search (pagination, a popular query, the
+ * jobs and web verticals asking for the same words) skips Kaana's round trip
+ * — up to the 2.5 s a search waits for it — and its cost. Stored as float32,
+ * the precision the half-precision index compares at and more. Best effort:
+ * without Redis, or when it is slow, the embedding is simply requested.
+ */
+const QUERY_EMBEDDING_TTL_SECONDS = 7 * 24 * 60 * 60;
+const QUERY_EMBEDDING_REDIS_TIMEOUT_MS = 150;
+
+function queryEmbeddingKey(query: string): string {
+  const digest = createHash('sha256').update(`${CLARITY_EMBEDDING_MODEL}\n${query}`).digest('hex');
+  return `clarity:query-embedding:${digest}`;
+}
+
+async function cachedQueryEmbedding(query: string): Promise<number[] | undefined> {
+  const redis = getRedisClient();
+  if (!redis) return undefined;
+  try {
+    const stored = await withRedisTimeout(
+      redis.getBuffer(queryEmbeddingKey(query)),
+      QUERY_EMBEDDING_REDIS_TIMEOUT_MS,
+    );
+    if (!stored || stored.byteLength % 4 !== 0) return undefined;
+    const vector = new Float32Array(
+      stored.buffer.slice(stored.byteOffset, stored.byteOffset + stored.byteLength),
+    );
+    return Array.from(vector);
+  } catch {
+    return undefined;
+  }
+}
+
+async function cacheQueryEmbedding(query: string, embedding: readonly number[]): Promise<void> {
+  const redis = getRedisClient();
+  if (!redis) return;
+  try {
+    const bytes = Buffer.from(new Float32Array(embedding).buffer);
+    await withRedisTimeout(
+      redis.set(queryEmbeddingKey(query), bytes, 'EX', QUERY_EMBEDDING_TTL_SECONDS),
+    );
+  } catch {
+    // A cache that cannot be written is only a cache miss next time.
   }
 }
 

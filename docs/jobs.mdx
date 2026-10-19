@@ -324,7 +324,10 @@ relevance, so `frontend engineer working on React Native mobile apps` can match
 a role titled *Mobile Software Engineer*. Omitting `query` browses by filters
 and freshness. When embeddings are off or the call fails, hybrid degrades to
 lexical and says so in `degraded`; explicit `semantic` fails with `503`
-([embeddings capability](index#embeddings-capability)).
+([embeddings capability](index#embeddings-capability)). The semantic arm reads
+the 1,000 nearest chunks from the half-precision HNSW index and then applies
+the filters, like document search; a ranking that runs past 10 s answers `503
+search_timeout`. A query's embedding is cached in Redis for a week.
 
 Filters: `locations` (country name/code, city, region, or macro-region),
 `workplaceTypes`, `employmentTypes`, `seniorities`, `employers` (name or domain),
@@ -341,7 +344,8 @@ request rate as `/v1/search`, and answers `429 monthly_quota_exceeded` when the
 allowance is spent. Quota is capacity, never relevance.
 
 Other routes: `GET /v1/jobs/:id`, `GET /v1/jobs/by-url?url=…`,
-`POST /v1/jobs/:id/report` and `GET /v1/jobs/stats` (corpus health). The unauthenticated
+`POST /v1/jobs/:id/report` and `GET /v1/jobs/stats` (corpus health, recounted at most
+every five minutes). The unauthenticated
 portal surface mirrors the read routes and the report route under `/jobs`.
 
 ## Ranking contract
