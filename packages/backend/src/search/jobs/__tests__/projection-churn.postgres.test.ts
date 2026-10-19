@@ -16,6 +16,7 @@ import { staleJobPredicate, sweepJobLifecycle } from '../lifecycle.js';
 import {
   closeJobPostingsForDocument,
   ingestJobPosting,
+  JOB_SIGHTING_REFRESH_MS,
   projectJobPostings,
 } from '../projection.js';
 
@@ -114,6 +115,7 @@ interface Snapshot {
     titleExtractedAt: string;
   };
   documentToast: string | null;
+  documentXmin: string;
   signatures: string[];
   chunkIds: string[];
   embeddedChunks: number;
@@ -139,6 +141,7 @@ async function snapshot(url: string): Promise<Snapshot> {
     .select({
       id: searchDocuments.id,
       toast: sql<string | null>`pg_column_toast_chunk_id(${searchDocuments.structuredData})::text`,
+      xmin: sql<string>`${searchDocuments}.xmin::text`,
     })
     .from(searchDocuments)
     .where(eq(searchDocuments.canonicalUrl, url));
@@ -157,6 +160,7 @@ async function snapshot(url: string): Promise<Snapshot> {
   return {
     posting,
     documentToast: document.toast,
+    documentXmin: document.xmin,
     signatures: signatures.map((row) => row.version).sort(),
     chunkIds: chunks.map((row) => row.id),
     embeddedChunks: chunks.filter((row) => row.embedded).length,
@@ -256,10 +260,22 @@ suite('re-observing job listings on Postgres', () => {
     expect(before.documentToast).not.toBeNull();
     expect(before.chunkIds.length).toBeGreaterThan(1);
 
+    // Within a day of its last sighting, the same listing writes nothing —
+    // unless its chunks are still owed embeddings (they are here: Kaana is a
+    // bare mock), which a full ingest queues again.
+    vi.mocked(embeddingsEnabled).mockReturnValue(false);
     await ingest(loneUrl, at(60));
+    vi.mocked(embeddingsEnabled).mockReturnValue(true);
+    const unwritten = await snapshot(loneUrl);
+    expect(unwritten.posting.xmin).toBe(before.posting.xmin);
+    expect(unwritten.documentXmin).toBe(before.documentXmin);
+    expect(unwritten.posting.lastSeenAt).toEqual(at(0));
+
+    const nextDay = at(JOB_SIGHTING_REFRESH_MS / 60_000 + 1);
+    await ingest(loneUrl, nextDay);
     const after = await snapshot(loneUrl);
 
-    expect(after.posting.lastSeenAt).toEqual(at(60));
+    expect(after.posting.lastSeenAt).toEqual(nextDay);
     expect(after.posting.status).toBe('active');
     // The row itself is written once, for the sighting...
     expect(after.posting.xmin).not.toBe(before.posting.xmin);

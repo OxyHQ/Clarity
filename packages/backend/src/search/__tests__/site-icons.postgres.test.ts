@@ -257,6 +257,12 @@ suite('site icons on Postgres', () => {
       'https://icons-a.example/brand.png',
       expect.anything(),
     );
+    // ...and it leaves the due list, so later claims do not walk past it again.
+    const [parked] = await getDb()
+      .select({ next: searchHosts.iconNextFetchAt })
+      .from(searchHosts)
+      .where(eq(searchHosts.host, 'icons-a.example'));
+    expect(parked.next.getTime()).toBeGreaterThan(Date.now() + 29 * 24 * 60 * 60 * 1000);
   });
 
   it('learns nothing when Oxy cannot take an icon, and tries again soon', async () => {

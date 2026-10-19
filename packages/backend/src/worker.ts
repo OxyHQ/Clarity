@@ -44,7 +44,7 @@ const maxBodyBytes = 5 * 1024 * 1024;
 const extractorVersion = 'readability-0.6.0';
 /** How often stored job statuses are reconciled with the lifecycle policy. */
 const jobMaintenanceIntervalMs = 15 * 60 * 1000;
-/** Site icons: a small batch every half minute, between pages. */
+/** Site icons: a small batch every half minute, on their own loop. */
 const iconRefreshIntervalMs = 30 * 1000;
 const iconRefreshBatchSize = 10;
 /**
@@ -577,17 +577,15 @@ async function finishJobIfComplete(
   tx: Parameters<Parameters<ReturnType<typeof getDb>['transaction']>[0]>[0],
   jobId: string,
 ) {
-  const [{ pending }] = await tx
+  // One pass over the job's pages for both counts: this runs after every page.
+  const [{ pending, failed }] = await tx
     .select({
       pending: sql<number>`count(*) filter (where ${crawlPages.status} not in ('succeeded', 'failed'))::int`,
+      failed: sql<number>`count(*) filter (where ${crawlPages.status} = 'failed')::int`,
     })
     .from(crawlPages)
     .where(eq(crawlPages.jobId, jobId));
   if (pending === 0) {
-    const [{ failed }] = await tx
-      .select({ failed: sql<number>`count(*) filter (where ${crawlPages.status} = 'failed')::int` })
-      .from(crawlPages)
-      .where(eq(crawlPages.jobId, jobId));
     await tx
       .update(crawlJobs)
       .set({
@@ -690,12 +688,22 @@ export async function enqueueJobRecrawls(): Promise<number> {
   return due.length;
 }
 
-async function runIconRefresh(): Promise<void> {
-  try {
-    const { fetched, missing } = await refreshDueIcons(iconRefreshBatchSize);
-    if (fetched + missing > 0) log.debug({ fetched, missing }, 'Site icons refreshed');
-  } catch (error) {
-    log.error({ err: error }, 'Site icon refresh failed');
+/**
+ * Site icons are fetched beside the crawl loop, not inside it: a batch is up
+ * to three fetches per host with their own timeouts, and inline it held every
+ * page crawl (and a resolve caller waiting on one) behind it.
+ */
+async function runIconRefreshLoop(isStopping: () => boolean): Promise<void> {
+  while (!isStopping()) {
+    try {
+      const { fetched, missing } = await refreshDueIcons(iconRefreshBatchSize);
+      if (fetched + missing > 0) log.debug({ fetched, missing }, 'Site icons refreshed');
+    } catch (error) {
+      log.error({ err: error }, 'Site icon refresh failed');
+    }
+    for (let waited = 0; waited < iconRefreshIntervalMs && !isStopping(); waited += 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
   }
 }
 
@@ -814,7 +822,6 @@ async function main() {
   const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
   let nextAccountEventSyncAt = 0;
-  let nextIconRefreshAt = 0;
   let nextOxyFilesAt = 0;
   process.once('SIGTERM', () => {
     stopping = true;
@@ -823,6 +830,7 @@ async function main() {
     stopping = true;
   });
   const feedLoop = runFeedLoop(() => stopping);
+  const iconRefreshLoop = runIconRefreshLoop(() => stopping);
   const productFeedLoop = runProductFeedLoop(() => stopping);
   while (!stopping) {
     if (Date.now() >= nextAccountEventSyncAt) {
@@ -842,10 +850,6 @@ async function main() {
       await runImageCacheSweep();
       await runEffectReceiptSweep();
     }
-    if (Date.now() >= nextIconRefreshAt) {
-      nextIconRefreshAt = Date.now() + iconRefreshIntervalMs;
-      await runIconRefresh();
-    }
     if (Date.now() >= nextOxyFilesAt) {
       nextOxyFilesAt = Date.now() + oxyFilesIntervalMs;
       await runOxyFiles();
@@ -855,6 +859,7 @@ async function main() {
     else await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   await feedLoop;
+  await iconRefreshLoop;
   await productFeedLoop;
   await activity?.stop();
   await closePostgres();

@@ -18,6 +18,7 @@ import type {
 } from '@clarity/shared-types';
 
 import { getDb, type ClarityExecutor } from '../../db/index.js';
+import { CLARITY_EMBEDDING_MODEL, embeddingsEnabled } from '../../lib/kaana-embeddings.js';
 import {
   jobClusters,
   jobPostings,
@@ -508,6 +509,73 @@ export async function pruneInactiveJobDocuments(limit = RETENTION_BATCH): Promis
 /** Extractor identity recorded on chunks produced from an ingested payload. */
 const INGEST_EXTRACTOR_VERSION = 'jobposting-ingest-1';
 
+/**
+ * How long a sighting of an unchanged listing stands before another one is
+ * written. A feed is polled every 6 h and re-delivers every live listing, and
+ * each sighting rewrote the document and its listings: rows on tables with a
+ * dozen indexes (GIN included), where a `last_seen_at` that is itself indexed
+ * makes every such update a full one. It was the corpus's second-heaviest
+ * statement on the shared instance (Performance Insights, 2026-10-19). The
+ * windows that read a sighting are days long (`JOB_FEED_STALE_AFTER_DAYS`,
+ * `JOB_RETENTION_DAYS`), so one write a day loses nothing.
+ */
+export const JOB_SIGHTING_REFRESH_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The stored document and listing ids when this exact payload was already
+ * indexed at this URL, and each of its listings is open and was
+ * seen within {@link JOB_SIGHTING_REFRESH_MS}: re-ingesting it would only move
+ * timestamps. The listings must be exactly these postings, by source key, so
+ * none would be withdrawn either, each already fingerprinted, and none of the
+ * document's chunks may still be owed an embedding. One indexed read; `undefined` means ingest
+ * as usual.
+ */
+async function recentlySeenUnchanged(
+  canonicalUrl: string,
+  contentHash: string,
+  postings: readonly ExtractedJobPosting[],
+  observedAt: Date,
+): Promise<{ documentId: string; jobPostingIds: string[] } | undefined> {
+  const since = new Date(observedAt.getTime() - JOB_SIGHTING_REFRESH_MS);
+  const [row] = await getDb()
+    .select({
+      documentId: searchDocuments.id,
+      listings: sql<{ id: string; sourceKey: string }[]>`coalesce(json_agg(json_build_object(
+        'id', ${jobPostings.id}, 'sourceKey', ${jobPostings.sourceKey}
+      )) filter (where ${jobPostings.id} is not null), '[]')`,
+      fresh: sql<boolean>`coalesce(bool_and(
+        ${jobPostings.closedAt} is null
+          and ${jobPostings.contentHash} is not null
+          and ${jobPostings.lastSeenAt} >= ${since.toISOString()}::timestamptz
+      ), false)`,
+    })
+    .from(searchDocuments)
+    .leftJoin(jobPostings, eq(jobPostings.documentId, searchDocuments.id))
+    .where(
+      and(
+        eq(searchDocuments.canonicalUrl, canonicalUrl),
+        eq(searchDocuments.contentHash, contentHash),
+        eq(searchDocuments.status, 'indexed'),
+        eq(searchDocuments.documentType, 'job'),
+        // Chunks still owed an embedding are queued by a full ingest.
+        embeddingsEnabled()
+          ? sql`not exists (
+              select 1 from clarity_search_chunks chunk
+              where chunk.document_id = ${searchDocuments.id}
+                and (chunk.embedding is null or chunk.embedding_model is distinct from ${CLARITY_EMBEDDING_MODEL})
+            )`
+          : undefined,
+      ),
+    )
+    .groupBy(searchDocuments.id)
+    .limit(1);
+  if (!row?.fresh || row.listings.length !== postings.length) return undefined;
+  const ids = new Map(row.listings.map((listing) => [listing.sourceKey, listing.id]));
+  const jobPostingIds = postings.flatMap((posting) => ids.get(posting.sourceKey) ?? []);
+  if (jobPostingIds.length !== postings.length) return undefined;
+  return { documentId: row.documentId, jobPostingIds };
+}
+
 export interface JobIngestInput {
   /** The listing's public canonical URL, already canonicalized. */
   canonicalUrl: string;
@@ -569,6 +637,31 @@ export async function ingestJobPosting(
 
   const [primary] = postings;
   const body = postings.map(textIndexSource).join('\n\n');
+  const content = {
+    title: primary.title,
+    // A removed description or date clears the stored one; siteId is kept when absent.
+    description: primary.description
+      ? markdownToPlainText(primary.description).slice(0, 2_000)
+      : null,
+    mainContent: body,
+    structuredData: input.structuredData,
+    fieldEvidence: primary.evidence,
+    publisherName: primary.employerName,
+    publishedAt: primary.publishedAt ?? null,
+  };
+  const contentHash = fingerprint({
+    ...content,
+    fieldEvidence: withoutExtractionTimes(primary.evidence),
+  });
+
+  const recent = await recentlySeenUnchanged(
+    input.canonicalUrl,
+    contentHash,
+    postings,
+    input.observedAt,
+  );
+  if (recent) return recent;
+
   const chunks = chunkText(body);
   // A feed re-delivers every live listing on every poll. When the indexed text
   // is exactly what this payload would produce, the chunks are kept (and only
@@ -583,22 +676,6 @@ export async function ingestJobPosting(
   );
 
   const ingested = await getDb().transaction(async (tx) => {
-    const content = {
-      title: primary.title,
-      // A removed description or date clears the stored one; siteId is kept when absent.
-      description: primary.description
-        ? markdownToPlainText(primary.description).slice(0, 2_000)
-        : null,
-      mainContent: body,
-      structuredData: input.structuredData,
-      fieldEvidence: primary.evidence,
-      publisherName: primary.employerName,
-      publishedAt: primary.publishedAt ?? null,
-    };
-    const contentHash = fingerprint({
-      ...content,
-      fieldEvidence: withoutExtractionTimes(primary.evidence),
-    });
     const observation = {
       siteId: input.siteId,
       status: 'indexed',

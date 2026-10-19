@@ -275,6 +275,15 @@ export async function drainReferenceOutbox(limit = 1000): Promise<{
   sent: number;
   failed: boolean;
 }> {
+  // The worker asks every 10 s and the outbox is usually empty or backing
+  // off: answer that from one primary-key read, not a lease taken and given
+  // back (two writes) for nothing to send.
+  const [head] = await getDb()
+    .select({ nextAttemptAt: oxyFileReferenceOutbox.nextAttemptAt })
+    .from(oxyFileReferenceOutbox)
+    .orderBy(asc(oxyFileReferenceOutbox.id))
+    .limit(1);
+  if (!head || head.nextAttemptAt.getTime() > Date.now()) return { sent: 0, failed: false };
   if (!(await leaseJob('outbox'))) return { sent: 0, failed: false };
   let sent = 0;
   let failed = false;

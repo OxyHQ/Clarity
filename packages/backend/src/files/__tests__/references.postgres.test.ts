@@ -180,8 +180,17 @@ suite('Clarity file references on Postgres', () => {
     expect(head.nextAttemptAt.getTime()).toBeGreaterThan(Date.now());
 
     oxy.down = undefined;
-    // Not before its back-off.
+    // Not before its back-off — and asking takes no lease, so it writes nothing.
+    const [lease] = await getDb()
+      .select({ xmin: sql<string>`${oxyFileJobs}.xmin::text` })
+      .from(oxyFileJobs)
+      .where(eq(oxyFileJobs.name, 'outbox'));
     expect((await drainReferenceOutbox()).sent).toBe(0);
+    const [untouched] = await getDb()
+      .select({ xmin: sql<string>`${oxyFileJobs}.xmin::text` })
+      .from(oxyFileJobs)
+      .where(eq(oxyFileJobs.name, 'outbox'));
+    expect(untouched.xmin).toBe(lease.xmin);
     await getDb()
       .update(oxyFileReferenceOutbox)
       .set({ nextAttemptAt: new Date(0) });

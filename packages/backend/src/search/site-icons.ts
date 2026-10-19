@@ -13,7 +13,7 @@ import {
   svgUploadRefusal,
 } from '../files/oxy-files.js';
 import { useImage } from '../files/references.js';
-import { extractDocument } from './extractor.js';
+import { declaredIconUrl } from './extractor.js';
 
 /**
  * Site favicons, one per host, fetched by the worker and served by Clarity.
@@ -42,6 +42,10 @@ const MAX_HOME_PAGE_BYTES = 512 * 1024;
 const FETCH_TIMEOUT_MS = 8_000;
 /** How long a claimed host is left alone, so a crashed worker's claim expires. */
 const CLAIM_MS = 15 * 60 * 1000;
+/** Unused, already-stored icons moved off the due list per refresh. */
+const PARK_BATCH = 500;
+/** Hosts whose icons are fetched at once. */
+const ICON_FETCH_CONCURRENCY = 4;
 const REFRESH_MS = 30 * 24 * 60 * 60 * 1000;
 const RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 /** When Oxy could not take an icon (unreachable), it is fetched again this soon. */
@@ -258,7 +262,7 @@ async function declaredHomeIcon(host: string): Promise<string | undefined> {
   ).catch(() => undefined);
   if (!page) return undefined;
   try {
-    return extractDocument(page.bytes.toString('utf8'), page.finalUrl).faviconUrl;
+    return declaredIconUrl(page.bytes.toString('utf8'), page.finalUrl);
   } catch {
     // Not a document the extractor can read: it declares nothing.
     return undefined;
@@ -326,6 +330,27 @@ async function keepIcon(
 export async function refreshDueIcons(
   limit: number,
 ): Promise<{ fetched: number; missing: number }> {
+  // A due host whose icon is already in Oxy and that nothing uses is not
+  // refreshed, but it stayed due: every claim walked past all of them again.
+  // Its next fetch moves a refresh interval on instead, so the due index holds
+  // only hosts a refresh is for. `readSiteIcon` still serves it, and puts it
+  // back in use, whenever it is asked for.
+  await getDb().execute(sql`
+    update ${searchHosts} set icon_next_fetch_at = now() + ${`${REFRESH_MS} milliseconds`}::interval
+    where ${searchHosts.host} in (
+      select ${searchHosts.host} from ${searchHosts}
+      where ${searchHosts.iconNextFetchAt} <= now()
+        and ${searchHosts.iconStatus} = 'ready'
+        and ${searchHosts.iconOxyFileId} is not null
+        and not exists (
+          select 1 from ${imageReferences}
+          where ${imageReferences.entityType} = 'search_host'
+            and ${imageReferences.entityId} = ${searchHosts.host}
+        )
+      order by ${searchHosts.iconNextFetchAt}
+      limit ${PARK_BATCH}
+      for update skip locked
+    )`);
   const claimed = await getDb().execute<{ host: string; hint: string | null }>(sql`
     update ${searchHosts} set icon_next_fetch_at = now() + ${`${CLAIM_MS} milliseconds`}::interval
     where ${searchHosts.host} in (
@@ -347,55 +372,74 @@ export async function refreshDueIcons(
     returning ${searchHosts.host} as host, ${searchHosts.iconHintUrl} as hint`);
   let fetched = 0;
   let missing = 0;
-  for (const { host, hint } of claimed) {
-    const icon = await fetchSiteIcon(host, hint);
-    const kept = icon ? await keepIcon(icon) : 'missing';
-    const now = new Date();
-    if (typeof kept === 'object') {
-      fetched += 1;
-      const oxyFileId = 'oxyFileId' in kept ? kept.oxyFileId : null;
-      await getDb().transaction(async (tx) => {
-        await tx
-          .update(searchHosts)
-          .set({
-            iconStatus: 'ready',
-            iconContentType: kept.contentType,
-            iconOxyFileId: oxyFileId,
-            iconBytes: 'bytes' in kept ? kept.bytes : null,
-            iconSourceUrl: kept.sourceUrl,
-            iconFetchedAt: now,
-            iconNextFetchAt: new Date(now.getTime() + REFRESH_MS),
-            updatedAt: now,
-          })
-          .where(eq(searchHosts.host, host));
-        // The host now shows this file (or, for an SVG an Oxy without stage 4c
-        // refused, no Oxy file at all): the trigger owes Oxy the swap or the
-        // removal of its use.
-        const use = and(
-          eq(imageReferences.entityType, 'search_host'),
-          eq(imageReferences.entityId, host),
-        );
-        if (oxyFileId) await tx.update(imageReferences).set({ oxyFileId }).where(use);
-        else await tx.delete(imageReferences).where(use);
-      });
-    } else if (kept === 'unavailable') {
-      // Oxy could not take it: nothing about the icon is learned, so the row
-      // is left as it was and the host comes round again soon.
-      await getDb()
-        .update(searchHosts)
-        .set({ iconNextFetchAt: new Date(now.getTime() + OXY_RETRY_MS), updatedAt: now })
-        .where(eq(searchHosts.host, host));
-    } else {
-      missing += 1;
-      await getDb()
+  // A host costs up to three fetches with their own timeouts; a few at once,
+  // each to a different site, so one slow host does not hold up the batch.
+  const queue = [...claimed];
+  const refreshNext = async (): Promise<void> => {
+    for (let next = queue.shift(); next; next = queue.shift()) {
+      const outcome = await refreshHost(next.host, next.hint);
+      if (outcome === 'fetched') fetched += 1;
+      else if (outcome === 'missing') missing += 1;
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(ICON_FETCH_CONCURRENCY, queue.length) }, refreshNext),
+  );
+  return { fetched, missing };
+}
+
+/** Fetch, keep and record one claimed host's icon; `unavailable` leaves the row for a retry soon. */
+async function refreshHost(
+  host: string,
+  hint: string | null,
+): Promise<'fetched' | 'missing' | 'unavailable'> {
+  const icon = await fetchSiteIcon(host, hint);
+  const kept = icon ? await keepIcon(icon) : 'missing';
+  const now = new Date();
+  if (typeof kept === 'object') {
+    const oxyFileId = 'oxyFileId' in kept ? kept.oxyFileId : null;
+    await getDb().transaction(async (tx) => {
+      await tx
         .update(searchHosts)
         .set({
-          iconStatus: sql`case when ${searchHosts.iconStatus} in ('ready', 'blocked') then ${searchHosts.iconStatus} else 'missing' end`,
-          iconNextFetchAt: new Date(now.getTime() + RETRY_MS),
+          iconStatus: 'ready',
+          iconContentType: kept.contentType,
+          iconOxyFileId: oxyFileId,
+          iconBytes: 'bytes' in kept ? kept.bytes : null,
+          iconSourceUrl: kept.sourceUrl,
+          iconFetchedAt: now,
+          iconNextFetchAt: new Date(now.getTime() + REFRESH_MS),
           updatedAt: now,
         })
         .where(eq(searchHosts.host, host));
-    }
+      // The host now shows this file (or, for an SVG an Oxy without stage 4c
+      // refused, no Oxy file at all): the trigger owes Oxy the swap or the
+      // removal of its use.
+      const use = and(
+        eq(imageReferences.entityType, 'search_host'),
+        eq(imageReferences.entityId, host),
+      );
+      if (oxyFileId) await tx.update(imageReferences).set({ oxyFileId }).where(use);
+      else await tx.delete(imageReferences).where(use);
+    });
+    return 'fetched';
   }
-  return { fetched, missing };
+  if (kept === 'unavailable') {
+    // Oxy could not take it: nothing about the icon is learned, so the row
+    // is left as it was and the host comes round again soon.
+    await getDb()
+      .update(searchHosts)
+      .set({ iconNextFetchAt: new Date(now.getTime() + OXY_RETRY_MS), updatedAt: now })
+      .where(eq(searchHosts.host, host));
+    return 'unavailable';
+  }
+  await getDb()
+    .update(searchHosts)
+    .set({
+      iconStatus: sql`case when ${searchHosts.iconStatus} in ('ready', 'blocked') then ${searchHosts.iconStatus} else 'missing' end`,
+      iconNextFetchAt: new Date(now.getTime() + RETRY_MS),
+      updatedAt: now,
+    })
+    .where(eq(searchHosts.host, host));
+  return 'missing';
 }

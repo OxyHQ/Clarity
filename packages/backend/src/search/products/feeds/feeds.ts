@@ -216,7 +216,10 @@ export async function pollProductFeed(
         .onConflictDoUpdate({
           target: [productFeedRecords.feedId, productFeedRecords.externalId],
           set: {
-            payload: sql`excluded.payload`,
+            // An unchanged record keeps its stored payload: assigning the same
+            // JSON again would still write it out anew (TOAST included) on
+            // every walk of every catalogue.
+            payload: sql`case when ${productFeedRecords.contentHash} = excluded.content_hash then ${productFeedRecords.payload} else excluded.payload end`,
             changedAt: sql`case when ${productFeedRecords.contentHash} = excluded.content_hash then ${productFeedRecords.changedAt} else excluded.changed_at end`,
             contentHash: sql`excluded.content_hash`,
             lastSeenAt: sql`excluded.last_seen_at`,
