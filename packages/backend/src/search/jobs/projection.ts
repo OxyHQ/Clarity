@@ -18,7 +18,6 @@ import type {
 } from '@clarity/shared-types';
 
 import { getDb, type ClarityExecutor } from '../../db/index.js';
-import { CLARITY_EMBEDDING_MODEL, embeddingsEnabled } from '../../lib/kaana-embeddings.js';
 import {
   jobClusters,
   jobPostings,
@@ -28,6 +27,7 @@ import {
 import {
   chunkText,
   documentChunkState,
+  noChunksOwedEmbedding,
   queueChunkEmbeddings,
   replaceDocumentChunks,
 } from '../chunking.js';
@@ -558,13 +558,7 @@ async function recentlySeenUnchanged(
         eq(searchDocuments.status, 'indexed'),
         eq(searchDocuments.documentType, 'job'),
         // Chunks still owed an embedding are queued by a full ingest.
-        embeddingsEnabled()
-          ? sql`not exists (
-              select 1 from clarity_search_chunks chunk
-              where chunk.document_id = ${searchDocuments.id}
-                and (chunk.embedding is null or chunk.embedding_model is distinct from ${CLARITY_EMBEDDING_MODEL})
-            )`
-          : undefined,
+        noChunksOwedEmbedding(sql`${searchDocuments.id}`),
       ),
     )
     .groupBy(searchDocuments.id)
