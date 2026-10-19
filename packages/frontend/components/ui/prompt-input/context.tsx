@@ -1,5 +1,5 @@
 import React, { createContext, useContext } from 'react';
-import type { TextInput as RNTextInput } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 
 export interface Attachment {
   id: string;
@@ -18,7 +18,7 @@ export type PromptInputContextType = {
   maxHeight: number;
   onSubmit?: () => void;
   disabled?: boolean;
-  textareaRef: React.RefObject<RNTextInput | null>;
+  textareaRef: React.RefObject<TextInputInstance | null>;
   currentHeight: number;
   setCurrentHeight: (height: number) => void;
   isFullscreen: boolean;
@@ -38,7 +38,7 @@ export const PromptInputContext = createContext<PromptInputContextType>({
   maxHeight: 240,
   onSubmit: undefined,
   disabled: false,
-  textareaRef: React.createRef<RNTextInput>(),
+  textareaRef: React.createRef<TextInputInstance>(),
   currentHeight: 44,
   setCurrentHeight: () => {},
   isFullscreen: false,

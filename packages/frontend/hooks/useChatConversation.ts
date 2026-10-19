@@ -9,14 +9,14 @@
 
 import { useConversationThread } from '@alia.onl/sdk';
 import { useCallback, useRef } from 'react';
-import type { ScrollView as GHScrollView } from 'react-native-gesture-handler';
+import type { ScrollViewInstance } from 'react-native';
 
 import { CLARITY_AGENT_ID } from '@/lib/clarity-agent';
 import type { Attachment } from '@/lib/globalStore';
 import { usePowerLevelStore } from '@/lib/stores/power-level-store';
 
 export function useChatConversation({ conversationId }: { conversationId?: string } = {}) {
-  const scrollViewRef = useRef<GHScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const model = usePowerLevelStore((state) => state.powerLevel);
   const thread = useConversationThread({ conversationId, model, agentId: CLARITY_AGENT_ID });
 

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Text as RNText, type TextProps as RNTextProps } from 'react-native';
+import { Text as RNText, type TextInstance, type TextProps as RNTextProps } from 'react-native';
 import { cn } from '@/lib/utils';
 
 const TextClassContext = React.createContext<string | undefined>(undefined);
@@ -8,7 +8,7 @@ export type TextProps = RNTextProps & {
   className?: string;
 };
 
-const Text = React.forwardRef<RNText, TextProps>(({ className, ...props }, ref) => {
+const Text = React.forwardRef<TextInstance, TextProps>(({ className, ...props }, ref) => {
   const textClass = React.useContext(TextClassContext);
   return (
     <RNText

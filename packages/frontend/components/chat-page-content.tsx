@@ -1,10 +1,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { View, Pressable, type TextInput } from 'react-native';
+import { View, Pressable, type ScrollViewInstance, type TextInputInstance } from 'react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardStickyView } from '@/lib/keyboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { ScrollView as GHScrollView } from 'react-native-gesture-handler';
 import { useStore } from '@/lib/globalStore';
 import { Globe, X, Search, Menu, ArrowUp } from 'lucide-react-native';
 import {
@@ -91,7 +90,7 @@ interface ChatPageContentProps {
   /** The open conversation; omitted on the new-search page. */
   conversationId?: string;
   messages: Message[];
-  scrollViewRef: React.RefObject<GHScrollView | null>;
+  scrollViewRef: React.RefObject<ScrollViewInstance | null>;
   isLoading: boolean;
   onSubmit: (value: string, attachments?: Attachment[]) => void;
   onSuggestionPress: (message: string) => void;
@@ -400,7 +399,7 @@ export const ChatPageContent = ({
     </>
   );
 
-  const landingInputRef = useRef<TextInput>(null);
+  const landingInputRef = useRef<TextInputInstance>(null);
   const { pickImage } = useImagePicker();
   const { pickDocument } = useDocumentPicker();
 

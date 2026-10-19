@@ -109,6 +109,12 @@ jobs:
         with:
           bun-version-file: package.json
 
+      # `expo export` runs the Expo CLI under Node, and Expo SDK 58's CLI needs
+      # Node 22.13+; the runner's default Node is not pinned. Same as ci.yml.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 

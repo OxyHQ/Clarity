@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Pressable, type TextInput as RNTextInput } from 'react-native';
+import { View, Pressable, type TextInputInstance } from 'react-native';
 import { KeyboardAvoidingView } from '@/lib/keyboard';
 import { Maximize2, Minimize2 } from 'lucide-react-native';
 import { GlyphButton } from '@oxy.so/bloom/button';
@@ -82,7 +82,7 @@ export function PromptInput({
   const updateHandleCompletionKey = useCallback((handler: ((key: string) => boolean) | null) => {
     setHandleCompletionKey(() => handler);
   }, []);
-  const textareaRef = useRef<RNTextInput>(null);
+  const textareaRef = useRef<TextInputInstance>(null);
 
   // Internal attachment state (used when no controlled props)
   const [internalAttachments, setInternalAttachments] = useState<Attachment[]>([]);

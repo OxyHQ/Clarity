@@ -3,10 +3,9 @@ import {
   TextInput,
   Platform,
   View,
-  type NativeSyntheticEvent,
-  type TextInputKeyPressEventData,
-  type NativeSyntheticEvent as RNSyntheticEvent,
-  type TextInputContentSizeChangeEventData,
+  type TextInputContentSizeChangeEvent,
+  type TextInputInstance,
+  type TextInputKeyPressEvent,
 } from 'react-native';
 import { useTheme } from '@oxy.so/bloom/theme';
 import { cn } from '@/lib/utils';
@@ -24,7 +23,7 @@ type ChatTextInputProps = React.ComponentPropsWithoutRef<typeof TextInput> & {
   fillContainer?: boolean;
 };
 
-const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
+const ChatTextInput = React.forwardRef<TextInputInstance, ChatTextInputProps>(
   (
     {
       className,
@@ -46,7 +45,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
     ref,
   ) => {
     const { colors } = useTheme();
-    const inputRef = React.useRef<TextInput>(null);
+    const inputRef = React.useRef<TextInputInstance>(null);
     // Stable DOM id for the wrapper so the web paste handler can resolve the
     // element via document.getElementById (react-native-web renders the RN `id`
     // prop as the DOM id). Strip non-alphanumerics from useId() to match the id
@@ -58,7 +57,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
     );
 
     // Combine refs
-    React.useImperativeHandle(ref, () => inputRef.current as TextInput);
+    React.useImperativeHandle(ref, () => inputRef.current as TextInputInstance);
 
     // Attach paste event listener (web only) using document-level listener
     React.useEffect(() => {
@@ -100,7 +99,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
       };
     }, [onImagePaste, wrapperId]);
 
-    const handleKeyPress = (e: NativeSyntheticEvent<TextInputKeyPressEventData>) => {
+    const handleKeyPress = (e: TextInputKeyPressEvent) => {
       // Call the original onKeyPress if provided
       onKeyPress?.(e);
 
@@ -120,7 +119,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
       // Handle Enter key press (without Shift on web)
       if (key === 'Enter' && !disableEnterToSubmit) {
         // `shiftKey` is present on web key events (react-native-web) but absent
-        // from RN's TextInputKeyPressEventData; widen the type to read it safely.
+        // from RN's TextInputKeyPressEvent payload; widen the type to read it safely.
         const nativeEvent: { key: string; shiftKey?: boolean } = e.nativeEvent;
         if (Platform.OS !== 'web' || !nativeEvent.shiftKey) {
           e.preventDefault();
@@ -129,7 +128,7 @@ const ChatTextInput = React.forwardRef<TextInput, ChatTextInputProps>(
       }
     };
 
-    const handleContentSizeChange = (e: RNSyntheticEvent<TextInputContentSizeChangeEventData>) => {
+    const handleContentSizeChange = (e: TextInputContentSizeChangeEvent) => {
       onContentSizeChange?.(e);
     };
 

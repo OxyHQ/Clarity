@@ -1,10 +1,10 @@
 import { useCallback, useRef, useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import type { ScrollView } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 
 const THRESHOLD = 50;
 
-export function useScrollToBottom(scrollRef: React.RefObject<ScrollView | null>) {
+export function useScrollToBottom(scrollRef: React.RefObject<ScrollViewInstance | null>) {
   const [isAtBottom, setIsAtBottom] = useState(true);
   const isAtBottomRef = useRef(true);
   const contentHeightRef = useRef(0);

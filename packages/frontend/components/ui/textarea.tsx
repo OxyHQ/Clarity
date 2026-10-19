@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Platform, TextInput, type TextStyle } from 'react-native';
+import { Platform, TextInput, type TextInputInstance, type TextStyle } from 'react-native';
 import { useTheme } from '@oxy.so/bloom/theme';
 import { cn } from '@/lib/utils';
 
@@ -7,7 +7,7 @@ interface TextareaProps extends React.ComponentPropsWithoutRef<typeof TextInput>
   variant?: 'default' | 'ghost';
 }
 
-const Textarea = React.forwardRef<TextInput, TextareaProps>(
+const Textarea = React.forwardRef<TextInputInstance, TextareaProps>(
   ({ className, style, variant = 'default', ...props }, ref) => {
     const { colors } = useTheme();
     return (
