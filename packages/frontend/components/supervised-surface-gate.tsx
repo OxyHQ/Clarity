@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Slot, usePathname, useRouter } from 'expo-router';
-import { useOxy } from '@oxy.so/services';
-import { useSupervision } from '@oxy.so/services/ui';
+import { useOxy, useSupervision } from '@oxy.so/services/ui/client';
 import { Button } from '@oxy.so/bloom/button';
 import { Loading } from '@oxy.so/bloom/loading';
 import { Text, View } from 'react-native';

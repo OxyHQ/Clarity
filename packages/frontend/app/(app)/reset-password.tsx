@@ -1,4 +1,4 @@
-import { openAccountDialog } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { useState, useEffect } from 'react';
 import { View, Text } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -11,6 +11,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { openAccountDialog } = useOxy();
   const { token } = useLocalSearchParams<{ token: string }>();
   const apiClient = useApiClient();
   const [password, setPassword] = useState('');

@@ -35,7 +35,7 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useUIStore } from '@/lib/stores/ui-store';
 import { useRouter, usePathname } from 'expo-router';
-import { useOxy, openAccountDialog } from '@oxy.so/services';
+import { useOxy } from '@oxy.so/services/ui/client';
 import { ClarityWordmark } from '@/components/ui/clarity-wordmark';
 import { CLARITY_AGENT_ID, conversationPath } from '@/lib/clarity-agent';
 
@@ -195,7 +195,8 @@ export function useSearchSidebarConfig(): SidebarProps {
 
   // Clarity's conversations are Alia's, with Clarity's agent.
   const { data } = useConversations({ agentId: CLARITY_AGENT_ID });
-  const { user, isAuthenticated, logout, showBottomSheet, oxyServices } = useOxy();
+  const { user, isAuthenticated, logout, showBottomSheet, oxyServices, openAccountDialog } =
+    useOxy();
 
   const allConvs = React.useMemo(() => {
     const all = data?.pages.flatMap((p) => p.conversations) ?? [];
@@ -230,7 +231,7 @@ export function useSearchSidebarConfig(): SidebarProps {
     logout();
     router.replace('/(app)');
   }, [router, logout]);
-  const handleLogin = React.useCallback(() => openAccountDialog(), []);
+  const handleLogin = React.useCallback(() => openAccountDialog(), [openAccountDialog]);
   const handleUpgrade = React.useCallback(() => router.push('/(biglayout)/subscribe'), [router]);
   const handleBilling = React.useCallback(() => router.push('/(app)/settings/billing'), [router]);
   const handleNotifications = React.useCallback(
