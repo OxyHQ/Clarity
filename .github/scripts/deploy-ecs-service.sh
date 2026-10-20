@@ -197,9 +197,20 @@ run_one_shot() {
     return 1
   fi
 
+  # Where the service runs: its capacity provider strategy when it has one
+  # (oxy-cluster's EC2 capacity, EC2-only revisions), otherwise its launch type.
+  local strategy
+  local -a placement
+  strategy="$(jq -c '.services[0].capacityProviderStrategy // []' "$work_dir/$SERVICE.json")"
+  if [[ "$strategy" != "[]" ]]; then
+    placement=(--capacity-provider-strategy "$strategy")
+  else
+    placement=(--launch-type "$(jq -r '.services[0].launchType // "FARGATE"' "$work_dir/$SERVICE.json")")
+  fi
+
   task_arn="$(aws ecs run-task \
     --cluster "$CLUSTER" \
-    --launch-type FARGATE \
+    "${placement[@]}" \
     --task-definition "$new_definition" \
     --network-configuration "$network_json" \
     --overrides "$(jq -cn --arg name "$CONTAINER_NAME" --argjson command "$command_json" \
