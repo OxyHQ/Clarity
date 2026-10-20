@@ -302,6 +302,27 @@
       "when": 1792505705705,
       "tag": "0042_drop_stored_chunk_search_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1792506072223,
+      "tag": "0043_search_chunks_compact_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1792506072719,
+      "tag": "0044_search_chunks_compact_foreign_key",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792506073241,
+      "tag": "0045_search_chunks_swap_to_half_precision",
+      "breakpoints": true
     }
   ]
 }

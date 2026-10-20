@@ -122,6 +122,15 @@ suite('ranked search on Postgres', () => {
     );
   });
 
+  it('stores embeddings at half precision and no full-text vector (docs/search-storage.md)', async () => {
+    const columns = await getDb().execute<{ name: string; type: string }>(sql`
+      select attname as name, format_type(atttypid, atttypmod) as type from pg_attribute
+      where attrelid = 'clarity_search_chunks'::regclass and attnum > 0 and not attisdropped`);
+    const types = Object.fromEntries(columns.map((column) => [column.name, column.type]));
+    expect(types.embedding).toBe('halfvec(1024)');
+    expect(types).not.toHaveProperty('search_vector');
+  });
+
   it('matches lexical candidates through the full-text expression index', async () => {
     // The chunks store no full-text vector (migration 0040): the lexical arm
     // matches on `searchChunkTsvector`, the expression the index holds.

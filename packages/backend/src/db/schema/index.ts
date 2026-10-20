@@ -7,6 +7,7 @@ import {
   date,
   doublePrecision,
   foreignKey,
+  halfvec,
   index,
   integer,
   jsonb,
@@ -15,7 +16,6 @@ import {
   text,
   timestamp,
   unique,
-  vector,
 } from 'drizzle-orm/pg-core';
 
 const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
@@ -824,7 +824,10 @@ export const searchChunks = pgTable(
     startOffset: integer('start_offset').notNull(),
     endOffset: integer('end_offset').notNull(),
     text: text('text').notNull(),
-    embedding: vector('embedding', { dimensions: 1024 }),
+    // Half precision: the semantic index and every query compare at half
+    // precision (`searchChunkHalfvec`), so a float32 column kept twice the
+    // bytes for precision nothing read (docs/search-storage.md).
+    embedding: halfvec('embedding', { dimensions: 1024 }),
     embeddingModel: text('embedding_model'),
     extractorVersion: text('extractor_version').notNull(),
     ...timestampColumns(),

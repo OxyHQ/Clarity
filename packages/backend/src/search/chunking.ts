@@ -55,7 +55,7 @@ export async function storeChunkEmbeddings(
   }));
   await getDb().execute(sql`
     update clarity_search_chunks as chunk
-    set embedding = embedded.embedding::vector,
+    set embedding = embedded.embedding::halfvec(1024),
         embedding_model = ${CLARITY_EMBEDDING_MODEL},
         updated_at = now()
     from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as embedded(id text, embedding text)
