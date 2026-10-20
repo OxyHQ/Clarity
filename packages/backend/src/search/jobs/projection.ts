@@ -24,6 +24,7 @@ import {
   jobPostingSignatures,
   searchDocuments,
 } from '../../db/schema/index.js';
+import { mainContentToStore } from '../page-text.js';
 import {
   chunkText,
   documentChunkState,
@@ -697,7 +698,14 @@ export async function ingestJobPosting(
       )
       .returning({ id: searchDocuments.id });
     if (!document) {
-      const mutable = { ...content, ...observation, contentHash };
+      // The fingerprint hashes the text; the row stores it only when its
+      // chunks cannot give it back (search/page-text.ts).
+      const mutable = {
+        ...content,
+        mainContent: mainContentToStore(body, chunks),
+        ...observation,
+        contentHash,
+      };
       [document] = await tx
         .insert(searchDocuments)
         .values({

@@ -16,7 +16,10 @@ export type DocumentRow = typeof searchDocuments.$inferSelect;
 /** How much page text a snippet is cut from (`excerpt` keeps 300 characters). */
 const SNIPPET_SOURCE_LENGTH = 1_000;
 /** A document read without its page text, as lists that never show it do. */
-export type DocumentCardRow = Omit<DocumentRow, 'mainContent'> & { mainContent?: string | null };
+export type DocumentCardRow = Omit<DocumentRow, 'mainContent' | 'structuredData'> & {
+  mainContent?: string | null;
+  structuredData?: unknown;
+};
 
 // `_mainContent` is dropped on purpose: a card never needs the page text.
 const { mainContent: _mainContent, ...cardColumns } = getTableColumns(searchDocuments);
@@ -24,14 +27,24 @@ const { mainContent: _mainContent, ...cardColumns } = getTableColumns(searchDocu
 /** The document columns a card needs: everything but the page text. */
 export const documentCardColumns = cardColumns;
 
+// A result shows no structured data; only news reads it, for legacy rows.
+const { structuredData: _structuredData, ...resultColumns } = cardColumns;
+
 /**
  * Card columns plus the start of the page text, enough for a result's snippet
  * when the page has no description. A page holds up to 5 MB of text; a search
  * read every result's whole text to cut 300 characters from it.
+ *
+ * A chunked document stores no text (page-text.ts): its first chunk holds the
+ * first 2,000 characters, so the snippet's source is cut from that instead.
  */
 export const searchResultColumns = {
-  ...cardColumns,
-  mainContent: sql<string | null>`left(${searchDocuments.mainContent}, ${SNIPPET_SOURCE_LENGTH})`,
+  ...resultColumns,
+  mainContent: sql<string | null>`coalesce(
+    left(${searchDocuments.mainContent}, ${SNIPPET_SOURCE_LENGTH}),
+    (select left(first_chunk.text, ${SNIPPET_SOURCE_LENGTH}) from clarity_search_chunks first_chunk
+      where first_chunk.document_id = clarity_search_documents.id and first_chunk.position = 0)
+  )`,
 };
 
 /**

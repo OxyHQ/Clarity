@@ -15,7 +15,7 @@ import {
   queueChunkEmbeddings,
   replaceDocumentChunks,
 } from './search/chunking.js';
-import { extractJobPostings } from './search/jobs/extract.js';
+import { extractJobPostings, hasJobPosting } from './search/jobs/extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/lifecycle.js';
 import {
   closeJobPostingsForDocument,
@@ -24,6 +24,7 @@ import {
 } from './search/jobs/projection.js';
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { pollDueProductFeeds } from './search/products/feeds/feeds.js';
+import { mainContentToStore } from './search/page-text.js';
 import { answeredToAny } from './search/public-document.js';
 import { storableUrl } from './search/query-primitives.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
@@ -384,8 +385,12 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
         language: extracted.language,
         title: extracted.title,
         description: extracted.description,
-        mainContent: extracted.mainContent,
-        structuredData: extracted.structuredData,
+        // The text is its chunks' unless they cannot give it back, and raw
+        // JSON-LD is kept only for a job posting, whose feed re-projects it
+        // (search/page-text.ts, docs/search-storage.md). What else a page
+        // states is already a column: publisher, dates, authors.
+        mainContent: mainContentToStore(extracted.mainContent, textChunks),
+        structuredData: hasJobPosting(extracted.structuredData) ? extracted.structuredData : [],
         fieldEvidence: extracted.evidence,
         imageUrl: extracted.imageUrl,
         faviconUrl: extracted.faviconUrl,
