@@ -55,6 +55,8 @@ EXCLUSIVE lock, so the table is copied online into
    `CONCURRENTLY`, validates its foreign key and records the copy in
    `clarity_search_chunk_compaction`. It is idempotent: an interrupted run is
    run again.
-3. **Deploy the swap.** Its `post` migration refuses unless the copy is
-   recorded and its indexes are valid; it then drops the live table and gives
-   the copy its name, constraints and index names.
+3. **Deploy the swap** (0043–0045, `post`). It refuses unless the copy is
+   recorded, its indexes valid and its foreign key validated; it then drops the
+   live table and its trigger and gives the copy its name, constraints and
+   index names. The one-shot and its table left the code with it; this section
+   is the record of how the layout changed.
