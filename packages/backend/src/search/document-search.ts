@@ -11,7 +11,12 @@ import { eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { getDb } from '../db/index.js';
-import { searchChunkHalfvec, searchChunks, searchDocuments } from '../db/schema/index.js';
+import {
+  searchChunkHalfvec,
+  searchChunks,
+  searchChunkTsvector,
+  searchDocuments,
+} from '../db/schema/index.js';
 import { embedQuery } from './chunking.js';
 import {
   iconHostsOf,
@@ -258,15 +263,15 @@ export async function rankedSearch(
   const tsquery = sql`websearch_to_tsquery('simple', ${input.query})`;
   const lexical = sql`
     with candidates as (
-      select ${searchChunks.documentId} as id from ${searchChunks} where ${searchChunks.searchVector} @@ ${tsquery}
+      select ${searchChunks.documentId} as id from ${searchChunks} where ${searchChunkTsvector} @@ ${tsquery}
       union
       select ${searchDocuments.id} from ${searchDocuments} where ${searchDocuments.title} % ${input.query}
     )
     select ${searchDocuments.id} as document_id,
-      row_number() over (order by coalesce(max(ts_rank_cd(${searchChunks.searchVector}, ${tsquery})), 0) + similarity(coalesce(${searchDocuments.title}, ''), ${input.query}) desc, ${searchDocuments.id}) as rank
+      row_number() over (order by coalesce(max(ts_rank_cd(${searchChunkTsvector}, ${tsquery})), 0) + similarity(coalesce(${searchDocuments.title}, ''), ${input.query}) desc, ${searchDocuments.id}) as rank
     from candidates
     inner join ${searchDocuments} on ${searchDocuments.id} = candidates.id
-    left join ${searchChunks} on ${searchChunks.documentId} = ${searchDocuments.id} and ${searchChunks.searchVector} @@ ${tsquery}
+    left join ${searchChunks} on ${searchChunks.documentId} = ${searchDocuments.id} and ${searchChunkTsvector} @@ ${tsquery}
     where ${where}
     group by ${searchDocuments.id}
     order by rank limit 100`;

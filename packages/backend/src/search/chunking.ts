@@ -271,7 +271,6 @@ export async function replaceDocumentChunks(
       startOffset: chunk.start,
       endOffset: chunk.end,
       text: chunk.text,
-      searchVector: sql`to_tsvector('simple', ${chunk.text})`,
       embedding: embeddings?.[position],
       embeddingModel: embeddings ? CLARITY_EMBEDDING_MODEL : undefined,
       extractorVersion,

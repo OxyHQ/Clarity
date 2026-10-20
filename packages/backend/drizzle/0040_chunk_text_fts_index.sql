@@ -1,0 +1,13 @@
+-- oxy:deploy-phase=pre
+-- The chunks' full-text index over the EXPRESSION `to_tsvector('simple', text)`
+-- instead of a stored column. Measured in production (2026-10-20): the stored
+-- vector averaged 2,184 bytes a chunk against 1,246 bytes of the text it was
+-- computed from — ~9 GB over 4.2M chunks of the shared instance, for tokens
+-- the expression index holds anyway. Ranking computes the vector for the
+-- matched chunks only, from the same function on the same text, so lexical
+-- ranking is unchanged.
+--
+-- Built CONCURRENTLY by hand in production ahead of this deploy, so IF NOT
+-- EXISTS passes over it; a fresh install builds it here, where the table is
+-- small.
+CREATE INDEX IF NOT EXISTS "clarity_search_chunks_text_fts_idx" ON "clarity_search_chunks" USING gin (to_tsvector('simple'::regconfig, "text"));
