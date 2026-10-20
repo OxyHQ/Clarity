@@ -11,6 +11,9 @@ await esbuild.build({
     // One-shot operator task: `bun packages/backend/dist/db/import-places.js --target-database=clarity`.
     'db/import-places': 'src/scripts/import-geonames-places.ts',
     'db/recover-duplicate-resolves': 'src/scripts/recover-duplicate-resolves.ts',
+    // One-shot operator task (docs/search-storage.md): clears the page text and
+    // JSON-LD documents store twice.
+    'db/compact-document-text': 'src/scripts/compact-document-text.ts',
     // Oxy Files one-shots (docs/oxy-files.md). They run only inside an ECS task:
     // Clarity authenticates to Oxy by attesting its task role, nowhere else.
     'files/migrate-images-to-oxy': 'src/scripts/migrate-images-to-oxy.ts',

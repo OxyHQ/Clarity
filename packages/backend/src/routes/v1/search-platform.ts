@@ -74,6 +74,7 @@ import {
   registerProductFeed,
 } from '../../search/products/feeds/feeds.js';
 import { PRODUCT_FEED_KINDS } from '../../search/products/feeds/providers.js';
+import { withPageText } from '../../search/page-text.js';
 import {
   JOB_FEED_IDENTIFIER_MEANING,
   JOB_FEED_KINDS,
@@ -156,7 +157,10 @@ const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
  * fetched — does not count. Exported for its Postgres suite.
  */
 export async function fetchedDocuments(urls: readonly string[]): Promise<Map<string, DocumentRow>> {
-  const rows = await getDb().select().from(searchDocuments).where(answeredToAny(urls));
+  const rows = await withPageText(
+    getDb(),
+    await getDb().select().from(searchDocuments).where(answeredToAny(urls)),
+  );
   const byUrl = new Map<string, DocumentRow>();
   for (const url of urls) {
     const row = rows.find(

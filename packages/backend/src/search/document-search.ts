@@ -18,6 +18,7 @@ import {
   searchDocuments,
 } from '../db/schema/index.js';
 import { embedQuery } from './chunking.js';
+import { withPageText } from './page-text.js';
 import {
   iconHostsOf,
   publicDocument,
@@ -341,7 +342,9 @@ export async function findDocument(id: string): Promise<PublicDocument | undefin
     .from(searchDocuments)
     .where(eq(searchDocuments.id, id))
     .limit(1);
-  return row ? publicDocument(row, await iconHostsOf([row])) : undefined;
+  if (!row) return undefined;
+  const [document] = await withPageText(getDb(), [row]);
+  return publicDocument(document, await iconHostsOf([document]));
 }
 
 /** One indexed document by its canonical URL (any public URL that canonicalises to it). */
@@ -351,5 +354,7 @@ export async function findDocumentByUrl(url: string): Promise<PublicDocument | u
     .from(searchDocuments)
     .where(eq(searchDocuments.canonicalUrl, canonicalizePublicUrl(url)))
     .limit(1);
-  return row ? publicDocument(row, await iconHostsOf([row])) : undefined;
+  if (!row) return undefined;
+  const [document] = await withPageText(getDb(), [row]);
+  return publicDocument(document, await iconHostsOf([document]));
 }

@@ -23,6 +23,7 @@ import {
 import { createLogger } from '../lib/logger.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { EmbeddingQueue, type PendingChunk } from './embedding-queue.js';
+import { textFromChunks } from './page-text.js';
 
 const CHUNK_STRIDE = 1600;
 const CHUNK_LENGTH = 2000;
@@ -230,24 +231,31 @@ export async function documentChunkState(
     .from(searchDocuments)
     .where(eq(searchDocuments.canonicalUrl, canonicalUrl))
     .limit(1);
-  if (!document || document.mainContent !== mainContent) return 'stale';
+  if (!document) return 'stale';
 
-  const [chunks] = await executor
+  const chunks = await executor
     .select({
-      total: sql<number>`count(*)::int`,
-      extracted: sql<number>`(count(*) filter (
-        where ${searchChunks.extractorVersion} = ${extractorVersion}
-      ))::int`,
-      embedded: sql<number>`(count(*) filter (
-        where ${searchChunks.extractorVersion} = ${extractorVersion}
-          and ${searchChunks.embeddingModel} = ${CLARITY_EMBEDDING_MODEL}
-          and ${searchChunks.embedding} is not null
-      ))::int`,
+      startOffset: searchChunks.startOffset,
+      text: searchChunks.text,
+      extractorVersion: searchChunks.extractorVersion,
+      embeddingModel: searchChunks.embeddingModel,
+      embedded: sql<boolean>`${searchChunks.embedding} is not null`,
     })
     .from(searchChunks)
-    .where(eq(searchChunks.documentId, document.id));
-  if (!chunks || chunks.total !== chunkCount || chunks.extracted !== chunkCount) return 'stale';
-  return chunks.embedded === chunkCount ? 'current' : 'unembedded';
+    .where(eq(searchChunks.documentId, document.id))
+    .orderBy(searchChunks.position);
+  // A chunked document stores no text of its own: its text is its chunks'
+  // (page-text.ts).
+  const stored = document.mainContent ?? textFromChunks(chunks);
+  if (stored !== mainContent) return 'stale';
+  if (
+    chunks.length !== chunkCount ||
+    chunks.some((chunk) => chunk.extractorVersion !== extractorVersion)
+  )
+    return 'stale';
+  return chunks.every((chunk) => chunk.embedded && chunk.embeddingModel === CLARITY_EMBEDDING_MODEL)
+    ? 'current'
+    : 'unembedded';
 }
 
 /**

@@ -60,3 +60,39 @@ EXCLUSIVE lock, so the table is copied online into
    live table and its trigger and gives the copy its name, constraints and
    index names. The one-shot and its table left the code with it; this section
    is the record of how the layout changed.
+
+## Documents
+
+A document stores what only it holds; what its chunks or its columns already
+hold, it does not store again.
+
+- **Page text.** Every indexed document is chunked from exactly the text it
+  stores (`chunkText`: 2,000 characters every 1,600), so the text is its chunks
+  laid end to end (`search/page-text.ts`). `main_content` keeps the text only
+  when the chunks cannot give it back byte for byte: a document with no chunks
+  (a `noindex` page), or a text `chunkText` cuts through a surrogate pair (the
+  lone half is stored as U+FFFD). `getDocument`, `/v1/documents/:id` and
+  `/v1/resolve` return the text from the chunks (`withPageText`); a result's
+  snippet is cut from the first chunk, which holds the first 2,000 characters;
+  a recrawl compares the new text with the chunks' (`documentChunkState`).
+  Measured in production (2026-10-21): 2.8 KB a document over 1.3M documents.
+- **JSON-LD.** Kept only where something reads it: a job posting (the feed
+  poller re-projects a listing from it, `storedJobDocument`) and news (the
+  list falls back to it for a date or publisher its columns lack). Everything
+  else a page states is a column, extracted when it is crawled.
+
+`db/compact-document-text` (one-shot, idempotent, paced) cleared what rows
+written before this stored twice, each row only if it still held what was read.
+
+## Job postings
+
+`clarity_job_postings.search_vector` (4.2 KB a listing) stays stored. Measured
+alternatives, none of which keeps ranking and speed (2026-10-21):
+
+- stripping positions (3.0 KB) breaks `ts_rank_cd`, which ranks by cover
+  density and needs them;
+- an expression index needs the exact text the vector is computed from, which
+  `markdownToPlainText` builds in code; storing that text and computing the
+  vector at query time made ranking a common query 40% slower (12.7 s → 17.6 s,
+  every match is scored);
+- `lz4` (already the default) does not compress a tsvector at all.
