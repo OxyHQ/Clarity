@@ -2,7 +2,12 @@ import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
-import { searchChunkHalfvec, searchChunks, searchDocuments } from '../../../db/schema/index.js';
+import {
+  searchChunkHalfvec,
+  searchChunks,
+  searchChunkTsvector,
+  searchDocuments,
+} from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
 import { answeredToAny } from '../../../search/public-document.js';
 import { recordDiscoveredPages } from '../../../search/web-discovery.js';
@@ -114,6 +119,20 @@ suite('ranked search on Postgres', () => {
     });
     expect(plan.map((row) => row['QUERY PLAN']).join('\n')).toContain(
       'clarity_search_chunks_embedding_halfvec_hnsw_idx',
+    );
+  });
+
+  it('matches lexical candidates through the full-text expression index', async () => {
+    // The chunks store no full-text vector (migration 0040): the lexical arm
+    // matches on `searchChunkTsvector`, the expression the index holds.
+    const plan = await getDb().transaction(async (tx) => {
+      await tx.execute(sql.raw('set local enable_seqscan = off'));
+      return tx.execute<{ 'QUERY PLAN': string }>(sql`
+        explain select ${searchChunks.documentId} from ${searchChunks}
+        where ${searchChunkTsvector} @@ websearch_to_tsquery('simple', 'pixel')`);
+    });
+    expect(plan.map((row) => row['QUERY PLAN']).join('\n')).toContain(
+      'clarity_search_chunks_text_fts_idx',
     );
   });
 

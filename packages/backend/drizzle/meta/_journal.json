@@ -274,6 +274,34 @@
       "when": 1792241045719,
       "tag": "0038_clear_ingested_recrawl_schedules",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792505704073,
+      "tag": "0039_chunk_search_vector_nullable",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1792505704586,
+      "tag": "0040_chunk_text_fts_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792505705153,
+      "tag": "0041_search_chunks_compact_copy",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1792505705705,
+      "tag": "0042_drop_stored_chunk_search_vector",
+      "breakpoints": true
     }
   ]
 }

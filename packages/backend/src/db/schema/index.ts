@@ -824,7 +824,6 @@ export const searchChunks = pgTable(
     startOffset: integer('start_offset').notNull(),
     endOffset: integer('end_offset').notNull(),
     text: text('text').notNull(),
-    searchVector: tsvector('search_vector').notNull(),
     embedding: vector('embedding', { dimensions: 1024 }),
     embeddingModel: text('embedding_model'),
     extractorVersion: text('extractor_version').notNull(),
@@ -832,7 +831,15 @@ export const searchChunks = pgTable(
   },
   (table) => [
     unique('clarity_search_chunks_document_position_unique').on(table.documentId, table.position),
-    index('clarity_search_chunks_fts_idx').using('gin', table.searchVector),
+    // The full-text index holds `to_tsvector('simple', text)` without storing
+    // it: a stored vector averaged 2.2 KB a chunk, more than the 1.2 KB of text
+    // it was computed from (9 GB over 4.2M chunks, 2026-10-20), for the same
+    // tokens. `searchChunkTsvector` is the expression it indexes, and the only
+    // one a query may match or rank with to use it.
+    index('clarity_search_chunks_text_fts_idx').using(
+      'gin',
+      sql`to_tsvector('simple'::regconfig, ${table.text})`,
+    ),
     // The semantic index holds each vector at half precision: half the pages
     // for an insert to walk and a search to read, on an instance whose disk is
     // the bottleneck. `searchChunkHalfvec` is the expression it indexes, and
@@ -851,6 +858,14 @@ export const searchChunks = pgTable(
  * `clarity_search_chunks_embedding_halfvec_hnsw_idx`.
  */
 export const searchChunkHalfvec = sql`(${searchChunks.embedding}::halfvec(1024))`;
+
+/**
+ * A chunk's full-text vector, computed from its text: the expression
+ * `clarity_search_chunks_text_fts_idx` holds. Matching (`@@`) on it uses the
+ * index; ranking (`ts_rank_cd`) computes it for the matched chunks only, the
+ * same tokens the stored vector held.
+ */
+export const searchChunkTsvector = sql`to_tsvector('simple'::regconfig, ${searchChunks.text})`;
 
 export const crawlJobs = pgTable(
   'clarity_crawl_jobs',
