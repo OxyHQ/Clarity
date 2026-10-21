@@ -49,6 +49,15 @@ const MAX_CANDIDATES = 25_000;
  * vain before scoring every match, 2.5 s instead of 0.2 s.
  */
 const SMALL_MATCH = 2_000;
+/**
+ * A query matching at most this many listings is ranked by scoring every
+ * match in one statement: below it that costs less than the bounds read.
+ * Measured cold in production (2026-10-21, inline vectors): 12,019 matches in
+ * 4.1 s whole against 14.2 s in two phases ("retail sales associate"), 7,191
+ * in 0.4 s against 4.7 s ("sales rep"); past ~50k the two phases win
+ * ("driver", 57,845: 3.3 s whole, 1.1 s in two phases).
+ */
+const WHOLE_MATCH = 20_000;
 /** `ts_rank_cd` and `similarity` are float4: the bound keeps their rounding. */
 const SCORE_EPSILON = 1e-4;
 /** `work_mem` for scoring every match: a lossy bitmap rechecks — and detoasts — every row of a page. */
@@ -207,7 +216,8 @@ export async function rankLexically(
   {
     nearest = NEAREST,
     smallMatch = SMALL_MATCH,
-  }: { nearest?: readonly number[]; smallMatch?: number } = {},
+    wholeMatch = WHOLE_MATCH,
+  }: { nearest?: readonly number[]; smallMatch?: number; wholeMatch?: number } = {},
 ): Promise<LexicalRanking> {
   await tx.execute(sql.raw(`set local work_mem = '${SCORING_WORK_MEM}'`));
   await tx.execute(sql.raw(`set local effective_io_concurrency = ${READ_AHEAD}`));
@@ -320,25 +330,30 @@ export async function rankLexically(
     return excludedBound(terms, above, similarity.get(id) ?? 1);
   };
 
-  // Few enough matches are scored whole, read ahead like any candidate. Each
-  // arm stops one past the limit — a UNION would read every match first to
-  // remove duplicates — so a broad query learns it is broad cheaply.
+  // Few enough matches are scored whole: a handful read ahead like any
+  // candidate, a few thousand in one statement. Each arm stops one past the
+  // limit — a UNION would read every match first to remove duplicates — so a
+  // broad query learns it is broad cheaply.
+  const limit = Math.max(smallMatch, wholeMatch) + 1;
   const arms = await readingAhead(() =>
     tx.execute<{ id: string; arm: number }>(sql`
       (select job_posting_id as id, 1 as arm from clarity_job_search_vectors
         where search_vector @@ websearch_to_tsquery('simple', ${query})
-        limit ${smallMatch + 1})
+        limit ${limit})
       union all
       (select job_posting_id, 2 from clarity_job_headlines where title % ${query}
-        limit ${smallMatch + 1})`),
+        limit ${limit})`),
   );
   const matches = [...new Set(arms.map((row) => row.id))];
-  const armFull = (arm: number) => arms.filter((row) => row.arm === arm).length > smallMatch;
-  if (!armFull(1) && !armFull(2) && matches.length <= smallMatch) {
+  const complete = [1, 2].every((arm) => arms.filter((row) => row.arm === arm).length < limit);
+  if (complete && matches.length <= smallMatch) {
     for (let start = 0; start < matches.length; start += SCORING_BATCH) {
       await score(matches.slice(start, start + SCORING_BATCH));
     }
     return { ids: await ordered(tx, scores, depth), plan: 'small' };
+  }
+  if (complete && matches.length <= wholeMatch) {
+    return { ids: await rankEveryMatch(tx, filter, query, depth), plan: 'whole' };
   }
 
   const banded = new Map<number, string[]>();

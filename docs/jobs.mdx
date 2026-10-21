@@ -356,10 +356,12 @@ timeout (production, 2026-10-21). It is now ranked in two phases, **exactly**
   headlines, are tried; past the last every match is scored, its title arm read
   from the headlines, with `work_mem` large enough that the bitmap stays exact.
 - A query matching at most 2,000 listings is scored whole — each match read
-  ahead like any candidate — before any bound is tried: fewer than 200 matches
-  can never be proved, and reading them all costs less than the bounds. Each
-  arm of the match is read with its own limit, so a broad query learns it is
-  broad from 2,001 rows.
+  ahead like any candidate — and one matching at most 20,000 in one statement,
+  before any bound is tried: fewer than 200 matches can never be proved, and
+  below ~20k reading every match costs less than the bounds (12,019 matches:
+  4.1 s whole against 14.2 s in two phases, cold). Each arm of the match is
+  read with its own limit, so a broad query learns it is broad from 20,001
+  rows.
 - Not every candidate is read. The same bound applies to each one: a listing in
   band b but not the next band up, b′, scores at most 0.1 · n · (b′ − 1) plus
   its similarity, which the headline rows give exactly. Candidates are scored
