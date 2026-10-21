@@ -379,6 +379,13 @@
       "when": 1792562868367,
       "tag": "0053_search_chunks_swap_to_split",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1792576865570,
+      "tag": "0054_job_search_vectors",
+      "breakpoints": true
     }
   ]
 }

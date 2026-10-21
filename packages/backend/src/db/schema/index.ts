@@ -1300,6 +1300,22 @@ export const jobPostings = pgTable(
 );
 
 /**
+ * Each listing's full-text vector, apart from the listing row and stored
+ * inline (`STORAGE MAIN`, migration 0054): ranking reads the vectors of its
+ * candidates by key with a bitmap scan that reads ahead. Out of line, in the
+ * listing's TOAST, each was read a page at a time — 6.9k candidates took 31 s
+ * cold (production, 2026-10-21). Filled from `clarity_job_postings` by a
+ * trigger and `db/copy-job-search-vectors` until the listing's own column is
+ * dropped (docs/jobs.mdx, "The lexical arm, in two phases").
+ */
+export const jobSearchVectors = pgTable('clarity_job_search_vectors', {
+  jobPostingId: text('job_posting_id')
+    .primaryKey()
+    .references(() => jobPostings.id, { onDelete: 'cascade' }),
+  searchVector: tsvector('search_vector').notNull(),
+});
+
+/**
  * Each listing's search terms by how often they occur — a stripped vector per
  * band, the terms that occur at least 3, 6, 12 and 24 times in its
  * `search_vector` — so a broad query is ranked in two phases without reading
