@@ -291,8 +291,18 @@ suite('re-observing job listings on Postgres', () => {
     expect(after.posting.titleExtractedAt).toBe(at(0).toISOString());
   });
 
-  it('writes one row and nothing else for an unchanged listing, and only the difference for a changed one', async () => {
-    expect(await projectCounted(loneUrl, at(120))).toEqual({
+  it('writes nothing for an unchanged listing seen within a day, one row after it, and only the difference for a changed one', async () => {
+    // Sighted at `nextDay` by the test above: an hour later nothing changes.
+    const sighted = at(JOB_SIGHTING_REFRESH_MS / 60_000 + 1);
+    expect(await projectCounted(loneUrl, new Date(sighted.getTime() + 3_600_000))).toEqual({
+      postings: 0,
+      postingsToast: 0,
+      signatures: 0,
+      clusters: 0,
+    });
+    expect(
+      await projectCounted(loneUrl, new Date(sighted.getTime() + JOB_SIGHTING_REFRESH_MS + 60_000)),
+    ).toEqual({
       postings: 1,
       postingsToast: 0,
       signatures: 0,
@@ -393,10 +403,10 @@ suite('re-observing job listings on Postgres', () => {
       return cluster.id;
     };
     expect(await canonical()).toBe(employer.posting.id);
-    // A grouped copy seen again re-checks its cluster's election but writes
-    // nothing to it, nor to the signatures that grouped it.
+    // A grouped copy seen again within a day writes nothing: not its row, its
+    // cluster, nor the signatures that grouped it.
     expect(await projectCounted(employerUrl, at(30))).toEqual({
-      postings: 1,
+      postings: 0,
       postingsToast: 0,
       signatures: 0,
       clusters: 0,
