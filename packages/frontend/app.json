@@ -12,7 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "so.oxy.clarity",
       "infoPlist": {
-        "UIBackgroundModes": ["audio", "remote-notification"]
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -34,7 +34,7 @@
     "plugins": [
       ["expo-router", { "asyncRoutes": { "web": false } }],
       "expo-localization",
-      "expo-audio",
+      ["expo-audio", { "enableBackgroundPlayback": false }],
       "expo-font",
       "expo-image",
       "expo-secure-store",
@@ -59,6 +59,7 @@
         }
       ],
       "expo-status-bar",
+      ["expo-build-properties", { "android": { "gifEnabled": false, "webpEnabled": false } }],
       "@oxy.so/app-preset/plugin/withOxyAndroidRelease",
       "@oxy.so/services/plugins/withOxySharedPermissions"
     ],
