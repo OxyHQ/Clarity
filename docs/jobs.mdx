@@ -360,15 +360,16 @@ timeout (production, 2026-10-21). It is now ranked in two phases, **exactly**
   its similarity, which the headline rows give exactly. Candidates are scored
   highest ceiling first, 500 at a time, until no ceiling reaches the 200th
   score; a band whose candidates could not prove the ranking even at their
-  ceilings reads nothing. Reading a listing costs its row, its TOASTed vector
-  and its document (~5 random pages); this cut a warm ranking from 15–25 s to
-  0.6–3.5 s and a cold one by half, identical on 20 production queries
-  (2026-10-21). Bitmap scans read ahead (`effective_io_concurrency` 128).
-- A broad query of several words is usually decided by its titles ("Software
-  Engineer" titles are the top 200 of `software engineer`), a broad single word
-  by how often it occurs; the nearest headlines bound the first, the bands the
-  second. A fixed similarity threshold could do neither for common words: it
-  brought tens of thousands of candidates, and the search timed out.
+  ceilings reads nothing.
+- A candidate is read by key in three statements: its row and its document,
+  each with a bitmap scan that reads ahead (`effective_io_concurrency` 128),
+  then the vector of those that pass. Every predicate is selected, never
+  filtered on: in a WHERE clause the planner OR-ed the match's two indexes
+  (misjudging `title %` at 96 rows when 64,300 matched) and rechecked tens of
+  thousands of listings to score the few hundred it was given.
+- Measured cold in production on 40 queries (2026-10-21, half each way): p50
+  6.2 s → 2.4 s, p90 25.9 s → 8.7 s; warm p50 1.3 s → 1.0 s. Identical to
+  scoring every match on 20 queries.
 
 A property test (`lexical-ranking.postgres.test.ts`) checks the two phases
 against scoring every match for every query shape — AND, OR, phrases,

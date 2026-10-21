@@ -88,6 +88,26 @@ function lexicalMatch(query: string): SQL {
   return sql`(search_vector @@ websearch_to_tsquery('simple', ${query}) or title % ${query})`;
 }
 
+/**
+ * What a ranking keeps: listings that satisfy `listing`, a predicate on
+ * `clarity_job_postings`' own columns, whose document satisfies `document`, a
+ * predicate on `clarity_search_documents`. Apart, each is read with a bitmap
+ * scan that asks the disk for its pages ahead (see `score` in
+ * {@link rankLexically}); as one `exists` per listing they were read a page
+ * at a time.
+ */
+export interface LexicalFilter {
+  listing: SQL;
+  document: SQL;
+}
+
+function filterSql(filter: LexicalFilter): SQL {
+  return sql`${filter.listing} and exists (
+    select 1 from clarity_search_documents
+    where clarity_search_documents.id = clarity_job_postings.document_id and ${filter.document}
+  )`;
+}
+
 export interface LexicalRanking {
   ids: string[];
   /** The step that proved the ranking, or `full` when every match was scored. */
@@ -101,7 +121,7 @@ export interface LexicalRanking {
  */
 export async function rankEveryMatch(
   tx: ClarityExecutor,
-  where: SQL,
+  filter: LexicalFilter,
   query: string,
   depth: number,
 ): Promise<string[]> {
@@ -119,7 +139,7 @@ export async function rankEveryMatch(
     )
     select clarity_job_postings.id from matches
     join clarity_job_postings on clarity_job_postings.id = matches.id
-    where ${where}
+    where ${filterSql(filter)}
     order by ${lexicalScore(query)} desc, clarity_job_postings.id
     limit ${depth}`);
   return rows.map((row) => row.id);
@@ -165,7 +185,7 @@ const SCORING_BATCH = 500;
 /** The top `depth` lexical matches, in rank order. `nearest` is a test seam. */
 export async function rankLexically(
   tx: ClarityExecutor,
-  where: SQL,
+  filter: LexicalFilter,
   query: string,
   depth: number,
   { nearest = NEAREST }: { nearest?: readonly number[] } = {},
@@ -177,9 +197,18 @@ export async function rankLexically(
   );
   const terms = queryTerms(parsed?.tsquery ?? '');
   if (terms.lexemes.length === 0 || !(await bandsComplete(tx))) {
-    return { ids: await rankEveryMatch(tx, where, query, depth), plan: 'full' };
+    return { ids: await rankEveryMatch(tx, filter, query, depth), plan: 'full' };
   }
 
+  // Reads by key with a bitmap scan, which reads ahead, rather than an index
+  // scan, which does not. Only for statements over one table, by key. A
+  // failed read aborts the transaction, so the setting needs no restoring.
+  const readingAhead = async <T>(read: () => Promise<T>): Promise<T> => {
+    await tx.execute(sql.raw('set local enable_indexscan = off'));
+    const result = await read();
+    await tx.execute(sql.raw('set local enable_indexscan = on'));
+    return result;
+  };
   // Every listing scored so far: its exact score, or null when it does not
   // match or is filtered out. A score never changes within one ranking, so
   // no listing is read twice.
@@ -187,11 +216,46 @@ export async function rankLexically(
   const score = async (ids: readonly string[]) => {
     const unscored = ids.filter((id) => !scores.has(id));
     if (unscored.length === 0) return;
-    const rows = await tx.execute<{ id: string; score: number }>(sql`
-      select id, ${lexicalScore(query)} as score from clarity_job_postings
-      where id = any(${sql.param(unscored)}::text[]) and ${where} and ${lexicalMatch(query)}`);
+    // Cold, each candidate is a random read of its row, its document and its
+    // TOASTed vector. The rows and the documents are read first, each with a
+    // bitmap scan that reads ahead (an index scan reads one page at a time);
+    // only the candidates that pass both are scored, their rows by then in
+    // memory. Measured cold in production (2026-10-21): 2,000 candidates read
+    // 1,764 row, 3,561 document and 3,183 vector pages, 5.4 s, one at a time.
+    // Every predicate is selected, never filtered on: in a WHERE clause the
+    // planner OR-ed the match's two indexes, misjudging `title %` (96 rows
+    // estimated, 64,300 found), and rechecked 56k listings — 114k pages, 7 s —
+    // to keep 400 it was given by key.
+    const listings = await readingAhead(() =>
+      tx.execute<{ id: string; documentId: string; kept: boolean }>(sql`
+        select id, document_id as "documentId", (${filter.listing}) as kept
+        from clarity_job_postings
+        where id = any(${sql.param(unscored)}::text[])`),
+    );
+    const documentIds = [
+      ...new Set(listings.filter((row) => row.kept).map((row) => row.documentId)),
+    ];
+    const listed =
+      documentIds.length === 0
+        ? []
+        : await readingAhead(() =>
+            tx.execute<{ id: string; listed: boolean }>(sql`
+              select id, (${filter.document}) as listed from clarity_search_documents
+              where id = any(${sql.param(documentIds)}::text[])`),
+          );
+    const listedIds = new Set(listed.filter((row) => row.listed).map((row) => row.id));
+    const kept = listings
+      .filter((row) => row.kept && listedIds.has(row.documentId))
+      .map((row) => row.id);
+    const rows =
+      kept.length === 0
+        ? []
+        : await tx.execute<{ id: string; matches: boolean; score: number }>(sql`
+            select id, ${lexicalMatch(query)} as matches, ${lexicalScore(query)} as score
+            from clarity_job_postings
+            where id = any(${sql.param(kept)}::text[])`);
     for (const id of unscored) scores.set(id, null);
-    for (const row of rows) scores.set(row.id, Number(row.score));
+    for (const row of rows) if (row.matches) scores.set(row.id, Number(row.score));
   };
   const matched = () => [...scores.values()].filter((value): value is number => value !== null);
   /** The `depth`-th largest of `values`, or -Infinity while there are fewer. */
@@ -206,11 +270,13 @@ export async function rankLexically(
   const readSimilarity = async (ids: readonly string[]) => {
     const missing = ids.filter((id) => !similarity.has(id) && !scores.has(id));
     if (missing.length === 0) return;
-    const rows = await tx.execute<{ id: string; similarity: number }>(sql`
-      select job_posting_id as id,
-        greatest(similarity(title, ${query}), similarity(employer_name, ${query})) as similarity
-      from clarity_job_headlines
-      where job_posting_id = any(${sql.param(missing)}::text[])`);
+    const rows = await readingAhead(() =>
+      tx.execute<{ id: string; similarity: number }>(sql`
+        select job_posting_id as id,
+          greatest(similarity(title, ${query}), similarity(employer_name, ${query})) as similarity
+        from clarity_job_headlines
+        where job_posting_id = any(${sql.param(missing)}::text[])`),
+    );
     for (const row of rows) similarity.set(row.id, Number(row.similarity));
   };
 
@@ -269,7 +335,7 @@ export async function rankLexically(
       }
     }
   }
-  return { ids: await rankEveryMatch(tx, where, query, depth), plan: 'full' };
+  return { ids: await rankEveryMatch(tx, filter, query, depth), plan: 'full' };
 }
 
 /**

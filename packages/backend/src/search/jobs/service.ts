@@ -164,10 +164,19 @@ function textArray(values: readonly string[]): SQL {
 }
 
 /** Structured constraints. These narrow candidates; they never add score. */
+/** The documents whose listings are searched: indexed and not `noindex`. */
+const LISTED_DOCUMENT = sql`${searchDocuments.status} = 'indexed' and ${searchDocuments.noindex} = false`;
+
 function filterClauses(input: JobSearchInput): SQL[] {
-  const filters: SQL[] = [
-    sql`exists (select 1 from ${searchDocuments} where ${searchDocuments.id} = ${jobPostings.documentId} and ${searchDocuments.status} = 'indexed' and ${searchDocuments.noindex} = false)`,
+  return [
+    sql`exists (select 1 from ${searchDocuments} where ${searchDocuments.id} = ${jobPostings.documentId} and ${LISTED_DOCUMENT})`,
+    ...listingClauses(input),
   ];
+}
+
+/** The filters on a listing's own columns. */
+function listingClauses(input: JobSearchInput): SQL[] {
+  const filters: SQL[] = [];
 
   const statuses: JobLifecycleStatus[] = input.statuses ?? ['active'];
   const statusClauses: SQL[] = [];
@@ -410,7 +419,7 @@ async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, 
           ? (
               await rankLexically(
                 tx,
-                sql.join(filterClauses(input), sql` and `),
+                { listing: sql.join(listingClauses(input), sql` and `), document: LISTED_DOCUMENT },
                 input.query,
                 CANDIDATE_DEPTH,
               )

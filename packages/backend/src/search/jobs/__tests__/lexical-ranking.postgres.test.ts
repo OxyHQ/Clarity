@@ -110,7 +110,10 @@ suite('two-phase lexical job ranking on Postgres', () => {
       `${word(4)} ${word(5)} Group`,
       'Acme Robotics',
     ];
-    const where = sql`clarity_job_postings.document_id = ${documentId}`;
+    const where = {
+      listing: sql`clarity_job_postings.document_id = ${documentId}`,
+      document: sql`clarity_search_documents.status = 'indexed' and clarity_search_documents.noindex = false`,
+    };
     const plans: string[] = [];
     for (const depth of [5, 20, 50]) {
       for (const query of queries) {
@@ -183,7 +186,10 @@ suite('two-phase lexical job ranking on Postgres', () => {
         sql`select current_setting('pg_trgm.similarity_threshold', true) as value`,
       );
       expect(setting.value ?? null).toBeNull();
-      const where = sql`clarity_job_postings.document_id = ${documentId}`;
+      const where = {
+        listing: sql`clarity_job_postings.document_id = ${documentId}`,
+        document: sql`clarity_search_documents.status = 'indexed' and clarity_search_documents.noindex = false`,
+      };
       const ranked = await fresh.transaction((tx) => rankLexically(tx as never, where, word(0), 5));
       const every = await getDb().transaction((tx) => rankEveryMatch(tx, where, word(0), 5));
       expect(ranked.ids).toEqual(every);
