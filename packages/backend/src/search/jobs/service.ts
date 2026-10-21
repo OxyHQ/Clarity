@@ -68,6 +68,9 @@ import {
 import { publicImageUrl } from '../image-cache.js';
 
 import { rankLexically } from './lexical-ranking.js';
+import { createLogger } from '../../lib/logger.js';
+
+const log = createLogger('jobs-search');
 export { JOB_FORBIDDEN_RANKING_SIGNALS, JOB_RANKING_SIGNALS } from './ranking-contract.js';
 
 const RECIPROCAL_RANK_CONSTANT = 60;
@@ -394,39 +397,87 @@ function scoredWithQuery(
 }
 
 /**
+ * Where a job search spends its time, logged once per search: the embedding
+ * call, each ranking arm, the fused statement and the hydration. The query's
+ * text is not logged, only its length and shape.
+ */
+class SearchTiming {
+  private readonly started = performance.now();
+  private readonly phases: Record<string, number> = {};
+  plan: string | undefined;
+
+  async phase<T>(name: string, work: () => Promise<T>): Promise<T> {
+    const started = performance.now();
+    try {
+      return await work();
+    } finally {
+      this.phases[name] = Math.round(performance.now() - started);
+    }
+  }
+
+  report(input: JobSearchInput, outcome: Record<string, string>): void {
+    log.info(
+      {
+        mode: input.mode,
+        queryLength: input.query?.length ?? 0,
+        filtered: Object.entries(input).some(
+          ([key, value]) =>
+            value !== undefined &&
+            !['query', 'mode', 'limit', 'cursor', 'includeDuplicates'].includes(key),
+        ),
+        plan: this.plan,
+        totalMs: Math.round(performance.now() - this.started),
+        ...this.phases,
+        ...outcome,
+      },
+      'Job search timing',
+    );
+  }
+}
+
+/**
  * Runs the ranking under the same bounds as a document search: a statement
  * timeout, so an abandoned query stops reading.
  */
-async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, offset: number) {
+async function rankJobs(
+  input: JobSearchInput,
+  embedding: number[] | undefined,
+  offset: number,
+  timing: SearchTiming,
+) {
   try {
     return await getDb().transaction(async (tx) => {
       // `set local` takes no bind parameter; both values are module constants.
       await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
       // A hybrid search whose semantic arm runs out of time ranks lexically
       // and says so; a semantic one has no other arm.
-      const nearest =
+      const nearest = await timing.phase('semanticMs', async () =>
         !embedding || !input.query
           ? undefined
           : input.mode === 'semantic'
             ? await nearestChunks(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
             : input.mode === 'hybrid'
               ? await nearestChunksOrDegrade(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
-              : undefined;
+              : undefined,
+      );
       const semanticTimedOut =
         input.mode === 'hybrid' && embedding !== undefined && Boolean(input.query) && !nearest;
-      const lexicalIds =
+      const lexical =
         input.query && input.mode !== 'semantic'
-          ? (
-              await rankLexically(
+          ? await timing.phase('lexicalMs', () =>
+              rankLexically(
                 tx,
                 { listing: sql.join(listingClauses(input), sql` and `), document: LISTED_DOCUMENT },
-                input.query,
+                input.query ?? '',
                 CANDIDATE_DEPTH,
-              )
-            ).ids
-          : [];
-      const rows = await tx.execute<{ jobId: string; score: number }>(
-        rankedStatement(input, nearest, offset, lexicalIds),
+              ),
+            )
+          : undefined;
+      if (lexical) timing.plan = lexical.plan;
+      const rows = await timing.phase('fusedMs', () =>
+        tx.execute<{ jobId: string; score: number }>(
+          rankedStatement(input, nearest, offset, lexical?.ids ?? []),
+        ),
       );
       return Object.assign(rows, { semanticTimedOut });
     });
@@ -443,10 +494,13 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   if (offset === undefined)
     throw new JobsError(400, 'invalid_cursor', 'The search cursor is invalid');
 
+  const timing = new SearchTiming();
   let embedding: number[] | undefined;
   let degraded: JobSearchResponse['degraded'];
   if (input.query && input.mode !== 'lexical') {
-    embedding = await embedQuery(input.query, AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS));
+    embedding = await timing.phase('embeddingMs', () =>
+      embedQuery(input.query ?? '', AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS)),
+    );
     if (!embedding) {
       if (input.mode === 'semantic')
         throw new JobsError(
@@ -458,11 +512,18 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
     }
   }
 
-  const ranks = await rankJobs(input, embedding, offset);
+  let ranks: Awaited<ReturnType<typeof rankJobs>>;
+  try {
+    ranks = await rankJobs(input, embedding, offset, timing);
+  } catch (error) {
+    timing.report(input, { failed: error instanceof JobsError ? error.code : 'error' });
+    throw error;
+  }
   if (ranks.semanticTimedOut)
     degraded = { from: 'hybrid', to: 'lexical', reason: 'semantic_timeout' };
   const page = ranks.slice(0, input.limit);
-  const jobsById = await hydrate(page.map((row) => row.jobId));
+  const jobsById = await timing.phase('hydrateMs', () => hydrate(page.map((row) => row.jobId)));
+  timing.report(input, degraded ? { degraded: degraded.reason } : {});
   const data: JobSearchResult[] = page.flatMap((rank) => {
     const job = jobsById.get(rank.jobId);
     return job
