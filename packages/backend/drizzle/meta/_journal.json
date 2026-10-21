@@ -386,6 +386,20 @@
       "when": 1792576865570,
       "tag": "0054_job_search_vectors",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1792577072470,
+      "tag": "0055_job_search_vectors_read_path",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1792577074486,
+      "tag": "0056_job_postings_drop_search_vector",
+      "breakpoints": true
     }
   ]
 }

@@ -21,9 +21,10 @@ export async function backfillJobTermBandsBatch(
 ): Promise<{ last: string | null; read: number }> {
   const [row] = await db.execute<{ last: string | null; read: string }>(sql`
     with batch as (
-      select id, search_vector, title, employer_name from clarity_job_postings
-      where ${after === null ? sql`true` : sql`id > ${after}`}
-      order by id
+      select p.id, v.search_vector, p.title, p.employer_name from clarity_job_postings p
+      join clarity_job_search_vectors v on v.job_posting_id = p.id
+      where ${after === null ? sql`true` : sql`p.id > ${after}`}
+      order by p.id
       limit ${limit}
     ), bands as (
       insert into clarity_job_term_bands (job_posting_id, tf3, tf6, tf12, tf24)
