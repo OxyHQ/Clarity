@@ -4,10 +4,10 @@
  * - `main_content` of a document whose chunks give it back exactly — every
  *   chunk is the text's slice at its offsets and the chunks laid end to end are
  *   the text (page-text.ts);
- * - the raw JSON-LD of a document that is neither a job posting (the feed
- *   re-projects that one) nor news (whose list falls back to the JSON-LD for a
- *   date the column lacks): no reader uses it, and what a page states is
- *   already a column.
+ * - the raw JSON-LD of every document but news (whose list falls back to it
+ *   for a date the column lacks): no reader uses it — a job posting is
+ *   projected once and sighted after (`recordJobSighting`) — and what a page
+ *   states is already a column.
  *
  * A row is cleared only if it still holds what was read (compare-and-set on
  * both columns), so a crawl that rewrote it meanwhile wins. Idempotent and
@@ -19,7 +19,6 @@
 import { sql } from 'drizzle-orm';
 
 import type { ClarityExecutor } from '../db/index.js';
-import { hasJobPosting } from './jobs/extract.js';
 import { textFromChunks } from './page-text.js';
 
 type DocumentRow = {
@@ -52,10 +51,8 @@ export function chunksHoldText(text: string, chunks: readonly ChunkRow[]): boole
 }
 
 /** Whether a document's JSON-LD has a reader: a job posting's feed, or news. */
-export function structuredDataIsRead(documentType: string, structuredData: unknown): boolean {
-  if (documentType === 'news') return true;
-  const nodes = Array.isArray(structuredData) ? structuredData : [structuredData];
-  return hasJobPosting(nodes);
+export function structuredDataIsRead(documentType: string): boolean {
+  return documentType === 'news';
 }
 
 function isEmptyJsonLd(structuredData: unknown): boolean {
@@ -105,8 +102,7 @@ export async function compactDocumentBatch(
     const clearText =
       row.main_content !== null && chunksHoldText(row.main_content, chunksOf.get(row.id) ?? []);
     const clearData =
-      !isEmptyJsonLd(row.structured_data) &&
-      !structuredDataIsRead(row.document_type, row.structured_data);
+      !isEmptyJsonLd(row.structured_data) && !structuredDataIsRead(row.document_type);
     return clearText || clearData
       ? [
           {

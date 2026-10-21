@@ -27,7 +27,7 @@ import { getDb } from '../../../db/index.js';
 import { jobFeeds } from '../../../db/schema/index.js';
 import { canonicalizePublicUrl } from '../../query-primitives.js';
 import type { ExtractedJobPosting } from '../extract.js';
-import { ingestJobPosting, storedJobDocument } from '../projection.js';
+import { ingestJobPosting, recordJobSighting, storedJobFetch } from '../projection.js';
 import { parseJobFeedPage } from './adapters.js';
 import { boardFromUrl, type DiscoveredBoard } from './discovery.js';
 import { jobFeedRequest } from './endpoints.js';
@@ -327,6 +327,15 @@ async function readPage(
   });
 }
 
+/**
+ * What one poll learned about one listing: a payload to ingest, or that the
+ * listing was listed again without its page being read (`sighted`) — with the
+ * payload as listed to fall back on when Clarity holds no listing to sight.
+ */
+type Observation =
+  | { structuredData: unknown[]; fetchedAt?: Date }
+  | { sighted: true; fetchedAt?: Date; fallback?: unknown[] };
+
 /** Fetches one feed — its newest page, then the next stretch of its backfill — and projects the listings. */
 export async function pollJobFeed(
   feed: typeof jobFeeds.$inferSelect,
@@ -366,26 +375,29 @@ export async function pollJobFeed(
 
   /**
    * The listing as it should be stored: as listed, or completed by its detail
-   * endpoint. A detail still current is not fetched again — the stored
-   * payload is re-observed instead. Undefined means "not this poll".
+   * endpoint. A detail still current is not fetched again — the listing Clarity
+   * already holds is sighted instead (`recordJobSighting`). Undefined means
+   * "not this poll".
    */
   const complete = async (
     listing: ExtractedJobPosting,
     canonicalUrl: string,
-  ): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
+  ): Promise<Observation | undefined> => {
     if (!detail) return { structuredData: [jobPostingLd(listing)] };
-    const stored = await storedJobDocument(canonicalUrl);
+    const stored = await storedJobFetch(canonicalUrl);
+    // Sighted, or stored as listed when Clarity holds no listing to sight.
+    const sighting = (): Observation => ({
+      sighted: true,
+      ...(stored?.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}),
+      ...(detail.optional ? { fallback: [jobPostingLd(listing)] } : {}),
+    });
     const ttlMs = (detail.ttlSeconds ?? DETAIL_TTL_SECONDS) * 1000;
     if (stored?.fetchedAt && observedAt.getTime() - stored.fetchedAt.getTime() < ttlMs) {
-      return { structuredData: stored.structuredData, fetchedAt: stored.fetchedAt };
+      return sighting();
     }
     const request = detail.request(listing, feed.identifier);
     if (!request || detailBudget <= 0) {
-      if (stored)
-        return {
-          structuredData: stored.structuredData,
-          ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}),
-        };
+      if (stored) return sighting();
       return detail.optional ? { structuredData: [jobPostingLd(listing)] } : undefined;
     }
     detailBudget -= 1;
@@ -402,13 +414,9 @@ export async function pollJobFeed(
         await closeGoneListing(canonicalUrl);
         return undefined;
       }
-      // A detail that cannot be read now is retried next poll; a stale copy
-      // is better than none in the meantime.
-      if (stored)
-        return {
-          structuredData: stored.structuredData,
-          ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}),
-        };
+      // A detail that cannot be read now is retried next poll; the listing
+      // already held is sighted in the meantime.
+      if (stored) return sighting();
       return detail.optional ? { structuredData: [jobPostingLd(listing)] } : undefined;
     }
   };
@@ -421,13 +429,44 @@ export async function pollJobFeed(
     ...(feed.label ? { label: feed.label } : {}),
   });
 
+  /**
+   * A listing observed this poll: its payload ingested, or — when its page was
+   * not read again — the listing Clarity holds sighted (`recordJobSighting`),
+   * falling back to the payload as listed when Clarity holds none. False when
+   * there is nothing to store.
+   */
+  const store = async (canonicalUrl: string, observation: Observation): Promise<boolean> => {
+    let payload = observation;
+    if ('sighted' in payload) {
+      const sighted = await recordJobSighting({
+        canonicalUrl,
+        sourceType: 'feed',
+        observedAt,
+        ...(payload.fetchedAt ? { fetchedAt: payload.fetchedAt } : {}),
+      });
+      if (sighted) return true;
+      if (!payload.fallback) return false;
+      payload = { structuredData: payload.fallback };
+    }
+    await ingestJobPosting({
+      canonicalUrl,
+      structuredData: payload.structuredData,
+      siteId: null,
+      sourceType: 'feed',
+      fieldSource: 'feed',
+      observedAt,
+      ...(payload.fetchedAt ? { fetchedAt: payload.fetchedAt } : {}),
+    });
+    return true;
+  };
+
   /** A page the source only links to, read through its own JSON-LD unless what is stored is still current. */
   const readReference = async (
     reference: JobFeedPageReference,
     canonicalUrl: string,
-  ): Promise<{ structuredData: unknown[]; fetchedAt?: Date } | undefined> => {
+  ): Promise<Observation | undefined> => {
     if (!listingPage) return undefined;
-    const stored = await storedJobDocument(canonicalUrl);
+    const stored = await storedJobFetch(canonicalUrl);
     const ttlMs = (listingPage.ttlSeconds ?? DETAIL_TTL_SECONDS) * 1000;
     const unchanged =
       stored?.fetchedAt && reference.lastModified && reference.lastModified <= stored.fetchedAt;
@@ -435,7 +474,7 @@ export async function pollJobFeed(
       stored?.fetchedAt &&
       (unchanged || observedAt.getTime() - stored.fetchedAt.getTime() < ttlMs)
     ) {
-      return { structuredData: stored.structuredData, fetchedAt: stored.fetchedAt };
+      return { sighted: true, fetchedAt: stored.fetchedAt };
     }
     if (detailBudget <= 0) return undefined;
     detailBudget -= 1;
@@ -454,10 +493,7 @@ export async function pollJobFeed(
         return undefined;
       }
       return stored
-        ? {
-            structuredData: stored.structuredData,
-            ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}),
-          }
+        ? { sighted: true, ...(stored.fetchedAt ? { fetchedAt: stored.fetchedAt } : {}) }
         : undefined;
     }
   };
@@ -478,16 +514,7 @@ export async function pollJobFeed(
       try {
         const payload = await readReference(reference, canonicalUrl);
         if (!payload) continue;
-        await ingestJobPosting({
-          canonicalUrl,
-          structuredData: payload.structuredData,
-          siteId: null,
-          sourceType: 'feed',
-          fieldSource: 'feed',
-          observedAt,
-          ...(payload.fetchedAt ? { fetchedAt: payload.fetchedAt } : {}),
-        });
-        outcome.stored += 1;
+        if (await store(canonicalUrl, payload)) outcome.stored += 1;
       } catch {
         outcome.rejected += 1;
       }
@@ -517,16 +544,7 @@ export async function pollJobFeed(
         // Each listing is its own document at its own URL, exactly as a crawl
         // of that page would have produced, so both paths deduplicate against
         // each other instead of racing to own the row.
-        await ingestJobPosting({
-          canonicalUrl,
-          structuredData: payload.structuredData,
-          siteId: null,
-          sourceType: 'feed',
-          fieldSource: 'feed',
-          observedAt,
-          ...(payload.fetchedAt ? { fetchedAt: payload.fetchedAt } : {}),
-        });
-        outcome.stored += 1;
+        if (await store(canonicalUrl, payload)) outcome.stored += 1;
       } catch {
         // One malformed listing never costs the rest of the feed.
         outcome.rejected += 1;

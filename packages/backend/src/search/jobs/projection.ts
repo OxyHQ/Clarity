@@ -594,20 +594,114 @@ export interface JobIngestInput {
   fetchedAt?: Date;
 }
 
-/** The structured data and fetch time stored for a listing URL, if Clarity has indexed it. */
-export async function storedJobDocument(
+/** When the listing at `canonicalUrl` was last read from its source, if Clarity has indexed it. */
+export async function storedJobFetch(
   canonicalUrl: string,
-): Promise<{ structuredData: unknown[]; fetchedAt: Date | null } | undefined> {
+): Promise<{ fetchedAt: Date | null } | undefined> {
   const [row] = await getDb()
-    .select({
-      structuredData: searchDocuments.structuredData,
-      fetchedAt: searchDocuments.fetchedAt,
-    })
+    .select({ fetchedAt: searchDocuments.fetchedAt })
     .from(searchDocuments)
-    .where(eq(searchDocuments.canonicalUrl, canonicalUrl))
+    .where(
+      and(eq(searchDocuments.canonicalUrl, canonicalUrl), eq(searchDocuments.documentType, 'job')),
+    )
     .limit(1);
-  if (!row || !Array.isArray(row.structuredData)) return undefined;
-  return { structuredData: row.structuredData as unknown[], fetchedAt: row.fetchedAt };
+  return row;
+}
+
+/**
+ * A listing its feed lists again, whose page is not read again this poll
+ * (still current, out of budget, or unreadable for now): records the sighting.
+ *
+ * This is what re-ingesting the listing's unchanged payload recorded — the
+ * document's observation, and for each of its listings the lifecycle status,
+ * reopening and `lastSeenAt` (`projectJobPostings`' unchanged path), then the
+ * duplicate group's election — without keeping the payload to re-ingest: the
+ * listings are the document's own, every one but those its last payload no
+ * longer held (`posting_absent`). Like `recentlySeenUnchanged`, a listing
+ * already seen within `JOB_SIGHTING_REFRESH_MS` writes nothing. Undefined when
+ * Clarity has no such listing to sight.
+ */
+export async function recordJobSighting(input: {
+  canonicalUrl: string;
+  sourceType: string;
+  observedAt: Date;
+  fetchedAt?: Date;
+}): Promise<{ documentId: string; jobPostingIds: string[] } | undefined> {
+  const [document] = await getDb()
+    .select({ id: searchDocuments.id, fetchedAt: searchDocuments.fetchedAt })
+    .from(searchDocuments)
+    .where(
+      and(
+        eq(searchDocuments.canonicalUrl, input.canonicalUrl),
+        eq(searchDocuments.documentType, 'job'),
+      ),
+    )
+    .limit(1);
+  if (!document) return undefined;
+  const listings = await getDb()
+    .select({
+      id: jobPostings.id,
+      clusterId: jobPostings.clusterId,
+      validThrough: jobPostings.validThrough,
+      closedAt: jobPostings.closedAt,
+      contentHash: jobPostings.contentHash,
+      lastSeenAt: jobPostings.lastSeenAt,
+    })
+    .from(jobPostings)
+    .where(
+      and(
+        eq(jobPostings.documentId, document.id),
+        sql`${jobPostings.closureReason} is distinct from 'posting_absent'`,
+      ),
+    );
+  if (listings.length === 0) return undefined;
+  const sighted = { documentId: document.id, jobPostingIds: listings.map((listing) => listing.id) };
+
+  const since = input.observedAt.getTime() - JOB_SIGHTING_REFRESH_MS;
+  const fresh = listings.every(
+    (listing) =>
+      listing.closedAt === null &&
+      listing.contentHash !== null &&
+      listing.lastSeenAt.getTime() >= since,
+  );
+  const [owed] = await getDb().execute<{ none: boolean }>(
+    sql`select ${noChunksOwedEmbedding(sql`${document.id}`)} as none`,
+  );
+  if (fresh && owed?.none) return sighted;
+
+  await getDb().transaction(async (tx) => {
+    await tx
+      .update(searchDocuments)
+      .set({
+        status: 'indexed',
+        documentType: 'job',
+        fetchedAt: input.fetchedAt ?? document.fetchedAt ?? input.observedAt,
+        indexedAt: input.observedAt,
+        updatedAt: input.observedAt,
+      })
+      .where(eq(searchDocuments.id, document.id));
+    for (const listing of listings) {
+      await tx
+        .update(jobPostings)
+        .set({
+          status: jobLifecycleStatus({
+            validThrough: listing.validThrough,
+            lastSeenAt: input.observedAt,
+            documentStatus: 'indexed',
+            sourceType: input.sourceType,
+          }),
+          closureReason: null,
+          closedAt: null,
+          lastSeenAt: input.observedAt,
+          updatedAt: new Date(),
+        })
+        .where(eq(jobPostings.id, listing.id));
+      // A closed copy reopening can change which copy its cluster shows.
+      if (listing.clusterId) await electCanonical(tx, listing.clusterId);
+    }
+  });
+  if (!owed?.none) await queueChunkEmbeddings(document.id);
+  return sighted;
 }
 
 /**
@@ -703,6 +797,9 @@ export async function ingestJobPosting(
       const mutable = {
         ...content,
         mainContent: mainContentToStore(body, chunks),
+        // The payload is projected, never re-read: a listing listed again is
+        // sighted (`recordJobSighting`), so its JSON-LD is not kept.
+        structuredData: [],
         ...observation,
         contentHash,
       };

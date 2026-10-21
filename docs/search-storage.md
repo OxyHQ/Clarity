@@ -76,10 +76,16 @@ hold, it does not store again.
   snippet is cut from the first chunk, which holds the first 2,000 characters;
   a recrawl compares the new text with the chunks' (`documentChunkState`).
   Measured in production (2026-10-21): 2.8 KB a document over 1.3M documents.
-- **JSON-LD.** Kept only where something reads it: a job posting (the feed
-  poller re-projects a listing from it, `storedJobDocument`) and news (the
-  list falls back to it for a date or publisher its columns lack). Everything
-  else a page states is a column, extracted when it is crawled.
+- **JSON-LD.** Kept only for news, whose list falls back to it for a date or
+  publisher its columns lack. Everything else a page states is a column,
+  extracted when it is crawled. A job posting is projected once from its
+  payload; a feed that lists it again without its page being read (still
+  current, out of budget, or unreadable for now) records the sighting
+  (`recordJobSighting`): exactly what re-ingesting the unchanged payload
+  recorded — the document's observation, each listing's lifecycle status,
+  reopening and `lastSeenAt`, the duplicate group's election — for every
+  listing but those the last payload withdrew (`posting_absent`). It used to
+  re-ingest a stored copy of the JSON-LD, 3.2 GB of it (2026-10-21).
 
 `db/compact-document-text` (one-shot, idempotent, paced) cleared what rows
 written before this stored twice, each row only if it still held what was read.

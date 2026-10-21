@@ -15,7 +15,7 @@ import {
   queueChunkEmbeddings,
   replaceDocumentChunks,
 } from './search/chunking.js';
-import { extractJobPostings, hasJobPosting } from './search/jobs/extract.js';
+import { extractJobPostings } from './search/jobs/extract.js';
 import { JOB_RECRAWL_INTERVAL_SECONDS, sweepJobLifecycle } from './search/jobs/lifecycle.js';
 import {
   closeJobPostingsForDocument,
@@ -386,11 +386,12 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
         title: extracted.title,
         description: extracted.description,
         // The text is its chunks' unless they cannot give it back, and raw
-        // JSON-LD is kept only for a job posting, whose feed re-projects it
-        // (search/page-text.ts, docs/search-storage.md). What else a page
-        // states is already a column: publisher, dates, authors.
+        // JSON-LD is kept only for news, whose list falls back to it for a
+        // date or publisher (search/page-text.ts, docs/search-storage.md).
+        // What else a page states is already a column: publisher, dates,
+        // authors, and a job posting's projection.
         mainContent: mainContentToStore(extracted.mainContent, textChunks),
-        structuredData: hasJobPosting(extracted.structuredData) ? extracted.structuredData : [],
+        structuredData: extracted.documentType === 'news' ? extracted.structuredData : [],
         fieldEvidence: extracted.evidence,
         imageUrl: extracted.imageUrl,
         faviconUrl: extracted.faviconUrl,
