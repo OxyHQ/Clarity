@@ -415,7 +415,7 @@ class SearchTiming {
     }
   }
 
-  report(input: JobSearchInput, outcome: Record<string, string>): void {
+  finish(input: JobSearchInput, outcome: Record<string, string>): void {
     log.info(
       {
         mode: input.mode,
@@ -516,14 +516,14 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   try {
     ranks = await rankJobs(input, embedding, offset, timing);
   } catch (error) {
-    timing.report(input, { failed: error instanceof JobsError ? error.code : 'error' });
+    timing.finish(input, { failed: error instanceof JobsError ? error.code : 'error' });
     throw error;
   }
   if (ranks.semanticTimedOut)
     degraded = { from: 'hybrid', to: 'lexical', reason: 'semantic_timeout' };
   const page = ranks.slice(0, input.limit);
   const jobsById = await timing.phase('hydrateMs', () => hydrate(page.map((row) => row.jobId)));
-  timing.report(input, degraded ? { degraded: degraded.reason } : {});
+  timing.finish(input, degraded ? { degraded: degraded.reason } : {});
   const data: JobSearchResult[] = page.flatMap((rank) => {
     const job = jobsById.get(rank.jobId);
     return job
