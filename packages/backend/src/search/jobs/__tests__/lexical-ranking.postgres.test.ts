@@ -121,9 +121,17 @@ suite('two-phase lexical job ranking on Postgres', () => {
     for (const depth of [5, 20, 50]) {
       for (const query of queries) {
         await getDb().transaction(async (tx) => {
-          // Few nearest headlines, so the bound — not reading every headline — decides.
-          const fast = await rankLexically(tx, where, query, depth, { nearest: [20, 80] });
           const every = await rankEveryMatch(tx, where, query, depth);
+          // Every match scored whole: what a query with few matches gets.
+          const small = await rankLexically(tx, where, query, depth);
+          expect(small.ids, `${query} @ ${depth} (${small.plan})`).toEqual(every);
+          expect(small.plan).toBe('small');
+          // Few nearest headlines and no small-match shortcut, so the bound —
+          // not reading every headline — decides.
+          const fast = await rankLexically(tx, where, query, depth, {
+            nearest: [20, 80],
+            smallMatch: 0,
+          });
           expect(fast.ids, `${query} @ ${depth} (${fast.plan})`).toEqual(every);
           plans.push(fast.plan);
         });
