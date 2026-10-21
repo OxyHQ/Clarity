@@ -329,6 +329,32 @@ the 1,000 nearest chunks from the half-precision HNSW index and then applies
 the filters, like document search; a ranking that runs past 10 s answers `503
 search_timeout`. A query's embedding is cached in Redis for a week.
 
+### The lexical arm, in two phases
+
+The lexical arm ranks matches by `ts_rank_cd(search_vector, query)` plus the
+greater of the title's and the employer's trigram similarity to the query, ties
+by id, and hands its top 200 to the fusion. A broad query matched 111k listings
+and scoring them all read every match's 4.3 KB vector: 30-65 s, past the 10 s
+timeout (production, 2026-10-21). It is now ranked in two phases, **exactly**
+(`search/jobs/lexical-ranking.ts`):
+
+- `ts_rank_cd` gives at most 0.1 per cover of the query, so a listing whose query
+  terms occur fewer than B times scores at most 0.1 · n · (B − 1) on them (n
+  terms; for AND and phrases, missing band B on any one term is enough).
+- `clarity_job_term_bands` holds each listing's terms occurring at least 3, 6,
+  12 and 24 times, and `clarity_job_headlines` its title and employer in short
+  rows; triggers keep both equal to the listing (migration 0046).
+- For a band B and a similarity S, the candidates are the listings in band B
+  plus the S-similar titles and employers, all read from indexes; the matching
+  candidates are scored exactly. If the 200th scores above 0.1 · n · (B − 1) + S,
+  no listing left out can reach the top 200, so the result is the ranking of
+  every match. Otherwise a looser (B, S) is tried, and past the last every match
+  is scored, with `work_mem` large enough that the bitmap stays exact.
+
+A property test (`lexical-ranking.postgres.test.ts`) checks the two phases
+against scoring every match for every query shape — AND, OR, phrases,
+negation, title and employer queries — and fails if the bound is weakened.
+
 Filters: `locations` (country name/code, city, region, or macro-region),
 `workplaceTypes`, `employmentTypes`, `seniorities`, `employers` (name or domain),
 `sourceDomains`, `skills`, `salary` (`min`/`max`/`currency`/`interval`),

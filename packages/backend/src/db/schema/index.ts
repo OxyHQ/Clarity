@@ -1272,6 +1272,79 @@ export const jobPostings = pgTable(
 );
 
 /**
+ * Each listing's search terms by how often they occur — a stripped vector per
+ * band, the terms that occur at least 3, 6, 12 and 24 times in its
+ * `search_vector` — so a broad query is ranked in two phases without reading
+ * every matching listing's vector (search/jobs/lexical-ranking.ts).
+ *
+ * `ts_rank_cd` is at most 0.1 per cover, and a listing whose query terms occur
+ * fewer than B times each scores at most 0.1 · n · (B − 1) on them (n terms):
+ * a listing outside a band, and outside the title and employer similarity
+ * candidates, can be bounded without being read. Kept by a trigger on
+ * `search_vector` (migration 0046), never written by the code.
+ */
+export const jobTermBands = pgTable(
+  'clarity_job_term_bands',
+  {
+    jobPostingId: text('job_posting_id')
+      .primaryKey()
+      .references(() => jobPostings.id, { onDelete: 'cascade' }),
+    tf3: tsvector('tf3').notNull(),
+    tf6: tsvector('tf6').notNull(),
+    tf12: tsvector('tf12').notNull(),
+    tf24: tsvector('tf24').notNull(),
+  },
+  (table) => [
+    index('clarity_job_term_bands_tf3_idx').using('gin', table.tf3),
+    index('clarity_job_term_bands_tf6_idx').using('gin', table.tf6),
+    index('clarity_job_term_bands_tf12_idx').using('gin', table.tf12),
+    index('clarity_job_term_bands_tf24_idx').using('gin', table.tf24),
+  ],
+);
+
+/**
+ * Each listing's title and employer, apart from the ~2 KB listing row, so the
+ * similarity half of the two-phase ranking reads its candidates — and
+ * rechecks them — in a table of short rows (search/jobs/lexical-ranking.ts).
+ * Kept by a trigger (migration 0046), never written by the code.
+ */
+export const jobHeadlines = pgTable(
+  'clarity_job_headlines',
+  {
+    jobPostingId: text('job_posting_id')
+      .primaryKey()
+      .references(() => jobPostings.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    employerName: text('employer_name').notNull(),
+  },
+  (table) => [
+    index('clarity_job_headlines_title_trgm_idx').using(
+      'gin',
+      table.title.asc().op('gin_trgm_ops'),
+    ),
+    index('clarity_job_headlines_employer_trgm_idx').using(
+      'gin',
+      table.employerName.asc().op('gin_trgm_ops'),
+    ),
+  ],
+);
+
+/**
+ * Written once every listing has its bands and headline
+ * (`db/backfill-job-term-bands`, or migration 0046 on a database with no
+ * listings). Until then a broad query is ranked in one phase: a listing
+ * without them would be bounded wrongly.
+ */
+export const jobTermBandsBackfill = pgTable(
+  'clarity_job_term_bands_backfill',
+  {
+    id: integer('id').primaryKey(),
+    completedAt: timestamp('completed_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check('clarity_job_term_bands_backfill_single_row', sql`${table.id} = 1`)],
+);
+
+/**
  * Grouping evidence. Deleting a row unlinks that evidence without destroying
  * the listing, which is what makes a dedupe decision reversible.
  */
