@@ -1,4 +1,6 @@
 import { eq, sql } from 'drizzle-orm';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import postgres from 'postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
@@ -168,5 +170,24 @@ suite('two-phase lexical job ranking on Postgres', () => {
       sql`select count(*) as n from clarity_job_term_bands_backfill`,
     );
     expect(Number(marker.n)).toBe(1);
+  });
+
+  it('ranks on a connection that has not loaded pg_trgm yet', async () => {
+    // pg_trgm defines `similarity_threshold` only once it loads in a session:
+    // reading it on a fresh connection used to fail the whole search.
+    const client = postgres(databaseUrl, { max: 1, onnotice: () => {} });
+    try {
+      const fresh = drizzle(client);
+      const [setting] = await fresh.execute<{ value: string | null }>(
+        sql`select current_setting('pg_trgm.similarity_threshold', true) as value`,
+      );
+      expect(setting.value ?? null).toBeNull();
+      const where = sql`clarity_job_postings.document_id = ${documentId}`;
+      const ranked = await fresh.transaction((tx) => rankLexically(tx as never, where, word(0), 5));
+      const every = await getDb().transaction((tx) => rankEveryMatch(tx, where, word(0), 5));
+      expect(ranked.ids).toEqual(every);
+    } finally {
+      await client.end();
+    }
   });
 });

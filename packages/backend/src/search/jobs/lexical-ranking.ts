@@ -43,6 +43,8 @@ const STEPS: ReadonlyArray<readonly [3 | 6 | 12 | 24, number]> = [
 const MAX_CANDIDATES = 20_000;
 /** `ts_rank_cd` and `similarity` are float4: the bound keeps their rounding. */
 const SCORE_EPSILON = 1e-4;
+/** pg_trgm's default `similarity_threshold`, which `%` in the lexical match uses. */
+const DEFAULT_SIMILARITY_THRESHOLD = '0.3';
 /** `work_mem` for scoring every match: a lossy bitmap rechecks — and detoasts — every row of a page. */
 const SCORING_WORK_MEM = '256MB';
 
@@ -116,8 +118,11 @@ async function similarCandidates(
   query: string,
   threshold: number,
 ): Promise<string[]> {
-  const [current] = await tx.execute<{ value: string }>(
-    sql`select current_setting('pg_trgm.similarity_threshold') as value`,
+  // `missing_ok`: pg_trgm defines the setting when it first loads in a
+  // session, so on a connection that has not used it yet the setting does not
+  // exist and a plain `current_setting` fails the whole search.
+  const [current] = await tx.execute<{ value: string | null }>(
+    sql`select current_setting('pg_trgm.similarity_threshold', true) as value`,
   );
   await tx.execute(
     sql`select set_config('pg_trgm.similarity_threshold', ${String(threshold)}, true)`,
@@ -131,7 +136,7 @@ async function similarCandidates(
     return rows.map((row) => row.id);
   } finally {
     await tx.execute(
-      sql`select set_config('pg_trgm.similarity_threshold', ${current?.value ?? '0.3'}, true)`,
+      sql`select set_config('pg_trgm.similarity_threshold', ${current?.value || DEFAULT_SIMILARITY_THRESHOLD}, true)`,
     );
   }
 }
