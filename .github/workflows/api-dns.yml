@@ -12,10 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Create the DNS-only API record when missing
+      - name: Create the proxied API record when missing
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
+          # api.clarity.surf is Cloudflare-PROXIED (2026-10-21, ~/Oxy/docs/cloudflare-proxied-apis.md):
+          # Argo, the edge's no-challenge/no-cache API rules, and req.ip via oxyTrustProxy.
           python3 - <<'PY'
           import json, os, sys, urllib.error, urllib.parse, urllib.request
 
@@ -51,15 +53,15 @@ jobs:
           )["result"]
           if records:
               record = records[0]
-              if record["content"].rstrip(".") != target or record.get("proxied", False):
-                  sys.exit(f"{name} conflicts with the required DNS-only record; left unchanged")
+              if record["content"].rstrip(".") != target or not record.get("proxied", False):
+                  sys.exit(f"{name} conflicts with the required proxied record; left unchanged")
               print(f"{name} is already correct")
               sys.exit(0)
 
           api(
               f"/zones/{zone_id}/dns_records",
               method="POST",
-              body={"type": "CNAME", "name": name, "content": target, "proxied": False, "ttl": 1},
+              body={"type": "CNAME", "name": name, "content": target, "proxied": True, "ttl": 1},
           )
-          print(f"created DNS-only CNAME {name} -> {target}")
+          print(f"created proxied CNAME {name} -> {target}")
           PY
