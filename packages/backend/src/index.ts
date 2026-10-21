@@ -30,6 +30,8 @@ import memoryRouter from './routes/memory.js';
 import auditRouter from './routes/audit.js';
 import triggersRouter from './routes/triggers.js';
 import botsRouter from './routes/bots.js';
+import oxyAccountEventsRouter from './routes/oxy-account-events.js';
+import experienceRouter from './routes/experience.js';
 import jobsRouter from './routes/jobs.js';
 import marketRouter from './routes/market.js';
 import newsRouter from './routes/news.js';
@@ -90,6 +92,16 @@ app.use('/v1', (_req, res, next) => {
   next();
 });
 
+// Public profile reads and user-authorized profile edits from Mention.
+app.use('/api/experience', cors({
+  origin: ['https://mention.earth', 'https://clarity.surf', ...[process.env.WEB_URL].filter(Boolean) as string[], 'http://localhost:8081', 'http://localhost:8082'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Oxy-Activity-Id', 'X-Oxy-Edge-Region'],
+}));
+
+// Account deletion authenticates the signed event itself, independently of runtime readiness.
+app.use('/webhooks', oxyAccountEventsRouter);
+
 // Internal routes - restricted to known origins
 const PRODUCTION_ORIGINS = [
   'https://clarity.surf',
@@ -111,7 +123,7 @@ const allowedOrigins = [
 
 // Internal routes CORS - skip /v1 routes (they have their own permissive CORS above)
 app.use((req, res, next) => {
-  if (req.path.startsWith('/v1')) return next();
+  if (req.path.startsWith('/v1') || req.path.startsWith('/api/experience')) return next();
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps or curl)
@@ -180,6 +192,7 @@ app.use('/audit', auditRouter);
 app.use('/triggers', triggersRouter);
 app.use('/bots', botsRouter);
 app.use('/jobs', jobsRouter);
+app.use('/api/experience', experienceRouter);
 app.use('/market', marketRouter);
 app.use('/news', newsRouter);
 app.use('/internal', internalRouter);

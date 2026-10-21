@@ -29,6 +29,9 @@ await esbuild.build({
       build.onResolve({ filter: /^@clarity\.surf\/sdk\/vocabularies$/ }, () => ({
         path: fileURLToPath(new URL('../sdk/src/vocabularies.ts', import.meta.url)),
       }));
+      build.onResolve({ filter: /^@clarity\.surf\/sdk\/experience$/ }, () => ({
+        path: fileURLToPath(new URL('../sdk/src/experience.ts', import.meta.url)),
+      }));
       // Let @oxy.so/* packages be bundled (their ESM has missing .js extensions)
       build.onResolve({ filter: /^@oxyhq\// }, () => undefined);
       // Externalize all other bare imports (node_modules)

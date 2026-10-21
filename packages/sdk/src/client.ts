@@ -1,3 +1,4 @@
+import { experienceSchema, experienceListSchema, type ExperienceInput } from './experience.js';
 import { resolveFaviconUrl } from './favicon.js';
 import type {
   ClarityErrorBody, CreateSiteRequest, Document, IndexOperation, IndexUrlsRequest, JobCorpusStats,
@@ -33,9 +34,9 @@ export class ClarityClient {
   private readonly baseUrl: string;
   private readonly fetcher: typeof fetch;
 
-  constructor(private readonly options: ClarityClientOptions) {
+  constructor(private readonly options: ClarityClientOptions = {}) {
     const authMethods = [options.apiKey, options.accessToken, options.getAccessToken].filter(Boolean);
-    if (authMethods.length !== 1) throw new Error('Configure exactly one of apiKey, accessToken or getAccessToken');
+    if (authMethods.length > 1) throw new Error('Configure exactly one of apiKey, accessToken or getAccessToken');
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
     this.fetcher = options.fetch ?? globalThis.fetch;
     if (!this.fetcher) throw new Error('A Fetch API implementation is required');
@@ -113,6 +114,20 @@ export class ClarityClient {
     capability: (options?: RequestOptions) => this.request<JobsCapability>('GET', '/v1/jobs/capability', undefined, options),
   };
 
+  /** Public work history, independently owned by Clarity; writes require a user session. */
+  readonly experience = {
+    list: (userId: string, options?: RequestOptions) =>
+      this.request<unknown>('GET', `/api/experience/users/${encodeURIComponent(userId)}`, undefined, options, true).then(value => experienceListSchema.parse(value)),
+    create: (input: ExperienceInput, options?: RequestOptions) =>
+      this.request<unknown>('POST', '/api/experience', input, options).then(value => experienceSchema.parse(value)),
+    update: (id: string, input: ExperienceInput, options?: RequestOptions) =>
+      this.request<unknown>('PUT', `/api/experience/${encodeURIComponent(id)}`, input, options).then(value => experienceSchema.parse(value)),
+    delete: (id: string, options?: RequestOptions) =>
+      this.request<void>('DELETE', `/api/experience/${encodeURIComponent(id)}`, undefined, options),
+    clear: (options?: RequestOptions) =>
+      this.request<void>('DELETE', '/api/experience', undefined, options),
+  };
+
   readonly usage = {
     get: (cursor?: string, options?: RequestOptions) => this.request<Page<UsageBucket>>('GET', `/v1/usage${query({ cursor })}`, undefined, options),
     quotas: (options?: RequestOptions) => this.request<Quotas>('GET', '/v1/quotas', undefined, options),
@@ -126,7 +141,7 @@ export class ClarityClient {
     return token;
   }
 
-  private async request<T>(method: string, path: string, body?: unknown, options: RequestOptions = {}): Promise<T> {
+  private async request<T>(method: string, path: string, body?: unknown, options: RequestOptions = {}, publicRead = false): Promise<T> {
     const safe = method === 'GET';
     const attempts = safe ? SAFE_RETRY_DELAYS_MS.length + 1 : 1;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -138,20 +153,21 @@ export class ClarityClient {
         const response = await this.fetcher(`${this.baseUrl}${path}`, {
           method,
           headers: {
-            authorization: `Bearer ${await this.token()}`,
+            ...(publicRead ? {} : { authorization: `Bearer ${await this.token()}` }),
             ...(body === undefined ? {} : { 'content-type': 'application/json' }),
             ...(options.idempotencyKey ? { 'idempotency-key': options.idempotencyKey } : {}),
           },
           body: body === undefined ? undefined : JSON.stringify(body),
           signal: controller.signal,
         });
+        if (response.status === 204) return undefined as T;
         if (response.ok) return await response.json() as T;
         if (safe && attempt + 1 < attempts && (response.status === 429 || response.status >= 500)) {
           await delay(retryDelay(response, attempt), options.signal);
           continue;
         }
         const payload = await response.json().catch(() => undefined) as ClarityErrorBody | undefined;
-        throw new ClarityError(payload?.error.message ?? `Clarity request failed with ${response.status}`, payload?.error.code ?? 'request_failed', response.status, payload?.error.requestId ?? response.headers.get('x-request-id') ?? 'unknown', payload?.error.details);
+        throw new ClarityError(payload?.error?.message ?? `Clarity request failed with ${response.status}`, payload?.error?.code ?? 'request_failed', response.status, payload?.error?.requestId ?? response.headers.get('x-request-id') ?? 'unknown', payload?.error?.details);
       } finally {
         clearTimeout(timeout);
         options.signal?.removeEventListener('abort', onAbort);

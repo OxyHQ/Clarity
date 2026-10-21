@@ -1,6 +1,6 @@
 {
   "name": "@clarity.surf/sdk",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Universal SDK for Clarity Search, Jobs, Indexing and News",
   "type": "module",
   "sideEffects": false,
@@ -16,6 +16,11 @@
       "types": "./dist/vocabularies.d.ts",
       "import": "./dist/vocabularies.js",
       "require": "./dist/cjs/vocabularies.js"
+    },
+    "./experience": {
+      "types": "./dist/experience.d.ts",
+      "import": "./dist/experience.js",
+      "require": "./dist/cjs/experience.js"
     }
   },
   "files": [
@@ -33,5 +38,8 @@
   "publishConfig": {
     "access": "public"
   },
-  "license": "SEE LICENSE IN LICENSE"
+  "license": "SEE LICENSE IN LICENSE",
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
 }

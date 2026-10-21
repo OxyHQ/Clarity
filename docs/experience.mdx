@@ -1,0 +1,92 @@
+---
+title: Public profile experience
+description: Canonical work history shared by Clarity and Mention.
+---
+
+# Public profile experience
+
+Clarity owns a personal account's published work history. Mention renders and
+edits this history using the Clarity SDK and the user's Oxy session. Mention
+must not persist a second copy. Experience is a separate product domain from
+Clarity Jobs: it is never inserted into the search corpus, employer candidate
+search, job ranking, job ingestion, or application tracking.
+
+Each entry publishes a role title, historical employer name, optional Oxy
+company account reference, employment type, location, month dates and description.
+The employer name is the user's historical snapshot, not a current Oxy account
+fact. A company reference is an opaque, unverified link: it proves neither an
+employment relationship nor endorsement by the company. `endDate: null` means
+current employment. All saved fields are public; editors must state this before
+saving. Future starts, malformed months and end dates before the start are
+refused. Planned future end dates are accepted.
+
+The canonical Zod 4 contract lives in `packages/sdk/src/experience.ts`, exported
+as `@clarity.surf/sdk/experience`. Both the backend request validators and SDK
+response parsers use that one source, and TypeScript types are inferred from it.
+This additive domain uses the existing SDK workspace rather than creating a
+second separately published contracts package. A future product-wide contracts
+workspace/OpenAPI migration can move the same schemas without duplicating them.
+
+## HTTP and SDK
+
+| Method | Path | Response | SDK method |
+| --- | --- | --- | --- |
+| GET | `/api/experience/users/:userId` | `{ items: Experience[], nextCursor: null }` | `experience.list(userId)` |
+| POST | `/api/experience` | 201 `Experience` | `experience.create(input)` |
+| PUT | `/api/experience/:id` | `Experience` | `experience.update(id, input)` |
+| DELETE | `/api/experience/:id` | 204 | `experience.delete(id)` |
+| DELETE | `/api/experience` | 204 | `experience.clear()` |
+
+The public read requires no session and sends no authorization header. All
+writes require a human user session; the owner is always the verified session's
+user ID. Services and known non-personal accounts cannot write. Client-supplied
+IDs, ownership and unknown body fields are rejected. Missing session account
+kind is allowed because older Oxy sessions contain only the user ID. Updating
+or deleting another user's entry returns `not_found`, as does a missing entry.
+PUT replaces every editable field; omitted optional fields are cleared.
+
+Lists are bounded to the complete profile (at most 100 entries), accept no
+query parameters, and always have `nextCursor: null`. Creation enforces the
+100-entry limit under a per-user transaction lock, including concurrent writes;
+`experience_limit_reached` (422) tells editors to remove an entry first. Current
+roles come first, followed by most recently ended roles, then start date and
+ID for deterministic ordering. Clients may group consecutive related entries
+for display without changing ownership or storage.
+
+Errors use `{ error: { code, message, details? } }` and the closed codes in the
+contract. Missing/incorrect/unknown fields use `bad_request` (400), refused
+values use `validation_failed` (422), and temporary data failures use
+`service_unavailable` (503). Responses are `Cache-Control: no-store` so deletion
+is not delayed by profile API caches. Mention web origin `https://mention.earth`
+is allowed on this API; native clients use the same Oxy session.
+
+## Account deletion
+
+`POST /webhooks/oxy/account-events` accepts an Oxy-signed Security Event Token
+with content type `application/secevent+jwt`, bounded to 16 KB. Oxy's SDK verifies
+the signature, issuer, event type and exact Clarity backend application audience.
+No user-provided account ID is accepted as proof of deletion.
+
+After verification, a transaction removes all Experience rows for that user and
+records a minimal tombstone containing the Oxy ID, event ID and erasure time.
+The same per-user lock used by creation prevents an in-flight session from
+recreating history after erasure. Redelivery is idempotent. The endpoint returns
+202 only after the deletion commits and asks Oxy to retry when verification or
+the database is unavailable. It is mounted before runtime/agent readiness so
+an unrelated inference outage does not prevent deletion. This hook currently
+covers the new Experience domain; it does not claim to erase older Clarity
+conversation or billing domains.
+
+Before deployment:
+
+1. Apply `0019_profile_experience` using the documented pre-phase migration flow.
+2. Register `https://api.clarity.surf/webhooks/oxy/account-events` as the account
+   event delivery target for the exact Clarity backend application ID in
+   `clarity-agent-manifest.ts` and verify a deletion/retry delivery in staging.
+3. Release SDK 0.5.0 and install its registry version in Mention. No public SDK
+   release or production database change is performed by this source change.
+
+Tests cover real PostgreSQL ownership isolation, replacement and removal,
+chronological order, database month constraints, concurrent history-limit
+admission, erasure replay and concurrent recreation. HTTP tests cover anonymous
+reads, forbidden writes, safe errors and verified account event intake.

@@ -18,6 +18,7 @@
     "incremental": true,
     "isolatedModules": true,
     "paths": {
+      "@clarity.surf/sdk/experience": ["../sdk/src/experience.ts"],
       "@clarity.surf/sdk/vocabularies": ["../sdk/src/vocabularies.ts"],
       "@clarity.surf/sdk": ["../sdk/src/index.ts"]
     }
