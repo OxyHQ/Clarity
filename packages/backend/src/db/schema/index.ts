@@ -1269,7 +1269,6 @@ export const jobPostings = pgTable(
     index('clarity_job_postings_employment_types_idx').using('gin', table.employmentTypes),
     index('clarity_job_postings_seniority_idx').on(table.seniority),
     index('clarity_job_postings_skills_idx').using('gin', table.skills),
-    index('clarity_job_postings_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
     check(
       'clarity_job_postings_status_check',
       sql`${table.status} in ('active', 'expired', 'closed', 'removed', 'stale')`,
