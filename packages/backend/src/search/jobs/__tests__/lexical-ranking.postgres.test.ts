@@ -126,11 +126,16 @@ suite('two-phase lexical job ranking on Postgres', () => {
           const small = await rankLexically(tx, where, query, depth);
           expect(small.ids, `${query} @ ${depth} (${small.plan})`).toEqual(every);
           expect(small.plan).toBe('small');
+          // Too many to read one by one, few enough for one statement.
+          const whole = await rankLexically(tx, where, query, depth, { smallMatch: 0 });
+          expect(whole.ids, `${query} @ ${depth} (${whole.plan})`).toEqual(every);
+          expect(['whole', 'small']).toContain(whole.plan);
           // Few nearest headlines and no small-match shortcut, so the bound —
           // not reading every headline — decides.
           const fast = await rankLexically(tx, where, query, depth, {
             nearest: [20, 80],
             smallMatch: 0,
+            wholeMatch: 0,
           });
           expect(fast.ids, `${query} @ ${depth} (${fast.plan})`).toEqual(every);
           plans.push(fast.plan);
