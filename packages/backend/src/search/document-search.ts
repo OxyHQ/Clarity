@@ -13,7 +13,13 @@ import { z } from 'zod';
 import { getDb } from '../db/index.js';
 import { searchChunks, searchChunkTsvector, searchDocuments } from '../db/schema/index.js';
 import { embedQuery } from './chunking.js';
-import { nearestChunkRows, nearestChunks, type NearestChunks } from './nearest-chunks.js';
+import {
+  nearestChunkRows,
+  nearestChunks,
+  nearestChunksOrDegrade,
+  type NearestChunks,
+} from './nearest-chunks.js';
+import { isStatementTimeout, SEARCH_STATEMENT_TIMEOUT_MS } from './search-timeout.js';
 import { withPageText } from './page-text.js';
 import {
   iconHostsOf,
@@ -92,7 +98,7 @@ export const QUERY_EMBEDDING_TIMEOUT_MS = 2_500;
 export async function searchIndex(input: SearchInput) {
   let queryEmbedding: number[] | undefined;
   let degraded:
-    | { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' }
+    | { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' | 'semantic_timeout' }
     | undefined;
   if (input.mode !== 'lexical') {
     queryEmbedding = await embedQuery(input.query, AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS));
@@ -112,6 +118,8 @@ export async function searchIndex(input: SearchInput) {
     throw new SearchError(400, 'invalid_cursor', 'The search cursor is invalid');
   }
   const ranks = await rankedSearch(input, queryEmbedding, offset);
+  if (ranks.semanticTimedOut)
+    degraded = { from: 'hybrid', to: 'lexical', reason: 'semantic_timeout' };
   const ids = ranks.slice(0, input.limit).map((row) => row.documentId);
   const documents = ids.length
     ? await getDb()
@@ -169,27 +177,6 @@ export async function searchIndex(input: SearchInput) {
  */
 const SEMANTIC_CANDIDATE_CHUNKS = 400;
 const FILTERED_SEMANTIC_CANDIDATE_CHUNKS = 1_000;
-
-/**
- * The longest a ranking may run. A caller that gives up does not stop a query
- * already in Postgres, so without this an abandoned search keeps reading the
- * index and slows the searches behind it.
- *
- * Sized from production (2026-10-17): with the shared instance's disk busy, a
- * cold hybrid ranking reads ~10k blocks at ~1.3 ms each and takes 7–10 s; warm
- * it takes milliseconds. With the query embedding (2.5 s) that answers inside
- * the SDK's 15 s whenever the index fills the page; web discovery (5 s) runs
- * only when it does not.
- */
-export const SEARCH_STATEMENT_TIMEOUT_MS = 10_000;
-const QUERY_CANCELED = '57014';
-
-export function isStatementTimeout(error: unknown): boolean {
-  for (let cause: unknown = error; cause instanceof Error; cause = cause.cause) {
-    if ((cause as { code?: unknown }).code === QUERY_CANCELED) return true;
-  }
-  return false;
-}
 
 /** The ranking behind `searchIndex`; exported for its Postgres suite. */
 export async function rankedSearch(
@@ -302,11 +289,19 @@ export async function rankedSearch(
     return await getDb().transaction(async (tx) => {
       // `set local` takes no bind parameter; the value is this module's constant.
       await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
-      const nearest =
-        embedding && input.mode !== 'lexical'
+      // A hybrid search whose semantic arm runs out of time ranks lexically
+      // and says so; a semantic one has no other arm.
+      const nearest = !embedding
+        ? undefined
+        : input.mode === 'semantic'
           ? await nearestChunks(tx, embedding, candidateChunks)
-          : undefined;
-      return tx.execute<{ documentId: string; score: number }>(statementFor(nearest));
+          : input.mode === 'hybrid'
+            ? await nearestChunksOrDegrade(tx, embedding, candidateChunks)
+            : undefined;
+      const rows = await tx.execute<{ documentId: string; score: number }>(statementFor(nearest));
+      return Object.assign(rows, {
+        semanticTimedOut: input.mode === 'hybrid' && embedding !== undefined && !nearest,
+      });
     });
   } catch (error) {
     if (isStatementTimeout(error)) {
