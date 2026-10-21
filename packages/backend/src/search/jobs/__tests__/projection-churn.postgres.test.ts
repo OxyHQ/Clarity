@@ -18,6 +18,7 @@ import {
   ingestJobPosting,
   JOB_SIGHTING_REFRESH_MS,
   projectJobPostings,
+  recordJobSighting,
 } from '../projection.js';
 
 /**
@@ -257,7 +258,9 @@ suite('re-observing job listings on Postgres', () => {
     await ingest(loneUrl, at(0));
     const before = await snapshot(loneUrl);
     expect(before.posting.descriptionToast).not.toBeNull();
-    expect(before.documentToast).not.toBeNull();
+    // A job document keeps no JSON-LD: the listing is its projection, and a
+    // listing listed again is sighted (`recordJobSighting`), never re-read.
+    expect(before.documentToast).toBeNull();
     expect(before.chunkIds.length).toBeGreaterThan(1);
 
     // Within a day of its last sighting, the same listing writes nothing —
@@ -484,5 +487,84 @@ suite('re-observing job listings on Postgres', () => {
     expect(createEmbeddings).toHaveBeenCalledOnce();
     expect(vi.mocked(createEmbeddings).mock.calls[0][0]).toHaveLength(chunks);
     for (const listed of snapshots) expect(listed.embeddedChunks).toBe(listed.chunkIds.length);
+  });
+
+  it('sights a listing its feed lists again exactly as re-ingesting its payload did', async () => {
+    const sightingUrl = batchUrls[9];
+    const ingested = await ingest(sightingUrl, at(0));
+    const [document] = await getDb()
+      .select({ structuredData: searchDocuments.structuredData })
+      .from(searchDocuments)
+      .where(eq(searchDocuments.id, ingested.documentId));
+    expect(document.structuredData).toEqual([]);
+
+    // Gone yesterday, listed again today: the sighting reopens it, as a
+    // re-ingest of its unchanged payload did.
+    await getDb().transaction((tx) =>
+      closeJobPostingsForDocument(tx, ingested.documentId, 'http_gone'),
+    );
+    const nextDay = new Date(at(0).getTime() + JOB_SIGHTING_REFRESH_MS + 60_000);
+    const sighted = await recordJobSighting({
+      canonicalUrl: sightingUrl,
+      sourceType: 'feed',
+      observedAt: nextDay,
+    });
+    expect(sighted?.jobPostingIds).toEqual(ingested.jobPostingIds);
+    const [posting] = await getDb()
+      .select({
+        status: jobPostings.status,
+        closedAt: jobPostings.closedAt,
+        closureReason: jobPostings.closureReason,
+        lastSeenAt: jobPostings.lastSeenAt,
+      })
+      .from(jobPostings)
+      .where(eq(jobPostings.id, ingested.jobPostingIds[0]));
+    expect(posting).toMatchObject({ status: 'active', closedAt: null, closureReason: null });
+    expect(posting.lastSeenAt.getTime()).toBe(nextDay.getTime());
+
+    // Seen again within the refresh window: nothing is written.
+    const [{ xmin }] = await getDb()
+      .select({ xmin: sql<string>`${jobPostings}.xmin::text` })
+      .from(jobPostings)
+      .where(eq(jobPostings.id, ingested.jobPostingIds[0]));
+    vi.mocked(embeddingsEnabled).mockReturnValue(false);
+    await recordJobSighting({
+      canonicalUrl: sightingUrl,
+      sourceType: 'feed',
+      observedAt: new Date(nextDay.getTime() + 60_000),
+    });
+    vi.mocked(embeddingsEnabled).mockReturnValue(true);
+    const [again] = await getDb()
+      .select({ xmin: sql<string>`${jobPostings}.xmin::text` })
+      .from(jobPostings)
+      .where(eq(jobPostings.id, ingested.jobPostingIds[0]));
+    expect(again.xmin).toBe(xmin);
+  });
+
+  it('never reopens a listing its last payload withdrew, and sights nothing it does not hold', async () => {
+    const withdrawnUrl = batchUrls[8];
+    const ingested = await ingest(withdrawnUrl, at(0));
+    await getDb().transaction((tx) =>
+      closeJobPostingsForDocument(tx, ingested.documentId, 'posting_absent'),
+    );
+    expect(
+      await recordJobSighting({
+        canonicalUrl: withdrawnUrl,
+        sourceType: 'feed',
+        observedAt: at(2_000),
+      }),
+    ).toBeUndefined();
+    const [posting] = await getDb()
+      .select({ status: jobPostings.status })
+      .from(jobPostings)
+      .where(eq(jobPostings.id, ingested.jobPostingIds[0]));
+    expect(posting.status).toBe('closed');
+    expect(
+      await recordJobSighting({
+        canonicalUrl: 'https://never-indexed.example/careers/role',
+        sourceType: 'feed',
+        observedAt: at(2_000),
+      }),
+    ).toBeUndefined();
   });
 });

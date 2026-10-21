@@ -25,15 +25,22 @@ vi.mock('@oxy.so/core/server', () => ({
 }));
 
 const ingested: string[] = [];
+const sighted: string[] = [];
 vi.mock('../../projection.js', () => ({
   ingestJobPosting: vi.fn(async (input: { canonicalUrl: string }) => {
     ingested.push(input.canonicalUrl);
     return { documentId: 'd', jobPostingIds: ['p'] };
   }),
-  storedJobDocument: vi.fn(async (url: string) => stored.get(url)),
+  storedJobFetch: vi.fn(async (url: string) => stored.get(url)),
+  // A listing Clarity holds is sighted instead of re-ingested.
+  recordJobSighting: vi.fn(async (input: { canonicalUrl: string }) => {
+    if (!stored.has(input.canonicalUrl)) return undefined;
+    sighted.push(input.canonicalUrl);
+    return { documentId: 'd', jobPostingIds: ['p'] };
+  }),
 }));
 
-const stored = new Map<string, { structuredData: unknown[]; fetchedAt: Date | null }>();
+const stored = new Map<string, { fetchedAt: Date | null }>();
 
 const presence = { recorded: [] as string[][], closedFor: [] as string[] };
 vi.mock('../presence.js', () => ({
@@ -97,6 +104,7 @@ describe('feed polling', () => {
   beforeEach(() => {
     requested.length = 0;
     ingested.length = 0;
+    sighted.length = 0;
     stored.clear();
     presence.recorded.length = 0;
     presence.closedFor.length = 0;
@@ -143,7 +151,7 @@ describe('feed polling', () => {
     expect(outcome).toMatchObject({ stored: 200, cursor: '300' });
   });
 
-  it("fetches a summary-only source's detail once, then re-observes it from storage until it ages out", async () => {
+  it("fetches a summary-only source's detail once, then sights the listing until it ages out", async () => {
     const list = {
       result: [
         { id: '1', jobOpeningName: 'Fresh', employmentStatusLabel: 'Full-Time' },
@@ -162,11 +170,9 @@ describe('feed polling', () => {
         },
       });
     stored.set('https://acme.bamboohr.com/careers/2', {
-      structuredData: [{ '@type': 'JobPosting', title: 'Known' }],
       fetchedAt: new Date(),
     });
     stored.set('https://acme.bamboohr.com/careers/3', {
-      structuredData: [{ '@type': 'JobPosting', title: 'Stale' }],
       fetchedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
     });
     respond = (url) =>
@@ -178,6 +184,12 @@ describe('feed polling', () => {
       'https://acme.bamboohr.com/careers/list',
       'https://acme.bamboohr.com/careers/1/detail',
       'https://acme.bamboohr.com/careers/3/detail',
+    ]);
+    // The listing still current is sighted, not re-ingested from a stored copy.
+    expect(sighted).toEqual(['https://acme.bamboohr.com/careers/2']);
+    expect(ingested.sort()).toEqual([
+      'https://acme.bamboohr.com/careers/1',
+      'https://acme.bamboohr.com/careers/3',
     ]);
     expect(outcome.stored).toBe(3);
   });
@@ -237,7 +249,6 @@ describe('feed polling', () => {
         hiringOrganization: { name: 'Gemeente' },
       })}</script></head></html>`;
     stored.set('https://jobs.example/v/unchanged', {
-      structuredData: [{ '@type': 'JobPosting', title: 'Kept' }],
       fetchedAt: new Date('2026-10-05T00:00:00Z'),
     });
     respond = (url) => {
@@ -263,10 +274,8 @@ describe('feed polling', () => {
       'https://jobs.example/v/new',
       'https://jobs.example/v/hidden',
     ]);
-    expect(ingested.sort()).toEqual([
-      'https://jobs.example/v/new',
-      'https://jobs.example/v/unchanged',
-    ]);
+    expect(ingested).toEqual(['https://jobs.example/v/new']);
+    expect(sighted).toEqual(['https://jobs.example/v/unchanged']);
     expect(outcome.stored).toBe(2);
   });
 
@@ -321,7 +330,6 @@ describe('feed polling', () => {
 
   it('closes a listing whose detail answers that it is gone', async () => {
     stored.set('https://acme.bamboohr.com/careers/9', {
-      structuredData: [{ '@type': 'JobPosting', title: 'Old' }],
       fetchedAt: new Date('2026-01-01'),
     });
     respond = (url) =>

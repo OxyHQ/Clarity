@@ -109,19 +109,17 @@ suite('page text in chunks on Postgres', () => {
     expect(mainContentToStore(undefined, [])).toBeNull();
   });
 
-  it('clears only the text the chunks reproduce exactly, and JSON-LD nobody reads', async () => {
-    expect(structuredDataIsRead('job', [{ '@type': 'JobPosting' }])).toBe(true);
-    expect(structuredDataIsRead('news', [{ '@type': 'NewsArticle' }])).toBe(true);
-    expect(structuredDataIsRead('page', [{ '@type': 'Article' }])).toBe(false);
+  it('clears only the text the chunks reproduce exactly, and JSON-LD but news', async () => {
+    expect(structuredDataIsRead('job')).toBe(false);
+    expect(structuredDataIsRead('news')).toBe(true);
+    expect(structuredDataIsRead('page')).toBe(false);
 
     await compactAll();
     expect((await stored('long'))?.mainContent).toBeNull();
     expect((await stored('split'))?.mainContent).toBe(splitText);
     expect((await stored('unchunked'))?.mainContent).toBe('kept as it is');
     expect((await stored('article-ld'))?.structuredData).toEqual([]);
-    expect((await stored('job-ld'))?.structuredData).toEqual([
-      { '@type': 'JobPosting', title: 'Engineer' },
-    ]);
+    expect((await stored('job-ld'))?.structuredData).toEqual([]);
     expect((await stored('news-ld'))?.structuredData).toEqual([
       { '@type': 'NewsArticle', datePublished: '2026-01-01' },
     ]);
