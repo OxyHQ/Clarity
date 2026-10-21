@@ -34,7 +34,7 @@ import type {
   JobWorkplaceType,
 } from '@clarity/shared-types';
 
-import { getDb } from '../../db/index.js';
+import { getDb, type ClarityExecutor } from '../../db/index.js';
 import { jobClusters, jobPostings, searchDocuments } from '../../db/schema/index.js';
 import { embedQuery } from '../chunking.js';
 import {
@@ -445,42 +445,53 @@ async function rankJobs(
   offset: number,
   timing: SearchTiming,
 ) {
-  try {
-    return await getDb().transaction(async (tx) => {
-      // `set local` takes no bind parameter; both values are module constants.
+  // Each statement under the search's bound, in a transaction of its own: the
+  // two arms are independent until they are fused, so they run at once and a
+  // search waits for the slower, not for both — cold, each reads the disk for
+  // seconds (production, 2026-10-21).
+  const bounded = <T>(work: (tx: ClarityExecutor) => Promise<T>) =>
+    getDb().transaction(async (tx) => {
+      // `set local` takes no bind parameter; the value is a module constant.
       await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
+      return work(tx);
+    });
+  try {
+    const [nearest, lexical] = await Promise.all([
       // A hybrid search whose semantic arm runs out of time ranks lexically
       // and says so; a semantic one has no other arm.
-      const nearest = await timing.phase('semanticMs', async () =>
-        !embedding || !input.query
+      timing.phase('semanticMs', async () =>
+        !embedding || !input.query || input.mode === 'lexical'
           ? undefined
-          : input.mode === 'semantic'
-            ? await nearestChunks(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
-            : input.mode === 'hybrid'
-              ? await nearestChunksOrDegrade(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
-              : undefined,
-      );
-      const semanticTimedOut =
-        input.mode === 'hybrid' && embedding !== undefined && Boolean(input.query) && !nearest;
-      const lexical =
-        input.query && input.mode !== 'semantic'
-          ? await timing.phase('lexicalMs', () =>
+          : bounded((tx) =>
+              input.mode === 'semantic'
+                ? nearestChunks(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
+                : nearestChunksOrDegrade(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS),
+            ),
+      ),
+      timing.phase('lexicalMs', async () =>
+        !input.query || input.mode === 'semantic'
+          ? undefined
+          : bounded((tx) =>
               rankLexically(
                 tx,
                 { listing: sql.join(listingClauses(input), sql` and `), document: LISTED_DOCUMENT },
                 input.query ?? '',
                 CANDIDATE_DEPTH,
               ),
-            )
-          : undefined;
-      if (lexical) timing.plan = lexical.plan;
-      const rows = await timing.phase('fusedMs', () =>
+            ),
+      ),
+    ]);
+    const semanticTimedOut =
+      input.mode === 'hybrid' && embedding !== undefined && Boolean(input.query) && !nearest;
+    if (lexical) timing.plan = lexical.plan;
+    const rows = await timing.phase('fusedMs', () =>
+      bounded((tx) =>
         tx.execute<{ jobId: string; score: number }>(
           rankedStatement(input, nearest, offset, lexical?.ids ?? []),
         ),
-      );
-      return Object.assign(rows, { semanticTimedOut });
-    });
+      ),
+    );
+    return Object.assign(rows, { semanticTimedOut });
   } catch (error) {
     if (isStatementTimeout(error))
       throw new JobsError(503, 'search_timeout', 'Search took too long; try a more specific query');
