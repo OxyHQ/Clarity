@@ -324,9 +324,10 @@ relevance, so `frontend engineer working on React Native mobile apps` can match
 a role titled *Mobile Software Engineer*. Omitting `query` browses by filters
 and freshness. When embeddings are off or the call fails, hybrid degrades to
 lexical and says so in `degraded`; explicit `semantic` fails with `503`
-([embeddings capability](index#embeddings-capability)). The semantic arm reads
-the 1,000 nearest chunks from the half-precision HNSW index and then applies
-the filters, like document search; a ranking that runs past 10 s answers `503
+([embeddings capability](index#embeddings-capability)). The semantic arm finds
+the 1,000 nearest chunks — 8,000 candidates from the HNSW index over their
+binary codes, reordered by exact distance ([search storage](search-storage),
+"Vectors") — and then applies the filters, like document search; a ranking that runs past 10 s answers `503
 search_timeout`. A query's embedding is cached in Redis for a week.
 
 ### The lexical arm, in two phases

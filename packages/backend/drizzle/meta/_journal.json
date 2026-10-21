@@ -358,6 +358,27 @@
       "when": 1792562545287,
       "tag": "0050_search_chunks_split_copy",
       "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1792562867400,
+      "tag": "0051_search_chunk_split_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792562867867,
+      "tag": "0052_search_chunk_split_foreign_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1792562868367,
+      "tag": "0053_search_chunks_swap_to_split",
+      "breakpoints": true
     }
   ]
 }

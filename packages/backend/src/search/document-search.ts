@@ -11,13 +11,9 @@ import { eq, inArray, type SQL, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { getDb } from '../db/index.js';
-import {
-  searchChunkHalfvec,
-  searchChunks,
-  searchChunkTsvector,
-  searchDocuments,
-} from '../db/schema/index.js';
+import { searchChunks, searchChunkTsvector, searchDocuments } from '../db/schema/index.js';
 import { embedQuery } from './chunking.js';
+import { nearestChunkRows, nearestChunks, type NearestChunks } from './nearest-chunks.js';
 import { withPageText } from './page-text.js';
 import {
   iconHostsOf,
@@ -163,15 +159,13 @@ export async function searchIndex(input: SearchInput) {
 }
 
 /**
- * How many nearest CHUNKS the semantic arm reads from the HNSW index before it
- * groups them into documents and applies the document filters. Ordering the
- * chunks by distance and limiting is the only shape the index serves: the
- * earlier `min(embedding <=> q)` grouped by document compared the query with
- * every embedded chunk (549k in production, 2026-10-17) and ran past two
- * minutes, so every hybrid search outlived its callers. A filter is applied
- * after the nearest chunks are found, so a filtered search reads a wider pool —
- * up to pgvector's ceiling for `hnsw.ef_search`, which bounds what the index
- * can return.
+ * How many nearest CHUNKS the semantic arm finds (nearest-chunks.ts) before it
+ * groups them into documents and applies the document filters. Finding the
+ * nearest chunks first is the only shape an index serves: the earlier
+ * `min(embedding <=> q)` grouped by document compared the query with every
+ * embedded chunk (549k in production, 2026-10-17) and ran past two minutes,
+ * so every hybrid search outlived its callers. A filter is applied after the
+ * nearest chunks are found, so a filtered search reads a wider pool.
  */
 const SEMANTIC_CANDIDATE_CHUNKS = 400;
 const FILTERED_SEMANTIC_CANDIDATE_CHUNKS = 1_000;
@@ -276,50 +270,43 @@ export async function rankedSearch(
     where ${where}
     group by ${searchDocuments.id}
     order by rank limit 100`;
-  // The nearest chunks first, straight from the HNSW index (see
-  // SEMANTIC_CANDIDATE_CHUNKS), then each document at its nearest chunk.
-  // Half precision on both sides: `searchChunkHalfvec` is the expression the
-  // HNSW index holds (schema, migration 0034), and the planner uses the index
-  // only for an ORDER BY on exactly that expression.
-  const queryVector = embedding ? sql`${JSON.stringify(embedding)}::halfvec(1024)` : undefined;
-  const semantic = queryVector
-    ? sql`
-    select ${searchDocuments.id} as document_id,
-      row_number() over (order by min(nearest.distance) asc, ${searchDocuments.id}) as rank
-    from (
-      select ${searchChunks.documentId} as document_id, ${searchChunkHalfvec} <=> ${queryVector} as distance
-      from ${searchChunks}
-      where ${searchChunks.embedding} is not null
-      order by ${searchChunkHalfvec} <=> ${queryVector}
-      limit ${candidateChunks}
-    ) nearest
-    inner join ${searchDocuments} on ${searchDocuments.id} = nearest.document_id
-    where ${where}
-    group by ${searchDocuments.id}
-    order by rank limit 100`
-    : undefined;
-  const statement =
-    input.mode === 'hybrid' && semantic
+  const statementFor = (nearest: NearestChunks | undefined) => {
+    // Each document at its nearest chunk, among the chunks nearest the query
+    // (nearest-chunks.ts), found before this statement.
+    const semantic = nearest
       ? sql`
-    with lexical as (${lexical}), semantic as (${semantic}), fused as (
-      select coalesce(lexical.document_id, semantic.document_id) as document_id,
-        coalesce(1.0 / (60 + lexical.rank), 0) + coalesce(1.0 / (60 + semantic.rank), 0) as score
-      from lexical full outer join semantic on lexical.document_id = semantic.document_id
-    ) select document_id as "documentId", score from fused order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
+      select ${searchDocuments.id} as document_id,
+        row_number() over (order by min(nearest.distance) asc, ${searchDocuments.id}) as rank
+      from ${nearestChunkRows(nearest)}
+      inner join ${searchDocuments} on ${searchDocuments.id} = nearest.document_id
+      where ${where}
+      group by ${searchDocuments.id}
+      order by rank limit 100`
+      : undefined;
+    return input.mode === 'hybrid' && semantic
+      ? sql`
+      with lexical as (${lexical}), semantic as (${semantic}), fused as (
+        select coalesce(lexical.document_id, semantic.document_id) as document_id,
+          coalesce(1.0 / (60 + lexical.rank), 0) + coalesce(1.0 / (60 + semantic.rank), 0) as score
+        from lexical full outer join semantic on lexical.document_id = semantic.document_id
+      ) select document_id as "documentId", score from fused order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
       : input.mode === 'semantic' && semantic
         ? sql`
-    with semantic as (${semantic}) select document_id as "documentId", 1.0 / (60 + rank) as score
-    from semantic order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
+      with semantic as (${semantic}) select document_id as "documentId", 1.0 / (60 + rank) as score
+      from semantic order by score desc, document_id limit ${input.limit + 1} offset ${offset}`
         : sql`
-    with lexical as (${lexical}) select document_id as "documentId", 1.0 / (60 + rank) as score
-    from lexical order by score desc, document_id limit ${input.limit + 1} offset ${offset}`;
+      with lexical as (${lexical}) select document_id as "documentId", 1.0 / (60 + rank) as score
+      from lexical order by score desc, document_id limit ${input.limit + 1} offset ${offset}`;
+  };
   try {
     return await getDb().transaction(async (tx) => {
-      // `set local` takes no bind parameter; both values are this module's constants.
+      // `set local` takes no bind parameter; the value is this module's constant.
       await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
-      // The index returns at most `ef_search` rows, so it must cover the pool.
-      if (embedding) await tx.execute(sql.raw(`set local hnsw.ef_search = ${candidateChunks}`));
-      return tx.execute<{ documentId: string; score: number }>(statement);
+      const nearest =
+        embedding && input.mode !== 'lexical'
+          ? await nearestChunks(tx, embedding, candidateChunks)
+          : undefined;
+      return tx.execute<{ documentId: string; score: number }>(statementFor(nearest));
     });
   } catch (error) {
     if (isStatementTimeout(error)) {

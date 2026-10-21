@@ -91,7 +91,9 @@ suite('half-precision vector text on Postgres', () => {
       .orderBy(searchChunks.position);
     const version = async (id: string) => {
       const [row] = await getDb().execute<{ xmin: string; embedded: boolean }>(
-        sql`select xmin::text as xmin, embedding is not null as embedded from clarity_search_chunks where id = ${id}`,
+        sql`select e.xmin::text || coalesce(v.xmin::text, '') as xmin, e.code is not null as embedded
+          from clarity_search_chunk_embeddings e left join clarity_search_chunk_vectors v on v.chunk_id = e.chunk_id
+          where e.chunk_id = ${id}`,
       );
       return row;
     };

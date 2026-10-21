@@ -2,16 +2,12 @@ import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
-import {
-  searchChunkHalfvec,
-  searchChunks,
-  searchChunkTsvector,
-  searchDocuments,
-} from '../../../db/schema/index.js';
+import { searchChunks, searchChunkTsvector, searchDocuments } from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
 import { answeredToAny } from '../../../search/public-document.js';
 import { recordDiscoveredPages } from '../../../search/web-discovery.js';
 import { rankedSearch, type SearchInput } from '../../../search/document-search.js';
+import { nearestChunks } from '../../../search/nearest-chunks.js';
 import { fetchedDocuments } from '../search-platform.js';
 
 /**
@@ -105,30 +101,74 @@ suite('ranked search on Postgres', () => {
     expect(hybrid).toHaveLength(2);
   });
 
-  it('reads the semantic candidates from the HNSW index, not by scanning every chunk', async () => {
-    // The ranking's inner query, as `rankedSearch` sends it: ordered by the
-    // half-precision distance and limited, which is the only shape the index
-    // serves (`searchChunkHalfvec`, migration 0034).
+  it("reads the semantic candidates from the codes' HNSW index, not by scanning every chunk", async () => {
+    // The candidates' query, as `nearestChunks` sends it: ordered by the
+    // Hamming distance between binary codes and limited, the shape the index
+    // serves (docs/search-storage.md, "Vectors").
     const vector = JSON.stringify(embedding);
     const plan = await getDb().transaction(async (tx) => {
       await tx.execute(sql.raw('set local enable_seqscan = off'));
       return tx.execute<{ 'QUERY PLAN': string }>(sql`
-        explain select ${searchChunks.documentId}, ${searchChunkHalfvec} <=> ${vector}::halfvec(1024) as distance
-        from ${searchChunks} where ${searchChunks.embedding} is not null
-        order by ${searchChunkHalfvec} <=> ${vector}::halfvec(1024) limit 400`);
+        explain select chunk_id, document_id from clarity_search_chunk_embeddings
+        order by code <~> binary_quantize(${vector}::halfvec(1024))::bit(1024) limit 3200`);
     });
     expect(plan.map((row) => row['QUERY PLAN']).join('\n')).toContain(
-      'clarity_search_chunks_embedding_halfvec_hnsw_idx',
+      'clarity_search_chunk_embeddings_code_hnsw_idx',
     );
   });
 
-  it('stores embeddings at half precision and no full-text vector (docs/search-storage.md)', async () => {
-    const columns = await getDb().execute<{ name: string; type: string }>(sql`
-      select attname as name, format_type(atttypid, atttypmod) as type from pg_attribute
-      where attrelid = 'clarity_search_chunks'::regclass and attnum > 0 and not attisdropped`);
-    const types = Object.fromEntries(columns.map((column) => [column.name, column.type]));
-    expect(types.embedding).toBe('halfvec(1024)');
-    expect(types).not.toHaveProperty('search_vector');
+  it('reorders the candidates exactly, reading their vectors with one bitmap scan', async () => {
+    const chunks = await getDb()
+      .select({ id: searchChunks.id })
+      .from(searchChunks)
+      .where(inArray(searchChunks.documentId, documentIds));
+    const nearest = await getDb().transaction(async (tx) => {
+      await tx.execute(sql.raw('set local enable_seqscan = off'));
+      const plan = await tx.execute<{ 'QUERY PLAN': string }>(sql`
+        explain select chunk_id from clarity_search_chunk_vectors
+        where chunk_id = any(${sql.param(chunks.map((chunk) => chunk.id))}::text[])`);
+      await tx.execute(sql.raw('set local enable_indexscan = off'));
+      const bitmap = await tx.execute<{ 'QUERY PLAN': string }>(sql`
+        explain select chunk_id from clarity_search_chunk_vectors
+        where chunk_id = any(${sql.param(chunks.map((chunk) => chunk.id))}::text[])`);
+      await tx.execute(sql.raw('set local enable_indexscan = on'));
+      return { plan, bitmap, found: await nearestChunks(tx, embedding, 10) };
+    });
+    expect(nearest.bitmap.map((row) => row['QUERY PLAN']).join('\n')).toContain(
+      'Bitmap Heap Scan on clarity_search_chunk_vectors',
+    );
+    expect(nearest.plan.length).toBeGreaterThan(0);
+    // Every embedded chunk of the two documents, nearest first, at its exact distance.
+    expect(nearest.found.documentIds.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(nearest.found.documentIds)).toEqual(new Set(documentIds));
+    expect(nearest.found.distances).toEqual([...nearest.found.distances].sort((a, b) => a - b));
+    expect(nearest.found.distances[0]).toBeCloseTo(0, 3);
+  });
+
+  it('stores a chunk without its vector, and the vector at half precision beside it (docs/search-storage.md)', async () => {
+    const columns = await getDb().execute<{
+      table: string;
+      name: string;
+      type: string;
+      storage: string;
+    }>(sql`
+      select attrelid::regclass::text as table, attname as name,
+        format_type(atttypid, atttypmod) as type, attstorage as storage
+      from pg_attribute
+      where attrelid in ('clarity_search_chunks'::regclass, 'clarity_search_chunk_embeddings'::regclass,
+        'clarity_search_chunk_vectors'::regclass)
+        and attnum > 0 and not attisdropped`);
+    const of = (table: string) =>
+      Object.fromEntries(
+        columns.filter((column) => column.table === table).map((column) => [column.name, column]),
+      );
+    expect(of('clarity_search_chunks')).not.toHaveProperty('embedding');
+    expect(of('clarity_search_chunks')).not.toHaveProperty('search_vector');
+    expect(of('clarity_search_chunk_embeddings').code?.type).toBe('bit(1024)');
+    expect(of('clarity_search_chunk_vectors').embedding).toMatchObject({
+      type: 'halfvec(1024)',
+      storage: 'p',
+    });
   });
 
   it('matches lexical candidates through the full-text expression index', async () => {

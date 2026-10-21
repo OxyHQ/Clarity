@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   boolean,
   bigint,
+  bit,
   check,
   customType,
   date,
@@ -824,11 +825,6 @@ export const searchChunks = pgTable(
     startOffset: integer('start_offset').notNull(),
     endOffset: integer('end_offset').notNull(),
     text: text('text').notNull(),
-    // Half precision: the semantic index and every query compare at half
-    // precision (`searchChunkHalfvec`), so a float32 column kept twice the
-    // bytes for precision nothing read (docs/search-storage.md).
-    embedding: halfvec('embedding', { dimensions: 1024 }),
-    embeddingModel: text('embedding_model'),
     extractorVersion: text('extractor_version').notNull(),
     ...timestampColumns(),
   },
@@ -843,30 +839,56 @@ export const searchChunks = pgTable(
       'gin',
       sql`to_tsvector('simple'::regconfig, ${table.text})`,
     ),
-    // The semantic index holds each vector at half precision: half the pages
-    // for an insert to walk and a search to read, on an instance whose disk is
-    // the bottleneck. `searchChunkHalfvec` is the expression it indexes, and
-    // the only one a query may order by to use it.
-    index('clarity_search_chunks_embedding_halfvec_hnsw_idx').using(
-      'hnsw',
-      sql`(${table.embedding}::halfvec(1024)) halfvec_cosine_ops`,
-    ),
-    // The chunks still owed a vector, in id order: the backlog sweep reads
-    // them without scanning (search/chunking.ts `queueEmbeddingBacklog`), and
-    // the index shrinks as they are embedded.
-    index('clarity_search_chunks_unembedded_idx')
-      .on(table.id)
-      .where(sql`${table.embedding} is null`),
   ],
 );
 
 /**
- * A chunk's embedding as the semantic index holds it, at half precision. A
- * nearest-neighbour query orders by this expression (against a
- * `::halfvec(1024)` query vector) to be served by
- * `clarity_search_chunks_embedding_halfvec_hnsw_idx`.
+ * One row per chunk: its vector's binary code (`binary_quantize`, one bit a
+ * dimension), the model that produced it, and its document; `code` is NULL
+ * until the chunk is embedded. The semantic index is over the codes: ~6×
+ * smaller than over the half-precision vectors, so it and these narrow rows
+ * stay in memory, where the vectors' index (4.3 GB, 2026-10-21) made every
+ * vector write and every search read the disk (docs/search-storage.md).
  */
-export const searchChunkHalfvec = sql`(${searchChunks.embedding}::halfvec(1024))`;
+export const searchChunkEmbeddings = pgTable(
+  'clarity_search_chunk_embeddings',
+  {
+    chunkId: text('chunk_id')
+      .primaryKey()
+      .references(() => searchChunks.id, { onDelete: 'cascade' }),
+    documentId: text('document_id').notNull(),
+    code: bit('code', { dimensions: 1024 }),
+    model: text('model'),
+  },
+  (table) => [
+    check(
+      'clarity_search_chunk_embeddings_model_check',
+      sql`(${table.code} IS NULL) = (${table.model} IS NULL)`,
+    ),
+    index('clarity_search_chunk_embeddings_code_hnsw_idx').using(
+      'hnsw',
+      sql`${table.code} bit_hamming_ops`,
+    ),
+    // The chunks still owed a vector, in id order: the backlog sweep reads
+    // them without scanning (search/chunking.ts `queueEmbeddingBacklog`), and
+    // the index shrinks as they are embedded.
+    index('clarity_search_chunk_embeddings_unembedded_idx')
+      .on(table.chunkId)
+      .where(sql`${table.code} IS NULL`),
+  ],
+);
+
+/**
+ * A chunk's vector at half precision, stored inline (`STORAGE PLAIN`, set by
+ * migration 0050): a search reorders its candidates by exact distance reading
+ * these rows with one bitmap scan, and no row costs a TOAST lookup.
+ */
+export const searchChunkVectors = pgTable('clarity_search_chunk_vectors', {
+  chunkId: text('chunk_id')
+    .primaryKey()
+    .references(() => searchChunkEmbeddings.chunkId, { onDelete: 'cascade' }),
+  embedding: halfvec('embedding', { dimensions: 1024 }).notNull(),
+});
 
 /**
  * A chunk's full-text vector, computed from its text: the expression

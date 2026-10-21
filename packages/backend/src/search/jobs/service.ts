@@ -35,14 +35,9 @@ import type {
 } from '@clarity/shared-types';
 
 import { getDb } from '../../db/index.js';
-import {
-  jobClusters,
-  jobPostings,
-  searchChunkHalfvec,
-  searchChunks,
-  searchDocuments,
-} from '../../db/schema/index.js';
+import { jobClusters, jobPostings, searchDocuments } from '../../db/schema/index.js';
 import { embedQuery } from '../chunking.js';
+import { nearestChunkRows, nearestChunks, type NearestChunks } from '../nearest-chunks.js';
 import {
   isStatementTimeout,
   QUERY_EMBEDDING_TIMEOUT_MS,
@@ -76,10 +71,10 @@ export { JOB_FORBIDDEN_RANKING_SIGNALS, JOB_RANKING_SIGNALS } from './ranking-co
 const RECIPROCAL_RANK_CONSTANT = 60;
 const CANDIDATE_DEPTH = 200;
 /**
- * Nearest chunks the semantic arm reads from the HNSW index before the job
- * filters apply. Most of the index is job listings, but the filters (active,
- * country, type…) always apply after the nearest are found, so the pool is
- * the filtered size `rankedSearch` uses, at pgvector's `ef_search` ceiling.
+ * Nearest chunks the semantic arm finds before the job filters apply. Most
+ * chunks are job listings', but the filters (active, country, type…) always
+ * apply after the nearest are found, so the pool is the filtered size
+ * `rankedSearch` uses.
  */
 const SEMANTIC_CANDIDATE_CHUNKS = 1_000;
 /** Relevance dominates; freshness and completeness only break near-ties. */
@@ -300,13 +295,13 @@ function completenessExpression(): SQL {
 
 function rankedStatement(
   input: JobSearchInput,
-  embedding: number[] | undefined,
+  nearest: NearestChunks | undefined,
   offset: number,
   lexicalIds: readonly string[],
 ): SQL {
   const where = sql.join(filterClauses(input), sql` and `);
   const scored = input.query
-    ? scoredWithQuery(input, embedding, where, lexicalIds)
+    ? scoredWithQuery(input, nearest, where, lexicalIds)
     : sql`
       select ${jobPostings.id} as job_id, ${jobPostings.clusterId} as cluster_id,
         ${jobClusters.canonicalJobPostingId} as canonical_job_posting_id,
@@ -335,7 +330,7 @@ function rankedStatement(
 
 function scoredWithQuery(
   input: JobSearchInput,
-  embedding: number[] | undefined,
+  nearest: NearestChunks | undefined,
   where: SQL,
   lexicalIds: readonly string[],
 ): SQL {
@@ -346,23 +341,14 @@ function scoredWithQuery(
     select ranked.job_id, ranked.rank
     from unnest(${sql.param([...lexicalIds])}::text[]) with ordinality as ranked(job_id, rank)`;
 
-  // The nearest chunks straight from the HNSW index, then each listing at its
-  // nearest chunk — the shape `rankedSearch` (document-search.ts) uses. Taking
-  // `min(embedding <=> q)` over every chunk of every matching listing, at full
-  // precision, compared the query with each of them and could use no index.
-  const queryVector = embedding ? sql`${JSON.stringify(embedding)}::halfvec(1024)` : undefined;
-  const semantic = queryVector
+  // Each listing at its nearest chunk, among the chunks nearest the query
+  // (nearest-chunks.ts), found before this statement.
+  const semantic = nearest
     ? sql`
     select ${jobPostings.id} as job_id, row_number() over (
       order by min(nearest.distance) asc, ${jobPostings.id}
     ) as rank
-    from (
-      select ${searchChunks.documentId} as document_id, ${searchChunkHalfvec} <=> ${queryVector} as distance
-      from ${searchChunks}
-      where ${searchChunks.embedding} is not null
-      order by ${searchChunkHalfvec} <=> ${queryVector}
-      limit ${SEMANTIC_CANDIDATE_CHUNKS}
-    ) nearest
+    from ${nearestChunkRows(nearest)}
     inner join ${jobPostings} on ${jobPostings.documentId} = nearest.document_id
     where ${where}
     group by ${jobPostings.id}
@@ -398,16 +384,17 @@ function scoredWithQuery(
 
 /**
  * Runs the ranking under the same bounds as a document search: a statement
- * timeout, so an abandoned query stops reading, and an `ef_search` that lets
- * the HNSW index return the whole semantic pool.
+ * timeout, so an abandoned query stops reading.
  */
 async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, offset: number) {
   try {
     return await getDb().transaction(async (tx) => {
       // `set local` takes no bind parameter; both values are module constants.
       await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
-      if (embedding)
-        await tx.execute(sql.raw(`set local hnsw.ef_search = ${SEMANTIC_CANDIDATE_CHUNKS}`));
+      const nearest =
+        embedding && input.query && input.mode !== 'lexical'
+          ? await nearestChunks(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
+          : undefined;
       const lexicalIds =
         input.query && input.mode !== 'semantic'
           ? (
@@ -420,7 +407,7 @@ async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, 
             ).ids
           : [];
       return tx.execute<{ jobId: string; score: number }>(
-        rankedStatement(input, embedding, offset, lexicalIds),
+        rankedStatement(input, nearest, offset, lexicalIds),
       );
     });
   } catch (error) {
