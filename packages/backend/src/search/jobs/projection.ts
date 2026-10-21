@@ -220,10 +220,22 @@ export async function projectJobPostings(
     // A listing re-delivered unchanged — most of every feed poll — only
     // records the sighting. Its description, evidence and search vector are
     // left in place, so TOAST is not rewritten, and its signatures and
-    // cluster are already what this content produces.
-    const [seen] = await tx
-      .update(jobPostings)
-      .set(observation)
+    // cluster are already what this content produces. A sighting within
+    // `JOB_SIGHTING_REFRESH_MS` of the last one, with nothing else to change,
+    // writes nothing: `last_seen_at` is indexed, so every such write rewrote
+    // the row and re-inserted its whole search vector into the GIN index — the
+    // corpus's heaviest write after vectors, 3–5 a second (production,
+    // 2026-10-21).
+    const [current] = await tx
+      .select({
+        id: jobPostings.id,
+        clusterId: jobPostings.clusterId,
+        status: jobPostings.status,
+        closedAt: jobPostings.closedAt,
+        closureReason: jobPostings.closureReason,
+        lastSeenAt: jobPostings.lastSeenAt,
+      })
+      .from(jobPostings)
       .where(
         and(
           eq(jobPostings.documentId, input.documentId),
@@ -231,11 +243,18 @@ export async function projectJobPostings(
           eq(jobPostings.contentHash, contentHash),
         ),
       )
-      .returning({ id: jobPostings.id, clusterId: jobPostings.clusterId });
-    if (seen) {
-      ids.push(seen.id);
+      .limit(1);
+    if (current) {
+      ids.push(current.id);
+      const recentlySeen =
+        current.status === status &&
+        current.closedAt === null &&
+        current.closureReason === null &&
+        current.lastSeenAt.getTime() >= input.observedAt.getTime() - JOB_SIGHTING_REFRESH_MS;
+      if (recentlySeen) continue;
+      await tx.update(jobPostings).set(observation).where(eq(jobPostings.id, current.id));
       // A closed copy reopening can change which copy its cluster shows.
-      if (seen.clusterId) await electCanonical(tx, seen.clusterId);
+      if (current.clusterId) await electCanonical(tx, current.clusterId);
       continue;
     }
 
