@@ -51,13 +51,15 @@ const MAX_CANDIDATES = 25_000;
 const SMALL_MATCH = 2_000;
 /**
  * A query matching at most this many listings is ranked by scoring every
- * match in one statement: below it that costs less than the bounds read.
+ * match, read ahead in batches: below it that costs less than the bounds read.
  * Measured cold in production (2026-10-21, inline vectors): 12,019 matches in
  * 4.1 s whole against 14.2 s in two phases ("retail sales associate"), 7,191
  * in 0.4 s against 4.7 s ("sales rep"); past ~50k the two phases win
  * ("driver", 57,845: 3.3 s whole, 1.1 s in two phases).
  */
 const WHOLE_MATCH = 20_000;
+/** Matches scored per read-ahead statement when every match is scored. */
+const WHOLE_BATCH = 4_000;
 /** `ts_rank_cd` and `similarity` are float4: the bound keeps their rounding. */
 const SCORE_EPSILON = 1e-4;
 /** `work_mem` for scoring every match: a lossy bitmap rechecks — and detoasts — every row of a page. */
@@ -346,14 +348,18 @@ export async function rankLexically(
   );
   const matches = [...new Set(arms.map((row) => row.id))];
   const complete = [1, 2].every((arm) => arms.filter((row) => row.arm === arm).length < limit);
-  if (complete && matches.length <= smallMatch) {
-    for (let start = 0; start < matches.length; start += SCORING_BATCH) {
-      await score(matches.slice(start, start + SCORING_BATCH));
+  if (complete && matches.length <= Math.max(smallMatch, wholeMatch)) {
+    // Read ahead in large batches: the bitmap scans ask the disk for many
+    // pages at once, where one joined statement read each listing, document,
+    // vector and headline a page at a time — 20k matches could run past the
+    // 10 s bound cold ("pharmacy technician", production 2026-10-21).
+    for (let start = 0; start < matches.length; start += WHOLE_BATCH) {
+      await score(matches.slice(start, start + WHOLE_BATCH));
     }
-    return { ids: await ordered(tx, scores, depth), plan: 'small' };
-  }
-  if (complete && matches.length <= wholeMatch) {
-    return { ids: await rankEveryMatch(tx, filter, query, depth), plan: 'whole' };
+    return {
+      ids: await ordered(tx, scores, depth),
+      plan: matches.length <= smallMatch ? 'small' : 'whole',
+    };
   }
 
   const banded = new Map<number, string[]>();
