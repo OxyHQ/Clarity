@@ -344,12 +344,19 @@ timeout (production, 2026-10-21). It is now ranked in two phases, **exactly**
 - `clarity_job_term_bands` holds each listing's terms occurring at least 3, 6,
   12 and 24 times, and `clarity_job_headlines` its title and employer in short
   rows; triggers keep both equal to the listing (migration 0046).
-- For a band B and a similarity S, the candidates are the listings in band B
-  plus the S-similar titles and employers, all read from indexes; the matching
-  candidates are scored exactly. If the 200th scores above 0.1 · n · (B − 1) + S,
-  no listing left out can reach the top 200, so the result is the ranking of
-  every match. Otherwise a looser (B, S) is tried, and past the last every match
-  is scored, with `work_mem` large enough that the bitmap stays exact.
+- For a band B, the candidates are the listings in band B plus the M titles
+  and M employers nearest the query (an ordered GiST scan of the headlines, so
+  every listing left out is less similar than S, the M-th's similarity); the
+  matching candidates are scored exactly. If the 200th scores above
+  0.1 · n · (B − 1) + S, no listing left out can reach the top 200, so the
+  result is the ranking of every match. Otherwise a lower band, then more
+  headlines, are tried; past the last every match is scored, its title arm read
+  from the headlines, with `work_mem` large enough that the bitmap stays exact.
+- A broad query of several words is usually decided by its titles ("Software
+  Engineer" titles are the top 200 of `software engineer`), a broad single word
+  by how often it occurs; the nearest headlines bound the first, the bands the
+  second. A fixed similarity threshold could do neither for common words: it
+  brought tens of thousands of candidates, and the search timed out.
 
 A property test (`lexical-ranking.postgres.test.ts`) checks the two phases
 against scoring every match for every query shape — AND, OR, phrases,

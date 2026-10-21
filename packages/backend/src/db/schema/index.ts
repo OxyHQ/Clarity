@@ -1324,13 +1324,20 @@ export const jobHeadlines = pgTable(
     employerName: text('employer_name').notNull(),
   },
   (table) => [
+    // The title arm of the lexical match (`title % query`) when every match is scored.
     index('clarity_job_headlines_title_trgm_idx').using(
       'gin',
       table.title.asc().op('gin_trgm_ops'),
     ),
-    index('clarity_job_headlines_employer_trgm_idx').using(
-      'gin',
-      table.employerName.asc().op('gin_trgm_ops'),
+    // The titles and employers nearest a query, in order (`<->`): the
+    // similarity candidates of the two-phase ranking and their bound.
+    index('clarity_job_headlines_title_knn_idx').using(
+      'gist',
+      table.title.asc().op('gist_trgm_ops'),
+    ),
+    index('clarity_job_headlines_employer_knn_idx').using(
+      'gist',
+      table.employerName.asc().op('gist_trgm_ops'),
     ),
   ],
 );
