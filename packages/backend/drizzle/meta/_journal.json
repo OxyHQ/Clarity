@@ -351,6 +351,13 @@
       "when": 1792556884492,
       "tag": "0049_drop_job_headline_employer_threshold_index",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1792562545287,
+      "tag": "0050_search_chunks_split_copy",
+      "breakpoints": true
     }
   ]
 }

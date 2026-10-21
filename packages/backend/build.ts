@@ -17,6 +17,9 @@ await esbuild.build({
     // One-shot operator task (docs/search-storage.md): clears the page text and
     // JSON-LD documents store twice.
     'db/compact-document-text': 'src/scripts/compact-document-text.ts',
+    // One-shot operator task (docs/search-storage.md): copies the search chunks
+    // into their split layout before the swap migration.
+    'db/split-search-chunks': 'src/scripts/split-search-chunks.ts',
     // Oxy Files one-shots (docs/oxy-files.md). They run only inside an ECS task:
     // Clarity authenticates to Oxy by attesting its task role, nowhere else.
     'files/migrate-images-to-oxy': 'src/scripts/migrate-images-to-oxy.ts',
