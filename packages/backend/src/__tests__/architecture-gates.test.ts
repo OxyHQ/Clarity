@@ -211,6 +211,20 @@ describe('architecture gates', () => {
     expect(index).toContain('void capabilityLanes.internal.bound()');
   });
 
+  it('derives the client address only from req.ip, under oxyTrustProxy', () => {
+    // Behind the ALB, and Cloudflare in front of it on a proxied hostname, the
+    // client is the first address neither vouches for. `oxyTrustProxy` is that
+    // rule; a hand-read header (the left-most X-Forwarded-For entry is
+    // whatever the caller wrote) or socket address is not.
+    const index = readFileSync(join(packageRoot, 'src', 'index.ts'), 'utf8');
+    const trusted = index.indexOf("app.set('trust proxy', oxyTrustProxy)");
+    expect(trusted).toBeGreaterThan(0);
+    expect(index.indexOf('app.use(')).toBeGreaterThan(trusted);
+    expect(backendRuntimeSource()).not.toMatch(
+      /headers\[\s*['"](?:x-forwarded-for|x-real-ip|cf-connecting-ip|true-client-ip)['"]|\.get\(\s*['"](?:x-forwarded-for|x-real-ip|cf-connecting-ip|true-client-ip)['"]|remoteAddress|handshake\.address|TRUST_PROXY/i,
+    );
+  });
+
   it('reads runtime secrets from SSM only: no workflow writes SSM or reads an app secret', () => {
     // SSM (`/oxy/clarity/*`, SecureString) is the single source of runtime
     // secrets; a value is set or rotated with `aws ssm put-parameter --overwrite`

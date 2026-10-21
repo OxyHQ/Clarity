@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { oxyTrustProxy } from '@oxy.so/core/server';
 import express from 'express';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { restoreFetch, stubFetch } from '../../__tests__/support/global-fetch.js';
@@ -28,6 +29,7 @@ const checkLimit = vi.fn(
 vi.mock('../../lib/sliding-window-limiter.js', () => ({ checkLimit }));
 
 const { default: marketRouter } = await import('../market.js');
+const { anonymousCallerKey } = await import('../../middleware/anonymous-rate-limit.js');
 
 const CLARITY_READ_AT = '2026-09-09T12:00:00.000Z';
 const EXPLORER_PUBLISHED_AT = '2026-09-09T11:57:30.000Z';
@@ -79,6 +81,9 @@ beforeAll(async () => {
   delete process.env.REDIS_URL;
   stubFetch(upstream);
   const app = express();
+  // As `index.ts` sets it. The test client connects over loopback, which
+  // stands in for the ALB (a private socket peer).
+  app.set('trust proxy', oxyTrustProxy);
   app.use('/market', marketRouter);
   server = app.listen(0);
   await new Promise((resolve) => server.once('listening', resolve));
@@ -218,9 +223,47 @@ describe('the anonymous rate guard', () => {
     await get('/quotes?assets=bitcoin', '198.51.100.7');
     await get('/quotes?assets=bitcoin', '203.0.113.9');
     expect(checkLimit.mock.calls).toEqual([
-      ['anon:market:198.51.100.7', 'free'],
-      ['anon:market:203.0.113.9', 'free'],
+      [`anon:market:${anonymousCallerKey('198.51.100.7')}`, 'free'],
+      [`anon:market:${anonymousCallerKey('203.0.113.9')}`, 'free'],
     ]);
+  });
+
+  it('never writes the raw address into the limiter key', async () => {
+    await get('/quotes?assets=bitcoin', '198.51.100.7');
+    const [[key]] = checkLimit.mock.calls as unknown as [[string]];
+    expect(key).not.toContain('198.51.100.7');
+    expect(key).toMatch(/^anon:market:[0-9a-f]{32}$/);
+  });
+
+  /** The bucket each request was counted in. */
+  const bucketFor = async (forwardedFor: string) => {
+    checkLimit.mockClear();
+    await get('/quotes?assets=bitcoin', forwardedFor);
+    return (checkLimit.mock.calls as unknown as [[string]])[0][0];
+  };
+
+  it('keys the real client behind the ALB alone (DNS-only hostname)', async () => {
+    expect(await bucketFor('198.51.100.7')).toBe(
+      `anon:market:${anonymousCallerKey('198.51.100.7')}`,
+    );
+  });
+
+  it('keys the real client, not the Cloudflare edge, on a proxied hostname', async () => {
+    const client = `anon:market:${anonymousCallerKey('198.51.100.7')}`;
+    expect(await bucketFor('198.51.100.7, 172.70.1.2')).toBe(client);
+    expect(await bucketFor('198.51.100.7, 2606:4700:10::ac43:1')).toBe(client);
+    // Two callers through the same edge are two buckets, not one.
+    expect(await bucketFor('203.0.113.9, 172.70.1.2')).not.toBe(client);
+  });
+
+  it('never believes an address the caller wrote into X-Forwarded-For itself', async () => {
+    const caller = `anon:market:${anonymousCallerKey('198.51.100.7')}`;
+    // Grey: the ALB appended the caller's own address after the forgery.
+    expect(await bucketFor('192.0.2.1, 198.51.100.7')).toBe(caller);
+    // Orange: Cloudflare appended the caller, the ALB appended Cloudflare.
+    expect(await bucketFor('192.0.2.1, 198.51.100.7, 172.70.1.2')).toBe(caller);
+    // A forged Cloudflare address one hop too far out vouches for nothing.
+    expect(await bucketFor('192.0.2.1, 172.70.1.2, 198.51.100.7')).toBe(caller);
   });
 });
 

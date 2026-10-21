@@ -2,6 +2,7 @@ import express from 'express';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import http from 'node:http';
 import cors from 'cors';
+import { oxyTrustProxy } from '@oxy.so/core/server';
 import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
 import {
@@ -39,6 +40,11 @@ import { initSocket } from './socket.js';
 // so that is packages/backend/.env, the file dotenv used to be pointed at.
 
 const app = express();
+// `req.ip` is the real client: the ALB is trusted as the socket peer, and the
+// hop it recorded only when that hop is a Cloudflare edge (a proxied hostname).
+// A caller's own X-Forwarded-For entries are never believed. Set before any
+// middleware, since every anonymous rate limit keys on `req.ip`.
+app.set('trust proxy', oxyTrustProxy);
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
 // Create HTTP server with optimized settings for streaming
