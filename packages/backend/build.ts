@@ -14,6 +14,9 @@ await esbuild.build({
     // One-shot operator task: fills the job term bands the two-phase lexical
     // ranking reads (search/jobs/term-bands-backfill.ts).
     'db/backfill-job-term-bands': 'src/scripts/backfill-job-term-bands.ts',
+    // One-shot operator task: copies the listings' vectors into their inline
+    // table before the switch (search/jobs/search-vectors-copy.ts).
+    'db/copy-job-search-vectors': 'src/scripts/copy-job-search-vectors.ts',
     // One-shot operator task (docs/search-storage.md): clears the page text and
     // JSON-LD documents store twice.
     'db/compact-document-text': 'src/scripts/compact-document-text.ts',
