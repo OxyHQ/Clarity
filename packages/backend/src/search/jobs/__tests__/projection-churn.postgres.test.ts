@@ -10,7 +10,7 @@ import {
   searchDocuments,
 } from '../../../db/schema/index.js';
 import { createEmbeddings, embeddingsEnabled } from '../../../lib/kaana-embeddings.js';
-import { flushChunkEmbeddingsForTests } from '../../chunking.js';
+import { flushChunkEmbeddingsForTests, queueEmbeddingBacklog } from '../../chunking.js';
 import { extractJobPostings } from '../extract.js';
 import { staleJobPredicate, sweepJobLifecycle } from '../lifecycle.js';
 import {
@@ -340,7 +340,7 @@ suite('re-observing job listings on Postgres', () => {
     );
   });
 
-  it('embeds chunks stored without embeddings once the embedding capability appears', async () => {
+  it('embeds chunks stored without embeddings once the embedding capability appears, through the backlog sweep', async () => {
     // What earlier tests queued is sent (and refused) now, not in the middle of this one.
     await flushChunkEmbeddingsForTests();
     const lexical = await snapshot(loneUrl);
@@ -359,10 +359,17 @@ suite('re-observing job listings on Postgres', () => {
       texts.map(() => Array.from({ length: 1024 }, () => 0.1)),
     );
     await ingest(loneUrl, at(420), content);
-    // Indexing queues the chunks rather than waiting on Kaana for them.
-    expect(createEmbeddings).not.toHaveBeenCalled();
+    // Delivered again unchanged within a day, the listing writes nothing and
+    // queues nothing: the vectors it owes are the backlog sweep's.
     await flushChunkEmbeddingsForTests();
-    expect(createEmbeddings).toHaveBeenCalledOnce();
+    expect(createEmbeddings).not.toHaveBeenCalled();
+    for (let sweeps = 0; sweeps < 20; sweeps += 1) {
+      await queueEmbeddingBacklog();
+      await flushChunkEmbeddingsForTests();
+      const owed = await snapshot(loneUrl);
+      if (owed.embeddedChunks === owed.chunkIds.length) break;
+    }
+    expect(createEmbeddings).toHaveBeenCalled();
     const embedded = await snapshot(loneUrl);
     expect(embedded.embeddedChunks).toBe(embedded.chunkIds.length);
     // The vectors are written into the chunks already stored, not by replacing them.

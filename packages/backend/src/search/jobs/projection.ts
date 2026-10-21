@@ -28,7 +28,6 @@ import { mainContentToStore } from '../page-text.js';
 import {
   chunkText,
   documentChunkState,
-  noChunksOwedEmbedding,
   queueChunkEmbeddings,
   replaceDocumentChunks,
 } from '../chunking.js';
@@ -558,8 +557,11 @@ async function recentlySeenUnchanged(
         eq(searchDocuments.contentHash, contentHash),
         eq(searchDocuments.status, 'indexed'),
         eq(searchDocuments.documentType, 'job'),
-        // Chunks still owed an embedding are queued by a full ingest.
-        noChunksOwedEmbedding(sql`${searchDocuments.id}`),
+        // Chunks still owed an embedding no longer force a re-projection: the
+        // worker's backlog sweep embeds them (chunking.ts
+        // `queueEmbeddingBacklog`). Gating on them rewrote every posting of
+        // every listing still owed a vector on every feed poll — 26M posting
+        // updates in 36 h for 962k listings (production, 2026-10-21).
       ),
     )
     .groupBy(searchDocuments.id)
@@ -664,10 +666,9 @@ export async function recordJobSighting(input: {
       listing.contentHash !== null &&
       listing.lastSeenAt.getTime() >= since,
   );
-  const [owed] = await getDb().execute<{ none: boolean }>(
-    sql`select ${noChunksOwedEmbedding(sql`${document.id}`)} as none`,
-  );
-  if (fresh && owed?.none) return sighted;
+  // Vectors still owed are the backlog sweep's (chunking.ts), never a reason
+  // to write the listing.
+  if (fresh) return sighted;
 
   await getDb().transaction(async (tx) => {
     await tx
@@ -700,7 +701,6 @@ export async function recordJobSighting(input: {
       if (listing.clusterId) await electCanonical(tx, listing.clusterId);
     }
   });
-  if (!owed?.none) await queueChunkEmbeddings(document.id);
   return sighted;
 }
 

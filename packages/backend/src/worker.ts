@@ -13,6 +13,7 @@ import {
   chunkText,
   documentChunkState,
   queueChunkEmbeddings,
+  queueEmbeddingBacklog,
   replaceDocumentChunks,
 } from './search/chunking.js';
 import { extractJobPostings } from './search/jobs/extract.js';
@@ -766,6 +767,28 @@ async function runJobMaintenance(): Promise<void> {
   }
 }
 
+/** How often the embedding backlog sweep tops the queue up (chunking.ts `queueEmbeddingBacklog`). */
+const embeddingBacklogIntervalMs = 60 * 1000;
+
+/**
+ * Embeds the chunks still owed a vector at a steady pace — one batch a minute,
+ * only while the queue is idle — so a backlog never rides on documents being
+ * indexed again.
+ */
+async function runEmbeddingBacklogLoop(isStopping: () => boolean): Promise<void> {
+  while (!isStopping()) {
+    try {
+      const queued = await queueEmbeddingBacklog();
+      if (queued > 0) log.debug({ queued }, 'Embedding backlog queued');
+    } catch (error) {
+      log.error({ err: error }, 'Embedding backlog sweep failed');
+    }
+    for (let waited = 0; waited < embeddingBacklogIntervalMs && !isStopping(); waited += 1000) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+}
+
 /** How long the feed loop rests when no feed is due. */
 const feedIdleMs = 30 * 1000;
 
@@ -838,6 +861,7 @@ async function main() {
   const feedLoop = runFeedLoop(() => stopping);
   const iconRefreshLoop = runIconRefreshLoop(() => stopping);
   const productFeedLoop = runProductFeedLoop(() => stopping);
+  const embeddingBacklogLoop = runEmbeddingBacklogLoop(() => stopping);
   while (!stopping) {
     if (Date.now() >= nextAccountEventSyncAt) {
       nextAccountEventSyncAt = Date.now() + 60_000;
@@ -867,6 +891,7 @@ async function main() {
   await feedLoop;
   await iconRefreshLoop;
   await productFeedLoop;
+  await embeddingBacklogLoop;
   await activity?.stop();
   await closePostgres();
 }

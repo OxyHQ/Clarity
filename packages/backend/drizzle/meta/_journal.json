@@ -330,6 +330,13 @@
       "when": 1792549684523,
       "tag": "0046_job_term_bands",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1792552748404,
+      "tag": "0047_chunk_unembedded_index",
+      "breakpoints": true
     }
   ]
 }
