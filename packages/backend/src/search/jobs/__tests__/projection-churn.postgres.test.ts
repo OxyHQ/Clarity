@@ -463,9 +463,9 @@ suite('re-observing job listings on Postgres', () => {
       .transaction(async (tx) => {
         await tx.execute(sql`
           insert into ${jobPostings} (id, document_id, source_key, canonical_url, title,
-            normalized_title, employer_name, source_type, source_domain, search_vector, last_seen_at)
+            normalized_title, employer_name, source_type, source_domain, last_seen_at)
           select gen_random_uuid()::text, ${document.id}, 'plan-' || n, ${boardUrl} || '#' || n,
-            'Plan', 'plan', 'Plan', 'feed', 'plan.example', ''::tsvector,
+            'Plan', 'plan', 'Plan', 'feed', 'plan.example',
             now() - (n % 48) * interval '1 hour'
           from generate_series(1, 5000) as n`);
         await tx.execute(sql`analyze ${jobPostings}`);

@@ -70,9 +70,9 @@ async function seedEntities(): Promise<void> {
   await getDb().execute(sql`
     insert into clarity_job_postings
       (id, document_id, source_key, canonical_url, title, normalized_title, employer_name,
-       employer_logo_url, source_domain, search_vector)
+       employer_logo_url, source_domain)
     values (${JOB}, ${DOC}, 'k', 'https://rft.example/a', 'Engineer', 'engineer', 'Rft',
-            'https://rft.example/logo.png', 'rft.example', to_tsvector('simple', 'engineer'))`);
+            'https://rft.example/logo.png', 'rft.example')`);
   await getDb()
     .insert(imageCache)
     .values({ key: KEY, sourceUrl: 'https://rft.example/a.png', status: 'ready', oxyFileId: 'f1' });

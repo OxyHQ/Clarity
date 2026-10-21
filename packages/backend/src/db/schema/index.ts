@@ -1246,7 +1246,6 @@ export const jobPostings = pgTable(
     submittedByApplicationId: text('submitted_by_application_id'),
     fieldEvidence: jsonb('field_evidence').notNull().default(sql`'{}'::jsonb`),
 
-    searchVector: tsvector('search_vector').notNull(),
     /**
      * Fingerprint of everything the projection stores except the sighting
      * (`lastSeenAt`, lifecycle status) and extraction times. A listing
@@ -1266,12 +1265,10 @@ export const jobPostings = pgTable(
     index('clarity_job_postings_employer_idx').on(table.employerKey),
     index('clarity_job_postings_source_domain_idx').on(table.sourceDomain),
     index('clarity_job_postings_canonical_url_idx').on(table.canonicalUrl),
-    index('clarity_job_postings_search_idx').using('gin', table.searchVector),
     index('clarity_job_postings_countries_idx').using('gin', table.locationCountries),
     index('clarity_job_postings_employment_types_idx').using('gin', table.employmentTypes),
     index('clarity_job_postings_seniority_idx').on(table.seniority),
     index('clarity_job_postings_skills_idx').using('gin', table.skills),
-    index('clarity_job_postings_title_trgm_idx').using('gin', table.title.asc().op('gin_trgm_ops')),
     check(
       'clarity_job_postings_status_check',
       sql`${table.status} in ('active', 'expired', 'closed', 'removed', 'stale')`,
@@ -1304,16 +1301,20 @@ export const jobPostings = pgTable(
  * inline (`STORAGE MAIN`, migration 0054): ranking reads the vectors of its
  * candidates by key with a bitmap scan that reads ahead. Out of line, in the
  * listing's TOAST, each was read a page at a time — 6.9k candidates took 31 s
- * cold (production, 2026-10-21). Filled from `clarity_job_postings` by a
- * trigger and `db/copy-job-search-vectors` until the listing's own column is
- * dropped (docs/jobs.mdx, "The lexical arm, in two phases").
+ * cold (production, 2026-10-21). Written with the listing
+ * (search/jobs/projection.ts); its full-text index is the job search's
+ * (docs/jobs.mdx, "The lexical arm, in two phases").
  */
-export const jobSearchVectors = pgTable('clarity_job_search_vectors', {
-  jobPostingId: text('job_posting_id')
-    .primaryKey()
-    .references(() => jobPostings.id, { onDelete: 'cascade' }),
-  searchVector: tsvector('search_vector').notNull(),
-});
+export const jobSearchVectors = pgTable(
+  'clarity_job_search_vectors',
+  {
+    jobPostingId: text('job_posting_id')
+      .primaryKey()
+      .references(() => jobPostings.id, { onDelete: 'cascade' }),
+    searchVector: tsvector('search_vector').notNull(),
+  },
+  (table) => [index('clarity_job_search_vectors_search_idx').using('gin', table.searchVector)],
+);
 
 /**
  * Each listing's search terms by how often they occur — a stripped vector per
@@ -1325,7 +1326,7 @@ export const jobSearchVectors = pgTable('clarity_job_search_vectors', {
  * fewer than B times each scores at most 0.1 · n · (B − 1) on them (n terms):
  * a listing outside a band, and outside the title and employer similarity
  * candidates, can be bounded without being read. Kept by a trigger on
- * `search_vector` (migration 0046), never written by the code.
+ * `clarity_job_search_vectors` (migration 0055), never written by the code.
  */
 export const jobTermBands = pgTable(
   'clarity_job_term_bands',

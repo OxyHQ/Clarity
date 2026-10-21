@@ -73,12 +73,15 @@ suite('two-phase lexical job ranking on Postgres', () => {
       return { index, title, employer, text: words.join(' ') };
     });
     for (const row of rows) {
+      const id = crypto.randomUUID();
       await getDb().execute(sql`
         insert into clarity_job_postings
-          (id, document_id, source_key, canonical_url, title, normalized_title, employer_name, source_domain, search_vector)
-        values (${crypto.randomUUID()}, ${documentId}, ${`k${row.index}`}, ${`${url}/${row.index}`},
-          ${row.title}, ${row.title.toLowerCase()}, ${row.employer}, 'lexical-ranking.example',
-          to_tsvector('simple', ${`${row.title}\n${row.employer}\n${row.text}`}))`);
+          (id, document_id, source_key, canonical_url, title, normalized_title, employer_name, source_domain)
+        values (${id}, ${documentId}, ${`k${row.index}`}, ${`${url}/${row.index}`},
+          ${row.title}, ${row.title.toLowerCase()}, ${row.employer}, 'lexical-ranking.example')`);
+      await getDb().execute(sql`
+        insert into clarity_job_search_vectors (job_posting_id, search_vector)
+        values (${id}, to_tsvector('simple', ${`${row.title}\n${row.employer}\n${row.text}`}))`);
     }
   });
 
@@ -137,9 +140,11 @@ suite('two-phase lexical job ranking on Postgres', () => {
       .where(eq(jobPostings.documentId, documentId))
       .limit(1);
     await getDb().execute(sql`
-      update clarity_job_postings set
-        search_vector = to_tsvector('simple', ${`${word(0)} `.repeat(30)}),
-        title = 'Renamed', employer_name = 'Renamed Co'
+      update clarity_job_search_vectors set
+        search_vector = to_tsvector('simple', ${`${word(0)} `.repeat(30)})
+      where job_posting_id = ${listing.id}`);
+    await getDb().execute(sql`
+      update clarity_job_postings set title = 'Renamed', employer_name = 'Renamed Co'
       where id = ${listing.id}`);
     const [bands] = await getDb().execute<{ tf24: string; title: string; employer: string }>(sql`
       select b.tf24::text as tf24, h.title, h.employer_name as employer

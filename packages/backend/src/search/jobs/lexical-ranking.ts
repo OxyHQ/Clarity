@@ -79,13 +79,19 @@ export function excludedBound(terms: QueryTerms, band: number, similarity: numbe
   return 0.1 * terms.lexemes.length * (band - 1) + similarity;
 }
 
+/**
+ * The score, over a listing's vector (`v`, `clarity_job_search_vectors`) and
+ * its headline (`h`, `clarity_job_headlines`): both short rows read by key,
+ * never the listing's.
+ */
 function lexicalScore(query: string): SQL {
-  return sql`ts_rank_cd(search_vector, websearch_to_tsquery('simple', ${query}))
-    + greatest(similarity(title, ${query}), similarity(employer_name, ${query}))`;
+  return sql`ts_rank_cd(v.search_vector, websearch_to_tsquery('simple', ${query}))
+    + greatest(similarity(h.title, ${query}), similarity(h.employer_name, ${query}))`;
 }
 
+/** The match, over the same two rows as {@link lexicalScore}. */
 function lexicalMatch(query: string): SQL {
-  return sql`(search_vector @@ websearch_to_tsquery('simple', ${query}) or title % ${query})`;
+  return sql`(v.search_vector @@ websearch_to_tsquery('simple', ${query}) or h.title % ${query})`;
 }
 
 /**
@@ -132,13 +138,15 @@ export async function rankEveryMatch(
   // every listing (42 s for "react developer", production 2026-10-21).
   const rows = await tx.execute<{ id: string }>(sql`
     with matches as (
-      select id from clarity_job_postings
+      select job_posting_id as id from clarity_job_search_vectors
       where search_vector @@ websearch_to_tsquery('simple', ${query})
       union
       select job_posting_id from clarity_job_headlines where title % ${query}
     )
     select clarity_job_postings.id from matches
     join clarity_job_postings on clarity_job_postings.id = matches.id
+    join clarity_job_search_vectors v on v.job_posting_id = matches.id
+    join clarity_job_headlines h on h.job_posting_id = matches.id
     where ${filterSql(filter)}
     order by ${lexicalScore(query)} desc, clarity_job_postings.id
     limit ${depth}`);
@@ -216,12 +224,14 @@ export async function rankLexically(
   const score = async (ids: readonly string[]) => {
     const unscored = ids.filter((id) => !scores.has(id));
     if (unscored.length === 0) return;
-    // Cold, each candidate is a random read of its row, its document and its
-    // TOASTed vector. The rows and the documents are read first, each with a
-    // bitmap scan that reads ahead (an index scan reads one page at a time);
-    // only the candidates that pass both are scored, their rows by then in
-    // memory. Measured cold in production (2026-10-21): 2,000 candidates read
-    // 1,764 row, 3,561 document and 3,183 vector pages, 5.4 s, one at a time.
+    // Cold, each candidate is a random read of its row, its document, its
+    // vector and its headline. Each table is read by key with a bitmap scan
+    // that reads ahead (an index scan reads one page at a time): the rows and
+    // the documents first, then the vectors — inline, so read ahead too; in
+    // the listing's TOAST they were read a page at a time — and headlines of
+    // those that pass. Measured cold in production (2026-10-21): 2,000
+    // candidates read 1,764 row, 3,561 document and 3,183 vector pages, 5.4 s,
+    // one at a time.
     // Every predicate is selected, never filtered on: in a WHERE clause the
     // planner OR-ed the match's two indexes, misjudging `title %` (96 rows
     // estimated, 64,300 found), and rechecked 56k listings — 114k pages, 7 s —
@@ -250,10 +260,15 @@ export async function rankLexically(
     const rows =
       kept.length === 0
         ? []
-        : await tx.execute<{ id: string; matches: boolean; score: number }>(sql`
-            select id, ${lexicalMatch(query)} as matches, ${lexicalScore(query)} as score
-            from clarity_job_postings
-            where id = any(${sql.param(kept)}::text[])`);
+        : await readingAhead(() =>
+            tx.execute<{ id: string; matches: boolean; score: number }>(sql`
+              select v.job_posting_id as id, ${lexicalMatch(query)} as matches,
+                ${lexicalScore(query)} as score
+              from clarity_job_search_vectors v
+              join clarity_job_headlines h on h.job_posting_id = v.job_posting_id
+              where v.job_posting_id = any(${sql.param(kept)}::text[])
+                and h.job_posting_id = any(${sql.param(kept)}::text[])`),
+          );
     for (const id of unscored) scores.set(id, null);
     for (const row of rows) if (row.matches) scores.set(row.id, Number(row.score));
   };

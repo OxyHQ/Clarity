@@ -263,7 +263,6 @@ export async function projectJobPostings(
       documentId: input.documentId,
       sourceKey: posting.sourceKey,
       fieldEvidence: posting.evidence,
-      searchVector: sql`to_tsvector('simple', ${searchText})`,
       contentHash,
       ...observation,
     };
@@ -276,6 +275,13 @@ export async function projectJobPostings(
       })
       .returning({ id: jobPostings.id, clusterId: jobPostings.clusterId });
     ids.push(row.id);
+    // The vector is stored inline in its own table, which ranking reads by key
+    // (schema `jobSearchVectors`); its trigger keeps the term bands.
+    await tx.execute(sql`
+      insert into clarity_job_search_vectors (job_posting_id, search_vector)
+      values (${row.id}, to_tsvector('simple', ${searchText}))
+      on conflict (job_posting_id) do update set search_vector = excluded.search_vector
+      where clarity_job_search_vectors.search_vector is distinct from excluded.search_vector`);
 
     await storeSignatures(tx, row.id, signatures);
     await assignCluster(tx, row.id, row.clusterId);

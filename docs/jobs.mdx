@@ -363,7 +363,11 @@ timeout (production, 2026-10-21). It is now ranked in two phases, **exactly**
   ceilings reads nothing.
 - A candidate is read by key in three statements: its row and its document,
   each with a bitmap scan that reads ahead (`effective_io_concurrency` 128),
-  then the vector of those that pass. Every predicate is selected, never
+  then the vector and headline of those that pass. The vector is stored
+  inline in a table of its own (`clarity_job_search_vectors`, `STORAGE MAIN`,
+  ~3.7 KB, two to a page), so it is read ahead too: in the listing's TOAST
+  each was two or three random reads made one at a time, and scoring the 6.9k
+  candidates of "customer service" took 31 s cold (2026-10-21). Every predicate is selected, never
   filtered on: in a WHERE clause the planner OR-ed the match's two indexes
   (misjudging `title %` at 96 rows when 64,300 matched) and rechecked tens of
   thousands of listings to score the few hundred it was given.
