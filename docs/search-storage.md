@@ -61,6 +61,67 @@ EXCLUSIVE lock, so the table is copied online into
    index names. The one-shot and its table left the code with it; this section
    is the record of how the layout changed.
 
+## Vectors
+
+A chunk's vector lives beside it, in two narrow tables, not in the chunk row:
+
+| Table | Row | Read by |
+|---|---|---|
+| `clarity_search_chunk_embeddings` | the chunk's document, its vector's **binary code** (`binary_quantize`, one bit a dimension, 128 bytes) and model; NULL until embedded | the HNSW index over the codes, and the backlog sweep (partial index on `code is null`) |
+| `clarity_search_chunk_vectors` | the half-precision vector, inline (`STORAGE PLAIN`) | the exact reordering of a search's candidates |
+
+**Why.** Measured in production (2026-10-21), with the vector in the chunk row
+and an HNSW index over the half-precision vectors (4.3 GB for 1.74M chunks):
+
+- writing one vector read ~157 pages to place it in an index the cache could
+  not hold, then rewrote the chunk row and every index on it. Those writes
+  were the heaviest disk reader on the shared instance (Performance
+  Insights, IO wait over 24 h: 0.45 of 2.39 average active sessions; over
+  7 days 0.25 of 1.04);
+- a search read the same index: 8,624 pages and 18.9 s for the jobs
+  vertical's 1,000 nearest chunks, past the 10 s search timeout; 1,719 pages
+  and 4.2 s for the web's 400;
+- embedding the 2.6M chunks still owed a vector would have grown it to ~11 GB.
+
+**How a search reads it.** The codes' HNSW index (~6× smaller than over the
+halves) returns 8× the candidates the ranking needs, by Hamming distance; their
+vectors are read with a bitmap scan, which the disk serves in parallel
+(`effective_io_concurrency`: 6,000 random rows in 0.1 s instead of 2.7 s), and
+ordered by their exact cosine distance.
+
+**Ranking is not worse.** Measured on 346,800 production vectors (a 20% sample)
+with 150 held-out short chunks as queries, against the exact nearest chunks:
+
+| | chunk recall@400 | top-100 documents | chunk recall@1000 | top-200 documents |
+|---|---|---|---|---|
+| half-precision HNSW (before) | 0.962 | 0.988 | 0.970 | 0.994 |
+| codes ×8, reordered exactly | 0.972 | 0.994 | 0.972 | — |
+| codes ×6, reordered exactly | 0.959 | 0.993 | 0.961 | 0.994 |
+
+### The split (one time)
+
+The vector cannot leave the chunk row without a rewrite, so the table is copied
+online, as for the compaction, into `clarity_search_chunks_compact` and the two
+vector tables, and swapped:
+
+1. **Deploy with migration 0050.** It creates the three tables and a trigger
+   that mirrors every write on the live table into them.
+2. **Run the one-shot** (an ECS task of the API image):
+
+   ```bash
+   bun packages/backend/dist/db/split-search-chunks.js --target-database=clarity
+   ```
+
+   It copies the rows that predate the trigger (paced), deletes copied rows
+   whose chunk the live table no longer has, compares every count in one
+   snapshot, builds the GIN and HNSW indexes `CONCURRENTLY`, adds and validates
+   the three foreign keys (chunk → document, code → chunk, vector → code, each
+   cascading) and records the copy in `clarity_search_chunk_split`. It is
+   idempotent: an interrupted run is run again.
+3. **Deploy the swap.** Its `post` migration refuses unless the copy is
+   recorded, its indexes valid and its keys validated; it then drops the live
+   table, its 4.3 GB index and its trigger, and gives the copy its name.
+
 ## Documents
 
 A document stores what only it holds; what its chunks or its columns already
