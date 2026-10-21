@@ -70,6 +70,7 @@ import {
 } from './taxonomy.js';
 import { publicImageUrl } from '../image-cache.js';
 
+import { rankLexically } from './lexical-ranking.js';
 export { JOB_FORBIDDEN_RANKING_SIGNALS, JOB_RANKING_SIGNALS } from './ranking-contract.js';
 
 const RECIPROCAL_RANK_CONSTANT = 60;
@@ -301,10 +302,11 @@ function rankedStatement(
   input: JobSearchInput,
   embedding: number[] | undefined,
   offset: number,
+  lexicalIds: readonly string[],
 ): SQL {
   const where = sql.join(filterClauses(input), sql` and `);
   const scored = input.query
-    ? scoredWithQuery(input, embedding, where, input.query)
+    ? scoredWithQuery(input, embedding, where, lexicalIds)
     : sql`
       select ${jobPostings.id} as job_id, ${jobPostings.clusterId} as cluster_id,
         ${jobClusters.canonicalJobPostingId} as canonical_job_posting_id,
@@ -335,24 +337,14 @@ function scoredWithQuery(
   input: JobSearchInput,
   embedding: number[] | undefined,
   where: SQL,
-  query: string,
+  lexicalIds: readonly string[],
 ): SQL {
-  // Candidates come from the two indexed arms: the full-text vector (which
-  // holds the employer's name too, projection.ts `textIndexSource`) and the
-  // title trigram index. `employer_name % query` had no index, and as a third
-  // arm of the OR it made Postgres scan every listing for every query.
+  // The lexical arm's top CANDIDATE_DEPTH, ranked before this statement
+  // (lexical-ranking.ts): `ts_rank_cd` plus the title or employer similarity,
+  // ties by id — in two phases when a bound proves it exact.
   const lexical = sql`
-    select ${jobPostings.id} as job_id, row_number() over (
-      order by ts_rank_cd(${jobPostings.searchVector}, websearch_to_tsquery('simple', ${query}))
-        + greatest(similarity(${jobPostings.title}, ${query}), similarity(${jobPostings.employerName}, ${query})) desc,
-        ${jobPostings.id}
-    ) as rank
-    from ${jobPostings}
-    where ${where} and (
-      ${jobPostings.searchVector} @@ websearch_to_tsquery('simple', ${query})
-      or ${jobPostings.title} % ${query}
-    )
-    order by rank limit ${CANDIDATE_DEPTH}`;
+    select ranked.job_id, ranked.rank
+    from unnest(${sql.param([...lexicalIds])}::text[]) with ordinality as ranked(job_id, rank)`;
 
   // The nearest chunks straight from the HNSW index, then each listing at its
   // nearest chunk — the shape `rankedSearch` (document-search.ts) uses. Taking
@@ -416,8 +408,19 @@ async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, 
       await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
       if (embedding)
         await tx.execute(sql.raw(`set local hnsw.ef_search = ${SEMANTIC_CANDIDATE_CHUNKS}`));
+      const lexicalIds =
+        input.query && input.mode !== 'semantic'
+          ? (
+              await rankLexically(
+                tx,
+                sql.join(filterClauses(input), sql` and `),
+                input.query,
+                CANDIDATE_DEPTH,
+              )
+            ).ids
+          : [];
       return tx.execute<{ jobId: string; score: number }>(
-        rankedStatement(input, embedding, offset),
+        rankedStatement(input, embedding, offset, lexicalIds),
       );
     });
   } catch (error) {
