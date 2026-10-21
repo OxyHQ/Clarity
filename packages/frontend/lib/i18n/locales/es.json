@@ -149,18 +149,8 @@
       "writingStyle": "Writing Style"
     },
     "accentColor": {
-      "title": "App Color",
-      "teal": "Teal",
-      "blue": "Blue",
-      "green": "Green",
-      "yellow": "Yellow",
-      "amber": "Amber",
-      "red": "Red",
-      "purple": "Purple",
-      "pink": "Pink",
-      "sky": "Sky",
-      "orange": "Orange",
-      "mint": "Mint"
+      "title": "Color de la cuenta",
+      "saveFailed": "No se pudo guardar tu color. Inténtalo de nuevo."
     },
     "experience": "Experiencia",
     "alia": {
