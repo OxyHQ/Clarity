@@ -39,8 +39,14 @@ import type { ClarityExecutor } from '../../db/index.js';
 const BANDS = [24, 12, 6, 3] as const;
 /** Nearest headlines read, and then read again, when a band alone does not prove the ranking. */
 const NEAREST = [2_000, 8_000] as const;
-/** Past this many candidates, two phases read about as much as one. */
-const MAX_CANDIDATES = 25_000;
+/**
+ * A band larger than this is not tried. Each candidate is read only when its
+ * own ceiling can reach the top, so a band of tens of thousands costs its ids
+ * and similarities, not its vectors: "technical support" (172,919 matches,
+ * band 3 of 45k) is proved in 4.2 s cold, where a cap of 25k sent it to scoring
+ * every match, 20.5 s (production, 2026-10-21).
+ */
+const MAX_CANDIDATES = 250_000;
 /**
  * A query matching at most this many listings is scored whole: reading every
  * match ahead costs less than the bounds would, and a query with fewer than
