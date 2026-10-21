@@ -14,7 +14,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, gt, isNull, ne, or, type SQL, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
-import { searchChunks, searchDocuments } from '../db/schema/index.js';
+import { searchChunkEmbeddings, searchChunks, searchDocuments } from '../db/schema/index.js';
 import {
   CLARITY_EMBEDDING_MODEL,
   createEmbeddings,
@@ -47,11 +47,12 @@ export function chunkText(text: string): TextChunk[] {
 }
 
 /**
- * Writes the vectors of embedded chunks. A chunk replaced meanwhile is simply
- * not found, and one another worker already embedded with the current model is
- * not rewritten: a vector write rewrites the whole chunk row and every index
- * on it. Vectors go as the halves the column stores (half-precision.ts), not
- * Kaana's float text.
+ * Writes the vectors of embedded chunks: the binary code the semantic index
+ * holds and the half-precision vector a search reorders by
+ * (docs/search-storage.md, "Vectors"). Two narrow rows; the chunk row is not
+ * touched. A chunk replaced meanwhile is simply not found, and one another
+ * worker already embedded with the current model is not rewritten. Vectors go
+ * as the halves the column stores (half-precision.ts), not Kaana's float text.
  */
 export async function storeChunkEmbeddings(
   chunks: readonly PendingChunk[],
@@ -62,13 +63,22 @@ export async function storeChunkEmbeddings(
     embedding: halfVectorText(embeddings[index]),
   }));
   await getDb().execute(sql`
-    update clarity_search_chunks as chunk
-    set embedding = embedded.embedding::halfvec(1024),
-        embedding_model = ${CLARITY_EMBEDDING_MODEL},
-        updated_at = now()
-    from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as embedded(id text, embedding text)
-    where chunk.id = embedded.id
-      and (chunk.embedding is null or chunk.embedding_model is distinct from ${CLARITY_EMBEDDING_MODEL})
+    with embedded as (
+      select id, embedding::halfvec(1024) as embedding
+      from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as embedded(id text, embedding text)
+    ), coded as (
+      update clarity_search_chunk_embeddings as chunk
+      set code = binary_quantize(embedded.embedding)::bit(1024),
+          model = ${CLARITY_EMBEDDING_MODEL}
+      from embedded
+      where chunk.chunk_id = embedded.id
+        and (chunk.code is null or chunk.model is distinct from ${CLARITY_EMBEDDING_MODEL})
+      returning chunk.chunk_id
+    )
+    insert into clarity_search_chunk_vectors (chunk_id, embedding)
+    select embedded.id, embedded.embedding from embedded
+    inner join coded on coded.chunk_id = embedded.id
+    on conflict (chunk_id) do update set embedding = excluded.embedding
   `);
 }
 
@@ -81,7 +91,7 @@ let backlogCursor: string | null = crypto.randomUUID();
 
 /**
  * Queues the next unembedded chunks, in id order through
- * `clarity_search_chunks_unembedded_idx` (no scan): the backlog is embedded at
+ * `clarity_search_chunk_embeddings_unembedded_idx` (no scan): the backlog is embedded at
  * a steady pace instead of whenever its documents are indexed again — which
  * made every feed poll re-project each listing still owed a vector. Freshly
  * indexed documents keep the queue first: the sweep waits while it is busy.
@@ -92,11 +102,15 @@ export async function queueEmbeddingBacklog(): Promise<number> {
   const after = backlogCursor;
   const rows = await getDb()
     .select({ id: searchChunks.id, text: searchChunks.text })
-    .from(searchChunks)
+    .from(searchChunkEmbeddings)
+    .innerJoin(searchChunks, eq(searchChunks.id, searchChunkEmbeddings.chunkId))
     .where(
-      and(isNull(searchChunks.embedding), after === null ? undefined : gt(searchChunks.id, after)),
+      and(
+        isNull(searchChunkEmbeddings.code),
+        after === null ? undefined : gt(searchChunkEmbeddings.chunkId, after),
+      ),
     )
-    .orderBy(searchChunks.id)
+    .orderBy(searchChunkEmbeddings.chunkId)
     .limit(BACKLOG_BATCH);
   backlogCursor = rows.length < BACKLOG_BATCH ? null : (rows[rows.length - 1]?.id ?? null);
   chunkEmbeddingQueue().enqueue(rows);
@@ -136,13 +150,13 @@ export async function queueChunkEmbeddings(documentId: string): Promise<void> {
     const chunks = await getDb()
       .select({ id: searchChunks.id, text: searchChunks.text })
       .from(searchChunks)
+      .innerJoin(searchChunkEmbeddings, eq(searchChunkEmbeddings.chunkId, searchChunks.id))
       .where(
         and(
           eq(searchChunks.documentId, documentId),
           or(
-            isNull(searchChunks.embedding),
-            isNull(searchChunks.embeddingModel),
-            ne(searchChunks.embeddingModel, CLARITY_EMBEDDING_MODEL),
+            isNull(searchChunkEmbeddings.code),
+            ne(searchChunkEmbeddings.model, CLARITY_EMBEDDING_MODEL),
           ),
         ),
       )
@@ -263,10 +277,11 @@ export async function documentChunkState(
       startOffset: searchChunks.startOffset,
       text: searchChunks.text,
       extractorVersion: searchChunks.extractorVersion,
-      embeddingModel: searchChunks.embeddingModel,
-      embedded: sql<boolean>`${searchChunks.embedding} is not null`,
+      embeddingModel: searchChunkEmbeddings.model,
+      embedded: sql<boolean>`${searchChunkEmbeddings.code} is not null`,
     })
     .from(searchChunks)
+    .leftJoin(searchChunkEmbeddings, eq(searchChunkEmbeddings.chunkId, searchChunks.id))
     .where(eq(searchChunks.documentId, document.id))
     .orderBy(searchChunks.position);
   // A chunked document stores no text of its own: its text is its chunks'
@@ -296,17 +311,35 @@ export async function replaceDocumentChunks(
 ): Promise<void> {
   await tx.delete(searchChunks).where(eq(searchChunks.documentId, documentId));
   if (chunks.length === 0) return;
-  await tx.insert(searchChunks).values(
-    chunks.map((chunk, position) => ({
-      id: crypto.randomUUID(),
-      documentId,
-      position,
-      startOffset: chunk.start,
-      endOffset: chunk.end,
-      text: chunk.text,
-      embedding: embeddings?.[position],
-      embeddingModel: embeddings ? CLARITY_EMBEDDING_MODEL : undefined,
-      extractorVersion,
-    })),
-  );
+  const rows = chunks.map((chunk, position) => ({
+    id: crypto.randomUUID(),
+    documentId,
+    position,
+    startOffset: chunk.start,
+    endOffset: chunk.end,
+    text: chunk.text,
+    extractorVersion,
+    embedding: embeddings?.[position] ? halfVectorText(embeddings[position]) : null,
+  }));
+  await tx.insert(searchChunks).values(rows.map(({ embedding: _, ...row }) => row));
+  // Every chunk has its embeddings row, NULL until embedded: the backlog sweep
+  // finds what is owed there. Upserted, not inserted: while the split copy's
+  // trigger (0050) is installed, the chunk insert above has already written it.
+  await tx.execute(sql`
+    insert into clarity_search_chunk_embeddings (chunk_id, document_id, code, model)
+    select coded.id, coded.document_id,
+      binary_quantize(coded.embedding::halfvec(1024))::bit(1024),
+      case when coded.embedding is null then null else ${CLARITY_EMBEDDING_MODEL} end
+    from jsonb_to_recordset(${JSON.stringify(rows.map(({ id, embedding }) => ({ id, document_id: documentId, embedding })))}::jsonb)
+      as coded(id text, document_id text, embedding text)
+    on conflict (chunk_id) do update set
+      document_id = excluded.document_id, code = excluded.code, model = excluded.model`);
+  const vectors = rows.filter((row) => row.embedding !== null);
+  if (vectors.length > 0)
+    await tx.execute(sql`
+      insert into clarity_search_chunk_vectors (chunk_id, embedding)
+      select vector.id, vector.embedding::halfvec(1024)
+      from jsonb_to_recordset(${JSON.stringify(vectors.map(({ id, embedding }) => ({ id, embedding })))}::jsonb)
+        as vector(id text, embedding text)
+      on conflict (chunk_id) do update set embedding = excluded.embedding`);
 }

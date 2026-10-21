@@ -119,8 +119,12 @@ vector tables, and swapped:
    cascading) and records the copy in `clarity_search_chunk_split`. It is
    idempotent: an interrupted run is run again.
 3. **Deploy the swap.** Its `post` migration refuses unless the copy is
-   recorded, its indexes valid and its keys validated; it then drops the live
-   table, its 4.3 GB index and its trigger, and gives the copy its name.
+   recorded, its indexes valid and its keys validated (0051–0053, `post`); it
+   then drops the live table, its 4.3 GB index and its trigger, and gives the
+   copy its name. The image it rolls out reads and writes vectors only in the
+   two vector tables (`search/nearest-chunks.ts`, `storeChunkEmbeddings`). The
+   one-shot and its table left the code with it; this section is the record
+   of how the layout changed.
 
 ## Documents
 

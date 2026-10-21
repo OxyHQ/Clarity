@@ -6,6 +6,7 @@ import {
   jobClusters,
   jobPostingSignatures,
   jobPostings,
+  searchChunkEmbeddings,
   searchChunks,
   searchDocuments,
 } from '../../../db/schema/index.js';
@@ -154,8 +155,12 @@ async function snapshot(url: string): Promise<Snapshot> {
     .from(jobPostingSignatures)
     .where(eq(jobPostingSignatures.jobPostingId, posting.id));
   const chunks = await getDb()
-    .select({ id: searchChunks.id, embedded: sql<boolean>`${searchChunks.embedding} is not null` })
+    .select({
+      id: searchChunks.id,
+      embedded: sql<boolean>`${searchChunkEmbeddings.code} is not null`,
+    })
     .from(searchChunks)
+    .leftJoin(searchChunkEmbeddings, eq(searchChunkEmbeddings.chunkId, searchChunks.id))
     .where(eq(searchChunks.documentId, document.id))
     .orderBy(searchChunks.position);
   return {
