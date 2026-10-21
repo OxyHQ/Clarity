@@ -14,7 +14,8 @@
  *
  * - a full batch is sent at once, but never sooner than
  *   {@link MIN_REQUEST_INTERVAL_MS} after the previous request (at most 30 a
- *   minute, half the credential's limit, which search queries share);
+ *   minute, half the credential's limit, which search queries share), and
+ *   never more than {@link MAX_IN_FLIGHT} at a time;
  * - a partial batch is sent once its oldest chunk has waited
  *   {@link MAX_WAIT_MS}, so a quiet index still embeds within seconds.
  *
@@ -36,6 +37,15 @@ export const MAX_BATCH_ESTIMATED_TOKENS = 65_536;
 export const MAX_WAIT_MS = 10_000;
 /** The shortest gap between two requests. */
 export const MIN_REQUEST_INTERVAL_MS = 2_000;
+/**
+ * Requests in flight at once. Kaana answers a full batch in 5–12 s, so one at a
+ * time embedded ~38k chunks an hour against ~9k new ones, and the 2.4M-chunk
+ * backlog would have taken 3.4 days (production, 2026-10-21). Two at a time,
+ * still at most 30 requests a minute, roughly double it; vector writes are two
+ * narrow rows each (search/chunking.ts), ~0.02 average active sessions at the
+ * old pace.
+ */
+export const MAX_IN_FLIGHT = 2;
 /** Chunks held at most; more are left unembedded until their document is indexed again. */
 export const MAX_PENDING_CHUNKS = 4_096;
 /** The back-off after a first failure, doubled by each consecutive one up to the maximum. */
@@ -83,7 +93,7 @@ export class EmbeddingQueue {
   /** Pending chunks by id, oldest first. */
   #pending = new Map<string, Entry>();
   #timer: ReturnType<typeof setTimeout> | undefined;
-  #sending = false;
+  #inFlight = 0;
   #lastRequestAt = Number.NEGATIVE_INFINITY;
   #backoffUntil = Number.NEGATIVE_INFINITY;
   #consecutiveFailures = 0;
@@ -112,7 +122,7 @@ export class EmbeddingQueue {
    * queue is empty or backs off.
    */
   async flush(): Promise<void> {
-    while (this.#pending.size > 0 && !this.#sending) {
+    while (this.#pending.size > 0 && this.#inFlight === 0) {
       const before = this.#pending.size;
       await this.#send();
       if (this.#pending.size >= before) return;
@@ -137,7 +147,7 @@ export class EmbeddingQueue {
   }
 
   #schedule(): void {
-    if (this.#sending) return; // the request in flight schedules the next one
+    if (this.#inFlight >= MAX_IN_FLIGHT) return; // a request in flight schedules the next one
     clearTimeout(this.#timer);
     this.#timer = undefined;
     const batch = this.#nextBatch();
@@ -156,11 +166,14 @@ export class EmbeddingQueue {
   async #send(): Promise<void> {
     clearTimeout(this.#timer);
     this.#timer = undefined;
-    this.#sending = true;
     const batch = this.#nextBatch();
+    if (batch.length === 0) return;
+    this.#inFlight += 1;
     for (const [id] of batch) this.#pending.delete(id);
     const chunks = batch.map(([, entry]) => entry.chunk);
     this.#lastRequestAt = Date.now();
+    // The next request may start while this one is answered.
+    this.#schedule();
     try {
       let embeddings: number[][];
       try {
@@ -178,7 +191,7 @@ export class EmbeddingQueue {
         this.#options.onStoreFailure?.(error, chunks.length);
       }
     } finally {
-      this.#sending = false;
+      this.#inFlight -= 1;
       this.#schedule();
     }
   }

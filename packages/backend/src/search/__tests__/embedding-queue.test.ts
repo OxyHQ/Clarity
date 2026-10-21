@@ -11,6 +11,7 @@ import {
   FAILURE_BACKOFF_MS,
   MAX_BATCH_ESTIMATED_TOKENS,
   MAX_BATCH_INPUTS,
+  MAX_IN_FLIGHT,
   MAX_PENDING_CHUNKS,
   MAX_WAIT_MS,
   MIN_REQUEST_INTERVAL_MS,
@@ -207,5 +208,34 @@ describe('EmbeddingQueue', () => {
     queue.enqueue(documentChunks(2));
     await advance(MAX_WAIT_MS);
     expect(store).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps at most MAX_IN_FLIGHT requests waiting on Kaana, at the request interval', async () => {
+    const answers: (() => void)[] = [];
+    const embed = vi.fn(
+      (texts: readonly string[]) =>
+        new Promise<number[][]>((resolve) => {
+          answers.push(() => resolve(texts.map(() => [0.5])));
+        }),
+    );
+    const queue = new EmbeddingQueue({ embed, store: vi.fn(async () => {}) });
+    for (let document = 0; document < 128; document += 1)
+      queue.enqueue(documentChunks(document, 4, 100));
+
+    await advance(0);
+    expect(embed).toHaveBeenCalledTimes(1);
+    await advance(MIN_REQUEST_INTERVAL_MS - 1);
+    expect(embed).toHaveBeenCalledTimes(1);
+    await advance(1);
+    expect(embed).toHaveBeenCalledTimes(MAX_IN_FLIGHT);
+    // Neither has answered: no third request, however long it takes.
+    await advance(MIN_REQUEST_INTERVAL_MS * 10);
+    expect(embed).toHaveBeenCalledTimes(MAX_IN_FLIGHT);
+
+    // One answers and is stored; its slot goes to the next batch.
+    answers.shift()?.();
+    await advance(0);
+    await advance(0);
+    expect(embed).toHaveBeenCalledTimes(MAX_IN_FLIGHT + 1);
   });
 });
