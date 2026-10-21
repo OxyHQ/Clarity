@@ -83,9 +83,13 @@ export async function storeChunkEmbeddings(
 }
 
 /** The backlog sweep tops the queue up only while it holds fewer chunks than this. */
-const BACKLOG_IDLE_PENDING = 256;
-/** Chunks the backlog sweep queues at a time (once a minute: ~8 vector writes a second). */
-export const BACKLOG_BATCH = 512;
+const BACKLOG_IDLE_PENDING = 1_024;
+/**
+ * Chunks the backlog sweep queues at a time, once a minute: more than the
+ * queue embeds in a minute (embedding-queue.ts `MAX_IN_FLIGHT`), so Kaana's
+ * pace — not the sweep's — sets the backlog's.
+ */
+export const BACKLOG_BATCH = 2_048;
 /** Where the sweep resumes; a random start keeps several workers apart. */
 let backlogCursor: string | null = crypto.randomUUID();
 
