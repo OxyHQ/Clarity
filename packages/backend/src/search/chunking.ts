@@ -11,7 +11,7 @@
  */
 import { createHash } from 'node:crypto';
 
-import { and, eq, isNull, ne, or, type SQL, sql } from 'drizzle-orm';
+import { and, eq, gt, isNull, ne, or, type SQL, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
 import { searchChunks, searchDocuments } from '../db/schema/index.js';
@@ -23,6 +23,7 @@ import {
 import { createLogger } from '../lib/logger.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { EmbeddingQueue, type PendingChunk } from './embedding-queue.js';
+import { halfVectorText } from './half-precision.js';
 import { textFromChunks } from './page-text.js';
 
 const CHUNK_STRIDE = 1600;
@@ -45,14 +46,20 @@ export function chunkText(text: string): TextChunk[] {
   return result;
 }
 
-/** Writes the vectors of embedded chunks; a chunk replaced meanwhile is simply not found. */
+/**
+ * Writes the vectors of embedded chunks. A chunk replaced meanwhile is simply
+ * not found, and one another worker already embedded with the current model is
+ * not rewritten: a vector write rewrites the whole chunk row and every index
+ * on it. Vectors go as the halves the column stores (half-precision.ts), not
+ * Kaana's float text.
+ */
 export async function storeChunkEmbeddings(
   chunks: readonly PendingChunk[],
   embeddings: readonly number[][],
 ): Promise<void> {
   const rows = chunks.map(({ id }, index) => ({
     id,
-    embedding: `[${embeddings[index].join(',')}]`,
+    embedding: halfVectorText(embeddings[index]),
   }));
   await getDb().execute(sql`
     update clarity_search_chunks as chunk
@@ -61,7 +68,39 @@ export async function storeChunkEmbeddings(
         updated_at = now()
     from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as embedded(id text, embedding text)
     where chunk.id = embedded.id
+      and (chunk.embedding is null or chunk.embedding_model is distinct from ${CLARITY_EMBEDDING_MODEL})
   `);
+}
+
+/** The backlog sweep tops the queue up only while it holds fewer chunks than this. */
+const BACKLOG_IDLE_PENDING = 256;
+/** Chunks the backlog sweep queues at a time (once a minute: ~8 vector writes a second). */
+export const BACKLOG_BATCH = 512;
+/** Where the sweep resumes; a random start keeps several workers apart. */
+let backlogCursor: string | null = crypto.randomUUID();
+
+/**
+ * Queues the next unembedded chunks, in id order through
+ * `clarity_search_chunks_unembedded_idx` (no scan): the backlog is embedded at
+ * a steady pace instead of whenever its documents are indexed again — which
+ * made every feed poll re-project each listing still owed a vector. Freshly
+ * indexed documents keep the queue first: the sweep waits while it is busy.
+ */
+export async function queueEmbeddingBacklog(): Promise<number> {
+  if (!embeddingsEnabled()) return 0;
+  if (chunkEmbeddingQueue().pending >= BACKLOG_IDLE_PENDING) return 0;
+  const after = backlogCursor;
+  const rows = await getDb()
+    .select({ id: searchChunks.id, text: searchChunks.text })
+    .from(searchChunks)
+    .where(
+      and(isNull(searchChunks.embedding), after === null ? undefined : gt(searchChunks.id, after)),
+    )
+    .orderBy(searchChunks.id)
+    .limit(BACKLOG_BATCH);
+  backlogCursor = rows.length < BACKLOG_BATCH ? null : (rows[rows.length - 1]?.id ?? null);
+  chunkEmbeddingQueue().enqueue(rows);
+  return rows.length;
 }
 
 let queue: EmbeddingQueue | undefined;
@@ -183,20 +222,6 @@ async function cacheQueryEmbedding(query: string, embedding: readonly number[]):
   } catch {
     // A cache that cannot be written is only a cache miss next time.
   }
-}
-
-/**
- * SQL true when the document `documentId` names has no chunk still owed an
- * embedding by the current model (always true without the capability, which
- * never embeds). For a caller deciding whether re-indexing would queue any.
- */
-export function noChunksOwedEmbedding(documentId: SQL): SQL {
-  if (!embeddingsEnabled()) return sql`true`;
-  return sql`not exists (
-    select 1 from ${searchChunks}
-    where ${searchChunks.documentId} = ${documentId}
-      and (${searchChunks.embedding} is null or ${searchChunks.embeddingModel} is distinct from ${CLARITY_EMBEDDING_MODEL})
-  )`;
 }
 
 export type DocumentChunkState = 'current' | 'unembedded' | 'stale';

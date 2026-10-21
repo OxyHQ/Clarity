@@ -851,6 +851,12 @@ export const searchChunks = pgTable(
       'hnsw',
       sql`(${table.embedding}::halfvec(1024)) halfvec_cosine_ops`,
     ),
+    // The chunks still owed a vector, in id order: the backlog sweep reads
+    // them without scanning (search/chunking.ts `queueEmbeddingBacklog`), and
+    // the index shrinks as they are embedded.
+    index('clarity_search_chunks_unembedded_idx')
+      .on(table.id)
+      .where(sql`${table.embedding} is null`),
   ],
 );
 
