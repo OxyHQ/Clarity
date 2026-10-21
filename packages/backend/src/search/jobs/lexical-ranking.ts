@@ -97,13 +97,20 @@ export async function rankEveryMatch(
   depth: number,
 ): Promise<string[]> {
   await tx.execute(sql.raw(`set local work_mem = '${SCORING_WORK_MEM}'`));
+  // The match as a union of its two indexed arms, joined by key: written as
+  // one OR with a sub-select, no bitmap could serve it and the planner read
+  // every listing (42 s for "react developer", production 2026-10-21).
   const rows = await tx.execute<{ id: string }>(sql`
-    select id from clarity_job_postings
-    where ${where} and (
-      search_vector @@ websearch_to_tsquery('simple', ${query})
-      or id in (select job_posting_id from clarity_job_headlines where title % ${query})
+    with matches as (
+      select id from clarity_job_postings
+      where search_vector @@ websearch_to_tsquery('simple', ${query})
+      union
+      select job_posting_id from clarity_job_headlines where title % ${query}
     )
-    order by ${lexicalScore(query)} desc, id
+    select clarity_job_postings.id from matches
+    join clarity_job_postings on clarity_job_postings.id = matches.id
+    where ${where}
+    order by ${lexicalScore(query)} desc, clarity_job_postings.id
     limit ${depth}`);
   return rows.map((row) => row.id);
 }
