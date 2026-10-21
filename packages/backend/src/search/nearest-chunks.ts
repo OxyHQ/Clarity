@@ -18,6 +18,7 @@
 import { sql } from 'drizzle-orm';
 
 import type { ClarityExecutor } from '../db/index.js';
+import { isStatementTimeout, SEARCH_STATEMENT_TIMEOUT_MS } from './search-timeout.js';
 
 /** Candidates read from the codes' index for each chunk kept. */
 export const CANDIDATE_OVERSAMPLING = 8;
@@ -79,6 +80,41 @@ export async function nearestChunks(
     distances.push(Number(row.distance));
   }
   return { documentIds, distances };
+}
+
+/**
+ * How long a hybrid search's semantic arm may run before the search ranks
+ * lexically instead. Cold, in production, it takes under 1 s (2026-10-21).
+ */
+const SEMANTIC_ARM_TIMEOUT_MS = 4_000;
+
+/**
+ * {@link nearestChunks} for a hybrid search, which still has its lexical arm:
+ * `undefined` when finding them runs past {@link SEMANTIC_ARM_TIMEOUT_MS}, so
+ * the search answers lexically and says so instead of failing. Run in a
+ * savepoint, so the cancelled statement leaves the transaction usable.
+ */
+export async function nearestChunksOrDegrade(
+  tx: ClarityExecutor,
+  embedding: readonly number[],
+  count: number,
+  /** A test seam. */
+  { timeoutMs = SEMANTIC_ARM_TIMEOUT_MS }: { timeoutMs?: number } = {},
+): Promise<NearestChunks | undefined> {
+  try {
+    return await tx.transaction(async (savepoint) => {
+      await savepoint.execute(sql.raw(`set local statement_timeout = ${Math.trunc(timeoutMs)}`));
+      const found = await nearestChunks(savepoint, embedding, count);
+      // `set local` outlives the savepoint: the ranking gets its own bound back.
+      await savepoint.execute(
+        sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`),
+      );
+      return found;
+    });
+  } catch (error) {
+    if (isStatementTimeout(error)) return undefined;
+    throw error;
+  }
 }
 
 /**

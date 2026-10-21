@@ -322,8 +322,10 @@ Authorization: Bearer <oxy_sk credential>   # scope clarity:search
 Free text runs lexical, semantic or hybrid (reciprocal-rank fusion, the default)
 relevance, so `frontend engineer working on React Native mobile apps` can match
 a role titled *Mobile Software Engineer*. Omitting `query` browses by filters
-and freshness. When embeddings are off or the call fails, hybrid degrades to
-lexical and says so in `degraded`; explicit `semantic` fails with `503`
+and freshness. When embeddings are off or the call fails, or the semantic arm
+runs past 4 s, hybrid degrades to lexical and says so in `degraded` (`reason`
+`embedding_route_unavailable` or `semantic_timeout`): a semantic failure never
+fails a hybrid search. Explicit `semantic` fails with `503`
 ([embeddings capability](index#embeddings-capability)). The semantic arm finds
 the 1,000 nearest chunks — 8,000 candidates from the HNSW index over their
 binary codes, reordered by exact distance ([search storage](search-storage),
@@ -353,6 +355,15 @@ timeout (production, 2026-10-21). It is now ranked in two phases, **exactly**
   result is the ranking of every match. Otherwise a lower band, then more
   headlines, are tried; past the last every match is scored, its title arm read
   from the headlines, with `work_mem` large enough that the bitmap stays exact.
+- Not every candidate is read. The same bound applies to each one: a listing in
+  band b but not the next band up, b′, scores at most 0.1 · n · (b′ − 1) plus
+  its similarity, which the headline rows give exactly. Candidates are scored
+  highest ceiling first, 500 at a time, until no ceiling reaches the 200th
+  score; a band whose candidates could not prove the ranking even at their
+  ceilings reads nothing. Reading a listing costs its row, its TOASTed vector
+  and its document (~5 random pages); this cut a warm ranking from 15–25 s to
+  0.6–3.5 s and a cold one by half, identical on 20 production queries
+  (2026-10-21). Bitmap scans read ahead (`effective_io_concurrency` 128).
 - A broad query of several words is usually decided by its titles ("Software
   Engineer" titles are the top 200 of `software engineer`), a broad single word
   by how often it occurs; the nearest headlines bound the first, the bands the

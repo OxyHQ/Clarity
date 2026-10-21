@@ -11,7 +11,7 @@
  */
 import { createHash } from 'node:crypto';
 
-import { and, eq, gt, isNull, ne, or, type SQL, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNull, ne, or, type SQL, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
 import { searchChunkEmbeddings, searchChunks, searchDocuments } from '../db/schema/index.js';
@@ -100,10 +100,13 @@ export async function queueEmbeddingBacklog(): Promise<number> {
   if (!embeddingsEnabled()) return 0;
   if (chunkEmbeddingQueue().pending >= BACKLOG_IDLE_PENDING) return 0;
   const after = backlogCursor;
-  const rows = await getDb()
-    .select({ id: searchChunks.id, text: searchChunks.text })
+  // The ids first, then their text by key. Joined in one statement, the
+  // planner merged the partial index with the chunks' primary key from its
+  // start, reading every chunk below the cursor — 409k pages, 6.5 s, every
+  // minute (production, 2026-10-21).
+  const owed = await getDb()
+    .select({ id: searchChunkEmbeddings.chunkId })
     .from(searchChunkEmbeddings)
-    .innerJoin(searchChunks, eq(searchChunks.id, searchChunkEmbeddings.chunkId))
     .where(
       and(
         isNull(searchChunkEmbeddings.code),
@@ -112,7 +115,16 @@ export async function queueEmbeddingBacklog(): Promise<number> {
     )
     .orderBy(searchChunkEmbeddings.chunkId)
     .limit(BACKLOG_BATCH);
-  backlogCursor = rows.length < BACKLOG_BATCH ? null : (rows[rows.length - 1]?.id ?? null);
+  const ids = owed.map((row) => row.id);
+  const rows =
+    ids.length === 0
+      ? []
+      : await getDb()
+          .select({ id: searchChunks.id, text: searchChunks.text })
+          .from(searchChunks)
+          .where(inArray(searchChunks.id, ids))
+          .orderBy(searchChunks.id);
+  backlogCursor = ids.length < BACKLOG_BATCH ? null : (ids[ids.length - 1] ?? null);
   chunkEmbeddingQueue().enqueue(rows);
   return rows.length;
 }

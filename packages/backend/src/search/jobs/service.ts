@@ -37,12 +37,14 @@ import type {
 import { getDb } from '../../db/index.js';
 import { jobClusters, jobPostings, searchDocuments } from '../../db/schema/index.js';
 import { embedQuery } from '../chunking.js';
-import { nearestChunkRows, nearestChunks, type NearestChunks } from '../nearest-chunks.js';
 import {
-  isStatementTimeout,
-  QUERY_EMBEDDING_TIMEOUT_MS,
-  SEARCH_STATEMENT_TIMEOUT_MS,
-} from '../document-search.js';
+  nearestChunkRows,
+  nearestChunks,
+  nearestChunksOrDegrade,
+  type NearestChunks,
+} from '../nearest-chunks.js';
+import { isStatementTimeout, SEARCH_STATEMENT_TIMEOUT_MS } from '../search-timeout.js';
+import { QUERY_EMBEDDING_TIMEOUT_MS } from '../document-search.js';
 import {
   canonicalizePublicUrl,
   decodeSearchCursor,
@@ -391,10 +393,18 @@ async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, 
     return await getDb().transaction(async (tx) => {
       // `set local` takes no bind parameter; both values are module constants.
       await tx.execute(sql.raw(`set local statement_timeout = ${SEARCH_STATEMENT_TIMEOUT_MS}`));
+      // A hybrid search whose semantic arm runs out of time ranks lexically
+      // and says so; a semantic one has no other arm.
       const nearest =
-        embedding && input.query && input.mode !== 'lexical'
-          ? await nearestChunks(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
-          : undefined;
+        !embedding || !input.query
+          ? undefined
+          : input.mode === 'semantic'
+            ? await nearestChunks(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
+            : input.mode === 'hybrid'
+              ? await nearestChunksOrDegrade(tx, embedding, SEMANTIC_CANDIDATE_CHUNKS)
+              : undefined;
+      const semanticTimedOut =
+        input.mode === 'hybrid' && embedding !== undefined && Boolean(input.query) && !nearest;
       const lexicalIds =
         input.query && input.mode !== 'semantic'
           ? (
@@ -406,9 +416,10 @@ async function rankJobs(input: JobSearchInput, embedding: number[] | undefined, 
               )
             ).ids
           : [];
-      return tx.execute<{ jobId: string; score: number }>(
+      const rows = await tx.execute<{ jobId: string; score: number }>(
         rankedStatement(input, nearest, offset, lexicalIds),
       );
+      return Object.assign(rows, { semanticTimedOut });
     });
   } catch (error) {
     if (isStatementTimeout(error))
@@ -439,6 +450,8 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   }
 
   const ranks = await rankJobs(input, embedding, offset);
+  if (ranks.semanticTimedOut)
+    degraded = { from: 'hybrid', to: 'lexical', reason: 'semantic_timeout' };
   const page = ranks.slice(0, input.limit);
   const jobsById = await hydrate(page.map((row) => row.jobId));
   const data: JobSearchResult[] = page.flatMap((rank) => {

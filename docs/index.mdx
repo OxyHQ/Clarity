@@ -49,7 +49,9 @@ that question; the setting does.
   embeddings, `POST /v1/search` and `POST /v1/jobs/search` rank lexically and
   answer `degraded: { from: 'hybrid', to: 'lexical', reason:
   'embedding_route_unavailable' }`, and `mode: 'semantic'` answers `503
-  semantic_unavailable`. The process logs once that embeddings are off.
+  semantic_unavailable`. The process logs once that embeddings are off. A
+  hybrid search whose semantic arm runs past 4 s degrades the same way, with
+  `reason: 'semantic_timeout'`.
 - **On:** chunks and queries are embedded. A query is embedded on its own, when
   it is asked. Chunks never hold up indexing: a document's chunks are stored
   unembedded (lexically searchable at once) and queued, and the queue
