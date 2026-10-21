@@ -1,0 +1,90 @@
+[
+  {
+    "id": "01a1157a-823d-711c-98a0-92aaa0d1b2f0",
+    "url": "https://www.kpbs.org/news/national/2026/10/06/former-cia-official-accused-of-stealing-40m-in-gold-bars-pleads-guilty?utm_source=flipboard&utm_medium=activitypub",
+    "durationMs": 2403,
+    "status": "succeeded",
+    "error": null,
+    "documents": [
+      {
+        "status": "indexed",
+        "title": "Former CIA official accused of stealing $40M in gold bars pleads guilty",
+        "description": "A former senior CIA official pleaded guilty Tuesday to a charge that he abused his position to enrich himself by acquiring Florida real estate and hundreds of gold bars worth over $40 million.",
+        "image": "https://cdn.kpbs.org/dims4/default/93a95c4/2147483647/strip/true/crop/3855x2024+0+273/resize/1200x630!/quality/90/?url=https%3A%2F%2Fnpr-brightspot.s3.amazonaws.com%2F8d%2F8a%2F8f2311034e409ca148a31231e1ac%2Fap26279735319721.jpg",
+        "canonical": "https://www.npr.org/2026/10/07/nx-s1-5993468/cia-official-stealing-gold-bars-pleads-guilty"
+      }
+    ]
+  },
+  {
+    "id": "01a115bf-213d-748a-904f-a9bb58827d0e",
+    "url": "https://www.forbes.com/sites/toddnordstrom/2026/10/07/seek-the-question-not-the-answer-why-tech-exec-dina-bingham-says-you-need-to-hit-reverse/?utm_source=flipboard&utm_medium=activitypub",
+    "durationMs": 180,
+    "status": "retry",
+    "error": "http_status_403",
+    "documents": []
+  },
+  {
+    "id": "01a10e9f-dd51-72bd-9ddc-372e8b28c77b",
+    "url": "https://www.omgubuntu.co.uk/2026/10/orion-linux-browser-development-ended",
+    "durationMs": 489,
+    "status": "succeeded",
+    "error": null,
+    "documents": [
+      {
+        "status": "indexed",
+        "title": "Orion browser for Linux axed only months after beta launch",
+        "description": "Kagi has announced that it is ending the development of the Orion web browser for Linux. The native GTK port of Orion for Linux was announced in 2025 and",
+        "image": "https://www.omgubuntu.co.uk/wp-content/uploads/2026/09/kagi-orion-beta-linux.webp",
+        "canonical": "https://www.omgubuntu.co.uk/2026/10/orion-linux-browser-development-ended"
+      }
+    ]
+  },
+  {
+    "id": "01a1127f-3267-73b7-b97e-685bee98b3c5",
+    "url": "https://x.com/HJB_News__/status/2106733782275334503",
+    "durationMs": 932,
+    "status": "succeeded",
+    "error": null,
+    "documents": [
+      {
+        "status": "indexed",
+        "title": "HJB News (@HJB_News__) on X",
+        "description": "Kent police have put signal blockers near cruise terminal in Dover to prevent people from live streaming the invasion.",
+        "image": "https://pbs.twimg.com/media/HTyfNUJWgAAhuON?format=webp&name=large",
+        "canonical": "https://x.com/HJB_News__/status/2106733782275334503"
+      }
+    ]
+  },
+  {
+    "id": "01a1157a-8237-7bdb-bd4a-54222d204902",
+    "url": "https://www.kpbs.org/news/international/2026/10/06/israelis-mourn-on-the-anniversary-of-the-oct-7-as-palestinians-grapple-with-war-it-sparked?utm_source=flipboard&utm_medium=activitypub",
+    "durationMs": 1740,
+    "status": "succeeded",
+    "error": null,
+    "documents": [
+      {
+        "status": "indexed",
+        "title": "Israelis mourn on the anniversary of the Oct. 7 as Palestinians grapple with war it sparked",
+        "description": "Israelis are gathering Wednesday to commemorate the Oct. 7, 2023, attack that killed 1,200 people, and sparked a devastating war in Gaza that Palestinians still grapple with.",
+        "image": "https://cdn.kpbs.org/dims4/default/6e2667f/2147483647/strip/true/crop/5616x2948+0+398/resize/1200x630!/quality/90/?url=https%3A%2F%2Fnpr-brightspot.s3.amazonaws.com%2Fbd%2F5c%2F82fe8b6e4660a74535ad9ebe431d%2Fap26280136486373.jpg",
+        "canonical": "https://www.npr.org/2026/10/07/nx-s1-5993459/israelis-oct-7-palestinians-war"
+      }
+    ]
+  },
+  {
+    "id": "01a11375-708d-7900-8772-c82188283224",
+    "url": "https://globalnews.ca/news/12090010/quebec-election-anglophone-impact-referendum-potential/?utm_source=flipboard&utm_medium=activitypub",
+    "durationMs": 829,
+    "status": "succeeded",
+    "error": null,
+    "documents": [
+      {
+        "status": "indexed",
+        "title": "Quebec’s anglophones approach PQ win with optimism, skepticism - Montreal | Globalnews.ca",
+        "description": "Quebec's new premier-designate has made several promises for anglophones, but the community is watching to see if they'll be kept with an independence referendum also possible.",
+        "image": "https://globalnews.ca/wp-content/uploads/2026/10/CP177035044_e717dd.jpg?quality=65&strip=all&w=720&h=379&crop=1",
+        "canonical": "https://globalnews.ca/news/12090010/quebec-election-anglophone-impact-referendum-potential/"
+      }
+    ]
+  }
+]
