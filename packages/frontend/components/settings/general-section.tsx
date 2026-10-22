@@ -5,14 +5,18 @@ import { Text } from '@/components/ui/text';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useTranslation } from '@/hooks/useTranslation';
 import { LanguageSelector } from '@/components/language-selector';
+import { COLOR_PRESET_REGISTRY, type AppColorName } from '@oxy.so/bloom/theme';
 import {
-  APP_COLOR_PRESETS,
-  APP_COLOR_NAMES,
-  useBloomTheme,
-  type AppColorName,
-} from '@oxy.so/bloom/theme';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectItemText,
+  SelectTrigger,
+  SelectValue,
+} from '@oxy.so/bloom/select';
+import { toast } from '@oxy.so/bloom/toast';
+import { useAccountColorSave } from '@oxy.so/services/ui/client';
 import { getPresetVars } from '@oxy.so/bloom/design-tokens';
-import { cn } from '@/lib/utils';
 
 /** Miniature app layout using real theme tokens via NativeWind vars() */
 const AppMiniature = React.memo(function AppMiniature({
@@ -76,9 +80,14 @@ const AppMiniature = React.memo(function AppMiniature({
   );
 });
 
+function colorLabel(name: AppColorName): string {
+  return COLOR_PRESET_REGISTRY.find((preset) => preset.name === name)?.displayName ?? name;
+}
+
 export function GeneralSection() {
   const { mode, setColorScheme } = useColorScheme();
-  const { colorPreset: appColor, setColorPreset: setAppColor } = useBloomTheme();
+  const { colors, value: appColor, saveColor, saving } = useAccountColorSave();
+  const colorOptions = colors.map((name) => ({ value: name, label: colorLabel(name) }));
   const { t } = useTranslation();
 
   return (
@@ -150,42 +159,32 @@ export function GeneralSection() {
         </View>
       </View>
 
-      {/* App Color */}
+      {/* Account colour */}
       <View className="gap-2">
         <Text className="text-[11px] font-semibold text-muted-foreground tracking-wider uppercase">
           {t('settings.accentColor.title')}
         </Text>
-
-        <View className="flex-row gap-3 flex-wrap">
-          {APP_COLOR_NAMES.map((key) => {
-            const p = APP_COLOR_PRESETS[key];
-            const isSelected = appColor === key;
-            return (
-              <Pressable
-                key={key}
-                onPress={() => setAppColor(key)}
-                className="items-center gap-1.5"
-              >
-                <View
-                  className={cn(
-                    'w-8 h-8 rounded-full border-2 overflow-hidden',
-                    isSelected ? 'border-foreground scale-110' : 'border-transparent',
-                  )}
-                >
-                  <View style={{ backgroundColor: p.hex, flex: 1 }} />
-                </View>
-                <Text
-                  className={cn(
-                    'text-[10px]',
-                    isSelected ? 'text-foreground font-medium' : 'text-muted-foreground',
-                  )}
-                >
-                  {t(`settings.accentColor.${key}`)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <Select
+          value={appColor}
+          disabled={saving}
+          onValueChange={(name) => {
+            const next = colors.find((color) => color === name);
+            if (!next) return;
+            saveColor(next).catch(() => toast.error(t('settings.accentColor.saveFailed')));
+          }}
+        >
+          <SelectTrigger label={t('settings.accentColor.title')}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent
+            items={colorOptions}
+            renderItem={(option) => (
+              <SelectItem value={option.value} label={option.label}>
+                <SelectItemText>{option.label}</SelectItemText>
+              </SelectItem>
+            )}
+          />
+        </Select>
       </View>
     </View>
   );
