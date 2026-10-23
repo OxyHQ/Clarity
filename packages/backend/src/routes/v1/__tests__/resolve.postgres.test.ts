@@ -73,7 +73,8 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
     await closePostgres();
   });
   it('concurrent overlapping reads reuse each pending URL across API replicas', async () => {
-    principal = { ...principal, authority: 'first_party', scopes: undefined };
+    const { scopes: _externalScopes, ...identity } = principal;
+    principal = { ...identity, authority: 'first_party' };
     const responses = await Promise.all([
       resolve([urls[0], urls[1], urls[0]]),
       resolve([urls[1], urls[2]]),
@@ -124,7 +125,8 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
   });
   it("never throttles one of Oxy's own applications on active crawls", async () => {
     // No active-crawl quota, so its live operations are not even counted.
-    principal = { ...principal, authority: 'first_party', scopes: undefined };
+    const { scopes: _externalScopes, ...identity } = principal;
+    principal = { ...identity, authority: 'first_party' };
     for (const url of urls) expect((await resolve([url])).status).toBe(202);
     const live = await getDb()
       .select({ id: crawlJobs.id })

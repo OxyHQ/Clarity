@@ -96,8 +96,39 @@ Acceptance includes SDK → real HTTP → live authority contract → PostgreSQL
 checks: own and external identities, original versus effective account, wrong
 account, wrong audience, revocation, session switching, and separate account
 idempotency. Exact candidate versions, test results and cutover evidence are
-recorded with each delivery commit. No production mutation, SDK publication or
-Clarity deployment has occurred in this workstream.
+recorded with each delivery commit. SDK 0.10.0 was published from `badfffd`;
+the reader and producer changes described here have not been deployed.
+
+## Reader release boundary, 2026-10-24
+
+The dedicated `feat/first-party-reader-release` branch starts at `fc6f60c` and
+excludes producer `d216423`. It upgrades the existing credential-based Kaana
+client to published SDK 3.2.1 (contracts 8.0.1) for patched Zod, while preserving
+the existing constructor and embedding queue behavior. It does not adopt the
+Kaana 3.3 own factory or Mercaria's new service caller. Backend Zod and SDK
+development Zod require 4.6.7 or newer within major 4; the SDK has no runtime
+Zod dependency and needs no extra public version for that development change.
+
+Release order is Oxy API preparation, this Clarity reader, old writer/worker
+drain and reviewed lineage reconciliation, Mercaria's receiver, then Clarity's
+producer. The temporary legacy hold remains in this reader. Reconciliation
+must include completed lineage and catch-up rows, preserve unknown/revoked
+authority, and use fresh exact workload provenance. A successful build is not
+permission to run the production backfill or remove the hold.
+
+Validation uses the composed core 7/contracts 6 Zod 4 candidate, with no local
+paths retained in the committed manifests or lockfile. Final public Oxy pins
+and their registry-pinned CI gate remain required before release. The outgoing
+manual v1 producer calls in this branch are a staged compatibility dependency,
+not the final first-party transport implementation.
+
+Reader candidate gates: 86 backend tests across live HTTP authority, account
+isolation, resolve, legacy worker holds, quotas and the unchanged Kaana
+constructor/embedding queue pass; all 211 SDK tests pass. Backend and frontend
+TypeScript, shared/SDK/backend builds, Biome and the built entrypoint failure
+and success controls pass. All 59 migrations apply to a fresh disposable
+PostgreSQL database. Two own-principal fixtures now omit `scopes` entirely to
+match the strict Zod 4 union; no authority or quota behavior was relaxed.
 
 ## Source validation, 2026-10-23
 
