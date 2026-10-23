@@ -189,6 +189,9 @@ remains applicable because this final delta changes only dependency pins/docs.
 Producer source checkpoint: 42 targeted producer/identity tests, 34 existing
 architecture/queue/ranking tests and 11 composed HTTP/PG authority tests pass.
 Backend source/test typecheck passes with candidate core7, Kaana factory and
-Mercaria0.7. All59 migrations apply to a fresh disposable database. Production
-build and registry-pinned rerun remain pending; candidate overrides were removed
-before preserving this checkpoint.
+Mercaria0.7. All 59 migrations apply to a fresh disposable database. Backend
+production build also passes. A rerun with the final Zod 4 foundation and
+registry pins remains pending; candidate overrides were removed before
+preserving this checkpoint. The reader release must start from `fc6f60c`,
+excluding producer `d216423`, so Mercaria's receiver can deploy before Clarity
+starts using its own authenticated catalogue transport.
