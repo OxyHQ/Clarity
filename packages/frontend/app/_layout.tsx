@@ -11,7 +11,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { OverlayInertBoundary, PortalOutlet, PortalProvider } from '@oxy.so/bloom/portal';
 
 import { AppErrorBoundary } from '@/components/error-boundary';
-import { KeyboardProvider } from '@/lib/keyboard';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersistence';
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@/lib/i18n';
@@ -35,26 +34,25 @@ function AppContent() {
   const { colors } = useColorScheme();
   useAccountColor();
 
+  // OxyProvider mounts the one KeyboardProvider; a second one nested with it took the native keyboard events.
   return (
-    <KeyboardProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <PortalProvider>
-          <OverlayInertBoundary>
-            <Stack
-              screenOptions={{
-                contentStyle: {
-                  backgroundColor: colors.background,
-                },
-              }}
-            >
-              <Stack.Screen name="(app)" options={{ headerShown: false }} />
-              <Stack.Screen name="(biglayout)" options={{ headerShown: false }} />
-            </Stack>
-          </OverlayInertBoundary>
-          <PortalOutlet />
-        </PortalProvider>
-      </GestureHandlerRootView>
-    </KeyboardProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PortalProvider>
+        <OverlayInertBoundary>
+          <Stack
+            screenOptions={{
+              contentStyle: {
+                backgroundColor: colors.background,
+              },
+            }}
+          >
+            <Stack.Screen name="(app)" options={{ headerShown: false }} />
+            <Stack.Screen name="(biglayout)" options={{ headerShown: false }} />
+          </Stack>
+        </OverlayInertBoundary>
+        <PortalOutlet />
+      </PortalProvider>
+    </GestureHandlerRootView>
   );
 }
 
