@@ -91,7 +91,11 @@ Migration 0058 was applied only to that disposable database. The live HTTP suite
 includes a same-key cross-account operation test and rejects redirects for both
 own and external transports before any credential reaches the other origin.
 
-Still pending: published dependency pins, shared MCP v2 catalogue/audit transport
-adoption, authoritative legacy queue reconciliation, deployment and live canaries,
+Catalogue registration, audit and external MCP introspection now use the shared
+MCP helpers with an Oxy service transport, which emits v2. The external
+connection remains scoped; its receiver process proves its own workload.
+
+Still pending: published dependency pins, authoritative legacy queue reconciliation,
+deployment and live canaries,
 caller cutover, then removal of the finite v1 bridge. Existing product plan and
 account membership rules remain in force throughout these steps.

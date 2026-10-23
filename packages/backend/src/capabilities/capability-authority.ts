@@ -20,12 +20,7 @@ import { createLiveCapabilityTicketVerifier, createOxyJwksKeyResolver } from '@o
 import { postOxyServiceJson, registerCapabilityCatalog } from '@oxy.so/mcp';
 import type { z } from 'zod';
 
-import {
-  canonicalBaseUrl,
-  clarityOxyServer,
-  getClarityServiceToken,
-  invalidateClarityServiceToken,
-} from '../lib/clarity-service-auth.js';
+import { canonicalBaseUrl, clarityOxyServer } from '../lib/clarity-service-auth.js';
 
 type AuditResult = z.infer<typeof auditResultSchema>;
 type Introspection = Awaited<
@@ -92,14 +87,13 @@ export interface CapabilityAuditInput {
 
 export type CapabilityAuditor = (input: CapabilityAuditInput) => Promise<void>;
 
-const serviceToken = {
-  getServiceToken: () => getClarityServiceToken(),
-  invalidateServiceToken: () => invalidateClarityServiceToken(),
-};
-
 /** The verifier, auditor and registration bound to Clarity's Oxy authority. */
 export function oxyCapabilityAuthority(catalog: AppCapabilityCatalog) {
   const oxyApiUrl = canonicalBaseUrl();
+  const transport = clarityOxyServer().createServiceClient({
+    baseURL: oxyApiUrl,
+    audience: 'oxy-api',
+  });
   const resolveKey = createOxyJwksKeyResolver({
     jwksUrl: `${oxyApiUrl}/capabilities/.well-known/jwks.json`,
   });
@@ -120,12 +114,12 @@ export function oxyCapabilityAuthority(catalog: AppCapabilityCatalog) {
         rollback: { supported: input.rollbackSupported, attempted: false },
         ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
       },
-      { ...serviceToken, endpoint: `${oxyApiUrl}/capabilities/audit` },
+      { transport, endpoint: `${oxyApiUrl}/capabilities/audit` },
     );
   };
 
   const register = (): Promise<CapabilityCatalogBinding> =>
-    registerCapabilityCatalog(catalog, { ...serviceToken, oxyApiUrl, timeoutMs: 15_000 });
+    registerCapabilityCatalog(catalog, { transport, oxyApiUrl, timeoutMs: 15_000 });
 
-  return { oxyApiUrl, verifyTicket, audit, register, ...serviceToken };
+  return { oxyApiUrl, verifyTicket, audit, register };
 }
