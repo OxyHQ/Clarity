@@ -41,6 +41,7 @@ import {
   MercariaValidationError,
 } from '@mercaria.co/sdk';
 import { z } from 'zod';
+import { mercariaForOxyService } from '@mercaria.co/sdk/server';
 
 import type {
   ProductDetail,
@@ -51,7 +52,8 @@ import type {
   ProductSummary,
 } from '@clarity/shared-types';
 import {
-  getClarityServiceToken,
+  assertClarityWorkloadIdentity,
+  clarityOxyServer,
   hasExactClarityServiceConfiguration,
 } from '../../lib/clarity-service-auth.js';
 import { createLogger } from '../../lib/logger.js';
@@ -82,26 +84,31 @@ export class ProductCatalogError extends Error {
 }
 
 /** Clarity's token for Mercaria, or `null` to read anonymously. Never throws. */
-async function clarityToken(): Promise<string | null> {
-  if (!hasExactClarityServiceConfiguration()) return null;
+let client: (Pick<MercariaClient, 'catalog' | 'links'> & { dispose?: () => void }) | undefined;
+let testClient: MercariaClient | undefined;
+const anonymousClient = createMercariaClient();
+
+async function mercaria(): Promise<Pick<MercariaClient, 'catalog' | 'links'>> {
+  if (testClient) return testClient;
+  if (!hasExactClarityServiceConfiguration()) return anonymousClient;
   try {
-    return await getClarityServiceToken();
+    await assertClarityWorkloadIdentity();
   } catch (error) {
-    log.warn({ err: error }, 'could not mint a service token for Mercaria; reading anonymously');
-    return null;
+    log.warn(
+      { err: error },
+      'could not attest Clarity for Mercaria; reading public catalogue anonymously',
+    );
+    return anonymousClient;
   }
-}
-
-let client: MercariaClient | undefined;
-
-function mercaria(): MercariaClient {
-  client ??= createMercariaClient({ getAccessToken: clarityToken });
+  client ??= mercariaForOxyService(clarityOxyServer());
   return client;
 }
 
 /** Tests only: a client on a stubbed `fetch`, anonymous. `undefined` restores the default. */
 export function setMercariaFetchForTests(fetch: MercariaFetch | undefined): void {
-  client = fetch === undefined ? undefined : createMercariaClient({ fetch });
+  client?.dispose?.();
+  client = undefined;
+  testClient = fetch === undefined ? undefined : createMercariaClient({ fetch });
 }
 
 /** Every SDK failure as a door's answer. Only refusals keep Mercaria's meaning. */
@@ -175,7 +182,10 @@ function offer(value: MercariaOffer, link: string | null): ProductOffer {
   };
 }
 
-function detail(product: MercariaCatalogProduct, sdk: MercariaClient): ProductDetail {
+function detail(
+  product: MercariaCatalogProduct,
+  sdk: Pick<MercariaClient, 'links'>,
+): ProductDetail {
   return {
     id: product.ref.id,
     name: product.name,
@@ -223,7 +233,7 @@ export const productIdSchema = z
 
 /** One page of products for `query`, in Mercaria's order. */
 export async function searchProducts(input: ProductSearchInput): Promise<ProductSearchResponse> {
-  const sdk = mercaria();
+  const sdk = await mercaria();
   try {
     const page = await sdk.catalog.search({
       query: input.query,
@@ -243,7 +253,7 @@ export async function searchProducts(input: ProductSearchInput): Promise<Product
 
 /** One product and every current offer, ranked by Mercaria. */
 export async function getProduct(id: string): Promise<ProductDetail> {
-  const sdk = mercaria();
+  const sdk = await mercaria();
   try {
     return detail(await sdk.catalog.get(id), sdk);
   } catch (error) {

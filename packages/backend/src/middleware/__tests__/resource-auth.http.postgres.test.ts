@@ -20,7 +20,13 @@ vi.mock('../../lib/clarity-service-auth.js', () => ({
     if (!identity.receiver) throw new Error('Fixture receiver not initialized');
     return identity.receiver;
   },
-  getClarityServiceToken: async () => 'unused-route-token',
+  clarityPlatformTransport: () => {
+    if (!identity.receiver) throw new Error('Fixture receiver not initialized');
+    return identity.receiver.createServiceClient({
+      baseURL: identity.receiver.baseURL,
+      audience: 'oxy-api',
+    });
+  },
 }));
 const { default: router } = await import('../../routes/v1/search-platform.js');
 const databaseUrl = process.env.TEST_DATABASE_URL ?? '';
@@ -63,7 +69,10 @@ const credentials = (name: string) => async () => ({
 
 suite('Clarity SDK → HTTP → shared live authority → account-owned operations', () => {
   beforeAll(async () => {
-    if (new URL(databaseUrl).pathname !== '/clarity_ci') throw new Error('Use clarity_ci only');
+    const testDatabase = new URL(databaseUrl);
+    if (!['/clarity_ci', '/clarity_first_party_producer_test'].includes(testDatabase.pathname)) {
+      throw new Error('Use an explicitly named disposable Clarity test database');
+    }
     connectPostgres(databaseUrl);
     await getDb()
       .insert(crawlJobs)

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mock = {
   cursor: vi.fn(),
   commit: vi.fn(),
-  token: vi.fn(),
   claims: vi.fn(),
   list: vi.fn(),
   verify: vi.fn(),
@@ -12,16 +11,15 @@ vi.mock('../db/experience-repository.js', () => ({
   commitAccountEventPage: mock.commit,
 }));
 vi.mock('../middleware/auth.js', () => ({
-  oxyClient: { serviceToken: mock.token, accountEvents: { list: mock.list, verify: mock.verify } },
+  oxyClient: { accountEvents: { list: mock.list, verify: mock.verify } },
 }));
-vi.mock('../lib/clarity-service-auth.js', () => ({ assertExactClarityServiceClaims: mock.claims }));
+vi.mock('../lib/clarity-service-auth.js', () => ({ assertClarityWorkloadIdentity: mock.claims }));
 const { reconcileAccountEvents } = await import('../lib/account-event-reconciliation.js');
 import { CLARITY_IDENTITY } from '../lib/clarity-identity.js';
 const applicationId = CLARITY_IDENTITY.backendApplication.applicationId;
 beforeEach(() => {
   vi.resetAllMocks();
   mock.cursor.mockResolvedValue('cursor-old');
-  mock.token.mockResolvedValue('service-token');
   mock.commit.mockResolvedValue(true);
 });
 describe('signed account event feed reconciliation', () => {
@@ -32,8 +30,7 @@ describe('signed account event feed reconciliation', () => {
     });
     mock.verify.mockResolvedValue({ userId: 'verified-person', eventId: 'verified-event' });
     expect(await reconcileAccountEvents()).toBe(1);
-    expect(mock.token).toHaveBeenCalledWith();
-    expect(mock.claims).toHaveBeenCalledWith('service-token');
+    expect(mock.claims).toHaveBeenCalledWith();
     expect(mock.list).toHaveBeenCalledWith({ after: 'cursor-old', limit: 100 });
     expect(mock.verify).toHaveBeenCalledWith('signed-event', { audience: applicationId });
     expect(mock.commit).toHaveBeenCalledWith(applicationId, 'cursor-old', 'cursor-next', [

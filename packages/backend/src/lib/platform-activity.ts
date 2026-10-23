@@ -1,8 +1,6 @@
 import { createEcosystemTraffic } from '@oxy.so/core/server';
-import {
-  getClarityServiceToken,
-  hasExactClarityServiceConfiguration,
-} from './clarity-service-auth.js';
+import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
+import { hasExactClarityServiceConfiguration } from './clarity-service-auth.js';
 import { createLogger } from './logger.js';
 
 const log = createLogger('platform-activity');
@@ -48,7 +46,7 @@ export function startPlatformActivity(ready: () => boolean, service = 'clarity')
   const traffic = createEcosystemTraffic({
     service,
     ready,
-    credential: getClarityServiceToken,
+    workloadCredentials: createAwsWorkloadCredentialProvider(),
     ...outageReporter(),
   });
   traffic.installFetch();
