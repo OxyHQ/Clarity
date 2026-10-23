@@ -44,13 +44,38 @@ status and historical `caller_tier`; that tier never proves authority. Their new
 authority defaults to external and kind to legacy, so existing jobs can encounter
 external crawl quotas until reconciled. No job is deleted or silently discarded.
 
-Before rollout acceptance, inspect queued/running legacy rows and reconcile only
-those whose original credential ID, application and owner match a currently
-active workload binding in Oxy's authoritative registry and the reviewed rollout
-cohort. Record the row IDs and readback evidence; ambiguous or revoked records
-stay external. Never promote rows using application branding, `caller_tier`, or
-just a `wl_` prefix. This controlled reconciliation is pending, not implied by the
-schema migration; it must precede claims that the existing queue is unaffected.
+The new worker temporarily holds unclassified lineage (`caller_kind = legacy` or
+an unknown authority/kind combination): it neither claims queued pages, recovers
+expired held leases, charges usage nor creates recrawls from that lineage.
+Existing row IDs, statuses, cursors, attempts, leases and due times remain intact.
+Classified jobs continue normally. Recrawl grouping includes authority/kind, so
+matching owner/application/credential tuples cannot merge different provenance.
+
+Before rollout, inventory ALL historical lineage as well as active jobs. Reconcile
+own rows only after the original credential, application and owner match the live
+active workload binding, reviewed finite cohort and production environment. Mark
+those rows `first_party` / `service`. A reviewed live external lineage whose raw-key
+versus signed-service origin cannot be recovered may use `external` /
+`reconciled_legacy_external`; this retains normal external quotas and that explicit
+audit marker instead of fabricating credential kind. Revoked, ambiguous or owner-
+mismatched credentials remain unclassified and held. A `wl_` prefix, application
+branding or historical `caller_tier` is never evidence.
+
+Operational order: apply additive 0058; reconcile reviewed tuples in bounded
+batches with row-count/readback evidence; roll the readers/workers; stop every old
+writer; run a catch-up pass for legacy rows admitted during the roll; verify zero
+unresolved **eligible** queued lineage before declaring the queue migrated.
+Held revoked/unknown work must be reported separately, never silently released or
+deleted. Completed lineage must also be classified because later recrawls inherit
+it. Only a subsequent reviewed source change removes this temporary hold after
+old writers and legacy lineage are accounted for. No reconciliation or production
+write is performed by this source commit.
+
+The root's 2026-10-23 read-only census found 41,933 active Mention-workload jobs
+and 37 queued jobs under a revoked customer credential. The latter stay held;
+they must never be resumed merely by assigning an external marker. Fresh registry
+and owner-tuple evidence is kept in organization scratch
+`first-party-root/clarity-authority/registry-log.json`; re-read it before cutover.
 
 A shared human session has no application ID. Only the accounting/idempotency
 storage key uses the empty string for that absence (as credential attribution
@@ -99,3 +124,8 @@ Still pending: published dependency pins, authoritative legacy queue reconciliat
 deployment and live canaries,
 caller cutover, then removal of the finite v1 bridge. Existing product plan and
 account membership rules remain in force throughout these steps.
+
+The temporary hold passed 27 PostgreSQL worker/quota tests, including unchanged
+legacy leases/attempts/usage, classified external quotas, own queue progress and
+completed-lineage recrawl catch-up. Backend/frontend typechecks and backend
+build passed. Both frontend linked-client hooks now dispose their subscriptions.

@@ -12,6 +12,7 @@ import {
 } from '../db/schema/index.js';
 import {
   leaseNextPage,
+  enqueueJobRecrawls,
   ownsPageLease,
   processPage,
   recoverExpiredLeases,
@@ -59,6 +60,8 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
       account?: string;
       jobStatus?: string;
       idempotencyKey?: string;
+      callerKind?: string;
+      callerAuthority?: 'first_party' | 'external';
     } = {},
   ) {
     const jobId = crypto.randomUUID();
@@ -70,6 +73,8 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
         ownerAccountId: options.account ?? owner,
         applicationId: owner,
         kind: 'urls',
+        callerKind: options.callerKind ?? 'service',
+        callerAuthority: options.callerAuthority ?? 'external',
         status: options.jobStatus ?? 'queued',
         idempotencyKey: options.idempotencyKey ?? jobId,
         pagesDiscovered: 1,
@@ -97,6 +102,110 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
       .returning();
     return row;
   }
+
+  it('holds legacy pages without consuming attempts, quota or expired leases during a rolling deployment', async () => {
+    const queued = await page({ callerKind: 'legacy' });
+    const expired = await page({
+      callerKind: 'legacy',
+      status: 'fetching',
+      expired: true,
+      attempts: 3,
+    });
+    const supplied = await page({
+      callerKind: 'legacy',
+      callerAuthority: 'first_party',
+      status: 'fetching',
+    });
+    expect(await recoverExpiredLeases()).toBe(0);
+    expect(await leaseNextPage()).toBeUndefined();
+    await processPage(supplied);
+    expect(safeFetch).not.toHaveBeenCalled();
+    for (const original of [queued, expired, supplied]) {
+      const [current] = await getDb()
+        .select()
+        .from(crawlPages)
+        .where(eq(crawlPages.id, original.id));
+      expect(current).toEqual(original);
+    }
+    expect(
+      await getDb()
+        .select()
+        .from(searchUsageEvents)
+        .where(eq(searchUsageEvents.ownerAccountId, owner)),
+    ).toHaveLength(0);
+    // Only reviewed provenance releases the original page, with its original identity.
+    await getDb()
+      .update(crawlJobs)
+      .set({ callerKind: 'service', callerAuthority: 'first_party' })
+      .where(eq(crawlJobs.id, queued.jobId));
+    expect((await leaseNextPage())?.id).toBe(queued.id);
+  });
+
+  it('admits reviewed external lineage without inventing credential kind and keeps own quotas separate', async () => {
+    await page({ status: 'fetching' });
+    await page({ status: 'fetching' });
+    const external = await page({ callerKind: 'reconciled_legacy_external' });
+    expect(await leaseNextPage()).toBeUndefined();
+    const own = await page({
+      callerKind: 'service',
+      callerAuthority: 'first_party',
+      account: `${owner}-own`,
+    });
+    expect((await leaseNextPage())?.id).toBe(own.id);
+    const [waiting] = await getDb().select().from(crawlPages).where(eq(crawlPages.id, external.id));
+    expect(waiting.status).toBe('queued');
+  });
+
+  it('holds unresolved historical recrawls and preserves classified authority when grouping matching owner tuples', async () => {
+    const legacy = await page({ callerKind: 'legacy', jobStatus: 'succeeded' });
+    const external = await page({
+      callerKind: 'reconciled_legacy_external',
+      jobStatus: 'succeeded',
+    });
+    const own = await page({
+      callerKind: 'service',
+      callerAuthority: 'first_party',
+      jobStatus: 'succeeded',
+    });
+    const dueAt = new Date(Date.now() - 1000);
+    for (const original of [legacy, external, own]) {
+      await getDb().insert(searchDocuments).values({
+        id: crypto.randomUUID(),
+        requestedUrl: original.url,
+        canonicalUrl: original.url,
+        documentType: 'job',
+        status: 'indexed',
+        nextFetchAt: dueAt,
+      });
+    }
+    expect(await enqueueJobRecrawls()).toBe(2);
+    const created = await getDb()
+      .select()
+      .from(crawlJobs)
+      .where(and(eq(crawlJobs.ownerAccountId, owner), eq(crawlJobs.kind, 'recrawl')));
+    jobIds.push(...created.map((job) => job.id));
+    expect(created).toHaveLength(2);
+    expect(created.map((job) => [job.callerAuthority, job.callerKind]).sort()).toEqual([
+      ['external', 'reconciled_legacy_external'],
+      ['first_party', 'service'],
+    ]);
+    const [held] = await getDb()
+      .select()
+      .from(searchDocuments)
+      .where(eq(searchDocuments.canonicalUrl, legacy.url));
+    expect(held.nextFetchAt).toEqual(dueAt);
+    await getDb()
+      .update(crawlJobs)
+      .set({ callerKind: 'service', callerAuthority: 'first_party' })
+      .where(eq(crawlJobs.id, legacy.jobId));
+    expect(await enqueueJobRecrawls()).toBe(1);
+    const lineage = await getDb()
+      .select()
+      .from(crawlJobs)
+      .where(and(eq(crawlJobs.ownerAccountId, owner), eq(crawlJobs.kind, 'recrawl')));
+    jobIds.push(...lineage.map((job) => job.id));
+    expect(lineage.flatMap((job) => job.requestedUrls)).toContain(legacy.url);
+  });
 
   it('reclaims stale fetching slots and lets queued work advance after a crash', async () => {
     const stale = await page({ status: 'fetching', expired: true });

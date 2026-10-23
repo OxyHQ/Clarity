@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useOxy } from '@oxy.so/services/ui/client';
 import type { LinkedHttpClient } from '@oxy.so/core';
 import config from '../config';
@@ -15,8 +15,10 @@ import config from '../config';
  */
 export function useApiClient(): LinkedHttpClient['client'] {
   const { oxyServices } = useOxy();
-  return useMemo(() => {
-    const { client } = oxyServices.createLinkedClient({ baseURL: config.apiUrl });
-    return client;
-  }, [oxyServices]);
+  const linked = useMemo(
+    () => oxyServices.createLinkedClient({ baseURL: config.apiUrl }),
+    [oxyServices],
+  );
+  useEffect(() => () => linked.dispose(), [linked]);
+  return linked.client;
 }

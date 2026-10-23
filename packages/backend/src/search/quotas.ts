@@ -1,3 +1,4 @@
+import type { CrawlCallerKind } from './crawl-authority.js';
 import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
@@ -51,7 +52,7 @@ export function applicationLedgerKey(subject: { applicationId: string | null }):
 export interface QuotaPrincipal extends QuotaSubject {
   applicationId: string | null;
   credentialId?: string;
-  kind?: 'service' | 'key' | 'session' | 'legacy';
+  kind?: CrawlCallerKind | 'legacy';
 }
 
 export type BillableOperation = 'search' | 'fetch_started' | 'page_indexed' | 'browser_render';
