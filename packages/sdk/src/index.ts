@@ -12,3 +12,5 @@ export type {
   ExperienceList,
   ExperienceValidation,
 } from './experience.js';
+export { clarityForOxySession } from './linked.js';
+export type { ClaritySessionOwner } from './linked.js';
