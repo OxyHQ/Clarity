@@ -1,33 +1,24 @@
 import type { NextFunction, Request, Response } from 'express';
-import { z } from 'zod';
+import type { ResourcePrincipal } from '@oxy.so/contracts';
 
-import { getClarityServiceToken } from '../lib/clarity-service-auth.js';
+import { clarityOxyServer } from '../lib/clarity-service-auth.js';
+import { CLARITY_IDENTITY } from '../lib/clarity-identity.js';
 import { consumeRequestRate } from '../search/quotas.js';
 
-const activeIntrospectionSchema = z.object({
-  active: z.literal(true),
-  accountId: z.string().min(1),
-  applicationId: z.string().min(1),
-  credentialId: z.string().min(1).optional(),
-  environment: z.string().min(1),
-  delegatedUserId: z.string().min(1).optional(),
-  /**
-   * `internal` when the caller is one of Oxy's own applications, which uses
-   * Clarity with no scope and no quota; anything else — third-party apps,
-   * `oxy_sk` keys — is `external`. Oxy answers it; an answer without it (an
-   * older Oxy) reads as external, the conservative side.
-   */
-  tier: z.enum(['internal', 'external']).catch('external').default('external'),
-  scopes: z.array(z.string()),
-  permissions: z.array(z.string()),
-  expiresAt: z.string().datetime().optional(),
-});
+export type ClarityResourcePrincipal = ResourcePrincipal;
+const CLARITY_SERVICE_AUDIENCE = `oxy-service:${CLARITY_IDENTITY.backendApplication.applicationId}`;
 
-const introspectionSchema = z.discriminatedUnion('active', [
-  activeIntrospectionSchema,
-  z.object({ active: z.literal(false) }),
-]);
-export type ClarityResourcePrincipal = z.infer<typeof activeIntrospectionSchema>;
+/**
+ * Temporary receiver-first bridge: Oxy alone may project a live, exact-cohort v1
+ * workload as first_party. No tier, app flag, token decoder or local allowlist
+ * can confer that authority here. Remove the own oxy-api branch after cutover.
+ */
+function intendedForClarity(principal: ClarityResourcePrincipal): boolean {
+  if (principal.kind !== 'service') return true;
+  return principal.authority === 'first_party'
+    ? principal.audience === CLARITY_SERVICE_AUDIENCE || principal.audience === 'oxy-api'
+    : principal.audience === 'oxy-api';
+}
 
 declare global {
   namespace Express {
@@ -49,6 +40,7 @@ export async function authenticateResource(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  delete req.resourcePrincipal;
   const token = bearerToken(req);
   if (!token) {
     sendError(
@@ -64,32 +56,11 @@ export async function authenticateResource(
   try {
     // Revalidate every request: enrollment, owner/credential revocation and
     // scope changes must not outlive a cached positive authorization.
-    const serviceToken = await getClarityServiceToken();
-    const baseUrl = process.env.OXY_API_URL || 'https://api.oxy.so';
-    const response = await fetch(`${baseUrl.replace(/\/$/, '')}/auth/resources/introspect`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${serviceToken}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ token }),
-      signal: AbortSignal.timeout(5_000),
-    });
-    if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
-        sendError(
-          res,
-          401,
-          'invalid_credential',
-          'The supplied credential is invalid or inactive',
-          req,
-        );
-        return;
-      }
-      sendError(res, 503, 'identity_unavailable', 'Oxy identity is temporarily unavailable', req);
-      return;
-    }
-    const principal = introspectionSchema.parse(await response.json());
+    const principal = await clarityOxyServer().introspectResourceToken(token);
     if (
       !principal.active ||
-      (principal.expiresAt && Date.parse(principal.expiresAt) <= Date.now())
+      !intendedForClarity(principal) ||
+      ('expiresAt' in principal && Date.parse(principal.expiresAt) <= Date.now())
     ) {
       sendError(
         res,
@@ -134,11 +105,14 @@ export async function requireResourceRequestRate(
  */
 export function requireResourceScope(scope: string) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    if (req.resourcePrincipal?.tier === 'internal') {
+    if (req.resourcePrincipal?.authority === 'first_party') {
       next();
       return;
     }
-    if (!req.resourcePrincipal?.scopes.includes(scope)) {
+    if (
+      req.resourcePrincipal?.authority !== 'external' ||
+      !req.resourcePrincipal.scopes.includes(scope)
+    ) {
       sendError(res, 403, 'scope_missing', `The ${scope} scope is required`, req);
       return;
     }

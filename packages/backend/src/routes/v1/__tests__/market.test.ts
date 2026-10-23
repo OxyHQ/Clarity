@@ -55,13 +55,16 @@ const { default: marketRouter } = await import('../market.js');
 
 const scoped = (scopes: string[]): ClarityResourcePrincipal => ({
   active: true,
+  permissions: [],
+  kind: 'service',
   accountId: 'account-1',
   applicationId: 'application-1',
-  tier: 'external',
+  authority: 'external',
   credentialId: 'credential-1',
-  environment: 'test',
+  environment: 'development',
+  audience: 'oxy-api',
+  expiresAt: '2099-01-01T00:00:00.000Z',
   scopes,
-  permissions: [],
 });
 
 const NOW_ISO = '2026-09-09T12:00:00.000Z';

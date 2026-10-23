@@ -167,7 +167,10 @@ export async function leaseNextPage() {
         .for('update', { skipLocked: true });
       if (!page) return undefined;
       const [job] = await tx
-        .select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier })
+        .select({
+          ownerAccountId: crawlJobs.ownerAccountId,
+          callerAuthority: crawlJobs.callerAuthority,
+        })
         .from(crawlJobs)
         .where(eq(crawlJobs.id, page.jobId))
         .limit(1);
@@ -181,7 +184,7 @@ export async function leaseNextPage() {
       }
       const concurrencyLimit = await effectiveQuota(
         tx,
-        { accountId: job.ownerAccountId, tier: callerTierOf(job) },
+        { accountId: job.ownerAccountId, authority: callerAuthorityOf(job) },
         'concurrent_fetches',
       );
       const [active] = await tx
@@ -250,7 +253,8 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
     accountId: job.ownerAccountId,
     applicationId: job.applicationId,
     credentialId: job.credentialId ?? undefined,
-    tier: callerTierOf(job),
+    authority: callerAuthorityOf(job),
+    kind: callerKindOf(job),
   };
   if (!(await getDb().transaction((tx) => ownsPageLease(tx, page)))) return;
   if (await completeIfAlreadyFetched(page, job)) return;
@@ -620,19 +624,20 @@ interface DueJobDocument extends Record<string, unknown> {
   applicationId: string;
   credentialId: string | null;
   siteId: string | null;
-  callerTier: string;
+  callerAuthority: string;
+  callerKind: string;
 }
 
 export async function enqueueJobRecrawls(): Promise<number> {
   const due = await getDb().execute<DueJobDocument>(sql`
     select ${searchDocuments.id} as "documentId", ${searchDocuments.canonicalUrl} as url,
       origin.owner_account_id as "ownerAccountId", origin.application_id as "applicationId",
-      origin.credential_id as "credentialId", origin.site_id as "siteId", origin.caller_tier as "callerTier"
+      origin.credential_id as "credentialId", origin.site_id as "siteId", origin.caller_authority as "callerAuthority", origin.caller_kind as "callerKind"
     from ${searchDocuments}
     join lateral (
       select ${crawlJobs.ownerAccountId} as owner_account_id, ${crawlJobs.applicationId} as application_id,
         ${crawlJobs.credentialId} as credential_id, ${crawlJobs.siteId} as site_id,
-        ${crawlJobs.callerTier} as caller_tier
+        ${crawlJobs.callerAuthority} as caller_authority, ${crawlJobs.callerKind} as caller_kind
       from ${crawlPages} join ${crawlJobs} on ${crawlJobs.id} = ${crawlPages.jobId}
       where ${crawlPages.url} = ${searchDocuments.requestedUrl}
       order by ${crawlPages.createdAt} desc limit 1
@@ -667,7 +672,8 @@ export async function enqueueJobRecrawls(): Promise<number> {
           idempotencyKey: `job-recrawl:${new Date().toISOString()}:${crypto.randomUUID()}`,
           requestedUrls: urls,
           pagesDiscovered: urls.length,
-          callerTier: callerTierOf(first),
+          callerAuthority: callerAuthorityOf(first),
+          callerKind: callerKindOf(first),
         })
         .returning();
       await tx
@@ -841,8 +847,14 @@ function header(value: string | string[] | undefined): string | undefined {
 }
 
 /** The side of the ecosystem the job's caller is on; anything unexpected is external. */
-function callerTierOf(job: { callerTier: string }): 'internal' | 'external' {
-  return job.callerTier === 'internal' ? 'internal' : 'external';
+function callerAuthorityOf(job: { callerAuthority: string }): 'first_party' | 'external' {
+  return job.callerAuthority === 'first_party' ? 'first_party' : 'external';
+}
+
+function callerKindOf(job: { callerKind: string }): 'service' | 'key' | 'session' | 'legacy' {
+  return job.callerKind === 'service' || job.callerKind === 'key' || job.callerKind === 'session'
+    ? job.callerKind
+    : 'legacy';
 }
 
 async function main() {

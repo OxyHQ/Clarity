@@ -32,9 +32,7 @@ describe('signed account event feed reconciliation', () => {
     });
     mock.verify.mockResolvedValue({ userId: 'verified-person', eventId: 'verified-event' });
     expect(await reconcileAccountEvents()).toBe(1);
-    expect(mock.token).toHaveBeenCalledWith(undefined, undefined, {
-      scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
-    });
+    expect(mock.token).toHaveBeenCalledWith();
     expect(mock.claims).toHaveBeenCalledWith('service-token');
     expect(mock.list).toHaveBeenCalledWith({ after: 'cursor-old', limit: 100 });
     expect(mock.verify).toHaveBeenCalledWith('signed-event', { audience: applicationId });

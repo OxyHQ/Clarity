@@ -61,15 +61,8 @@ describe('architecture gates', () => {
       roleArn: 'arn:aws:iam::237343248947:role/oxy-clarity-task',
       attestationId: 'wl_1553bb11eb957512b3cdc956',
     });
-    expect(CLARITY_IDENTITY.publicApplication.scopes).toEqual(['user:read']);
-    // Embeddings on kaana.ai, and the capability catalogue's three Oxy lanes.
-    expect(CLARITY_IDENTITY.backendApplication.scopes).toEqual([
-      'user:read',
-      'inference:invoke',
-      'catalogs:write',
-      'capabilities:read',
-      'capability-audit:write',
-    ]);
+    expect(CLARITY_IDENTITY.publicApplication).not.toHaveProperty('scopes');
+    expect(CLARITY_IDENTITY.backendApplication).not.toHaveProperty('scopes');
 
     const layout = readFileSync(
       join(repoRoot, 'packages', 'frontend', 'app', '_layout.tsx'),
@@ -447,7 +440,7 @@ describe('architecture gates', () => {
     expect(schema).not.toMatch(/agentId|agentInfo|aliaAgentIdSha256/);
   });
 
-  it('reaches Oxy Files through one adapter, whose scopes never join the backend token tuple', () => {
+  it('reaches app-owned Oxy Files through one workload adapter without scope grants', () => {
     const sources = filesUnder(join(packageRoot, 'src')).filter(
       (file) => file.endsWith('.ts') && !file.includes('__tests__'),
     );
@@ -459,8 +452,7 @@ describe('architecture gates', () => {
       'packages/backend/src/files/oxy-files.ts',
       'packages/backend/src/lib/clarity-service-auth.ts',
     ]);
-    // The backend token is minted as exactly its declared tuple, and no file
-    // scope is declared in it or requested beside it.
+    // Own workload identity is independent of external file scopes.
     const auth = readFileSync(join(packageRoot, 'src', 'lib', 'clarity-service-auth.ts'), 'utf8');
     expect(auth).not.toMatch(/files:/);
     const identity = readFileSync(join(packageRoot, 'src', 'lib', 'clarity-identity.ts'), 'utf8');

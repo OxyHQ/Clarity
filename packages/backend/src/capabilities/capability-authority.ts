@@ -3,20 +3,10 @@
  * recording what a ticket did, and registering the catalogue.
  *
  * All three authenticate to Oxy as Clarity's backend through its attested
- * workload identity (`lib/clarity-service-auth.ts`, oxy ADR 0026): no secret
- * exists anywhere. They need these service scopes on Clarity's backend
- * application, which is why its exact scope set names them:
- *
- *  - `catalogs:write` plus the application capability `catalog:clarity` —
- *    registering this catalogue (`POST /capabilities/catalogs/register`);
- *  - `capabilities:read` — live ticket introspection
- *    (`POST /capabilities/tickets/introspect`);
- *  - `capability-audit:write` — the audit record of every internal call
- *    (`POST /capabilities/audit`).
- *
- * The public `/mcp` lane's token introspection needs no scope beyond a live
- * service principal: Oxy answers only for a resource the calling application
- * registered, which the catalogue registration above is.
+ * workload identity. Own catalogue registration, introspection and audit need
+ * no application scopes (Oxy ADR 0049). Oxy binds registration to the actual
+ * service identity and every execution to its verified account and operation.
+ * External MCP connections retain their OAuth scopes and account selection.
  */
 
 import type { KeyObject } from 'node:crypto';
@@ -71,7 +61,7 @@ function ticketKeyId(ticket: string): string {
  *
  * The untrusted `kid` only selects which of Oxy's published keys to try; the
  * common verifier checks the original signed bytes. A ticket Oxy no longer
- * stands behind — revoked authority, a withdrawn ceiling — answers inactive and
+ * stands behind — revoked task or external grant — answers inactive and
  * is refused, however valid its signature.
  */
 export function createTicketVerifier(options: TicketVerifierOptions): TicketVerifier {

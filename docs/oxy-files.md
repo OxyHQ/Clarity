@@ -135,28 +135,12 @@ event id once (`clarity_oxy_file_events`, kept 30 days):
 
 ## Rollout
 
-### Before the grant: exact scope subsets (done)
+### Own workload authority
 
-Clarity's backend token must carry exactly the scope set declared in
-`lib/clarity-identity.ts` (`assertExactClarityServiceClaims`, and the AGENTS.md
-hard boundary). Clarity mints it from its attested workload, so without scope
-subsets every scope granted to the Clarity Backend workload would appear on it,
-and a file grant would make every exact check, readiness included, fail closed.
-
-That is closed: `@oxy.so/core` mints exact scope subsets (oxy #1718), and
-`getClarityServiceToken` and `getClarityServiceTokenFor` request the declared
-tuple as one (Clarity #123; the backend no longer calls Alia since #122). The
-Oxy Files adapter's calls mint the unscoped token, which `OxyServer` caches
-apart from the subset, so the file scopes reach only Oxy Files.
-`clarity-service-auth.test.ts` refuses the full grant (the declared tuple plus
-`CLARITY_FILES_SCOPES`) as the backend token, and the architecture gate keeps
-`files:` out of the identity and the auth module.
-
-Order: grant the scopes below before deploying this change (the subset code is
-already in production). A deploy without the grant is safe but degraded: Oxy
-refuses the imports (403, never remembered as a missing image), so an image
-Clarity does not already hold answers `503 image_unavailable` until the grant
-lands.
+The former file-scope grant and exact backend token tuple are superseded by Oxy
+ADR 0049. Clarity uses its registered workload identity; Files keeps application
+ownership and reference lifecycle checks. See [the transition record](./first-party-platform.md)
+for rollout order. External file clients retain their scopes.
 
 ### Before Oxy stage 4c
 
@@ -168,11 +152,9 @@ an operator, after Oxy #1774 (stage 4c) is deployed.
 
 ### Operations
 
-1. Oxy staff grant the Clarity Backend workload binding
-   (`01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`, role `oxy-clarity-task`) the
-   scopes `files:app:write` and `files:references:write`. These are
-   `CLARITY_FILES_SCOPES`. Clarity never deletes its own files, so it does not
-   need `files:app:delete`.
+1. Verify the active Clarity Backend workload binding and environment
+   (`01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`, role `oxy-clarity-task`). Own
+   file access requires no scope grant.
 2. Set the file-events endpoint in the Oxy console: Webhooks → File events →
    `https://api.clarity.surf/webhooks/oxy/files`. Store the secret shown once
    as SSM `/oxy/clarity/OXY_FILES_WEBHOOK_SECRET`, and add it to both task

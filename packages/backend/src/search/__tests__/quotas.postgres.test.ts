@@ -34,6 +34,13 @@ suite('Clarity quota ledger on PostgreSQL', () => {
     await closePostgres();
   });
 
+  it('never grants workload quotas from a legacy internal tier', async () => {
+    const legacy = { accountId, tier: 'internal' as const };
+    expect(await effectiveQuota(getDb(), legacy, 'active_crawls')).toBe(
+      SANDBOX_QUOTAS.active_crawls,
+    );
+  });
+
   it('admits only one concurrent charge at the monthly boundary', async () => {
     const results = await Promise.all([
       consumeUsage({
@@ -139,23 +146,23 @@ suite('Clarity quota ledger on PostgreSQL', () => {
   });
 
   it("has no quota for one of Oxy's own applications — only the technical ceilings", async () => {
-    const internal = { accountId, tier: 'internal' as const };
+    const internal = { accountId, authority: 'first_party' as const };
     expect(await effectiveQuota(getDb(), internal, 'search_month')).toBe(Number.POSITIVE_INFINITY);
     expect(await effectiveQuota(getDb(), internal, 'active_crawls')).toBe(Number.POSITIVE_INFINITY);
     expect(await effectiveQuota(getDb(), internal, 'requests_minute_application')).toBe(
       INTERNAL_QUOTAS.requests_minute_application,
     );
     // An external caller on the same account keeps the sandbox and its grants.
-    expect(await effectiveQuota(getDb(), { accountId, tier: 'external' }, 'active_crawls')).toBe(
-      SANDBOX_QUOTAS.active_crawls,
-    );
+    expect(
+      await effectiveQuota(getDb(), { accountId, authority: 'external' }, 'active_crawls'),
+    ).toBe(SANDBOX_QUOTAS.active_crawls);
   });
 
   it('meters an internal caller without ever refusing it', async () => {
     const internal = {
       ...principal,
       accountId: `${accountId}-internal`,
-      tier: 'internal' as const,
+      authority: 'first_party' as const,
     };
     const results = [];
     for (let search = 0; search < 3; search += 1) {

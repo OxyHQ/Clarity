@@ -21,6 +21,7 @@ import {
 } from '../../middleware/resource-auth.js';
 import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
 import {
+  applicationLedgerKey,
   consumeUsage,
   effectiveQuota,
   SANDBOX_QUOTAS,
@@ -380,7 +381,7 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
       .where(
         and(
           eq(crawlJobs.ownerAccountId, principal.accountId),
-          eq(crawlJobs.applicationId, principal.applicationId),
+          eq(crawlJobs.applicationId, applicationLedgerKey(principal)),
           eq(crawlJobs.idempotencyKey, idempotencyKey),
         ),
       )
@@ -392,13 +393,14 @@ router.post('/sites/:id/crawls', requireResourceScope('clarity:sites:manage'), a
       .values({
         id: crypto.randomUUID(),
         ownerAccountId: principal.accountId,
-        applicationId: principal.applicationId,
-        credentialId: principal.credentialId,
+        applicationId: applicationLedgerKey(principal),
+        credentialId: 'credentialId' in principal ? principal.credentialId : undefined,
         siteId: site.id,
         kind: 'site',
         idempotencyKey,
         requestedUrls: [site.origin],
-        callerTier: principal.tier,
+        callerAuthority: principal.authority,
+        callerKind: principal.kind,
       })
       .returning();
     return created;
@@ -614,7 +616,7 @@ router.post('/jobs/ingest', requireResourceScope('clarity:index'), async (req, r
         structuredData,
         siteId: site.id,
         sourceType: 'first_party',
-        submittedByApplicationId: principal.applicationId,
+        submittedByApplicationId: principal.applicationId ?? undefined,
         observedAt: new Date(),
       });
     } catch (error) {
@@ -980,7 +982,7 @@ export async function resolveIndexOperations(
           inArray(crawlPages.url, urls),
           inArray(crawlPages.status, ['queued', 'retry', 'fetching']),
           eq(crawlJobs.ownerAccountId, principal.accountId),
-          eq(crawlJobs.applicationId, principal.applicationId),
+          eq(crawlJobs.applicationId, applicationLedgerKey(principal)),
           eq(crawlJobs.kind, 'urls'),
           inArray(crawlJobs.status, ['queued', 'running']),
         ),
@@ -1084,7 +1086,7 @@ async function insertIndexOperation(
     .where(
       and(
         eq(crawlJobs.ownerAccountId, principal.accountId),
-        eq(crawlJobs.applicationId, principal.applicationId),
+        eq(crawlJobs.applicationId, applicationLedgerKey(principal)),
         eq(crawlJobs.idempotencyKey, idempotencyKey),
       ),
     )
@@ -1097,13 +1099,14 @@ async function insertIndexOperation(
     .values({
       id: crypto.randomUUID(),
       ownerAccountId: principal.accountId,
-      applicationId: principal.applicationId,
-      credentialId: principal.credentialId,
+      applicationId: applicationLedgerKey(principal),
+      credentialId: 'credentialId' in principal ? principal.credentialId : undefined,
       kind: 'urls',
       idempotencyKey,
       requestedUrls: urls,
       pagesDiscovered: urls.length,
-      callerTier: principal.tier,
+      callerAuthority: principal.authority,
+      callerKind: principal.kind,
     })
     .returning();
   await tx
