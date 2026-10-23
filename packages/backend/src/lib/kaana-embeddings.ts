@@ -23,9 +23,10 @@
  * and the caller degrades exactly as it does without the capability. Chunks
  * are embedded through `search/embedding-queue.ts`, which backs off on its own.
  */
-import { Kaana, KaanaError } from '@kaana.ai/sdk';
+import { type Kaana, KaanaError } from '@kaana.ai/sdk';
 
-import { getClarityServiceTokenFor } from './clarity-service-auth.js';
+import { clarityOxyServer } from './clarity-service-auth.js';
+import { kaanaForOxyService } from '@kaana.ai/sdk/server';
 import { createLogger } from './logger.js';
 
 /**
@@ -104,8 +105,7 @@ let queuedClient: Kaana | undefined;
 
 function kaana(queued: boolean): Kaana {
   const create = (maxRetries?: number) =>
-    new Kaana({
-      credential: () => getClarityServiceTokenFor('kaana.ai'),
+    kaanaForOxyService(clarityOxyServer(), {
       timeoutMs: DEFAULT_TIMEOUT_MS,
       ...(maxRetries === undefined ? {} : { maxRetries }),
     });

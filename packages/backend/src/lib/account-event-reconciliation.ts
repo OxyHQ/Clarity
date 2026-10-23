@@ -1,12 +1,12 @@
 import { commitAccountEventPage, readAccountEventCursor } from '../db/experience-repository.js';
 import { oxyClient } from '../middleware/auth.js';
 import { CLARITY_IDENTITY } from './clarity-identity.js';
-import { assertExactClarityServiceClaims } from './clarity-service-auth.js';
+import { assertClarityWorkloadIdentity } from './clarity-service-auth.js';
 
 /** Bounded catch-up alongside the worker's normal maintenance, independent of Alia. */
 export async function reconcileAccountEvents(): Promise<number> {
   const applicationId = CLARITY_IDENTITY.backendApplication.applicationId;
-  assertExactClarityServiceClaims(await oxyClient.serviceToken());
+  await assertClarityWorkloadIdentity();
   let cursor = await readAccountEventCursor(applicationId);
   let processed = 0;
   for (let pageNumber = 0; pageNumber < 10; pageNumber += 1) {

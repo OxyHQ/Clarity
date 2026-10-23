@@ -27,13 +27,28 @@ workload binding, application, owner and environment against the finite rollout
 cohort. Clarity has no local cohort, brand bypass or token-payload fallback.
 External service tokens retain their scoped `oxy-api` lane.
 
-Clarity's manual outbound token calls remain v1 under the preparatory shared
-SDK so upgrading the receiver does not change an unmigrated recipient's protocol.
-They no longer request or validate scopes. The new `clarityForOxyService` SDK
-factory always uses v2 and `oxy-service:01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`.
-After all inventoried callers migrate, remove the own `oxy-api` receiver branch
-and v1 self-identity compatibility; retain external scoped OAuth/API-key behavior.
-Do not deploy that removal ahead of the caller cutover.
+The receiver-only checkpoint is `fc6f60c` (rebased onto SDK 0.10.0). Its legacy
+outbound producers remain unchanged for a reader-first rollout. The subsequent
+producer source uses protocol 2 exclusively: Kaana's shared SDK factory,
+Mercaria's public catalogue factory, the shared Oxy transport for domain checks,
+the shared signed account-events feed, and the temporary workload activity
+publisher. No producer requests or validates OAuth scopes. Exact Clarity project,
+application and workload identity checks remain where the account-event and
+catalogue clients previously required them; they inspect the shared v2 mint and
+never manually forward its bearer.
+
+Deploy the compatible Oxy API and Clarity reader first. Reconcile held legacy
+lineage using reviewed live provenance. Then deploy Mercaria's canonical
+receiver before enabling the new Clarity catalogue caller. Public catalogue
+reads retain their anonymous fallback when workload minting is unavailable;
+a receiver's denial is not retried anonymously. The embedding queue still owns
+its retry schedule (`maxRetries: 0`), preserving its existing cost/backoff rules.
+
+After all inventoried producers and queued work migrate, remove the own `oxy-api`
+receiver branch and the finite central v1 cohort. Inventory scheduled and one-shot
+launch definitions as well as running ECS services: an old image can still start
+later. Retain external scoped OAuth/API-key behavior. Do not deploy removal ahead
+of caller cutover. SDK publication alone changes no running producer.
 
 ## Queued work and accounting
 
@@ -41,8 +56,9 @@ Migration `0058_verified_crawl_authority` is additive and runs before the new
 reader. New work persists `caller_authority` and `caller_kind` from the live
 principal. Old jobs keep their IDs, account, application, credential, URLs,
 status and historical `caller_tier`; that tier never proves authority. Their new
-authority defaults to external and kind to legacy, so existing jobs can encounter
-external crawl quotas until reconciled. No job is deleted or silently discarded.
+authority defaults to external and kind to legacy; these rows remain held until
+reviewed reconciliation, without charging an external quota. No job is deleted
+or silently discarded.
 
 The new worker temporarily holds unclassified lineage (`caller_kind = legacy` or
 an unknown authority/kind combination): it neither claims queued pages, recovers
@@ -129,3 +145,10 @@ The temporary hold passed 27 PostgreSQL worker/quota tests, including unchanged
 legacy leases/attempts/usage, classified external quotas, own queue progress and
 completed-lineage recrawl catch-up. Backend/frontend typechecks and backend
 build passed. Both frontend linked-client hooks now dispose their subscriptions.
+
+Producer source checkpoint: 42 targeted producer/identity tests, 34 existing
+architecture/queue/ranking tests and 11 composed HTTP/PG authority tests pass.
+Backend source/test typecheck passes with candidate core7, Kaana factory and
+Mercaria0.7. All59 migrations apply to a fresh disposable database. Production
+build and registry-pinned rerun remain pending; candidate overrides were removed
+before preserving this checkpoint.

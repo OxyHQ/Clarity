@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { OxyServer, type ServiceTokenAudience } from '@oxy.so/core/server';
+import { OxyServer, type ServiceHttpClient } from '@oxy.so/core/server';
 import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 
 import { CLARITY_IDENTITY } from './clarity-identity.js';
@@ -20,6 +20,7 @@ const TOKEN_EXPIRY_CLOCK_SKEW_SECONDS = 30;
 
 let client: OxyServer | undefined;
 let clientFingerprint = '';
+let platformTransport: ServiceHttpClient | undefined;
 const CANONICAL_OXY_API_URL = 'https://api.oxy.so';
 
 /**
@@ -127,8 +128,8 @@ export function assertExactClarityServiceClaims(token: string): void {
     typeof claims.credentialId !== 'string' ||
     !ACCEPTED_CREDENTIAL_IDS.includes(claims.credentialId) ||
     claims.ownerAccountId !== CLARITY_IDENTITY.projectAccountId ||
-    (claims.authority !== undefined && claims.authority !== 'first_party') ||
-    (claims.authority === 'first_party' && claims.scopes !== undefined) ||
+    claims.authority !== 'first_party' ||
+    claims.scopes !== undefined ||
     typeof claims.exp !== 'number' ||
     !Number.isFinite(claims.exp) ||
     !Number.isInteger(claims.exp) ||
@@ -154,8 +155,9 @@ function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
   /** The fingerprint keys the cached client on the origin it was built for. */
   const fingerprint = createHash('sha256').update(`attestation\0${config.baseUrl}`).digest('hex');
   if (!client || clientFingerprint !== fingerprint) {
-    // Never given a credential: `serviceToken()` takes the workload path
-    // precisely because none is configured.
+    platformTransport?.dispose();
+    platformTransport = undefined;
+    client?.dispose();
     client = new OxyServer({
       baseURL: config.baseUrl,
       workloadCredentials: createAwsWorkloadCredentialProvider(),
@@ -170,12 +172,23 @@ export function getClarityFilesClient(env: NodeJS.ProcessEnv = process.env): Oxy
   return clarityServiceClient(env);
 }
 
-export async function getClarityServiceToken(
+/** Shared protocol-2 transport for Oxy resource endpoints. */
+export function clarityPlatformTransport(env: NodeJS.ProcessEnv = process.env): ServiceHttpClient {
+  const server = clarityServiceClient(env);
+  platformTransport ??= server.createServiceClient({
+    baseURL: canonicalBaseUrl(env),
+    audience: 'oxy-api',
+  });
+  return platformTransport;
+}
+
+/** Check our exact project identity through the shared v2 mint/cache, never a manual bearer. */
+export async function assertClarityWorkloadIdentity(
   env: NodeJS.ProcessEnv = process.env,
-): Promise<string> {
-  const token = await clarityServiceClient(env).serviceToken();
-  assertExactClarityServiceClaims(token);
-  return token;
+): Promise<void> {
+  assertExactClarityServiceClaims(
+    await clarityPlatformTransport(env).getAccessToken(canonicalBaseUrl(env)),
+  );
 }
 
 /**
@@ -185,25 +198,4 @@ export async function getClarityServiceToken(
  */
 export function clarityOxyServer(env: NodeJS.ProcessEnv = process.env): OxyServer {
   return clarityServiceClient(env);
-}
-
-/** Forget the cached service token(s) after Oxy refused one, so the next call mints anew. */
-export function invalidateClarityServiceToken(env: NodeJS.ProcessEnv = process.env): void {
-  clarityServiceClient(env).invalidateServiceToken();
-}
-
-/**
- * Clarity's service token for another resource server: `kaana.ai` is the
- * credential `https://kaana.ai/v1` accepts (Kaana ADR 0002, decision 6). The
- * same attested identity as
- * {@link getClarityServiceToken}, minted for its own audience and cached apart
- * by `OxyServer`, so an `oxy-api` token never reaches Kaana nor the reverse.
- */
-export async function getClarityServiceTokenFor(
-  audience: ServiceTokenAudience,
-  env: NodeJS.ProcessEnv = process.env,
-): Promise<string> {
-  const token = await clarityServiceClient(env).serviceTokenFor(audience);
-  assertExactClarityServiceClaims(token);
-  return token;
 }

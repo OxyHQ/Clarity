@@ -171,14 +171,14 @@ describe('Clarity service token claims', () => {
     },
   );
 
-  it('temporarily accepts its exact v1 workload identity without depending on its old scope tuple', () => {
+  it('requires protocol-2 own authority even for its exact historic workload identity', () => {
     expect(() =>
       assertExactClarityServiceClaims(serviceToken({ authority: undefined, scopes: [] })),
-    ).not.toThrow();
+    ).toThrow();
     expect(() =>
       assertExactClarityServiceClaims(
         serviceToken({ authority: undefined, scopes: ['files:app:write'] }),
       ),
-    ).not.toThrow();
+    ).toThrow();
   });
 });
