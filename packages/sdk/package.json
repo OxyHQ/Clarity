@@ -1,6 +1,6 @@
 {
   "name": "@clarity.surf/sdk",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Universal SDK for Clarity Search, Jobs, Indexing and News",
   "type": "module",
   "sideEffects": false,
@@ -21,6 +21,11 @@
       "types": "./dist/experience.d.ts",
       "import": "./dist/experience.js",
       "require": "./dist/cjs/experience.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "require": "./dist/cjs/server.js"
     }
   },
   "files": [

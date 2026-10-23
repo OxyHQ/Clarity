@@ -61,6 +61,8 @@ export interface ClarityClientOptions {
   baseUrl?: string;
   timeoutMs?: number;
   fetch?: typeof fetch;
+  /** Authenticated, origin-bound transport owned by Oxy; do not combine with credentials. */
+  transport?: { fetch: typeof fetch; dispose(): void };
 }
 
 const DEFAULT_BASE_URL = 'https://api.clarity.surf';
@@ -72,13 +74,17 @@ export class ClarityClient {
   private readonly fetcher: typeof fetch;
 
   constructor(private readonly options: ClarityClientOptions = {}) {
-    const authMethods = [options.apiKey, options.accessToken, options.getAccessToken].filter(
-      Boolean,
-    );
+    const authMethods = [
+      options.apiKey,
+      options.accessToken,
+      options.getAccessToken,
+      options.transport,
+    ].filter(Boolean);
     if (authMethods.length > 1)
-      throw new Error('Configure exactly one of apiKey, accessToken or getAccessToken');
+      throw new Error('Configure exactly one of apiKey, accessToken, getAccessToken or transport');
+    if (options.transport && options.fetch) throw new Error('Transport owns fetch');
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '');
-    this.fetcher = options.fetch ?? globalThis.fetch;
+    this.fetcher = options.transport?.fetch ?? options.fetch ?? globalThis.fetch;
     if (!this.fetcher) throw new Error('A Fetch API implementation is required');
   }
 
@@ -286,6 +292,11 @@ export class ClarityClient {
       this.request<Quotas>('GET', '/v1/quotas', undefined, options),
   };
 
+  /** Release the Oxy transport's session subscription and pending requests. */
+  dispose(): void {
+    this.options.transport?.dispose();
+  }
+
   private async token(): Promise<string> {
     if (this.options.apiKey) return this.options.apiKey;
     if (this.options.accessToken) return this.options.accessToken;
@@ -302,7 +313,7 @@ export class ClarityClient {
     publicRead = false,
   ): Promise<T> {
     const safe = method === 'GET';
-    const attempts = safe ? SAFE_RETRY_DELAYS_MS.length + 1 : 1;
+    const attempts = safe && !this.options.transport ? SAFE_RETRY_DELAYS_MS.length + 1 : 1;
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       const controller = new AbortController();
       const timeout = setTimeout(
@@ -315,10 +326,11 @@ export class ClarityClient {
         const response = await this.fetcher(`${this.baseUrl}${path}`, {
           method,
           headers: {
-            ...(!publicRead ||
-            this.options.apiKey ||
-            this.options.accessToken ||
-            this.options.getAccessToken
+            ...(!this.options.transport &&
+            (!publicRead ||
+              this.options.apiKey ||
+              this.options.accessToken ||
+              this.options.getAccessToken)
               ? { authorization: `Bearer ${await this.token()}` }
               : {}),
             ...(body === undefined ? {} : { 'content-type': 'application/json' }),
