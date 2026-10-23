@@ -140,6 +140,10 @@ jobs:
           bun run --filter @clarity/backend typecheck
           bun run --filter @clarity.surf/sdk typecheck
 
+      # The SDK's suite gates its npm release, which runs no tests of its own.
+      - name: Test SDK
+        run: bun run --filter @clarity.surf/sdk test
+
       - name: Validate and apply PostgreSQL migrations
         env:
           DATABASE_URL: ${{ env.TEST_DATABASE_URL }}
