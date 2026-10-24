@@ -910,12 +910,11 @@ export const crawlJobs = pgTable(
     status: text('status').notNull().default('queued'),
     idempotencyKey: text('idempotency_key').notNull(),
     requestedUrls: text('requested_urls').array().notNull().default(sql`'{}'::text[]`),
-    /**
-     * Whether the application that queued the crawl is one of Oxy's own
-     * (`internal`) or not: the worker charges fetches against the quotas of that
-     * caller, and only an external one has any (search/quotas.ts).
-     */
+    /** Historical branding; never evidence of workload authority. Kept for old readers. */
     callerTier: text('caller_tier').notNull().default('external'),
+    /** Verified authority at admission; legacy jobs default to external. */
+    callerAuthority: text('caller_authority').notNull().default('external'),
+    callerKind: text('caller_kind').notNull().default('legacy'),
     pagesDiscovered: integer('pages_discovered').notNull().default(0),
     pagesCompleted: integer('pages_completed').notNull().default(0),
     errorCode: text('error_code'),
@@ -938,6 +937,10 @@ export const crawlJobs = pgTable(
     check(
       'clarity_crawl_jobs_kind_check',
       sql`${table.kind} in ('urls', 'site', 'recrawl', 'removal')`,
+    ),
+    check(
+      'clarity_crawl_jobs_caller_authority_check',
+      sql`${table.callerAuthority} in ('first_party', 'external')`,
     ),
     check(
       'clarity_crawl_jobs_caller_tier_check',
@@ -1060,6 +1063,7 @@ export const searchUsageEvents = pgTable(
     ownerAccountId: text('owner_account_id').notNull(),
     applicationId: text('application_id').notNull(),
     credentialId: text('credential_id'),
+    callerKind: text('caller_kind').notNull().default('legacy'),
     operation: text('operation').notNull(),
     idempotencyKey: text('idempotency_key'),
     quantity: integer('quantity').notNull().default(1),
@@ -1150,7 +1154,7 @@ export const searchRateLimitBuckets = pgTable(
     index('clarity_search_rate_limit_buckets_expiry_idx').on(table.expiresAt),
     check(
       'clarity_search_rate_limit_buckets_dimension_check',
-      sql`${table.dimension} in ('credential', 'application')`,
+      sql`${table.dimension} in ('credential', 'application', 'account')`,
     ),
     check('clarity_search_rate_limit_buckets_quantity_check', sql`${table.quantity} > 0`),
   ],

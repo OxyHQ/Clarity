@@ -13,7 +13,7 @@ ordinary Alia agent (Alia ADR 0020): `docs/assistant.mdx`.
   Experience, suggestions, notifications, feedback, the plan catalogue,
   subscriptions and entitlements.
 - Alia owns the assistant: the Clarity agent (prompt, character, families,
-  ceiling, feature gates), its conversations, memory, deep research, credits
+  feature gates), its conversations, memory, deep research, credits
   and checkout, usage, audit, triggers and channel bots. **The backend never
   calls Alia** — no proxy, no relay of a person as a header, no agent id, no
   product-paid chat. Never re-add a Clarity conversation table, a Clarity stream
@@ -40,7 +40,8 @@ ordinary Alia agent (Alia ADR 0020): `docs/assistant.mdx`.
 - The canonical IDs live in `packages/backend/src/lib/clarity-identity.ts`.
   Match them byte for byte; do not trim, normalize, discover by name/list/order,
   or accept client rebinding. The backend token must identify the exact backend
-  app, workload handle, project owner and the exact scope set listed there.
+  app, workload handle and project owner; own authority never depends on scopes
+  (`docs/first-party-platform.md`).
 - Clarity Jobs indexes PUBLIC job postings. No applicant tracking, CV store,
   candidate profile or application data in Jobs, and no route that could disclose a
   named user to an employer — Jobs catalogue tools never receive the effective
@@ -104,7 +105,7 @@ tests. See `docs/postgres-alia-migration.md` for backfill and cutover commands.
   ranking contract, ingestion boundary and portal.
 - `docs/postgres-alia-migration.md` — rehearsal, reconciliation and cutover.
 - `docs/oxy-files.md` — images are Clarity-owned Oxy files (ADR 0043); only
-  `src/files/oxy-files.ts` calls Oxy Files; its scopes never join the backend token tuple.
+  `src/files/oxy-files.ts` calls Oxy Files with workload identity and application ownership.
 - `packages/backend/src/db/schema/index.ts` — product schema.
 - `packages/backend/src/capabilities/clarity.catalog.ts` — the capability catalogue.
 - `packages/backend/src/search/jobs/` — Jobs extraction, projection and search.

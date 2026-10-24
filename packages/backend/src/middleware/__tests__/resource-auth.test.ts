@@ -1,157 +1,152 @@
 import type { NextFunction, Request, Response } from 'express';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { restoreFetch, stubFetch } from '../../__tests__/support/global-fetch.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const introspect = vi.fn();
 vi.mock('../../lib/clarity-service-auth.js', () => ({
-  getClarityServiceToken: vi.fn(async () => 'clarity-service-token'),
+  clarityOxyServer: () => ({ introspectResourceToken: introspect }),
 }));
 vi.mock('../../search/quotas.js', () => ({
   consumeRequestRate: vi.fn(async () => ({ accepted: true })),
 }));
+import type { ClarityResourcePrincipal } from '../resource-auth.js';
+const { authenticateResource, requireResourceScope } = await import('../resource-auth.js');
 
-import {
-  authenticateResource,
-  requireResourceScope,
-  type ClarityResourcePrincipal,
-} from '../resource-auth.js';
-
-interface FakeResponse {
-  statusCode: number;
-  body: unknown;
-  status(code: number): FakeResponse;
-  json(body: unknown): FakeResponse;
-  setHeader(): FakeResponse;
-}
-
-function response(): FakeResponse & Response {
-  const res: FakeResponse = {
+function response() {
+  const res = {
     statusCode: 200,
-    body: undefined,
-    status(code) {
-      res.statusCode = code;
-      return res;
+    body: undefined as unknown,
+    status(code: number) {
+      this.statusCode = code;
+      return this;
     },
-    json(body) {
-      res.body = body;
-      return res;
-    },
-    setHeader() {
-      return res;
+    json(body: unknown) {
+      this.body = body;
+      return this;
     },
   };
-  return res as FakeResponse & Response;
+  return res as typeof res & Response;
 }
-
-/** A `next` the middleware can call, and the test can count. */
-function nextSpy() {
-  const spy = vi.fn();
-  return Object.assign(spy as unknown as NextFunction, { spy });
-}
-
-function request(principal?: Partial<ClarityResourcePrincipal>, bearer?: string): Request {
-  const headers: Record<string, string> = bearer ? { authorization: `Bearer ${bearer}` } : {};
+function request(principal?: Partial<ClarityResourcePrincipal>, token = 'token'): Request {
   return {
     resourcePrincipal: principal,
-    header: (name: string) => headers[name.toLowerCase()],
-  } as unknown as Request;
+    header: (name: string) => (name === 'authorization' ? `Bearer ${token}` : undefined),
+  } as Request;
 }
-
-describe('requireResourceScope', () => {
-  it("passes one of Oxy's own applications whatever scope is asked for", () => {
-    const next = nextSpy();
-    requireResourceScope('clarity:index')(
-      request({ tier: 'internal', scopes: [] }),
-      response(),
-      next,
-    );
-    expect(next.spy).toHaveBeenCalledTimes(1);
-  });
-
-  it('holds an external caller to its scopes', () => {
-    const next = nextSpy();
-    const res = response();
-    requireResourceScope('clarity:index')(
-      request({ tier: 'external', scopes: ['clarity:search'] }),
-      res,
-      next,
-    );
-    expect(next.spy).not.toHaveBeenCalled();
-    expect(res.statusCode).toBe(403);
-
-    requireResourceScope('clarity:search')(
-      request({ tier: 'external', scopes: ['clarity:search'] }),
-      response(),
-      next,
-    );
-    expect(next.spy).toHaveBeenCalledTimes(1);
-  });
+const own = {
+  active: true,
+  permissions: [],
+  kind: 'service',
+  authority: 'first_party',
+  accountId: 'owner',
+  applicationId: 'caller',
+  credentialId: 'wl_caller',
+  environment: 'production',
+  expiresAt: '2099-01-01T00:00:00.000Z',
+  audience: 'oxy-service:01a0648b-8d73-70ad-8e67-1c07ddc5eb6e',
+} satisfies ClarityResourcePrincipal;
+beforeEach(() => {
+  introspect.mockReset();
 });
 
-describe('authenticateResource reads the tier Oxy answers', () => {
-  const upstream = vi.fn<typeof fetch>();
-  const introspection = {
-    active: true,
-    accountId: 'a',
-    applicationId: 'app',
-    environment: 'production',
-    scopes: [],
-    permissions: [],
-  };
-
-  beforeEach(() => {
-    upstream.mockReset();
-    stubFetch(upstream);
-  });
-
-  afterEach(() => restoreFetch());
-
-  it.each([
-    ['internal', { tier: 'internal' }, 'internal'],
-    ['absent (an older Oxy)', {}, 'external'],
-    ['unknown', { tier: 'staff' }, 'external'],
-  ])('tier %s → %s', async (_label, extra, expected) => {
-    upstream.mockResolvedValue(
-      new Response(JSON.stringify({ ...introspection, ...extra }), { status: 200 }),
-    );
-    const req = request(undefined, `token-${expected}-${Math.random()}`);
-    const next = nextSpy();
-
-    await authenticateResource(req, response(), next);
-
-    expect(next.spy).toHaveBeenCalledTimes(1);
-    expect(req.resourcePrincipal?.tier).toBe(expected);
-  });
-  it.each(['user-session', 'oxy_sk_existing', 'service-owner-token'])(
-    'revalidates %s after enrollment/revocation and never serves a warm authorization',
-    async (token) => {
-      upstream.mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...introspection, tier: 'internal' }), { status: 200 }),
-      );
-      const first = nextSpy();
-      await authenticateResource(request(undefined, token), response(), first);
-      expect(first.spy).toHaveBeenCalledTimes(1);
-      upstream.mockResolvedValueOnce(
-        new Response(JSON.stringify({ active: false, scopes: [], permissions: [] }), {
-          status: 200,
-        }),
-      );
-      const second = nextSpy(),
-        denied = response();
-      await authenticateResource(request(undefined, token), denied, second);
-      expect(second.spy).not.toHaveBeenCalled();
-      expect(denied.statusCode).toBe(401);
-      expect(upstream).toHaveBeenCalledTimes(2);
+describe('live resource authority', () => {
+  it.each([own.audience, 'oxy-api'])(
+    'accepts explicitly verified own service audience %s',
+    async (audience) => {
+      introspect.mockResolvedValue({ ...own, audience });
+      const req = request(),
+        next = vi.fn();
+      await authenticateResource(req, response(), next);
+      expect(next).toHaveBeenCalledOnce();
+      expect(req.resourcePrincipal).toEqual({ ...own, audience });
+      requireResourceScope('clarity:index')(req, response(), next as NextFunction);
+      expect(next).toHaveBeenCalledTimes(2);
     },
   );
-  it('does not retain a prior authorization during an introspection outage', async () => {
-    upstream.mockResolvedValueOnce(new Response(JSON.stringify(introspection), { status: 200 }));
-    await authenticateResource(request(undefined, 'same-token'), response(), nextSpy());
-    upstream.mockRejectedValueOnce(new Error('Oxy unavailable'));
-    const next = nextSpy(),
-      denied = response();
-    await authenticateResource(request(undefined, 'same-token'), denied, next);
-    expect(denied.statusCode).toBe(503);
-    expect(next.spy).not.toHaveBeenCalled();
-    expect(upstream).toHaveBeenCalledTimes(2);
+  it('rejects another product audience', async () => {
+    introspect.mockResolvedValue({ ...own, audience: 'oxy-service:other' });
+    const next = vi.fn(),
+      res = response();
+    await authenticateResource(request(), res, next);
+    expect(res.statusCode).toBe(401);
+    expect(next).not.toHaveBeenCalled();
+  });
+  it('accepts a shared managed-account session without inventing application or credential', async () => {
+    const session = {
+      active: true,
+      permissions: [],
+      kind: 'session',
+      authority: 'first_party',
+      applicationId: null,
+      accountId: 'organization',
+      effectiveAccountId: 'organization',
+      requesterAccountId: 'person',
+      expiresAt: own.expiresAt,
+    };
+    introspect.mockResolvedValue(session);
+    const req = request(),
+      next = vi.fn();
+    await authenticateResource(req, response(), next);
+    expect(req.resourcePrincipal).toEqual(session);
+    requireResourceScope('clarity:index')(req, response(), next as NextFunction);
+    expect(next).toHaveBeenCalledTimes(2);
+  });
+  it('keeps an external key scoped without fabricating expiry or audience', async () => {
+    const key = {
+      active: true,
+      permissions: [],
+      kind: 'key',
+      authority: 'external',
+      accountId: 'owner',
+      applicationId: 'official-app',
+      credentialId: 'key-id',
+      environment: 'production',
+      scopes: ['clarity:search'],
+    };
+    introspect.mockResolvedValue(key);
+    const req = request(),
+      next = vi.fn();
+    await authenticateResource(req, response(), next);
+    expect(req.resourcePrincipal).toEqual(key);
+    const denied = response();
+    requireResourceScope('clarity:index')(req, denied, next as NextFunction);
+    expect(denied.statusCode).toBe(403);
+    expect(next).toHaveBeenCalledOnce();
+  });
+  it('never treats branding as own authority', () => {
+    const req = request({ ...own, authority: 'external', scopes: [] });
+    if (!req.resourcePrincipal) throw new Error('Fixture missing principal');
+    Object.assign(req.resourcePrincipal, { tier: 'internal' });
+    const next = vi.fn(),
+      res = response();
+    requireResourceScope('clarity:index')(req, res, next);
+    expect(res.statusCode).toBe(403);
+    expect(next).not.toHaveBeenCalled();
+  });
+  it.each([{ active: false }, { ...own, expiresAt: '2020-01-01T00:00:00.000Z' }])(
+    'does not retain authorization after revocation/expiry',
+    async (denied) => {
+      introspect.mockResolvedValueOnce(own).mockResolvedValueOnce(denied);
+      const req = request(),
+        first = vi.fn();
+      await authenticateResource(req, response(), first);
+      expect(first).toHaveBeenCalledOnce();
+      const next = vi.fn(),
+        res = response();
+      await authenticateResource(req, res, next);
+      expect(res.statusCode).toBe(401);
+      expect(req.resourcePrincipal).toBeUndefined();
+      expect(next).not.toHaveBeenCalled();
+      expect(introspect).toHaveBeenCalledTimes(2);
+    },
+  );
+  it('fails closed on authority outage without retaining a previous principal', async () => {
+    introspect.mockRejectedValue(new Error('unavailable'));
+    const req = request(own),
+      next = vi.fn(),
+      res = response();
+    await authenticateResource(req, res, next);
+    expect(res.statusCode).toBe(503);
+    expect(req.resourcePrincipal).toBeUndefined();
+    expect(next).not.toHaveBeenCalled();
   });
 });

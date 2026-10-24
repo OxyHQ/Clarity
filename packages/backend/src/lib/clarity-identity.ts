@@ -18,28 +18,9 @@ export const CLARITY_IDENTITY = Object.freeze({
     applicationId: '01a0646a-2382-74a3-a795-788924d55722',
     credentialId: '01a0646e-2508-7048-8c08-b1f7b3af634f',
     clientId: 'oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a',
-    scopes: Object.freeze(['user:read'] as const),
   }),
   backendApplication: Object.freeze({
     applicationId: '01a0648b-8d73-70ad-8e67-1c07ddc5eb6e',
-    /**
-     * The exact scope set of the backend's service token, and why each is there:
-     *
-     *  - `user:read` — Oxy account and organization reads (experience, Stripe customers);
-     *  - `inference:invoke` — search embeddings on `kaana.ai` (`kaana-embeddings.ts`), the
-     *    one inference call Clarity makes; chat is the person's, through Alia;
-     *  - `catalogs:write` — registering the capability catalogue at startup
-     *    (with the application capability `catalog:clarity`);
-     *  - `capabilities:read` — live introspection of every capability ticket `/_oxy/mcp` admits;
-     *  - `capability-audit:write` — the audit record of every `/_oxy/mcp` call.
-     */
-    scopes: Object.freeze([
-      'user:read',
-      'inference:invoke',
-      'catalogs:write',
-      'capabilities:read',
-      'capability-audit:write',
-    ] as const),
   }),
   /**
    * How this backend proves what it IS when it carries no credential (oxy ADR

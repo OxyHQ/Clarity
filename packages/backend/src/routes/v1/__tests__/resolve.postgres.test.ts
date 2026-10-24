@@ -8,7 +8,7 @@ import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
 import { crawlJobs, crawlPages, searchDocuments } from '../../../db/schema/index.js';
 import type { ClarityResourcePrincipal } from '../../../middleware/resource-auth.js';
 
-let principal: ClarityResourcePrincipal;
+let principal: Extract<ClarityResourcePrincipal, { kind: 'service' }>;
 vi.mock('../../../middleware/resource-auth.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../../../middleware/resource-auth.js')>()),
   authenticateResource: (req: Request, _res: Response, next: NextFunction) => {
@@ -52,13 +52,16 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
   beforeEach(async () => {
     principal = {
       active: true,
+      permissions: [],
+      kind: 'service',
       accountId: owner,
       applicationId: 'app-a',
       credentialId: 'credential-a',
-      tier: 'external',
-      environment: 'test',
+      authority: 'external',
+      environment: 'development',
+      audience: 'oxy-api',
+      expiresAt: '2099-01-01T00:00:00.000Z',
       scopes: ['clarity:index'],
-      permissions: [],
     };
     await getDb().delete(crawlJobs).where(eq(crawlJobs.ownerAccountId, owner));
     await getDb().delete(searchDocuments).where(eq(searchDocuments.canonicalUrl, urls[0]));
@@ -70,7 +73,8 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
     await closePostgres();
   });
   it('concurrent overlapping reads reuse each pending URL across API replicas', async () => {
-    principal = { ...principal, tier: 'internal' };
+    const { scopes: _externalScopes, ...identity } = principal;
+    principal = { ...identity, authority: 'first_party' };
     const responses = await Promise.all([
       resolve([urls[0], urls[1], urls[0]]),
       resolve([urls[1], urls[2]]),
@@ -121,7 +125,8 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
   });
   it("never throttles one of Oxy's own applications on active crawls", async () => {
     // No active-crawl quota, so its live operations are not even counted.
-    principal = { ...principal, tier: 'internal' };
+    const { scopes: _externalScopes, ...identity } = principal;
+    principal = { ...identity, authority: 'first_party' };
     for (const url of urls) expect((await resolve([url])).status).toBe(202);
     const live = await getDb()
       .select({ id: crawlJobs.id })

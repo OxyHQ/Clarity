@@ -16,17 +16,8 @@ import {
  * files the CLARITY application owns: not a person's, not billed, garbage-
  * collected by Oxy once Clarity stops referencing them (D5). Everything else in
  * Clarity reaches Oxy through this module, so a test swaps one object and the
- * scopes Clarity needs are named in one place.
- *
- * ## Scopes (granted by Oxy staff, ADR 0043 D11)
- *
- * {@link CLARITY_FILES_SCOPES}: `files:app:write` to import, upload and list its
- * own files, and `files:references:write` to say which entity uses which file.
- * Clarity never deletes a file itself — Oxy's lifecycle does — so it does not
- * ask for `files:app:delete`. They are not in the backend token's declared
- * tuple: that token is minted as exactly `CLARITY_IDENTITY.backendApplication
- * .scopes`, so a file grant never rides along on it (docs/oxy-files.md,
- * "Before the grant").
+ * application ownership remains explicit. Own workload calls require no
+ * application scope grant (Oxy ADR 0049).
  *
  * ## SVG (Oxy stage 4c)
  *
@@ -40,12 +31,6 @@ import {
  * served by `/favicons` exactly as before; stage 4c refuses a document it cannot
  * make safe (415 `INVALID_SVG`), which is not an image Oxy will hold.
  */
-
-/** The Oxy scopes Clarity's backend application needs for its files. */
-export const CLARITY_FILES_SCOPES = Object.freeze([
-  'files:app:write',
-  'files:references:write',
-] as const);
 
 /** The entity kinds Clarity references files from (see `clarity_image_references`). */
 export const REFERENCE_ENTITY_TYPES = ['search_document', 'job_posting', 'search_host'] as const;

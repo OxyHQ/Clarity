@@ -1,23 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { CLARITY_IDENTITY } from '../../lib/clarity-identity.js';
-import {
-  CLARITY_FILES_SCOPES,
-  isBlocked,
-  isSourceFailure,
-  isSvg,
-  oxyFileUrl,
-  svgUploadRefusal,
-} from '../oxy-files.js';
+import { isBlocked, isSourceFailure, isSvg, oxyFileUrl, svgUploadRefusal } from '../oxy-files.js';
 import { oxyError } from './fake-oxy-files.js';
 
 describe('the Oxy Files adapter', () => {
-  it('asks for exactly the files scopes it uses, none of them in the backend token tuple', () => {
-    expect(CLARITY_FILES_SCOPES).toEqual(['files:app:write', 'files:references:write']);
-    for (const scope of CLARITY_FILES_SCOPES)
-      expect(CLARITY_IDENTITY.backendApplication.scopes).not.toContain(scope);
-  });
-
   it('reads an SVG refusal: an Oxy without stage 4c refuses the type, stage 4c an unsafe document', () => {
     expect(isSvg('image/svg+xml')).toBe(true);
     for (const type of ['image/png', 'image/x-icon', 'image/webp']) expect(isSvg(type)).toBe(false);

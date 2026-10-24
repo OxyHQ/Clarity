@@ -407,6 +407,13 @@
       "when": 1792579284053,
       "tag": "0057_drop_job_postings_title_trigram_index",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792778229308,
+      "tag": "0058_verified_crawl_authority",
+      "breakpoints": true
     }
   ]
 }

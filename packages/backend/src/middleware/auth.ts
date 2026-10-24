@@ -2,13 +2,12 @@ import type { NextFunction, Request, Response } from 'express';
 import {
   createOptionalOxyAuth,
   createOxyAuthMiddleware,
-  OxyServer,
   type OxyRequestUser,
   type OxyServiceAppContext,
 } from '@oxy.so/core/server';
 
-const OXY_API_URL = process.env.OXY_API_URL || 'https://api.oxy.so';
-export const oxyClient = new OxyServer({ baseURL: OXY_API_URL });
+import { clarityOxyServer } from '../lib/clarity-service-auth.js';
+export const oxyClient = clarityOxyServer();
 
 declare global {
   namespace Express {

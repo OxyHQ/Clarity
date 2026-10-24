@@ -11,14 +11,15 @@ lane of its own, and Clarity's backend never calls Alia.
 | Fact | Where it is decided |
 | --- | --- |
 | The agent row `01a0646a-078f-7642-95ef-439952f4f3f9`, its bot account `01a0646a-078f-7120-a993-a03c180c81b0`, owned by Clarity's project account | Alia |
-| Its prompt, character, starters, families, ceiling and feature gates | Alia's agent editor, by whoever operates the project account |
+| Its prompt, character, starters and feature gates | Alia's agent editor, by whoever operates the project account |
 | `public`: anybody can use it | Alia (`access`) |
 | Confined to Clarity: unreachable from any other app's session | Oxy, `application_agents` (Oxy ADR 0044, Alia ADR 0021) |
 | Who pays a turn | The person present, from their Alia credits (Alia ADR 0020 §4) |
-| What it may do in Clarity | Its owner's ceiling over Clarity's catalogue (Oxy ADR 0042) |
+| What it may do in Clarity | Own catalogue tools under the original requester's verified account and operation (Oxy ADR 0049); external clients retain OAuth grants |
 
-No agent asks for approval: its configuration is its permission, and Oxy
-enforces it on every call.
+No own app-level permission switch is involved. Oxy verifies the original task,
+account, catalogue pin and operation on each call; external OAuth consent remains
+separate. See [the platform transition](./first-party-platform.md).
 
 ## Clarity's page, Alia's conversation
 

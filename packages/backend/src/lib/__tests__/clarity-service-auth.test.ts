@@ -6,7 +6,6 @@ import {
   assertExactClarityServiceClaims,
   hasExactClarityServiceConfiguration,
 } from '../clarity-service-auth.js';
-import { CLARITY_FILES_SCOPES } from '../../files/oxy-files.js';
 
 /** The retired backend credential's public client id. */
 const RETIRED_CLIENT_ID = 'oxy_dk_8c84c74a2656b8f5147d4d0b65fcd0e88c192ce64f465f78';
@@ -27,7 +26,7 @@ function serviceToken(overrides: Record<string, unknown> = {}): string {
     appId: CLARITY_IDENTITY.backendApplication.applicationId,
     credentialId: ATTESTATION_ID,
     ownerAccountId: CLARITY_IDENTITY.projectAccountId,
-    scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
+    authority: 'first_party',
     exp: Math.floor(Date.now() / 1000) + 3600,
     ...overrides,
   };
@@ -86,10 +85,8 @@ describe('Clarity service configuration', () => {
     );
   });
 
-  it('refuses a process with nothing to attest', () => {
-    // A laptop. Readiness must keep reporting this rather than serving traffic
-    // it cannot authenticate.
-    expect(hasExactClarityServiceConfiguration(env())).toBe(false);
+  it('allows temporary AWS role providers outside ECS; readiness still requires a successful mint', () => {
+    expect(hasExactClarityServiceConfiguration(env())).toBe(true);
   });
 
   it('keeps enforcing the canonical Oxy origin in production', () => {
@@ -156,45 +153,32 @@ describe('Clarity service token claims', () => {
     );
   });
 
-  it('still refuses a token from another application, payer or scope set', () => {
-    const wrong = [
-      { appId: CLARITY_IDENTITY.publicApplication.applicationId },
-      // The Clarity agent's bot account: a token it pays for is not the backend's.
-      { ownerAccountId: '01a0646a-078f-7120-a993-a03c180c81b0' },
-      { type: 'user' },
-      { scopes: ['user:read'] },
-      // The scope set before the capability catalogue: one the backend no longer runs on.
-      { scopes: ['user:read', 'inference:invoke'] },
-      { scopes: [...CLARITY_IDENTITY.backendApplication.scopes, 'files:read'] },
-      {
-        scopes: [
-          ...CLARITY_IDENTITY.backendApplication.scopes.slice(1),
-          CLARITY_IDENTITY.backendApplication.scopes[1],
-        ],
-      },
-      { scopes: [] },
-    ];
-    for (const overrides of wrong) {
-      // The right handle buys no latitude on any other claim.
+  it.each([
+    { appId: CLARITY_IDENTITY.publicApplication.applicationId },
+    { ownerAccountId: '01a0646a-078f-7120-a993-a03c180c81b0' },
+    { type: 'user' },
+    { authority: 'external' },
+    { authority: 'unknown' },
+    { scopes: [] },
+    { scopes: ['user:read'] },
+    { exp: 0 },
+  ])(
+    'refuses a wrong identity, external authority, own scopes or expired token: %j',
+    (overrides) => {
       expect(() => assertExactClarityServiceClaims(serviceToken(overrides))).toThrow(
         'canonical Clarity service identity',
       );
-    }
-  });
-  /**
-   * Once Oxy grants Clarity's file scopes, the workload's FULL grant is the
-   * backend's declared tuple plus `CLARITY_FILES_SCOPES`. That token is what the
-   * Oxy Files adapter's calls carry (an unscoped mint, cached apart from the
-   * scoped one), and it must never pass as the backend token checked exactly:
-   * that token is minted as the exact subset, so granting files leaves it unchanged.
-   */
-  it('refuses the full grant once the file scopes are added, so the backend token stays the exact subset', () => {
-    const backendScopes: readonly string[] = CLARITY_IDENTITY.backendApplication.scopes;
-    expect(CLARITY_FILES_SCOPES.some((scope) => backendScopes.includes(scope))).toBe(false);
+    },
+  );
+
+  it('temporarily accepts its exact v1 workload identity without depending on its old scope tuple', () => {
+    expect(() =>
+      assertExactClarityServiceClaims(serviceToken({ authority: undefined, scopes: [] })),
+    ).not.toThrow();
     expect(() =>
       assertExactClarityServiceClaims(
-        serviceToken({ scopes: [...backendScopes, ...CLARITY_FILES_SCOPES] }),
+        serviceToken({ authority: undefined, scopes: ['files:app:write'] }),
       ),
-    ).toThrow('canonical Clarity service identity');
+    ).not.toThrow();
   });
 });

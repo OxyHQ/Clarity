@@ -1,9 +1,6 @@
 import { createHash } from 'node:crypto';
-import {
-  canAttestWorkloadIdentity,
-  OxyServer,
-  type ServiceTokenAudience,
-} from '@oxy.so/core/server';
+import { OxyServer, type ServiceTokenAudience } from '@oxy.so/core/server';
+import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 
 import { CLARITY_IDENTITY } from './clarity-identity.js';
 
@@ -14,6 +11,7 @@ interface ServiceTokenClaims {
   appId?: unknown;
   credentialId?: unknown;
   ownerAccountId?: unknown;
+  authority?: unknown;
   scopes?: unknown;
   exp?: unknown;
 }
@@ -69,8 +67,8 @@ export function canonicalBaseUrl(env: NodeJS.ProcessEnv = process.env): string {
  *
  * The evidence is the task role, and the identity is asserted where it is
  * PROVABLE: {@link assertExactClarityServiceClaims} reads the token Oxy just
- * returned and refuses anything whose app, payer, credential and scope set are
- * not exactly Clarity's.
+ * returned and refuses anything whose app, payer and credential are not exactly
+ * Clarity's. Scopes never establish the authority of an own workload.
  *
  * ## The retired key pair
  *
@@ -92,17 +90,6 @@ function serviceConfiguration(env: NodeJS.ProcessEnv): ClarityServiceConfigurati
         `${name} is retired: Clarity authenticates only by attesting its task role.`,
       );
     }
-  }
-  if (!canAttestWorkloadIdentity(env)) {
-    /**
-     * Nothing to attest. This is the honest answer on a laptop, and it must
-     * stay an error: readiness reports it as
-     * `clarity_service_identity_unconfigured` rather than letting the process
-     * serve traffic it cannot authenticate.
-     */
-    throw new ClarityServiceConfigurationError(
-      'No Clarity service identity: this process cannot attest a workload identity.',
-    );
   }
   return { baseUrl };
 }
@@ -133,7 +120,6 @@ const ACCEPTED_CREDENTIAL_IDS: readonly string[] = Object.freeze([
 export function assertExactClarityServiceClaims(token: string): void {
   const claims = decodeClaims(token);
   const expected = CLARITY_IDENTITY.backendApplication;
-  const tokenScopes = Array.isArray(claims.scopes) ? claims.scopes : [];
   const nowSeconds = Math.floor(Date.now() / 1000);
   if (
     claims.type !== 'service' ||
@@ -141,9 +127,8 @@ export function assertExactClarityServiceClaims(token: string): void {
     typeof claims.credentialId !== 'string' ||
     !ACCEPTED_CREDENTIAL_IDS.includes(claims.credentialId) ||
     claims.ownerAccountId !== CLARITY_IDENTITY.projectAccountId ||
-    tokenScopes.length !== expected.scopes.length ||
-    new Set(tokenScopes).size !== expected.scopes.length ||
-    expected.scopes.some((scope) => !tokenScopes.includes(scope)) ||
+    (claims.authority !== undefined && claims.authority !== 'first_party') ||
+    (claims.authority === 'first_party' && claims.scopes !== undefined) ||
     typeof claims.exp !== 'number' ||
     !Number.isFinite(claims.exp) ||
     !Number.isInteger(claims.exp) ||
@@ -171,24 +156,16 @@ function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
   if (!client || clientFingerprint !== fingerprint) {
     // Never given a credential: `serviceToken()` takes the workload path
     // precisely because none is configured.
-    client = new OxyServer({ baseURL: config.baseUrl });
+    client = new OxyServer({
+      baseURL: config.baseUrl,
+      workloadCredentials: createAwsWorkloadCredentialProvider(),
+    });
     clientFingerprint = fingerprint;
   }
   return client;
 }
 
-/**
- * The attested Clarity client, for its Oxy Files calls (`files/oxy-files.ts`).
- * Those calls mint their own token through the client, carrying whatever the
- * workload is granted (the backend's declared tuple plus `CLARITY_FILES_SCOPES`
- * once Oxy grants them); they never pass through
- * {@link assertExactClarityServiceClaims}, which pins the backend token's exact
- * scope set. `OxyServer` caches a token per requested scope set (oxy #1718), so
- * that unscoped token is a separate entry from the exact subset
- * {@link getClarityServiceToken} and {@link getClarityServiceTokenFor} request,
- * and granting the file scopes never widens the token Oxy's other surfaces or
- * Kaana receive.
- */
+/** Application-owned files use this workload; the application remains the owner. */
 export function getClarityFilesClient(env: NodeJS.ProcessEnv = process.env): OxyServer {
   return clarityServiceClient(env);
 }
@@ -196,11 +173,7 @@ export function getClarityFilesClient(env: NodeJS.ProcessEnv = process.env): Oxy
 export async function getClarityServiceToken(
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
-  // Ask for exactly the declared tuple, so a scope bound to the workload for
-  // something else never rides along on this token.
-  const token = await clarityServiceClient(env).serviceToken(undefined, undefined, {
-    scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
-  });
+  const token = await clarityServiceClient(env).serviceToken();
   assertExactClarityServiceClaims(token);
   return token;
 }
@@ -222,7 +195,7 @@ export function invalidateClarityServiceToken(env: NodeJS.ProcessEnv = process.e
 /**
  * Clarity's service token for another resource server: `kaana.ai` is the
  * credential `https://kaana.ai/v1` accepts (Kaana ADR 0002, decision 6). The
- * same attested identity and the same exact claims as
+ * same attested identity as
  * {@link getClarityServiceToken}, minted for its own audience and cached apart
  * by `OxyServer`, so an `oxy-api` token never reaches Kaana nor the reverse.
  */
@@ -230,9 +203,7 @@ export async function getClarityServiceTokenFor(
   audience: ServiceTokenAudience,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<string> {
-  const token = await clarityServiceClient(env).serviceTokenFor(audience, undefined, undefined, {
-    scopes: [...CLARITY_IDENTITY.backendApplication.scopes],
-  });
+  const token = await clarityServiceClient(env).serviceTokenFor(audience);
   assertExactClarityServiceClaims(token);
   return token;
 }

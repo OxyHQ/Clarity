@@ -137,8 +137,10 @@ a direct origin cannot bypass load-balancer health.
    `clarity` target name from a one-shot task inside the VPC.
 2. Complete and reconcile the source inventory/backfill, or attest a fresh
    install.
-3. Grant the backend application its five scopes and `catalog:clarity`, and
-   verify a minted token's scope set, app, credential handle and owner.
+3. Verify the active workload binding and environment, then attest the exact
+   backend application, workload handle and project owner. Own service access
+   needs no scope grant. Follow the receiver/caller order and queued-work
+   reconciliation in `first-party-platform.md`.
 4. Deploy, then confirm in the API log that the capability catalogue registered
    (`Clarity internal MCP bound to its catalogue registration`).
 5. Verify the running revision, image/spec, health payload and an

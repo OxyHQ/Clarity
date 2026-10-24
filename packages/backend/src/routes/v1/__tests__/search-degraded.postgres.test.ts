@@ -15,13 +15,15 @@ import type { ClarityResourcePrincipal } from '../../../middleware/resource-auth
 const owner = `search-degraded-test-${crypto.randomUUID()}`;
 const principal: ClarityResourcePrincipal = {
   active: true,
+  permissions: [],
+  kind: 'service',
   accountId: owner,
   applicationId: 'app-search-degraded',
   credentialId: 'credential-search-degraded',
-  tier: 'internal',
-  environment: 'test',
-  scopes: ['clarity:search'],
-  permissions: [],
+  authority: 'first_party',
+  environment: 'development',
+  audience: 'oxy-api',
+  expiresAt: '2099-01-01T00:00:00.000Z',
 };
 const embeddings = vi.hoisted(() => ({ enabled: vi.fn(() => false), create: vi.fn() }));
 vi.mock('../../../middleware/resource-auth.js', async (importOriginal) => ({

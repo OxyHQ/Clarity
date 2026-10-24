@@ -20,8 +20,8 @@ Expo client
 | Owner | Responsibilities |
 | --- | --- |
 | Clarity | The search index and its public/indexing platform, [Jobs](jobs), [Products](products) (Mercaria's catalogue, read by SDK), places, market quotes, news, [Experience](experience), suggestions, notifications, feedback, the plan catalogue, subscriptions and entitlements, and the [capability catalogue](assistant) that exposes them to agents |
-| Alia | The Clarity agent (prompt, character, families, ceiling, feature gates), its conversations and sharing, memory, deep research, credits and checkout, usage and analytics, audit, triggers and channel bots |
-| Oxy | Sessions, applications and their confined agents (ADR 0044), capability tickets and ceilings (ADR 0042), inference accounting and route authorization |
+| Alia | The Clarity agent (prompt, character, families, feature gates), its conversations and sharing, memory, deep research, credits and checkout, usage and analytics, audit, triggers and channel bots |
+| Oxy | Sessions, applications and their agents, first-party tasks and capability tickets (ADR 0049), external OAuth grants, inference accounting and route authorization |
 | Kaana | Provider-key custody, deployments, provider execution and failover within Oxy's signed order |
 
 Clarity's backend uses PostgreSQL/Drizzle only. It has no provider adapter,
@@ -90,11 +90,10 @@ name, list position or order (`packages/backend/src/lib/clarity-identity.ts`).
 | Public sign-in application | `01a0646a-2382-74a3-a795-788924d55722` |
 | Public sign-in client ID | `oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a` |
 
-The backend's service token carries exactly `user:read`, `inference:invoke`
-(search embeddings), `catalogs:write` (with the application capability
-`catalog:clarity`), `capabilities:read` and `capability-audit:write`; anything
-else is refused (`clarity-service-auth.ts`). The public application has only
-`user:read`.
+The backend uses its registered workload identity without scopes between own
+products. External keys and OAuth clients retain scoped access. See
+[First-party platform authority](./first-party-platform.md) for the reader-first
+transition, preserved account boundaries and queued-work reconciliation.
 
 ## Fail-closed state
 

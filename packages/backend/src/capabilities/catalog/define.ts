@@ -37,7 +37,7 @@ export interface ToolSpec {
   input: JsonSchema;
 }
 
-/** Packages a write may declare (all inside "Ver y actuar"). */
+/** Operation categories a write tool may declare for its domain policy. */
 export type ActPackage = 'create' | 'publish' | 'communicate' | 'administer';
 
 const OBJECT_OUTPUT = { type: 'object', additionalProperties: true } as const;

@@ -1,3 +1,4 @@
+import type { CrawlCallerKind } from './crawl-authority.js';
 import { and, eq, gt, isNull, lte, or, sql } from 'drizzle-orm';
 
 import { getDb, type ClarityExecutor } from '../db/index.js';
@@ -7,7 +8,6 @@ import {
   searchUsageEvents,
   searchUsageRollups,
 } from '../db/schema/index.js';
-import type { ClarityResourcePrincipal } from '../middleware/resource-auth.js';
 
 export const SANDBOX_QUOTAS = {
   search_month: 10_000,
@@ -42,8 +42,19 @@ export const INTERNAL_QUOTAS: Readonly<Record<QuotaMetric, number>> = Object.fre
 /** Whose quota: the paying account, and which side of the ecosystem it calls from. */
 export interface QuotaSubject {
   accountId: string;
-  tier?: 'internal' | 'external';
+  authority?: 'first_party' | 'external';
 }
+/** An empty application ledger key means a shared session, never an authenticated app. */
+export function applicationLedgerKey(subject: { applicationId: string | null }): string {
+  return subject.applicationId ?? '';
+}
+
+export interface QuotaPrincipal extends QuotaSubject {
+  applicationId: string | null;
+  credentialId?: string;
+  kind?: CrawlCallerKind | 'legacy';
+}
+
 export type BillableOperation = 'search' | 'fetch_started' | 'page_indexed' | 'browser_render';
 
 const operationMetric: Partial<Record<BillableOperation, QuotaMetric>> = {
@@ -57,7 +68,7 @@ export async function effectiveQuota(
   metric: QuotaMetric,
   now = new Date(),
 ): Promise<number> {
-  if (subject.tier === 'internal') return INTERNAL_QUOTAS[metric];
+  if (subject.authority === 'first_party') return INTERNAL_QUOTAS[metric];
   const { accountId } = subject;
   const [{ additional }] = await executor
     .select({
@@ -76,8 +87,7 @@ export async function effectiveQuota(
 }
 
 export async function consumeUsage(input: {
-  principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> &
-    Pick<QuotaSubject, 'tier'>;
+  principal: QuotaPrincipal;
   operation: BillableOperation;
   idempotencyKey?: string;
   quantity?: number;
@@ -131,8 +141,9 @@ export async function consumeUsage(input: {
     await tx.insert(searchUsageEvents).values({
       id: crypto.randomUUID(),
       ownerAccountId: input.principal.accountId,
-      applicationId: input.principal.applicationId,
+      applicationId: applicationLedgerKey(input.principal),
       credentialId: input.principal.credentialId,
+      callerKind: input.principal.kind ?? 'legacy',
       operation: input.operation,
       idempotencyKey: input.idempotencyKey,
       quantity,
@@ -142,7 +153,7 @@ export async function consumeUsage(input: {
       .insert(searchUsageRollups)
       .values({
         ownerAccountId: input.principal.accountId,
-        applicationId: input.principal.applicationId,
+        applicationId: applicationLedgerKey(input.principal),
         credentialId: input.principal.credentialId ?? '',
         operation: input.operation,
         periodStart,
@@ -174,16 +185,15 @@ export async function consumeUsage(input: {
 }
 
 export async function consumeRequestRate(
-  principal: Pick<ClarityResourcePrincipal, 'accountId' | 'applicationId' | 'credentialId'> &
-    Pick<QuotaSubject, 'tier'>,
+  principal: QuotaPrincipal,
   now = new Date(),
 ): Promise<{ accepted: boolean; retryAfterSeconds?: number }> {
   const bucketStart = new Date(Math.floor(now.getTime() / 60_000) * 60_000);
   const expiresAt = new Date(bucketStart.getTime() + 120_000);
   const dimensions = [
     {
-      dimension: 'application' as const,
-      id: principal.applicationId,
+      dimension: principal.applicationId ? ('application' as const) : ('account' as const),
+      id: principal.applicationId ?? principal.accountId,
       metric: 'requests_minute_application' as const,
     },
     ...(principal.credentialId

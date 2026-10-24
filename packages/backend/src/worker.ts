@@ -29,6 +29,11 @@ import { mainContentToStore } from './search/page-text.js';
 import { answeredToAny } from './search/public-document.js';
 import { storableUrl } from './search/query-primitives.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
+import {
+  classifiedCrawlAuthoritySql,
+  hasClassifiedCrawlAuthority,
+  type CrawlCallerKind,
+} from './search/crawl-authority.js';
 import { refreshDueIcons, registerHosts } from './search/site-icons.js';
 import { sweepExpiredEffectReceipts } from './db/capability-receipt-repository.js';
 import { sweepImageCache } from './search/image-cache.js';
@@ -63,7 +68,13 @@ export async function recoverExpiredLeases(): Promise<number> {
     const expired = await tx
       .select()
       .from(crawlPages)
-      .where(and(eq(crawlPages.status, 'fetching'), lt(crawlPages.leaseExpiresAt, new Date())))
+      .where(
+        and(
+          eq(crawlPages.status, 'fetching'),
+          lt(crawlPages.leaseExpiresAt, new Date()),
+          sql`exists (select 1 from ${crawlJobs} where ${crawlJobs.id} = ${crawlPages.jobId} and ${classifiedCrawlAuthoritySql(crawlJobs.callerAuthority, crawlJobs.callerKind)})`,
+        ),
+      )
       .orderBy(crawlPages.jobId, crawlPages.id)
       .limit(100)
       .for('update', { skipLocked: true });
@@ -152,7 +163,7 @@ export async function leaseNextPage() {
             saturatedOwners.length
               ? sql`${crawlPages.jobId} in (select ${crawlJobs.id} from ${crawlJobs} where ${notInArray(crawlJobs.ownerAccountId, saturatedOwners)})`
               : undefined,
-            sql`exists (select 1 from ${crawlJobs} where ${crawlJobs.id} = ${crawlPages.jobId} and ${crawlJobs.status} in ('queued', 'running'))`,
+            sql`exists (select 1 from ${crawlJobs} where ${crawlJobs.id} = ${crawlPages.jobId} and ${crawlJobs.status} in ('queued', 'running') and ${classifiedCrawlAuthoritySql(crawlJobs.callerAuthority, crawlJobs.callerKind)})`,
             // NULLS LAST matches clarity_crawl_pages_claim_idx; a bare DESC means NULLS FIRST and
             // forces a sort of every claimable page on each claim.
           ),
@@ -167,7 +178,10 @@ export async function leaseNextPage() {
         .for('update', { skipLocked: true });
       if (!page) return undefined;
       const [job] = await tx
-        .select({ ownerAccountId: crawlJobs.ownerAccountId, callerTier: crawlJobs.callerTier })
+        .select({
+          ownerAccountId: crawlJobs.ownerAccountId,
+          callerAuthority: crawlJobs.callerAuthority,
+        })
         .from(crawlJobs)
         .where(eq(crawlJobs.id, page.jobId))
         .limit(1);
@@ -181,7 +195,7 @@ export async function leaseNextPage() {
       }
       const concurrencyLimit = await effectiveQuota(
         tx,
-        { accountId: job.ownerAccountId, tier: callerTierOf(job) },
+        { accountId: job.ownerAccountId, authority: callerAuthorityOf(job) },
         'concurrent_fetches',
       );
       const [active] = await tx
@@ -246,11 +260,14 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
   const attemptId = crypto.randomUUID();
   const [job] = await getDb().select().from(crawlJobs).where(eq(crawlJobs.id, page.jobId)).limit(1);
   if (!job) throw new Error(`Crawl job ${page.jobId} does not exist`);
+  // A page supplied by an older worker must not bypass the rolling-deploy hold.
+  if (!hasClassifiedCrawlAuthority(job)) return;
   const principal = {
     accountId: job.ownerAccountId,
     applicationId: job.applicationId,
     credentialId: job.credentialId ?? undefined,
-    tier: callerTierOf(job),
+    authority: callerAuthorityOf(job),
+    kind: callerKindOf(job),
   };
   if (!(await getDb().transaction((tx) => ownsPageLease(tx, page)))) return;
   if (await completeIfAlreadyFetched(page, job)) return;
@@ -620,19 +637,20 @@ interface DueJobDocument extends Record<string, unknown> {
   applicationId: string;
   credentialId: string | null;
   siteId: string | null;
-  callerTier: string;
+  callerAuthority: string;
+  callerKind: string;
 }
 
 export async function enqueueJobRecrawls(): Promise<number> {
   const due = await getDb().execute<DueJobDocument>(sql`
     select ${searchDocuments.id} as "documentId", ${searchDocuments.canonicalUrl} as url,
       origin.owner_account_id as "ownerAccountId", origin.application_id as "applicationId",
-      origin.credential_id as "credentialId", origin.site_id as "siteId", origin.caller_tier as "callerTier"
+      origin.credential_id as "credentialId", origin.site_id as "siteId", origin.caller_authority as "callerAuthority", origin.caller_kind as "callerKind"
     from ${searchDocuments}
     join lateral (
       select ${crawlJobs.ownerAccountId} as owner_account_id, ${crawlJobs.applicationId} as application_id,
         ${crawlJobs.credentialId} as credential_id, ${crawlJobs.siteId} as site_id,
-        ${crawlJobs.callerTier} as caller_tier
+        ${crawlJobs.callerAuthority} as caller_authority, ${crawlJobs.callerKind} as caller_kind
       from ${crawlPages} join ${crawlJobs} on ${crawlJobs.id} = ${crawlPages.jobId}
       where ${crawlPages.url} = ${searchDocuments.requestedUrl}
       order by ${crawlPages.createdAt} desc limit 1
@@ -641,13 +659,21 @@ export async function enqueueJobRecrawls(): Promise<number> {
       and ${searchDocuments.status} = 'indexed'
       and ${searchDocuments.nextFetchAt} is not null
       and ${searchDocuments.nextFetchAt} <= now()
+      and ${classifiedCrawlAuthoritySql(sql`origin.caller_authority`, sql`origin.caller_kind`)}
     order by ${searchDocuments.nextFetchAt}
     limit ${jobRecrawlBatchSize}`);
   if (due.length === 0) return 0;
 
   const batches = new Map<string, DueJobDocument[]>();
   for (const row of due) {
-    const key = `${row.ownerAccountId}|${row.applicationId}|${row.credentialId ?? ''}|${row.siteId ?? ''}`;
+    const key = JSON.stringify([
+      row.ownerAccountId,
+      row.applicationId,
+      row.credentialId,
+      row.siteId,
+      row.callerAuthority,
+      row.callerKind,
+    ]);
     batches.set(key, [...(batches.get(key) ?? []), row]);
   }
   const cycle = new Date(Date.now() + JOB_RECRAWL_INTERVAL_SECONDS * 1000);
@@ -667,7 +693,8 @@ export async function enqueueJobRecrawls(): Promise<number> {
           idempotencyKey: `job-recrawl:${new Date().toISOString()}:${crypto.randomUUID()}`,
           requestedUrls: urls,
           pagesDiscovered: urls.length,
-          callerTier: callerTierOf(first),
+          callerAuthority: callerAuthorityOf(first),
+          callerKind: callerKindOf(first),
         })
         .returning();
       await tx
@@ -841,8 +868,17 @@ function header(value: string | string[] | undefined): string | undefined {
 }
 
 /** The side of the ecosystem the job's caller is on; anything unexpected is external. */
-function callerTierOf(job: { callerTier: string }): 'internal' | 'external' {
-  return job.callerTier === 'internal' ? 'internal' : 'external';
+function callerAuthorityOf(job: { callerAuthority: string }): 'first_party' | 'external' {
+  return job.callerAuthority === 'first_party' ? 'first_party' : 'external';
+}
+
+function callerKindOf(job: { callerKind: string }): CrawlCallerKind | 'legacy' {
+  return job.callerKind === 'service' ||
+    job.callerKind === 'key' ||
+    job.callerKind === 'session' ||
+    job.callerKind === 'reconciled_legacy_external'
+    ? job.callerKind
+    : 'legacy';
 }
 
 async function main() {

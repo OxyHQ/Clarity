@@ -325,6 +325,7 @@ export class ClarityClient {
       try {
         const response = await this.fetcher(`${this.baseUrl}${path}`, {
           method,
+          redirect: 'error',
           headers: {
             ...(!this.options.transport &&
             (!publicRead ||
