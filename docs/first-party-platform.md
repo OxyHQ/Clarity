@@ -116,9 +116,10 @@ must include completed lineage and catch-up rows, preserve unknown/revoked
 authority, and use fresh exact workload provenance. A successful build is not
 permission to run the production backfill or remove the hold.
 
-Validation uses the composed core 7/contracts 6 Zod 4 candidate, with no local
-paths retained in the committed manifests or lockfile. Final public Oxy pins
-and their registry-pinned CI gate remain required before release. The outgoing
+The reader now pins published Oxy core 7.0.0, contracts 6.0.0, services 13.0.0,
+MCP 1.4.0 and protocol 1.5.1, including the patched Zod 4 composition. There are
+no local paths in the committed manifests or lockfile. CI on this exact reader
+commit remains required before release. The outgoing
 manual v1 producer calls in this branch are a staged compatibility dependency,
 not the final first-party transport implementation.
 
@@ -136,7 +137,8 @@ The SDK factory foundation is commit `a6deb86`. The receiver was checked with
 local candidates `@oxy.so/core` 6.15.1 and `@oxy.so/contracts` 5.7.0 from Oxy's
 reader preparation worktree; these filenames identify test artifacts, not a
 published compatibility claim. The delivery coordinator must pin their published
-replacements before CI/release acceptance. No local tarball references are kept
+replacements before CI/release acceptance; the reader pins above supersede
+this earlier candidate evidence. No local tarball references are kept
 in manifests or the lockfile.
 
 Validation: 78 backend Vitest suites (655 passed, four skipped), 51 Bun runtime
@@ -151,7 +153,7 @@ Catalogue registration, audit and external MCP introspection now use the shared
 MCP helpers with an Oxy service transport, which emits v2. The external
 connection remains scoped; its receiver process proves its own workload.
 
-Still pending: published dependency pins, authoritative legacy queue reconciliation,
+Still pending: authoritative legacy queue reconciliation,
 deployment and live canaries,
 caller cutover, then removal of the finite v1 bridge. Existing product plan and
 account membership rules remain in force throughout these steps.
@@ -160,3 +162,10 @@ The temporary hold passed 27 PostgreSQL worker/quota tests, including unchanged
 legacy leases/attempts/usage, classified external quotas, own queue progress and
 completed-lineage recrawl catch-up. Backend/frontend typechecks and backend
 build passed. Both frontend linked-client hooks now dispose their subscriptions.
+
+Published-artifact gate, 2026-10-24: frozen install, 39 unit/architecture tests
+and 47 HTTP/PostgreSQL tests pass with the registry pins above. Backend and
+frontend TypeScript and backend production build also pass. This repeats the
+authority, account-isolation, legacy-hold and unchanged embedding-constructor
+checks against published packages; earlier fresh-migration and SDK evidence
+remains applicable because this final delta changes only dependency pins/docs.
