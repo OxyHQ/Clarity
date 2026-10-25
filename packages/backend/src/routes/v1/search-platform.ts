@@ -19,7 +19,7 @@ import {
   sendError,
   type ClarityResourcePrincipal,
 } from '../../middleware/resource-auth.js';
-import { getClarityServiceToken } from '../../lib/clarity-service-auth.js';
+import { clarityPlatformTransport } from '../../lib/clarity-service-auth.js';
 import {
   applicationLedgerKey,
   consumeUsage,
@@ -1196,12 +1196,11 @@ async function verifyDomainOwnership(
   verifiedDomainId: string,
   originHost: string,
 ): Promise<boolean> {
-  const serviceToken = await getClarityServiceToken();
-  const response = await fetch(
+  const response = await clarityPlatformTransport().fetch(
     `${(process.env.OXY_API_URL || 'https://api.oxy.so').replace(/\/$/, '')}/auth/resources/domains/verify`,
     {
       method: 'POST',
-      headers: { authorization: `Bearer ${serviceToken}`, 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ accountId, verifiedDomainId, originHost }),
       signal: AbortSignal.timeout(5_000),
     },

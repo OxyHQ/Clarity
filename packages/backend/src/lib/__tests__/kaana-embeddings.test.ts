@@ -5,11 +5,19 @@ import { restoreFetch, stubFetch } from '../../__tests__/support/global-fetch.js
 import type { FetchFunction } from '../fetch-function.js';
 
 const mock = {
-  tokenFor: vi.fn(async (_audience: string) => 'clarity-kaana-token'),
+  transport: vi.fn(() => ({
+    fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args),
+    getAccessToken: async () => {
+      throw new Error('HTTP must use shared transport');
+    },
+    dispose: vi.fn(),
+  })),
   info: vi.fn(),
   warn: vi.fn(),
 };
-vi.mock('../clarity-service-auth.js', () => ({ getClarityServiceTokenFor: mock.tokenFor }));
+vi.mock('../clarity-service-auth.js', () => ({
+  clarityOxyServer: () => ({ createServiceClient: mock.transport }),
+}));
 vi.mock('../logger.js', () => ({
   createLogger: () => ({ info: mock.info, warn: mock.warn }),
 }));
@@ -65,7 +73,7 @@ describe('embeddingsEnabled', () => {
 });
 
 describe('createEmbeddings', () => {
-  it("calls kaana.ai/v1/embeddings with Clarity's kaana.ai service token", async () => {
+  it('calls kaana.ai/v1/embeddings through the shared workload transport', async () => {
     let url: string | URL | Request | undefined;
     let init: RequestInit | undefined;
     stubFetch(async (requested, requestInit) => {
@@ -76,13 +84,14 @@ describe('createEmbeddings', () => {
 
     await expect(createEmbeddings(['one', 'two'])).resolves.toEqual([vector(1), vector(-1)]);
 
-    expect(mock.tokenFor).toHaveBeenCalledWith('kaana.ai');
+    expect(mock.transport).toHaveBeenCalledWith({
+      baseURL: 'https://kaana.ai/v1',
+      audience: 'kaana.ai',
+    });
     expect(url).toBe('https://kaana.ai/v1/embeddings');
     expect(init?.method).toBe('POST');
-    expect(init?.headers).toMatchObject({
-      Authorization: 'Bearer clarity-kaana-token',
-      'Content-Type': 'application/json',
-    });
+    expect(new Headers(init?.headers).get('authorization')).toBeNull();
+    expect(new Headers(init?.headers).get('content-type')).toBe('application/json');
     // Literals, not the constants: the model line and dimension are the ones
     // Kaana declares in its catalogue (configs/public-catalogue.json) and the
     // `vector(1024)` columns store, so a change here is a deliberate migration.
@@ -92,6 +101,24 @@ describe('createEmbeddings', () => {
       dimensions: 1024,
       encoding_format: 'float',
     });
+  });
+
+  it('leaves retry scheduling to the durable embedding queue', async () => {
+    const request = vi.fn(async () =>
+      kaanaAnswer(
+        {
+          schemaVersion: 1,
+          code: 'service_unavailable',
+          message: 'try later',
+          retryable: true,
+          requestId: 'req_test',
+        },
+        503,
+      ),
+    );
+    stubFetch(request);
+    await expect(createEmbeddings(['one'], { queued: true })).rejects.toThrow();
+    expect(request).toHaveBeenCalledOnce();
   });
 
   it('refuses vectors of another model line or dimension', async () => {

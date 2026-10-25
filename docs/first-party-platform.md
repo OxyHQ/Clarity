@@ -27,13 +27,28 @@ workload binding, application, owner and environment against the finite rollout
 cohort. Clarity has no local cohort, brand bypass or token-payload fallback.
 External service tokens retain their scoped `oxy-api` lane.
 
-Clarity's manual outbound token calls remain v1 under the preparatory shared
-SDK so upgrading the receiver does not change an unmigrated recipient's protocol.
-They no longer request or validate scopes. The new `clarityForOxyService` SDK
-factory always uses v2 and `oxy-service:01a0648b-8d73-70ad-8e67-1c07ddc5eb6e`.
-After all inventoried callers migrate, remove the own `oxy-api` receiver branch
-and v1 self-identity compatibility; retain external scoped OAuth/API-key behavior.
-Do not deploy that removal ahead of the caller cutover.
+The receiver-only checkpoint is `fc6f60c` (rebased onto SDK 0.10.0). Its legacy
+outbound producers remain unchanged for a reader-first rollout. The subsequent
+producer source uses protocol 2 exclusively: Kaana's shared SDK factory,
+Mercaria's public catalogue factory, the shared Oxy transport for domain checks,
+the shared signed account-events feed, and the temporary workload activity
+publisher. No producer requests or validates OAuth scopes. Exact Clarity project,
+application and workload identity checks remain where the account-event and
+catalogue clients previously required them; they inspect the shared v2 mint and
+never manually forward its bearer.
+
+Deploy the compatible Oxy API and Clarity reader first. Reconcile held legacy
+lineage using reviewed live provenance. Then deploy Mercaria's canonical
+receiver before enabling the new Clarity catalogue caller. Public catalogue
+reads retain their anonymous fallback when workload minting is unavailable;
+a receiver's denial is not retried anonymously. The embedding queue still owns
+its retry schedule (`maxRetries: 0`), preserving its existing cost/backoff rules.
+
+After all inventoried producers and queued work migrate, remove the own `oxy-api`
+receiver branch and the finite central v1 cohort. Inventory scheduled and one-shot
+launch definitions as well as running ECS services: an old image can still start
+later. Retain external scoped OAuth/API-key behavior. Do not deploy removal ahead
+of caller cutover. SDK publication alone changes no running producer.
 
 ## Queued work and accounting
 
@@ -41,8 +56,9 @@ Migration `0058_verified_crawl_authority` is additive and runs before the new
 reader. New work persists `caller_authority` and `caller_kind` from the live
 principal. Old jobs keep their IDs, account, application, credential, URLs,
 status and historical `caller_tier`; that tier never proves authority. Their new
-authority defaults to external and kind to legacy, so existing jobs can encounter
-external crawl quotas until reconciled. No job is deleted or silently discarded.
+authority defaults to external and kind to legacy; these rows remain held until
+reviewed reconciliation, without charging an external quota. No job is deleted
+or silently discarded.
 
 The new worker temporarily holds unclassified lineage (`caller_kind = legacy` or
 an unknown authority/kind combination): it neither claims queued pages, recovers
@@ -97,7 +113,8 @@ checks: own and external identities, original versus effective account, wrong
 account, wrong audience, revocation, session switching, and separate account
 idempotency. Exact candidate versions, test results and cutover evidence are
 recorded with each delivery commit. SDK 0.10.0 was published from `badfffd`;
-the reader and producer changes described here have not been deployed.
+the reader is deployed as recorded below; producer activation remains ordered
+after Mercaria’s receiver.
 
 ## Reader release boundary, 2026-10-24
 
@@ -153,9 +170,9 @@ Catalogue registration, audit and external MCP introspection now use the shared
 MCP helpers with an Oxy service transport, which emits v2. The external
 connection remains scoped; its receiver process proves its own workload.
 
-Still pending: authoritative legacy queue reconciliation,
-deployment and live canaries,
-caller cutover, then removal of the finite v1 bridge. Existing product plan and
+The reader deployment and reviewed lineage reconciliation are complete as
+recorded below. Still pending: Mercaria receiver readiness, producer deployment
+and live canaries, remaining caller cutover, then removal of the finite v1 bridge. Existing product plan and
 account membership rules remain in force throughout these steps.
 
 The temporary hold passed 27 PostgreSQL worker/quota tests, including unchanged
@@ -169,3 +186,51 @@ frontend TypeScript and backend production build also pass. This repeats the
 authority, account-isolation, legacy-hold and unchanged embedding-constructor
 checks against published packages; earlier fresh-migration and SDK evidence
 remains applicable because this final delta changes only dependency pins/docs.
+
+Producer source checkpoint: 42 targeted producer/identity tests, 34 existing
+architecture/queue/ranking tests and 11 composed HTTP/PG authority tests pass.
+Backend source/test typecheck passes with candidate core7, Kaana factory and
+Mercaria0.7. All 59 migrations apply to a fresh disposable database. Backend
+production build also passes. A rerun with the final Zod 4 foundation and
+registry pins remains pending; candidate overrides were removed before
+preserving this checkpoint. The reader release must start from `fc6f60c`,
+excluding producer `d216423`, so Mercaria's receiver can deploy before Clarity
+starts using its own authenticated catalogue transport.
+
+## Producer registry composition, 2026-10-25
+
+Reader PR 188 deployed main `dacfd59`. The coordinator verified that missing
+credentials return 401, a verified own workload reaches the domain operation,
+and a wrong audience returns 401. The reviewed reconciliation finished at
+2026-10-24T05:45:12.115Z (task `795ad184d06942f3bf64edcd66176cb7`, exit 0):
+512,538 rows classified, no remaining own pending rows, and 6,847 rows of the
+revoked external credential never promoted. Its 38 pending rows stayed held;
+none was released. These are timestamped cutover observations, not claims about
+later queue counts. Keep the legacy hold until the fleet retirement checks end.
+
+This producer source is rebased on that reader and uses published core 7.3.0,
+Kaana SDK 3.3.0 and Mercaria SDK 0.7.1. Frozen installation uses an isolated
+registry cache after removing candidate Oxy packages from this worktree. The
+installed contracts 6 declaration matches the published artifact (Zod 4), not
+an earlier locally packed candidate with the same version. No local dependency
+paths remain in the manifests or lockfile.
+
+The 53 focused tests cover the shared Kaana factory and queue behavior,
+Clarity identity/readiness, account-event reconciliation, Mercaria transport and
+anonymous public fallback, and real HTTP/PostgreSQL account isolation. Backend
+and frontend types and the production build are verified with these published
+packages. Producer source readiness does not activate it: deploy Mercaria's
+verified public-service receiver first, then this Clarity producer. External
+credentials remain bounded throughout, and no legacy caller tier creates own
+authority.
+
+
+## Alia SDK 22 composition
+
+The producer branch also pins the published Alia SDK 22.0.0 over its Core 7.3 /
+services 13 stack. Clarity keeps its own search UI and selected Alia agent; the
+shared SDK owns conversation, history, streaming and audio session transport.
+Core 7.0 from the isolated reader release is insufficient for the SDK's linked
+audio-token accessor, so this update ships with the already ordered producer
+release, after the Mercaria receiver, rather than triggering another reader rollout.
+Frontend types, 22 message/tool tests and 14 backend architecture checks pass.
