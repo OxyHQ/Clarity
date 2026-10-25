@@ -1,17 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mock = vi.hoisted(() => ({
+import { restoreFetch, stubFetch } from '../../../__tests__/support/global-fetch.js';
+
+const mock = {
   identity: vi.fn(),
   fetch: vi.fn(),
   dispose: vi.fn(),
   create: vi.fn(),
-}));
+};
 vi.mock('../../../lib/clarity-service-auth.js', () => ({
   hasExactClarityServiceConfiguration: () => true,
   assertClarityWorkloadIdentity: mock.identity,
   clarityOxyServer: () => ({ createServiceClient: mock.create }),
 }));
-import { searchProducts, setMercariaFetchForTests } from '../mercaria-catalog.js';
+const { searchProducts, setMercariaFetchForTests } = await import('../mercaria-catalog.js');
 const publicFetch = vi.fn<typeof fetch>();
 beforeEach(() => {
   setMercariaFetchForTests(undefined);
@@ -20,11 +22,11 @@ beforeEach(() => {
   mock.fetch.mockImplementation(async () => Response.json({ items: [], nextCursor: null }));
   mock.create.mockReturnValue({ fetch: mock.fetch, dispose: mock.dispose });
   publicFetch.mockImplementation(async () => Response.json({ items: [], nextCursor: null }));
-  vi.stubGlobal('fetch', publicFetch);
+  stubFetch(publicFetch);
 });
 afterEach(() => {
   setMercariaFetchForTests(undefined);
-  vi.unstubAllGlobals();
+  restoreFetch();
 });
 describe('Mercaria public catalogue workload transport', () => {
   it('uses the product factory with the canonical receiver and no local bearer', async () => {
