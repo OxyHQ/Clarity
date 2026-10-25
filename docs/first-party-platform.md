@@ -223,3 +223,14 @@ packages. Producer source readiness does not activate it: deploy Mercaria's
 verified public-service receiver first, then this Clarity producer. External
 credentials remain bounded throughout, and no legacy caller tier creates own
 authority.
+
+
+## Alia SDK 22 composition
+
+The producer branch also pins the published Alia SDK 22.0.0 over its Core 7.3 /
+services 13 stack. Clarity keeps its own search UI and selected Alia agent; the
+shared SDK owns conversation, history, streaming and audio session transport.
+Core 7.0 from the isolated reader release is insufficient for the SDK's linked
+audio-token accessor, so this update ships with the already ordered producer
+release, after the Mercaria receiver, rather than triggering another reader rollout.
+Frontend types, 22 message/tool tests and 14 backend architecture checks pass.
