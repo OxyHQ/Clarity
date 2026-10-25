@@ -113,7 +113,8 @@ checks: own and external identities, original versus effective account, wrong
 account, wrong audience, revocation, session switching, and separate account
 idempotency. Exact candidate versions, test results and cutover evidence are
 recorded with each delivery commit. SDK 0.10.0 was published from `badfffd`;
-the reader and producer changes described here have not been deployed.
+the reader is deployed as recorded below; producer activation remains ordered
+after Mercaria’s receiver.
 
 ## Reader release boundary, 2026-10-24
 
@@ -169,9 +170,9 @@ Catalogue registration, audit and external MCP introspection now use the shared
 MCP helpers with an Oxy service transport, which emits v2. The external
 connection remains scoped; its receiver process proves its own workload.
 
-Still pending: authoritative legacy queue reconciliation,
-deployment and live canaries,
-caller cutover, then removal of the finite v1 bridge. Existing product plan and
+The reader deployment and reviewed lineage reconciliation are complete as
+recorded below. Still pending: Mercaria receiver readiness, producer deployment
+and live canaries, remaining caller cutover, then removal of the finite v1 bridge. Existing product plan and
 account membership rules remain in force throughout these steps.
 
 The temporary hold passed 27 PostgreSQL worker/quota tests, including unchanged
@@ -195,3 +196,30 @@ registry pins remains pending; candidate overrides were removed before
 preserving this checkpoint. The reader release must start from `fc6f60c`,
 excluding producer `d216423`, so Mercaria's receiver can deploy before Clarity
 starts using its own authenticated catalogue transport.
+
+## Producer registry composition, 2026-10-25
+
+Reader PR 188 deployed main `dacfd59`. The coordinator verified that missing
+credentials return 401, a verified own workload reaches the domain operation,
+and a wrong audience returns 401. The reviewed reconciliation finished at
+2026-10-24T05:45:12.115Z (task `795ad184d06942f3bf64edcd66176cb7`, exit 0):
+512,538 rows classified, no remaining own pending rows, and 6,847 rows of the
+revoked external credential never promoted. Its 38 pending rows stayed held;
+none was released. These are timestamped cutover observations, not claims about
+later queue counts. Keep the legacy hold until the fleet retirement checks end.
+
+This producer source is rebased on that reader and uses published core 7.3.0,
+Kaana SDK 3.3.0 and Mercaria SDK 0.7.1. Frozen installation uses an isolated
+registry cache after removing candidate Oxy packages from this worktree. The
+installed contracts 6 declaration matches the published artifact (Zod 4), not
+an earlier locally packed candidate with the same version. No local dependency
+paths remain in the manifests or lockfile.
+
+The 53 focused tests cover the shared Kaana factory and queue behavior,
+Clarity identity/readiness, account-event reconciliation, Mercaria transport and
+anonymous public fallback, and real HTTP/PostgreSQL account isolation. Backend
+and frontend types and the production build are verified with these published
+packages. Producer source readiness does not activate it: deploy Mercaria's
+verified public-service receiver first, then this Clarity producer. External
+credentials remain bounded throughout, and no legacy caller tier creates own
+authority.
