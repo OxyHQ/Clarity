@@ -2,9 +2,14 @@ import { inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
-import { newsStories, newsStoryArticles, searchDocuments } from '../../db/schema/index.js';
+import {
+  imageCache,
+  newsStories,
+  newsStoryArticles,
+  searchDocuments,
+} from '../../db/schema/index.js';
 import { listNewsStories, newsLanguages, newsLimit } from '../news.js';
-import { publicImageUrl } from '../image-cache.js';
+import { imageKey, publicImageUrl } from '../image-cache.js';
 
 describe('newsLimit', () => {
   it('defaults what it cannot read and clamps what it can', () => {
@@ -172,6 +177,32 @@ suite('news on Postgres', () => {
     expect(stories[3]).toMatchObject({ firstPublishedAt: null, lastPublishedAt: null });
     expect(stories[3].articles[0].publishedAt).toBeUndefined();
     expect(stories[0].articles[0].content).toBeUndefined();
+  });
+
+  it("sends an article's image seeds once Clarity knows them, and nothing before", async () => {
+    const image = 'https://news-test.example/i.jpg';
+    const before = ours(await listNewsStories({ limit: 100 }));
+    expect(before[0].articles[0]).not.toHaveProperty('imageSeeds');
+
+    await getDb()
+      .insert(imageCache)
+      .values({
+        key: imageKey(image),
+        sourceUrl: image,
+        status: 'ready',
+        oxyFileId: 'news-test-file',
+        seeds: ['#cc210c', '#bbe8fc'],
+      });
+    try {
+      const after = ours(await listNewsStories({ limit: 100 }));
+      expect(after[0].articles[0].imageSeeds).toEqual(['#cc210c', '#bbe8fc']);
+      // Articles without that image carry no seeds.
+      expect(after[2].articles[0]).not.toHaveProperty('imageSeeds');
+    } finally {
+      await getDb()
+        .delete(imageCache)
+        .where(inArray(imageCache.key, [imageKey(image)]));
+    }
   });
 
   it("filters by the reader's languages, whatever the region", async () => {

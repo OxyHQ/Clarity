@@ -51,6 +51,15 @@ export interface OxyFiles {
     mime: string,
     options: { visibility: FileVisibility; originalName?: string },
   ): Promise<ApplicationFileUpload>;
+  /**
+   * What Oxy knows about Clarity's own files (`POST /assets/service/by-ids`);
+   * Clarity reads only the seed colours Oxy works out for an image. An id Oxy
+   * omits is absent; `partial` answers what it could when a chunk fails.
+   */
+  metadataByIds(
+    ids: string[],
+    options: { partial: true },
+  ): Promise<Array<{ id: string; seeds?: string[] }>>;
   references: {
     add(references: ServiceFileReference[]): Promise<ServiceFileReferenceResult[]>;
     remove(references: ServiceFileReference[]): Promise<ServiceFileReferenceResult[]>;
@@ -80,6 +89,7 @@ const serviceFiles: OxyFiles = {
     (await serviceAssets()).importAppFile(sourceUrl, options),
   uploadAppFile: async (bytes, mime, options) =>
     (await serviceAssets()).uploadAppFile(bytes, mime, options),
+  metadataByIds: async (ids, options) => (await serviceAssets()).metadataByIds(ids, options),
   references: {
     add: async (references) => (await serviceAssets()).references.add(references),
     remove: async (references) => (await serviceAssets()).references.remove(references),

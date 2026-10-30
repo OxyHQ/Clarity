@@ -19,6 +19,7 @@ import type {
   JobSearchRequest,
   JobSearchResponse,
   NewsRequest,
+  PublicNewsRequest,
   NewsStory,
   Page,
   Place,
@@ -97,6 +98,20 @@ export class ClarityClient {
 
   readonly news = (request: NewsRequest = {}, options?: RequestOptions) =>
     this.request<Page<NewsStory>>('GET', `/v1/news${query(request)}`, undefined, options);
+
+  /**
+   * Discover's news (`GET /news`): public, so it needs no credential and a
+   * client constructed with none can call it. The answer is the same for
+   * every reader, and shared caches may hold it for a minute.
+   */
+  readonly publicNews = (request: PublicNewsRequest = {}, options?: RequestOptions) =>
+    this.request<{ data: NewsStory[] }>(
+      'GET',
+      `/news${query({ limit: request.limit, languages: request.languages?.join(',') || undefined })}`,
+      undefined,
+      options,
+      true,
+    ).then((response) => response.data);
 
   readonly documents = {
     get: (id: string, options?: RequestOptions) =>

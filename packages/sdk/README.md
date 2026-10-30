@@ -36,3 +36,16 @@ remain available through `ClarityClient`.
 
 The factories are source changes pending release. Deploy the matching Clarity
 receiver and Oxy authority API before adopting the service factory in callers.
+
+Public reads need no credential at all. Discover's news is the same for every
+reader, so a screen with no reason to identify anyone (a photo frame, a kiosk)
+reads it with a client constructed with none:
+
+```ts
+import { ClarityClient } from '@clarity.surf/sdk';
+
+const stories = await new ClarityClient().publicNews({ languages: ['es', 'en'], limit: 10 });
+const [article] = stories[0]?.articles ?? [];
+// article.imageUrl is Clarity's copy of the image; article.imageSeeds, once
+// known, are its seed colours (`#rrggbb`, best first) to theme a card with.
+```

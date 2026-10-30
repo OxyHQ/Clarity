@@ -120,6 +120,16 @@ export interface SearchResponse extends Page<SearchResult> {
   degraded?: { from: 'hybrid'; to: 'lexical'; reason: string };
 }
 
+/** An article of a news story: a search result, with its image's seed colours. */
+export interface NewsArticle extends SearchResult {
+  /**
+   * The image's seed colours, best first, as `#rrggbb`: `[0]` themes a screen
+   * showing it (`BloomProvider seed`). Absent until Clarity's image has been
+   * rendered; theme from a fallback seed until then.
+   */
+  imageSeeds?: string[];
+}
+
 export interface NewsStory {
   id: string;
   title: string;
@@ -131,7 +141,7 @@ export interface NewsStory {
   sourceCount: number;
   publisherDiversity: number;
   rankingScore: number;
-  articles: SearchResult[];
+  articles: NewsArticle[];
 }
 
 export interface NewsRequest {
@@ -141,6 +151,16 @@ export interface NewsRequest {
   publishedAfter?: string;
   limit?: number;
   cursor?: string;
+}
+
+/** Discover's news (`GET /news`): public, the same for every reader. */
+export interface PublicNewsRequest {
+  /**
+   * Primary language subtags, most wanted first (`es`, `en`). Languages with
+   * no news yet fall back to every language rather than an empty page.
+   */
+  languages?: string[];
+  limit?: number;
 }
 
 export interface IndexUrlsRequest {

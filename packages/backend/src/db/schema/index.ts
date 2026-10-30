@@ -592,6 +592,13 @@ export const imageCache = pgTable(
     contentType: text('content_type'),
     /** Legacy copy only (see above). */
     bytes: bytea('bytes'),
+    /**
+     * The image's seed colours, best first, as `#rrggbb`: what a screen
+     * showing it themes itself with. Oxy Files works them out when it renders
+     * the file; copied here the first time a listing finds them there, and
+     * cleared when the image becomes a new file.
+     */
+    seeds: text('seeds').array(),
     byteSize: integer('byte_size').notNull().default(0),
     fetchedAt: timestamp('fetched_at', { withTimezone: true }).notNull().defaultNow(),
     lastAccessedAt: timestamp('last_accessed_at', { withTimezone: true }).notNull().defaultNow(),

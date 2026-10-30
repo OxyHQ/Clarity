@@ -13,6 +13,12 @@ export interface NewsArticle {
   language?: string;
   publishedAt?: string;
   imageUrl?: string;
+  /**
+   * The image's seed colours, best first, as `#rrggbb`: `[0]` themes a screen
+   * showing it (`BloomProvider seed`). Absent until Oxy Files has rendered the
+   * image; theme from a fallback seed until then.
+   */
+  imageSeeds?: string[];
   /** Clarity's copy of the site's icon, once fetched. Never the site's own URL. */
   faviconUrl?: string;
 }
