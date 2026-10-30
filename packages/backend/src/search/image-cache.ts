@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { and, eq, isNotNull, isNull, lt, notExists, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lt, notExists, or, sql } from 'drizzle-orm';
 
 import { getDb } from '../db/index.js';
 import { imageCache, imageReferences } from '../db/schema/index.js';
 import { recordLegacyRead } from '../files/legacy-reads.js';
+import { log } from '../lib/logger.js';
 import {
   isBlocked,
   isSourceFailure,
@@ -220,6 +221,8 @@ async function storeImage(
           sourceUrl,
           status: 'ready',
           oxyFileId: outcome.oxyFileId,
+          // The seeds were the old file's; the next listing reads the new one's.
+          seeds: null,
           contentType: null,
           bytes: null,
           byteSize: 0,
@@ -264,6 +267,70 @@ async function legacyImage(bytes: Buffer, rendition: number): Promise<RenderedIm
  * The image `entity` shows (its `sourceUrl`), as a Clarity-owned Oxy file —
  * imported first when Clarity has none — and the use recorded.
  */
+/**
+ * The seed colours of each document's preview image, by document id, for a
+ * listing to send with the image (`GET /news`): a screen shows the image and
+ * themes itself from it without reading pixels.
+ *
+ * Oxy Files works the seeds out when it renders an image. A ready row that
+ * has none yet asks Oxy once, in one batch, and keeps what it finds; an image
+ * Oxy has not rendered yet, or one never fetched, has no seeds this time. A
+ * listing never fails for want of seeds: Oxy unreachable means none.
+ */
+export async function imageSeedsOf(
+  documents: ReadonlyArray<{ id: string; imageUrl: string | null }>,
+): Promise<Map<string, string[]>> {
+  const documentsByKey = new Map<string, string[]>();
+  for (const document of documents) {
+    if (!document.imageUrl) continue;
+    const key = imageKey(document.imageUrl);
+    documentsByKey.set(key, [...(documentsByKey.get(key) ?? []), document.id]);
+  }
+  const seedsByDocument = new Map<string, string[]>();
+  if (documentsByKey.size === 0) return seedsByDocument;
+
+  const rows = await getDb()
+    .select({ key: imageCache.key, oxyFileId: imageCache.oxyFileId, seeds: imageCache.seeds })
+    .from(imageCache)
+    .where(
+      and(
+        inArray(imageCache.key, [...documentsByKey.keys()]),
+        eq(imageCache.status, 'ready'),
+        isNotNull(imageCache.oxyFileId),
+      ),
+    );
+
+  const seedsByKey = new Map<string, string[]>();
+  const unseeded = new Map<string, string>();
+  for (const row of rows) {
+    if (row.seeds?.length) seedsByKey.set(row.key, row.seeds);
+    else if (row.oxyFileId) unseeded.set(row.oxyFileId, row.key);
+  }
+
+  if (unseeded.size > 0) {
+    try {
+      const metadata = await oxyFiles().metadataByIds([...unseeded.keys()], { partial: true });
+      for (const file of metadata) {
+        const key = unseeded.get(file.id);
+        if (!key || !file.seeds?.length) continue;
+        seedsByKey.set(key, file.seeds);
+        await getDb()
+          .update(imageCache)
+          .set({ seeds: file.seeds })
+          .where(and(eq(imageCache.key, key), eq(imageCache.oxyFileId, file.id)));
+      }
+    } catch (error) {
+      log.general.warn({ err: error, files: unseeded.size }, 'Image seeds unavailable from Oxy');
+    }
+  }
+
+  for (const [key, documentIds] of documentsByKey) {
+    const seeds = seedsByKey.get(key);
+    if (seeds) for (const documentId of documentIds) seedsByDocument.set(documentId, seeds);
+  }
+  return seedsByDocument;
+}
+
 export async function resolveImage(
   entity: { entityType: ReferenceEntityType; entityId: string },
   sourceUrl: string,

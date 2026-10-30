@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
 import { newsStories, newsStoryArticles, searchDocuments } from '../db/schema/index.js';
 import { dateFromUrl, metadataFromStructuredData } from './article-metadata.js';
+import { imageSeedsOf } from './image-cache.js';
 import {
   documentCardColumns,
   iconHostsOf,
@@ -92,11 +93,12 @@ export async function listNewsStories(query: NewsQuery = {}) {
         ),
       );
     const icons = await iconHostsOf(articles.map((item) => item.document));
+    const seeds = await imageSeedsOf(articles.map((item) => item.document));
     return stories.map((story) => ({
       ...story,
       articles: articles
         .filter((item) => item.storyId === story.id)
-        .map((item) => ({ ...publicDocument(item.document, icons), highlights: [], score: 1 })),
+        .map((item) => newsArticle(item.document, icons, seeds)),
     }));
   }
   return singleArticleStories(limit, languages);
@@ -142,7 +144,8 @@ async function singleArticleStories(limit: number, languages: string[], now = Da
   );
   const page = articles.slice(0, limit);
   const icons = await iconHostsOf(page);
-  return page.map((document) => storyOfOne(document, icons));
+  const seeds = await imageSeedsOf(page);
+  return page.map((document) => storyOfOne(document, icons, seeds));
 }
 
 /**
@@ -160,7 +163,26 @@ function withStatedMetadata(row: DocumentCardRow, now: number): DocumentCardRow 
   };
 }
 
-function storyOfOne(document: DocumentCardRow, icons: ReadonlySet<string>) {
+/** One article of a story, with its image's seed colours when they are known. */
+function newsArticle(
+  document: DocumentCardRow,
+  icons: ReadonlySet<string>,
+  seeds: ReadonlyMap<string, string[]>,
+) {
+  const imageSeeds = seeds.get(document.id);
+  return {
+    ...publicDocument(document, icons),
+    ...(imageSeeds ? { imageSeeds } : {}),
+    highlights: [],
+    score: 1,
+  };
+}
+
+function storyOfOne(
+  document: DocumentCardRow,
+  icons: ReadonlySet<string>,
+  seeds: ReadonlyMap<string, string[]>,
+) {
   return {
     id: `document:${document.id}`,
     title: document.title ?? '',
@@ -173,6 +195,6 @@ function storyOfOne(document: DocumentCardRow, icons: ReadonlySet<string>) {
     rankingScore: 0,
     createdAt: document.createdAt,
     updatedAt: document.updatedAt,
-    articles: [{ ...publicDocument(document, icons), highlights: [], score: 1 }],
+    articles: [newsArticle(document, icons, seeds)],
   };
 }

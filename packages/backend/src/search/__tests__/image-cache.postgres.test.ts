@@ -39,6 +39,7 @@ import {
   IMAGE_MISS_TTL_MS,
   IMAGE_REFRESH_MS,
   imageKey,
+  imageSeedsOf,
   imageVersion,
   publicImageUrl,
   resolveImage,
@@ -321,5 +322,76 @@ suite('image cache on Postgres and Oxy Files', () => {
       `https://api.clarity.surf/images/documents/d1/${imageVersion(url('v.png'))}`,
     );
     expect(publicImageUrl('jobs', 'j1', 'ftp://nope')).toBeUndefined();
+  });
+
+  describe('image seeds', () => {
+    const SEEDS = ['#cc210c', '#bbe8fc', '#aeaf3d'];
+    const document = (name: string, imageUrl: string | null = url(`${name}.png`)) => ({
+      id: `ict-${name}`,
+      imageUrl,
+    });
+
+    it('asks Oxy once for the seeds of a rendered image, then keeps them', async () => {
+      oxy.remote.set(url('s.png'), PNG);
+      await resolveImage(doc('s'), url('s.png'));
+      oxy.seeds.set('file-1', SEEDS);
+
+      const first = await imageSeedsOf([document('s')]);
+      const second = await imageSeedsOf([document('s')]);
+
+      expect(first.get('ict-s')).toEqual(SEEDS);
+      expect(second.get('ict-s')).toEqual(SEEDS);
+      expect(oxy.calls.filter((call) => call.startsWith('metadata'))).toEqual(['metadata:1']);
+    });
+
+    it('has no seeds for an image Oxy has not rendered or nobody fetched, and asks again later', async () => {
+      oxy.remote.set(url('u.png'), PNG);
+      await resolveImage(doc('u'), url('u.png'));
+
+      const seeds = await imageSeedsOf([document('u'), document('never'), document('none', null)]);
+      expect(seeds.size).toBe(0);
+
+      oxy.seeds.set('file-1', SEEDS);
+      expect((await imageSeedsOf([document('u')])).get('ict-u')).toEqual(SEEDS);
+      expect(oxy.calls.filter((call) => call.startsWith('metadata'))).toEqual([
+        'metadata:1',
+        'metadata:1',
+      ]);
+    });
+
+    it('gives every document sharing an image its seeds', async () => {
+      oxy.remote.set(url('shared.png'), PNG);
+      await resolveImage(doc('one'), url('shared.png'));
+      oxy.seeds.set('file-1', SEEDS);
+
+      const seeds = await imageSeedsOf([
+        document('one', url('shared.png')),
+        document('two', url('shared.png')),
+      ]);
+      expect(seeds.get('ict-one')).toEqual(SEEDS);
+      expect(seeds.get('ict-two')).toEqual(SEEDS);
+    });
+
+    it('forgets the seeds when the image becomes a new file', async () => {
+      oxy.remote.set(url('c.png'), PNG);
+      await resolveImage(doc('c'), url('c.png'));
+      oxy.seeds.set('file-1', SEEDS);
+      await imageSeedsOf([document('c')]);
+
+      oxy.remote.set(url('c.png'), PNG2);
+      await resolveImage(doc('c'), url('c.png'), Date.now() + IMAGE_REFRESH_MS + 1000);
+      const NEW_SEEDS = ['#1d3557'];
+      oxy.seeds.set('file-2', NEW_SEEDS);
+
+      expect((await imageSeedsOf([document('c')])).get('ict-c')).toEqual(NEW_SEEDS);
+    });
+
+    it('lists without seeds when Oxy is unreachable', async () => {
+      oxy.remote.set(url('d.png'), PNG);
+      await resolveImage(doc('d'), url('d.png'));
+      oxy.down = oxyError(503, 'UNAVAILABLE');
+
+      expect((await imageSeedsOf([document('d')])).size).toBe(0);
+    });
   });
 });

@@ -414,6 +414,13 @@
       "when": 1792778229308,
       "tag": "0058_verified_crawl_authority",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793330607546,
+      "tag": "0059_news_image_seeds",
+      "breakpoints": true
     }
   ]
 }

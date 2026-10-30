@@ -292,3 +292,35 @@ describe('ClarityClient', () => {
     expect(fetcher.mock.calls[1][0]).toBe('https://clarity.test/v1/places/3128760');
   });
 });
+
+describe('ClarityClient.publicNews', () => {
+  it("reads Discover's news with no credential, in the reader's languages", async () => {
+    const story = {
+      id: 'document:1',
+      title: 'Story',
+      articles: [{ id: '1', imageSeeds: ['#cc210c'], highlights: [], score: 1 }],
+    };
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ data: [story] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+    const client = new ClarityClient({ baseUrl: 'https://clarity.test', fetch: fetcher });
+
+    const stories = await client.publicNews({ languages: ['es', 'en'], limit: 5 });
+
+    expect(stories[0]?.articles[0]?.imageSeeds).toEqual(['#cc210c']);
+    const [url, init] = fetcher.mock.calls[0] ?? [];
+    expect(url).toBe('https://clarity.test/news?limit=5&languages=es%2Cen');
+    expect(new Headers(init?.headers).get('authorization')).toBeNull();
+  });
+
+  it('asks for every language when none is given', async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), { status: 200 }),
+    );
+    await new ClarityClient({ baseUrl: 'https://clarity.test', fetch: fetcher }).publicNews();
+    expect(fetcher.mock.calls[0]?.[0]).toBe('https://clarity.test/news');
+  });
+});

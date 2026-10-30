@@ -128,6 +128,20 @@ export class FakeOxyFiles implements OxyFiles {
     return { file, deduplicated: false };
   }
 
+  /** File id → the seed colours Oxy has worked out for it (absent until it renders the file). */
+  seeds = new Map<string, string[]>();
+
+  async metadataByIds(ids: string[], _options: { partial: true }) {
+    if (this.down) throw this.down;
+    this.calls.push(`metadata:${ids.length}`);
+    return ids
+      .filter((id) => this.live(id))
+      .map((id) => {
+        const seeds = this.seeds.get(id);
+        return seeds ? { id, seeds } : { id };
+      });
+  }
+
   async uploadAppFile(bytes: Uint8Array, mime: string) {
     if (this.down) throw this.down;
     this.calls.push(`upload:${mime}`);
