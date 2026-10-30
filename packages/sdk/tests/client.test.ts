@@ -317,9 +317,9 @@ describe('ClarityClient.publicNews', () => {
   });
 
   it('asks for every language when none is given', async () => {
-    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify({ data: [] }), { status: 200 }),
-    );
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ data: [] }), { status: 200 }));
     await new ClarityClient({ baseUrl: 'https://clarity.test', fetch: fetcher }).publicNews();
     expect(fetcher.mock.calls[0]?.[0]).toBe('https://clarity.test/news');
   });

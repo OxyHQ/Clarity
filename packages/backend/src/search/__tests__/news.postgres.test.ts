@@ -199,7 +199,9 @@ suite('news on Postgres', () => {
       // Articles without that image carry no seeds.
       expect(after[2].articles[0]).not.toHaveProperty('imageSeeds');
     } finally {
-      await getDb().delete(imageCache).where(inArray(imageCache.key, [imageKey(image)]));
+      await getDb()
+        .delete(imageCache)
+        .where(inArray(imageCache.key, [imageKey(image)]));
     }
   });
 
