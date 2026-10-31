@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth, useOxy, useSupervision } from '@oxy.so/services/ui/client';
-import {
-  ORGANIZATION_TYPES,
-  createOrganizationSchema,
-  type Organization,
-  type OrganizationType,
-  type SafetyOrganizationIdentity,
+import { ORGANIZATION_TYPES } from '@oxy.so/contracts/client';
+import type {
+  CreateOrganization,
+  Organization,
+  OrganizationType,
+  SafetyOrganizationIdentity,
 } from '@oxy.so/contracts';
 import { Avatar } from '@oxy.so/bloom/avatar';
 import { Button } from '@oxy.so/bloom/button';
@@ -23,6 +23,7 @@ import {
 } from '@oxy.so/bloom/select';
 import { TextField, TextFieldInput, TextFieldLabel } from '@oxy.so/bloom/text-field';
 import { useTranslation } from '@/hooks/useTranslation';
+import { parseOrganizationDraft } from '@/lib/organization-draft';
 
 export type ExperienceEmployer = SafetyOrganizationIdentity &
   Partial<Pick<Organization, 'avatar' | 'websiteUrl' | 'countryCode'>>;
@@ -105,17 +106,10 @@ export function ExperienceEmployerField({
     onChange(organization);
   }
   const create = useMutation({
-    mutationFn: () => {
+    mutationFn: (organization: CreateOrganization) => {
       if (!ordinary || !canUsePrivateApi || disabled)
         throw new Error('A personal session is required');
-      return oxyServices.organizations.create(
-        createOrganizationSchema.parse({
-          name: query.trim(),
-          organizationType,
-          websiteUrl: website.trim() || null,
-          countryCode: country.trim().toUpperCase() || null,
-        }),
-      );
+      return oxyServices.organizations.create(organization);
     },
     onSuccess: (organization) => {
       select(organization);
@@ -311,14 +305,14 @@ export function ExperienceEmployerField({
                   disabled={disabled || create.isPending || !canUsePrivateApi}
                   loading={create.isPending}
                   onPress={() => {
-                    const result = createOrganizationSchema.safeParse({
-                      name: query.trim(),
+                    const organization = parseOrganizationDraft({
+                      name: query,
                       organizationType,
-                      websiteUrl: website.trim() || null,
-                      countryCode: country.trim().toUpperCase() || null,
+                      websiteUrl: website,
+                      countryCode: country,
                     });
-                    setCreateInvalid(!result.success);
-                    if (result.success) create.mutate();
+                    setCreateInvalid(organization === null);
+                    if (organization) create.mutate(organization);
                   }}
                 >
                   {t('profile.experience.createOrganization')}
