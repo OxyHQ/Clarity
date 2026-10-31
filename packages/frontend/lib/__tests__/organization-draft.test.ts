@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createOrganizationSchema } from '@oxy.so/contracts';
-import { parseOrganizationDraft } from '../organization-draft';
+import { parseOrganizationDraft } from '@oxy.so/services/organization-draft';
 
 describe('parseOrganizationDraft', () => {
   const valid = {

@@ -23,7 +23,7 @@ import {
 } from '@oxy.so/bloom/select';
 import { TextField, TextFieldInput, TextFieldLabel } from '@oxy.so/bloom/text-field';
 import { useTranslation } from '@/hooks/useTranslation';
-import { parseOrganizationDraft } from '@/lib/organization-draft';
+import { parseOrganizationDraft } from '@oxy.so/services/organization-draft';
 import { getNextOrganizationPage } from '@/lib/organization-pagination';
 
 export type ExperienceEmployer = SafetyOrganizationIdentity &
