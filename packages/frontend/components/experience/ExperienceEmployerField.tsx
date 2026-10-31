@@ -24,6 +24,7 @@ import {
 import { TextField, TextFieldInput, TextFieldLabel } from '@oxy.so/bloom/text-field';
 import { useTranslation } from '@/hooks/useTranslation';
 import { parseOrganizationDraft } from '@/lib/organization-draft';
+import { getNextOrganizationPage } from '@/lib/organization-pagination';
 
 export type ExperienceEmployer = SafetyOrganizationIdentity &
   Partial<Pick<Organization, 'avatar' | 'websiteUrl' | 'countryCode'>>;
@@ -89,7 +90,7 @@ export function ExperienceEmployerField({
       });
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    getNextPageParam: getNextOrganizationPage,
     enabled:
       supervision.data !== undefined &&
       canUsePrivateApi &&
