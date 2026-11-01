@@ -62,3 +62,19 @@ it('discards the open editor on account changes and does not restore it on A to 
   expect(renderer.root.findAllByType('Editor' as never)).toHaveLength(0);
   await act(async () => renderer.unmount());
 });
+
+it('discards the editor when the same account changes sessions', async () => {
+  let renderer!: ReactTestRenderer;
+  await act(async () => {
+    renderer = create(<SettingsExperienceScreen />);
+  });
+  await act(async () => {
+    renderer.root.findAllByType('Button' as never)[0].props.onPress();
+  });
+  expect(renderer.root.findAllByType('Editor' as never)).toHaveLength(1);
+  state.sessionId = 'alice-other-session';
+  state.epoch = 1;
+  await act(async () => renderer.update(<SettingsExperienceScreen />));
+  expect(renderer.root.findAllByType('Editor' as never)).toHaveLength(0);
+  await act(async () => renderer.unmount());
+});
