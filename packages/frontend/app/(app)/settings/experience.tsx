@@ -14,6 +14,17 @@ import { useExperienceClient } from '@/lib/api/use-experience-client';
 import { useTranslation } from '@/hooks/useTranslation';
 
 export default function SettingsExperienceScreen() {
+  const { user, oxyServices } = useAuth();
+  const { activeSessionId } = useOxy();
+  const ownerKey = JSON.stringify([
+    user?.id ?? null,
+    activeSessionId ?? null,
+    oxyServices.http.getSessionEpoch(),
+  ]);
+  return <SettingsExperienceContent key={ownerKey} />;
+}
+
+function SettingsExperienceContent() {
   const { user, canUsePrivateApi, isAuthenticated, oxyServices } = useAuth();
   const { activeSessionId } = useOxy();
   const supervision = useSupervision();
