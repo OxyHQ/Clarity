@@ -1,0 +1,93 @@
+name: Measure candidate Oxy upgrade
+
+on:
+  push:
+    branches:
+      - codex/clarity-services14-compare
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out base
+        uses: actions/checkout@v7
+        with:
+          ref: d37840680bbeb2203a44cbe755d79f09ae77a659
+          path: baseline
+          persist-credentials: false
+      - name: Check out candidate
+        uses: actions/checkout@v7
+        with:
+          ref: aa70e3cf41f72f8bdfd349588f63b966f7add127
+          path: candidate
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: candidate/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install and build exact frozen trees
+        run: |
+          (cd baseline && bun install --frozen-lockfile && bun run build:frontend)
+          (cd candidate && bun install --frozen-lockfile && bun run build:frontend)
+      - name: Measure JS and inspect native selection
+        run: |
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync, readdirSync, realpathSync } from 'node:fs';
+          import { createRequire } from 'node:module';
+          import { dirname, join, relative, resolve } from 'node:path';
+          import { gzipSync } from 'node:zlib';
+          function walk(dir) {
+            return readdirSync(dir, { withFileTypes: true }).flatMap(entry =>
+              entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]);
+          }
+          function measure(repo) {
+            const dist = join(repo, 'packages/frontend/dist');
+            const js = walk(dist).filter(file => file.endsWith('.js'));
+            return { files: js.length, rawBytes: js.reduce((n, f) => n + readFileSync(f).length, 0), gzipBytes: js.reduce((n, f) => n + gzipSync(readFileSync(f)).length, 0) };
+          }
+          function selection(repoName, platform) {
+            const repo = resolve(repoName), root = join(repo, 'packages/frontend');
+            const require = createRequire(join(root, 'package.json'));
+            const cli = join(dirname(require.resolve('expo-modules-autolinking/package.json')), 'bin/expo-modules-autolinking.js');
+            const result = JSON.parse(execFileSync(process.execPath, [cli, 'resolve', '--platform', platform, '--project-root', root, '--json'], { encoding: 'utf8' }));
+            if (!Array.isArray(result.modules)) throw new Error('Invalid Expo resolver result');
+            return Object.fromEntries(['@oxy.so/services', 'expo-crypto'].map(name => [name, result.modules.filter(m => m.packageName === name).map(m => ({
+              version: m.packageVersion,
+              projects: m.projects?.map(p => ({ name: p.name, source: relative(repo, realpathSync(p.sourceDir)), modules: p.modules })),
+              pods: m.pods?.map(p => ({ name: p.podName, source: relative(repo, realpathSync(p.podspecDir)) })),
+              modules: m.modules,
+            }))]));
+          }
+          const before = measure('baseline'), after = measure('candidate');
+          console.log(JSON.stringify({ js: { before, after, delta: { files: after.files-before.files, rawBytes: after.rawBytes-before.rawBytes, gzipBytes: after.gzipBytes-before.gzipBytes } } }, null, 2));
+          for (const platform of ['android', 'apple']) {
+            const before = selection('baseline', platform), after = selection('candidate', platform);
+            for (const name of ['@oxy.so/services', 'expo-crypto']) if (after[name].length !== 1) throw new Error(`Expected ${name} once on ${platform}`);
+            console.log(JSON.stringify({ platform, before, after }, null, 2));
+          }
+          function graph(repoName, platform) {
+            const repo = resolve(repoName), root = join(repo, 'packages/frontend');
+            const require = createRequire(join(root, 'package.json'));
+            const cli = join(dirname(require.resolve('expo-modules-autolinking/package.json')), 'bin/expo-modules-autolinking.js');
+            const result = JSON.parse(execFileSync(process.execPath, [cli, 'resolve', '--platform', platform, '--project-root', root, '--json'], { encoding: 'utf8' }));
+            if (!Array.isArray(result.modules)) throw new Error('Invalid Expo resolver result');
+            return Object.fromEntries(result.modules.map(m => {
+              if (m.packageName === '@oxy.so/services') m.packageVersion = '<services-version>';
+              return [m.packageName, JSON.stringify(m).split(repo).join('<repo>')];
+            }));
+          }
+          for (const platform of ['android', 'apple']) {
+            const before = graph('baseline', platform), after = graph('candidate', platform);
+            const names = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
+            const changed = names.filter(name => before[name] !== after[name]);
+            console.log(JSON.stringify({ platform, beforeCount: Object.keys(before).length, afterCount: Object.keys(after).length, changed }, null, 2));
+            for (const name of changed) console.log(JSON.stringify({ platform, name, before: before[name], after: after[name] }));
+          }
+          NODE
