@@ -38,6 +38,7 @@
   "author": "",
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@oxy.so/doctor": "1.5.0",
     "typescript": "~6.0.3"
   },
   "overrides": {
