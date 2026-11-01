@@ -152,7 +152,7 @@ describe('architecture gates', () => {
     // transport for conversation/audio calls and requires Core 7.1+ / services 13+.
     // 22.1.1 acknowledges explicit Stop and fences delayed acknowledgements
     // across thread/account changes, including Clarity's custom chat controls.
-    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('22.1.1');
+    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('22.10.1');
     const agent = readFileSync(join(frontendRoot, 'lib', 'clarity-agent.ts'), 'utf8');
     expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
     // Clarity's interface is Clarity's; the conversation under it — the stream, the
