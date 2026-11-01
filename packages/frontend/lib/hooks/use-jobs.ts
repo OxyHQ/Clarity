@@ -1,4 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
+import { nextUnvisitedCursor } from '@oxy.so/utils/paging';
 
 import type {
   JobPosting,
@@ -25,7 +26,8 @@ export function useJobSearch(request: JobSearchRequest, enabled = true) {
         body: JSON.stringify({ ...request, ...(pageParam ? { cursor: pageParam } : {}) }),
         signal,
       }),
-    getNextPageParam: (lastPage: JobSearchResponse) => lastPage.nextCursor,
+    getNextPageParam: (lastPage, _pages, _lastPageParam, pageParams) =>
+      nextUnvisitedCursor(lastPage.nextCursor, pageParams),
     placeholderData: keepPreviousData,
     staleTime: 60_000,
     enabled,

@@ -1,4 +1,5 @@
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { nextUnvisitedCursor } from '@oxy.so/utils/paging';
 
 import type { ProductDetail, ProductSearchResponse } from '@clarity/shared-types';
 
@@ -30,7 +31,8 @@ export function useProductSearch(query: string, market?: string) {
         signal,
       });
     },
-    getNextPageParam: (lastPage: ProductSearchResponse) => lastPage.nextCursor ?? undefined,
+    getNextPageParam: (lastPage, _pages, _lastPageParam, pageParams) =>
+      nextUnvisitedCursor(lastPage.nextCursor, pageParams),
     placeholderData: keepPreviousData,
     retry: shouldRetryProductRequest,
     staleTime: 60_000,
