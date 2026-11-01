@@ -63,11 +63,17 @@ it('does not resume organization creation in another session', async () => {
       renderer.root.findByType('Input' as never).props.onChangeText('Example');
       await new Promise((resolve) => setTimeout(resolve, 330));
     });
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
     const button = (label: string) =>
       renderer.root.findAllByType('Button' as never).find((node) => node.props.children === label);
+    for (
+      let attempt = 0;
+      attempt < 100 && !button('profile.experience.addOrganization');
+      attempt++
+    ) {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      });
+    }
     expect(button('profile.experience.addOrganization')).toBeDefined();
     await act(async () => button('profile.experience.addOrganization')?.props.onPress());
     onlineManager.setOnline(false);
