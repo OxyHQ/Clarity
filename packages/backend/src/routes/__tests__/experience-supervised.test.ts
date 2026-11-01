@@ -2,6 +2,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import express from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { OxyServices } from '@oxy.so/core';
 
 const repository = {
   listExperience: vi.fn(),
@@ -17,7 +18,7 @@ vi.mock('../../db/experience-repository.js', () => ({
 }));
 // The actual SDK middleware handles the HTTP bearer. Only its external
 // session authority is replaced; Oxy's PG suite proves JWT/signature/revocation.
-const { oxyClient, optionalAuth } = await import('../../middleware/auth.js');
+const { oxyClient, optionalAuth, authenticateToken } = await import('../../middleware/auth.js');
 const { default: router } = await import('../experience.js');
 const publicRouters = [
   { name: 'jobs', router: (await import('../jobs.js')).default },
@@ -53,6 +54,7 @@ beforeAll(async () => {
   app.use('/experience', router);
   for (const route of publicRouters) app.use(`/public/${route.name}`, route.router);
   app.get('/unreviewed', optionalAuth, (_req, res) => res.json({ publicContent: true }));
+  app.get('/required', authenticateToken, (_req, res) => res.json({ ok: true }));
   server = createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -86,6 +88,30 @@ beforeEach(() => {
 });
 
 describe('Experience with actual Oxy SDK HTTP middleware', () => {
+  it('keeps the client bearer when required auth receives a temporary authority failure', async () => {
+    validate.mockRejectedValueOnce(
+      Object.assign(new Error('Authority unavailable'), { status: 503 }),
+    );
+    const client = new OxyServices({ baseURL: base });
+    const bearer = token('adult');
+    client.session.setAccessToken(bearer);
+    const epoch = client.http.getSessionEpoch();
+    try {
+      await expect(
+        client.http.get('/required', { cache: false, retry: false }),
+      ).rejects.toMatchObject({
+        status: 503,
+      });
+      expect(validate).toHaveBeenCalledWith(
+        'session-adult',
+        expect.objectContaining({ accessToken: bearer }),
+      );
+      expect(client.session.accessToken).toBe(bearer);
+      expect(client.http.getSessionEpoch()).toBe(epoch);
+    } finally {
+      client.dispose();
+    }
+  });
   it.each(['public-adult', 'approved-contact', 'another-child'])(
     'denies unrated history of %s even when central profile privacy permits it',
     async (subject) => {
