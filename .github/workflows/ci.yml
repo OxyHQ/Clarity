@@ -118,6 +118,21 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Verify Android device session module autolinking
+        run: |
+          node -e '
+            const { createRequire } = require("node:module");
+            const { resolve } = require("node:path");
+            const fromApp = createRequire(resolve("packages/frontend/package.json"));
+            const expected = fromApp("./package.json").dependencies?.["@oxy.so/services"];
+            const installed = fromApp("@oxy.so/services/package.json").version;
+            if (typeof expected !== "string" || expected !== installed) {
+              console.error("Installed Oxy Services does not match the app declaration");
+              process.exit(1);
+            }
+          '
+          bun run oxy-doctor-expo-android --project-root=packages/frontend
+
       - name: Lint and format check (Biome)
         run: bunx biome ci .
 
