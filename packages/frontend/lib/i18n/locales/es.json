@@ -470,6 +470,11 @@
     }
   },
   "billing": {
+    "checkingStatus": "Estamos consultando tu suscripción. Los cambios recientes pueden tardar un momento.",
+    "checkStatusHint": "Este es el estado actual de tu suscripción. Actualiza si falta un cambio reciente.",
+    "connectionPending": "Esperando una conexión para cargar los datos de facturación.",
+    "sessionPending": "Tu sesión aún no está lista. Revisa tu cuenta para continuar.",
+    "loadError": "No se pudieron cargar los datos de facturación.",
     "title": "Billing",
     "subtitle": "Manage your subscription and payment methods",
     "paymentSuccess": "Payment successful! Your credits have been added.",

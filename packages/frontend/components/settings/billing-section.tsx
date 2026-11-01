@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -9,57 +9,83 @@ import { CreditCard, Crown, ExternalLink, Sparkle } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { useTranslation } from '@/hooks/useTranslation';
 import { bloomIcon } from '@/lib/bloom-icon';
+import { useBillingSession } from '@/lib/hooks/use-billing-session';
+import { BillingConnectionPending, BillingSessionPending } from './billing-session-pending';
 import {
   useCancelSubscription,
   useCreatePortalSession,
   useSubscription,
-  useSubscriptionPolling,
 } from '@/lib/hooks/use-billing';
 
 /** Where a person's Alia credits and usage are, which every chat turn spends. */
 const ALIA_USAGE_URL = 'https://alia.onl/settings/usage';
-
-interface BillingSectionProps {
-  success?: boolean;
-}
 
 /**
  * Clarity's own billing: the plan, which unlocks Clarity's premium features
  * (deep research, higher power levels), and its payment methods. Chat itself is
  * paid with the person's Alia credits, which are Alia's to show and sell.
  */
-export function BillingSection({ success }: BillingSectionProps) {
+export function BillingSection({ refreshOnReturn = false }: { refreshOnReturn?: boolean }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { data: subscription, isLoading, refetch } = useSubscription();
+  const { data: subscription, isPending, isError, fetchStatus, refetch } = useSubscription();
   const cancelSubscriptionMutation = useCancelSubscription();
   const createPortalMutation = useCreatePortalSession();
-  const toastShown = useRef(false);
+  const session = useBillingSession();
+  const [returnRefresh, setReturnRefresh] = useState<{
+    owner: () => boolean;
+    pending: boolean;
+  } | null>(null);
 
-  const { data: polledSubscription } = useSubscriptionPolling(undefined, {
-    enabled: !!success,
-  });
-
-  // Confirm the checkout once the webhook has made the subscription active.
+  // The return flag is not proof of payment. Refresh only the current session's
+  // subscription, and stop this loop if its observed owner changes.
   useEffect(() => {
-    if (!success || toastShown.current) return;
-    if (
-      polledSubscription &&
-      (polledSubscription.status === 'active' || polledSubscription.status === 'trialing')
-    ) {
-      toastShown.current = true;
-      void refetch();
-      toast.success(t('billing.paymentSuccess'));
-      setTimeout(() => router.replace('/(app)/settings/billing'), 100);
-    }
-  }, [success, polledSubscription, refetch, router, t]);
-
+    if (!refreshOnReturn || !session.ready || !session.isCurrent()) return;
+    const owner = session.isCurrent;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+    setReturnRefresh({ owner, pending: true });
+    const refresh = async () => {
+      if (cancelled || !owner()) return;
+      attempts += 1;
+      try {
+        const result = await refetch({ cancelRefetch: false });
+        if (cancelled || !owner()) return;
+        if (
+          result.data?.status === 'active' ||
+          result.data?.status === 'trialing' ||
+          attempts >= 15
+        ) {
+          setReturnRefresh({ owner, pending: false });
+          return;
+        }
+      } catch {
+        if (cancelled || !owner()) return;
+        if (attempts >= 15) {
+          setReturnRefresh({ owner, pending: false });
+          return;
+        }
+      }
+      timer = setTimeout(() => void refresh(), 2000);
+    };
+    void refresh();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [refreshOnReturn, session.ready, session.isCurrent, refetch]);
   const handleCancelSubscription = async () => {
-    if (!subscription) return;
+    if (!subscription || !session.isCurrent()) return;
     try {
-      await cancelSubscriptionMutation.mutateAsync({ subscriptionId: subscription.id });
+      await cancelSubscriptionMutation.mutateAsync({
+        input: { subscriptionId: subscription.id },
+        isCurrent: session.isCurrent,
+      });
+      if (!session.isCurrent()) return;
       toast.success(t('billing.cancelSubscriptionSuccess'));
     } catch (error: unknown) {
+      if (!session.isCurrent()) return;
       toast.error(
         error instanceof Error && error.message
           ? error.message
@@ -69,17 +95,34 @@ export function BillingSection({ success }: BillingSectionProps) {
   };
 
   const handleManagePayment = async () => {
+    if (!session.isCurrent()) return;
     try {
-      const url = await createPortalMutation.mutateAsync(Linking.createURL('/settings/billing'));
-      if (url) await Linking.openURL(url);
+      const url = await createPortalMutation.mutateAsync({
+        returnUrl: Linking.createURL('/settings/billing'),
+        isCurrent: session.isCurrent,
+      });
+      if (session.isCurrent() && url) await Linking.openURL(url);
     } catch (error: unknown) {
+      if (!session.isCurrent()) return;
       toast.error(
         error instanceof Error && error.message ? error.message : t('billing.failedPortal'),
       );
     }
   };
 
-  if (isLoading) {
+  if (!session.ready) return <BillingSessionPending />;
+
+  if (isPending && fetchStatus === 'paused') {
+    return (
+      <BillingConnectionPending
+        onRetry={() => {
+          if (session.isCurrent()) void refetch();
+        }}
+      />
+    );
+  }
+
+  if (isPending) {
     return (
       <View className="py-6">
         <Text className="text-sm text-muted-foreground">{t('common.loading')}</Text>
@@ -87,11 +130,30 @@ export function BillingSection({ success }: BillingSectionProps) {
     );
   }
 
-  const isSubscribed = subscription?.status === 'active';
+  if (isError) {
+    return (
+      <View className="gap-3 py-6">
+        <Text>{t('billing.loadError')}</Text>
+        <Button
+          onPress={() => {
+            if (session.isCurrent()) void refetch();
+          }}
+        >
+          {t('common.retry')}
+        </Button>
+      </View>
+    );
+  }
+
+  const isSubscribed = subscription?.status === 'active' || subscription?.status === 'trialing';
+  const checkingReturn =
+    refreshOnReturn && (returnRefresh?.owner !== session.isCurrent || returnRefresh.pending);
 
   return (
     <View className="gap-3">
-      {isSubscribed ? (
+      {checkingReturn && !isSubscribed ? (
+        <Text>{t('billing.checkingStatus')}</Text>
+      ) : isSubscribed ? (
         <View className="border border-border rounded-xl p-3 gap-3">
           <View className="flex-row items-center gap-2">
             <Crown size={16} className="text-foreground" />
@@ -152,6 +214,21 @@ export function BillingSection({ success }: BillingSectionProps) {
             </Button>
           </View>
           <Text className="text-xs text-muted-foreground">{t('billing.freePlanDescription')}</Text>
+        </View>
+      )}
+
+      {refreshOnReturn && !checkingReturn && (
+        <View className="gap-2">
+          <Text>{t('billing.checkStatusHint')}</Text>
+          <Button
+            appearance="outline"
+            tone="neutral"
+            onPress={() => {
+              if (session.isCurrent()) void refetch();
+            }}
+          >
+            {t('common.retry')}
+          </Button>
         </View>
       )}
 

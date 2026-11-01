@@ -15,6 +15,11 @@ import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useBillingSession } from '@/lib/hooks/use-billing-session';
+import {
+  BillingConnectionPending,
+  BillingSessionPending,
+} from '@/components/settings/billing-session-pending';
 import Head from 'expo-router/head';
 
 export default function SubscribeScreen() {
@@ -25,12 +30,25 @@ export default function SubscribeScreen() {
   const { colors } = useColorScheme();
   const isLargeScreen = width >= 768;
 
-  const { data: plans, isLoading: plansLoading } = useSubscriptionPlans('clarity');
-  const { data: subscription } = useSubscription('clarity');
+  const {
+    data: plans,
+    isPending: plansPending,
+    fetchStatus: plansFetchStatus,
+    isError: plansError,
+    refetch: refetchPlans,
+  } = useSubscriptionPlans('clarity');
+  const {
+    data: subscription,
+    isPending: subscriptionPending,
+    fetchStatus: subscriptionFetchStatus,
+    isError: subscriptionError,
+    refetch: refetchSubscription,
+  } = useSubscription('clarity');
   const checkoutMutation = useCreateSubscriptionCheckout();
+  const session = useBillingSession();
 
   const handleSelectPlan = async (plan: SubscriptionPlan) => {
-    if (plan.isFree) return;
+    if (plan.isFree || !session.isCurrent()) return;
 
     try {
       const result = await checkoutMutation.mutateAsync({
@@ -38,17 +56,19 @@ export default function SubscribeScreen() {
         billingPeriod: 'monthly',
         successUrl: Linking.createURL('/'),
         cancelUrl: Linking.createURL('/(biglayout)/subscribe'),
+        isCurrent: session.isCurrent,
       });
 
-      if (result.url) {
-        Linking.openURL(result.url);
+      if (session.isCurrent() && result.url) {
+        await Linking.openURL(result.url);
       }
     } catch {
+      if (!session.isCurrent()) return;
       toast.error(t('subscribe.checkoutError') || 'Failed to create checkout session');
     }
   };
 
-  if (authLoading || plansLoading) {
+  if (authLoading) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator color={colors.primary} />
@@ -60,6 +80,59 @@ export default function SubscribeScreen() {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <OxySignInButton />
+      </View>
+    );
+  }
+
+  if (!session.ready) {
+    return (
+      <View className="flex-1 bg-background justify-center gap-3 p-6">
+        <BillingSessionPending />
+        <Button onPress={() => router.back()}>{t('subscribe.back')}</Button>
+      </View>
+    );
+  }
+
+  if (
+    (plansPending && plansFetchStatus === 'paused') ||
+    (subscriptionPending && subscriptionFetchStatus === 'paused')
+  ) {
+    return (
+      <View className="flex-1 bg-background justify-center gap-3 p-6">
+        <BillingConnectionPending
+          onRetry={() => {
+            if (!session.isCurrent()) return;
+            if (plansPending || plansError) void refetchPlans();
+            if (subscriptionPending || subscriptionError) void refetchSubscription();
+          }}
+        />
+        <Button onPress={() => router.back()}>{t('subscribe.back')}</Button>
+      </View>
+    );
+  }
+
+  if (plansPending || subscriptionPending) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (plansError || subscriptionError) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center gap-3">
+        <Text>{t('billing.loadError')}</Text>
+        <Button
+          onPress={() => {
+            if (!session.isCurrent()) return;
+            if (plansError) void refetchPlans();
+            if (subscriptionError) void refetchSubscription();
+          }}
+        >
+          {t('common.retry')}
+        </Button>
+        <Button onPress={() => router.back()}>{t('subscribe.back')}</Button>
       </View>
     );
   }

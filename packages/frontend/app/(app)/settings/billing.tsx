@@ -12,7 +12,7 @@ export default function SettingsBillingScreen() {
     <View className="flex-1 bg-background">
       <SettingsHeader title={t('settings.sections.billing')} />
       <ScrollView className="flex-1" contentContainerClassName="p-5 max-w-2xl">
-        <BillingSection success={success === 'true'} />
+        <BillingSection refreshOnReturn={success === 'true'} />
       </ScrollView>
     </View>
   );
