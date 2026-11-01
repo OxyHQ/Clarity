@@ -16,6 +16,7 @@ import { BLOOM_THEME_PERSIST_KEY, BLOOM_THEME_STORAGE } from '@/lib/themePersist
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@/lib/i18n';
 import { useI18nStore } from '@/lib/stores/i18n-store';
 import { handleLanguageError } from '@/lib/i18n/handleLanguageError';
+import { accountQueryOwnership } from '@/lib/account-query-ownership';
 import 'react-native-reanimated';
 import '../global.css';
 
@@ -85,6 +86,7 @@ function RootLayout() {
       >
         <OxyProvider
           baseURL={OXY_API_URL}
+          accountQueries={accountQueryOwnership}
           clientId="oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a"
           authRedirectUri={Platform.OS !== 'web' ? AUTH_REDIRECT_URI : undefined}
           language={{
