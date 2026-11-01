@@ -872,3 +872,190 @@ it.each([false, true])(
     }
   },
 );
+
+it('refreshes a current subscription after a delayed webhook without claiming payment success', async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, retryDelay: 1 }, mutations: { retry: false } },
+  });
+  let firstResponse!: (value: unknown) => void;
+  let calls = 0;
+  state.get.mockImplementation(async () => {
+    calls++;
+    if (calls === 1)
+      return new Promise((resolve) => {
+        firstResponse = resolve;
+      });
+    return {
+      subscription: {
+        id: 'sub-alice',
+        status: 'active',
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: '2027-01-01',
+        plan: { name: 'Pro', price: 1000 },
+      },
+    };
+  });
+  let renderer!: ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = create(
+        <QueryClientProvider client={client}>
+          <SettingsBillingScreen />
+        </QueryClientProvider>,
+      );
+    });
+    await act(async () => {
+      firstResponse({ subscription: null });
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+    let texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).toContain('billing.checkingStatus');
+    expect(texts).not.toContain('billing.freePlan');
+    expect(state.success).not.toHaveBeenCalled();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2100));
+    });
+    texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(calls).toBe(2);
+    expect(texts).toContain('billing.activeSubscription');
+    expect(state.success).not.toHaveBeenCalled();
+    expect(state.replace).not.toHaveBeenCalled();
+  } finally {
+    await close(renderer, client);
+  }
+}, 5000);
+
+it('stops the return refresh after its bounded attempts and offers a manual refresh', async () => {
+  vi.useFakeTimers();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, retryDelay: 1 }, mutations: { retry: false } },
+  });
+  state.get.mockResolvedValue({ subscription: null });
+  let renderer!: ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = create(
+        <QueryClientProvider client={client}>
+          <SettingsBillingScreen />
+        </QueryClientProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    for (let index = 0; index < 16; index++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+    }
+    const count = state.get.mock.calls.length;
+    expect(count).toBeLessThanOrEqual(16);
+    expect(count).toBeGreaterThanOrEqual(15);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(state.get).toHaveBeenCalledTimes(count);
+    const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).toContain('billing.checkStatusHint');
+    expect(texts).toContain('billing.freePlan');
+    await act(async () => {
+      button(renderer, 'common.retry')();
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(state.get).toHaveBeenCalledTimes(count + 1);
+    expect(state.success).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => renderer.unmount());
+    client.clear();
+    vi.useRealTimers();
+  }
+});
+
+it('stops the old account return refresh when another account becomes active', async () => {
+  vi.useFakeTimers();
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, retryDelay: 1 }, mutations: { retry: false } },
+  });
+  const requestedBy: string[] = [];
+  state.get.mockImplementation(async () => {
+    requestedBy.push(state.actor);
+    return {
+      subscription:
+        state.actor === 'alice'
+          ? null
+          : {
+              id: 'sub-bob',
+              status: 'active',
+              cancelAtPeriodEnd: false,
+              currentPeriodEnd: '2027-01-01',
+              plan: { name: 'Pro', price: 1000 },
+            },
+    };
+  });
+  let renderer!: ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = create(
+        <QueryClientProvider client={client}>
+          <SettingsBillingScreen />
+        </QueryClientProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(requestedBy).toEqual(['alice']);
+    state.actor = 'bob';
+    state.epoch = 1;
+    await act(async () => {
+      renderer.update(
+        <QueryClientProvider client={client}>
+          <SettingsBillingScreen />
+        </QueryClientProvider>,
+      );
+      await vi.advanceTimersByTimeAsync(20);
+    });
+    expect(requestedBy).toEqual(['alice', 'bob']);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+    });
+    expect(requestedBy).toEqual(['alice', 'bob']);
+    const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).toContain('billing.activeSubscription');
+    expect(state.success).not.toHaveBeenCalled();
+  } finally {
+    await act(async () => renderer.unmount());
+    client.clear();
+    vi.useRealTimers();
+  }
+});
+
+it('does not label a trialing subscription as free after a return', async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  state.get.mockResolvedValue({
+    subscription: {
+      id: 'trial',
+      status: 'trialing',
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: '2027-01-01',
+      plan: { name: 'Pro', price: 1000 },
+    },
+  });
+  let renderer!: ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = create(
+        <QueryClientProvider client={client}>
+          <SettingsBillingScreen />
+        </QueryClientProvider>,
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+    const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).toContain('billing.activeSubscription');
+    expect(texts).not.toContain('billing.freePlan');
+    expect(state.success).not.toHaveBeenCalled();
+  } finally {
+    await close(renderer, client);
+  }
+});
