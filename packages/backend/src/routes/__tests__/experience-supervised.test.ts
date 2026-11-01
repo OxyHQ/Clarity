@@ -88,7 +88,7 @@ beforeEach(() => {
 });
 
 describe('Experience with actual Oxy SDK HTTP middleware', () => {
-  it('keeps the client bearer when required auth receives a temporary authority failure', async () => {
+  it('keeps the client bearer through a temporary authority failure and recovery', async () => {
     validate.mockRejectedValueOnce(
       Object.assign(new Error('Authority unavailable'), { status: 503 }),
     );
@@ -106,6 +106,11 @@ describe('Experience with actual Oxy SDK HTTP middleware', () => {
         'session-adult',
         expect.objectContaining({ accessToken: bearer }),
       );
+      expect(client.session.accessToken).toBe(bearer);
+      expect(client.http.getSessionEpoch()).toBe(epoch);
+      await expect(client.http.get('/required', { cache: false, retry: false })).resolves.toEqual({
+        ok: true,
+      });
       expect(client.session.accessToken).toBe(bearer);
       expect(client.http.getSessionEpoch()).toBe(epoch);
     } finally {
