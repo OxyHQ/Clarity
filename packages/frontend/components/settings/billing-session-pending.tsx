@@ -15,3 +15,14 @@ export function BillingSessionPending() {
     </View>
   );
 }
+
+/** A first billing read can pause offline before it has any data. */
+export function BillingConnectionPending({ onRetry }: { onRetry: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <View className="gap-3 py-6">
+      <Text>{t('billing.connectionPending')}</Text>
+      <Button onPress={onRetry}>{t('common.retry')}</Button>
+    </View>
+  );
+}

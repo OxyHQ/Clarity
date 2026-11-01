@@ -472,6 +472,7 @@
   "billing": {
     "checkingStatus": "Checking your subscription status. Recent changes may take a moment.",
     "checkStatusHint": "This is your current subscription status. Refresh if a recent change is missing.",
+    "connectionPending": "Waiting for a connection to load billing details.",
     "sessionPending": "Your account session is not ready. Check your account to continue.",
     "loadError": "Billing details could not be loaded.",
     "title": "Billing",

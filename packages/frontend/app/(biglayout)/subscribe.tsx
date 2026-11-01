@@ -16,7 +16,10 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useBillingSession } from '@/lib/hooks/use-billing-session';
-import { BillingSessionPending } from '@/components/settings/billing-session-pending';
+import {
+  BillingConnectionPending,
+  BillingSessionPending,
+} from '@/components/settings/billing-session-pending';
 import Head from 'expo-router/head';
 
 export default function SubscribeScreen() {
@@ -29,13 +32,15 @@ export default function SubscribeScreen() {
 
   const {
     data: plans,
-    isLoading: plansLoading,
+    isPending: plansPending,
+    fetchStatus: plansFetchStatus,
     isError: plansError,
     refetch: refetchPlans,
   } = useSubscriptionPlans('clarity');
   const {
     data: subscription,
-    isLoading: subscriptionLoading,
+    isPending: subscriptionPending,
+    fetchStatus: subscriptionFetchStatus,
     isError: subscriptionError,
     refetch: refetchSubscription,
   } = useSubscription('clarity');
@@ -63,7 +68,7 @@ export default function SubscribeScreen() {
     }
   };
 
-  if (authLoading || (session.ready && (plansLoading || subscriptionLoading))) {
+  if (authLoading) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator color={colors.primary} />
@@ -84,6 +89,32 @@ export default function SubscribeScreen() {
       <View className="flex-1 bg-background justify-center gap-3 p-6">
         <BillingSessionPending />
         <Button onPress={() => router.back()}>{t('subscribe.back')}</Button>
+      </View>
+    );
+  }
+
+  if (
+    (plansPending && plansFetchStatus === 'paused') ||
+    (subscriptionPending && subscriptionFetchStatus === 'paused')
+  ) {
+    return (
+      <View className="flex-1 bg-background justify-center gap-3 p-6">
+        <BillingConnectionPending
+          onRetry={() => {
+            if (!session.isCurrent()) return;
+            if (plansPending || plansError) void refetchPlans();
+            if (subscriptionPending || subscriptionError) void refetchSubscription();
+          }}
+        />
+        <Button onPress={() => router.back()}>{t('subscribe.back')}</Button>
+      </View>
+    );
+  }
+
+  if (plansPending || subscriptionPending) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }

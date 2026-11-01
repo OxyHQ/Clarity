@@ -1059,3 +1059,133 @@ it('does not label a trialing subscription as free after a return', async () => 
     await close(renderer, client);
   }
 });
+
+it.each(['billing', 'checkout'] as const)(
+  'does not show a free or empty plan while first %s read is paused offline',
+  async (kind) => {
+    const { createRequire } = await import('node:module');
+    const { dirname, join } = await import('node:path');
+    const require = createRequire(import.meta.url);
+    const servicesRoot = dirname(require.resolve('@oxy.so/services'));
+    const { onlineManager: sdkOnline } = require(
+      require.resolve('@tanstack/react-query', { paths: [servicesRoot] }),
+    ) as { onlineManager: typeof onlineManager };
+    const { createQueryClient } = require(join(servicesRoot, 'ui/hooks/queryClient.js')) as {
+      createQueryClient: () => QueryClient & { __oxyOnlineUnsubscribe: () => void };
+    };
+    const client = createQueryClient();
+    const defaults = client.getDefaultOptions();
+    client.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 1 } });
+    state.get.mockRejectedValue(new Error('offline'));
+    sdkOnline.setOnline(false);
+    onlineManager.setOnline(false);
+    let renderer!: ReactTestRenderer;
+    try {
+      await act(async () => {
+        renderer = create(
+          <QueryClientProvider client={client}>
+            {kind === 'billing' ? <BillingSection /> : <SubscribeScreen />}
+          </QueryClientProvider>,
+        );
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 35));
+      });
+      expect(
+        client
+          .getQueryCache()
+          .getAll()
+          .some(
+            (q) =>
+              q.state.status === 'pending' &&
+              q.state.fetchStatus === 'paused' &&
+              q.state.data === undefined,
+          ),
+      ).toBe(true);
+      const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+      expect(texts).toContain('billing.connectionPending');
+      expect(texts).not.toContain('billing.freePlan');
+      expect(texts).not.toContain('subscribe.heading');
+      expect(button(renderer, 'common.retry')).toBeDefined();
+      state.get.mockImplementation(async (url: string) =>
+        url.includes('/plans')
+          ? { plans: [{ id: 'pro', name: 'Pro', monthlyPrice: 10 }] }
+          : {
+              subscription: {
+                id: 'sub-alice',
+                status: 'active',
+                cancelAtPeriodEnd: false,
+                currentPeriodEnd: '2027-01-01',
+                plan: { name: 'Pro', price: 1000 },
+              },
+            },
+      );
+      await act(async () => {
+        sdkOnline.setOnline(true);
+        onlineManager.setOnline(true);
+        await new Promise((resolve) => setTimeout(resolve, 45));
+      });
+      const after = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+      expect(after).toContain(
+        kind === 'billing' ? 'billing.activeSubscription' : 'subscribe.heading',
+      );
+    } finally {
+      await act(async () => renderer.unmount());
+      client.clear();
+      sdkOnline.setOnline(true);
+      onlineManager.setOnline(true);
+      client.__oxyOnlineUnsubscribe();
+    }
+  },
+);
+
+it('keeps already loaded subscription data visible during an offline retry', async () => {
+  const { createRequire } = await import('node:module');
+  const { dirname, join } = await import('node:path');
+  const require = createRequire(import.meta.url);
+  const servicesRoot = dirname(require.resolve('@oxy.so/services'));
+  const { onlineManager: sdkOnline } = require(
+    require.resolve('@tanstack/react-query', { paths: [servicesRoot] }),
+  ) as { onlineManager: typeof onlineManager };
+  const { createQueryClient } = require(join(servicesRoot, 'ui/hooks/queryClient.js')) as {
+    createQueryClient: () => QueryClient & { __oxyOnlineUnsubscribe: () => void };
+  };
+  const client = createQueryClient();
+  const defaults = client.getDefaultOptions();
+  client.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 1 } });
+  let renderer!: ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = create(
+        <QueryClientProvider client={client}>
+          <BillingSection />
+        </QueryClientProvider>,
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+    state.get.mockRejectedValue(new Error('offline'));
+    sdkOnline.setOnline(false);
+    onlineManager.setOnline(false);
+    await act(async () => {
+      void client.invalidateQueries({ queryKey: ['subscription'] });
+      await new Promise((resolve) => setTimeout(resolve, 35));
+    });
+    expect(
+      client
+        .getQueryCache()
+        .getAll()
+        .some((q) => q.state.fetchStatus === 'paused' && q.state.data !== undefined),
+    ).toBe(true);
+    const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).toContain('billing.activeSubscription');
+    expect(texts).not.toContain('billing.connectionPending');
+  } finally {
+    await act(async () => renderer.unmount());
+    client.clear();
+    sdkOnline.setOnline(true);
+    onlineManager.setOnline(true);
+    client.__oxyOnlineUnsubscribe();
+  }
+});

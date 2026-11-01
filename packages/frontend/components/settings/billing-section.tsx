@@ -10,7 +10,7 @@ import { Text } from '@/components/ui/text';
 import { useTranslation } from '@/hooks/useTranslation';
 import { bloomIcon } from '@/lib/bloom-icon';
 import { useBillingSession } from '@/lib/hooks/use-billing-session';
-import { BillingSessionPending } from './billing-session-pending';
+import { BillingConnectionPending, BillingSessionPending } from './billing-session-pending';
 import {
   useCancelSubscription,
   useCreatePortalSession,
@@ -28,7 +28,7 @@ const ALIA_USAGE_URL = 'https://alia.onl/settings/usage';
 export function BillingSection({ refreshOnReturn = false }: { refreshOnReturn?: boolean }) {
   const router = useRouter();
   const { t } = useTranslation();
-  const { data: subscription, isLoading, isError, refetch } = useSubscription();
+  const { data: subscription, isPending, isError, fetchStatus, refetch } = useSubscription();
   const cancelSubscriptionMutation = useCancelSubscription();
   const createPortalMutation = useCreatePortalSession();
   const session = useBillingSession();
@@ -112,7 +112,17 @@ export function BillingSection({ refreshOnReturn = false }: { refreshOnReturn?: 
 
   if (!session.ready) return <BillingSessionPending />;
 
-  if (isLoading) {
+  if (isPending && fetchStatus === 'paused') {
+    return (
+      <BillingConnectionPending
+        onRetry={() => {
+          if (session.isCurrent()) void refetch();
+        }}
+      />
+    );
+  }
+
+  if (isPending) {
     return (
       <View className="py-6">
         <Text className="text-sm text-muted-foreground">{t('common.loading')}</Text>
