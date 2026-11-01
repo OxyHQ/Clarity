@@ -9,6 +9,7 @@ import { CreditCard, Crown, ExternalLink, Sparkle } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
 import { useTranslation } from '@/hooks/useTranslation';
 import { bloomIcon } from '@/lib/bloom-icon';
+import { useBillingSession } from '@/lib/hooks/use-billing-session';
 import {
   useCancelSubscription,
   useCreatePortalSession,
@@ -34,6 +35,7 @@ export function BillingSection({ success }: BillingSectionProps) {
   const { data: subscription, isLoading, refetch } = useSubscription();
   const cancelSubscriptionMutation = useCancelSubscription();
   const createPortalMutation = useCreatePortalSession();
+  const session = useBillingSession();
   const toastShown = useRef(false);
 
   const { data: polledSubscription } = useSubscriptionPolling(undefined, {
@@ -42,7 +44,7 @@ export function BillingSection({ success }: BillingSectionProps) {
 
   // Confirm the checkout once the webhook has made the subscription active.
   useEffect(() => {
-    if (!success || toastShown.current) return;
+    if (!success || toastShown.current || !session.isCurrent()) return;
     if (
       polledSubscription &&
       (polledSubscription.status === 'active' || polledSubscription.status === 'trialing')
@@ -50,16 +52,23 @@ export function BillingSection({ success }: BillingSectionProps) {
       toastShown.current = true;
       void refetch();
       toast.success(t('billing.paymentSuccess'));
-      setTimeout(() => router.replace('/(app)/settings/billing'), 100);
+      setTimeout(() => {
+        if (session.isCurrent()) router.replace('/(app)/settings/billing');
+      }, 100);
     }
-  }, [success, polledSubscription, refetch, router, t]);
+  }, [success, polledSubscription, refetch, router, t, session.isCurrent]);
 
   const handleCancelSubscription = async () => {
-    if (!subscription) return;
+    if (!subscription || !session.isCurrent()) return;
     try {
-      await cancelSubscriptionMutation.mutateAsync({ subscriptionId: subscription.id });
+      await cancelSubscriptionMutation.mutateAsync({
+        input: { subscriptionId: subscription.id },
+        isCurrent: session.isCurrent,
+      });
+      if (!session.isCurrent()) return;
       toast.success(t('billing.cancelSubscriptionSuccess'));
     } catch (error: unknown) {
+      if (!session.isCurrent()) return;
       toast.error(
         error instanceof Error && error.message
           ? error.message
@@ -69,10 +78,15 @@ export function BillingSection({ success }: BillingSectionProps) {
   };
 
   const handleManagePayment = async () => {
+    if (!session.isCurrent()) return;
     try {
-      const url = await createPortalMutation.mutateAsync(Linking.createURL('/settings/billing'));
-      if (url) await Linking.openURL(url);
+      const url = await createPortalMutation.mutateAsync({
+        returnUrl: Linking.createURL('/settings/billing'),
+        isCurrent: session.isCurrent,
+      });
+      if (session.isCurrent() && url) await Linking.openURL(url);
     } catch (error: unknown) {
+      if (!session.isCurrent()) return;
       toast.error(
         error instanceof Error && error.message ? error.message : t('billing.failedPortal'),
       );

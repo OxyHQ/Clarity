@@ -15,6 +15,7 @@ import { toast } from '@oxy.so/bloom/toast';
 import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
+import { useBillingSession } from '@/lib/hooks/use-billing-session';
 import Head from 'expo-router/head';
 
 export default function SubscribeScreen() {
@@ -28,9 +29,10 @@ export default function SubscribeScreen() {
   const { data: plans, isLoading: plansLoading } = useSubscriptionPlans('clarity');
   const { data: subscription } = useSubscription('clarity');
   const checkoutMutation = useCreateSubscriptionCheckout();
+  const session = useBillingSession();
 
   const handleSelectPlan = async (plan: SubscriptionPlan) => {
-    if (plan.isFree) return;
+    if (plan.isFree || !session.isCurrent()) return;
 
     try {
       const result = await checkoutMutation.mutateAsync({
@@ -38,12 +40,14 @@ export default function SubscribeScreen() {
         billingPeriod: 'monthly',
         successUrl: Linking.createURL('/'),
         cancelUrl: Linking.createURL('/(biglayout)/subscribe'),
+        isCurrent: session.isCurrent,
       });
 
-      if (result.url) {
-        Linking.openURL(result.url);
+      if (session.isCurrent() && result.url) {
+        await Linking.openURL(result.url);
       }
     } catch {
+      if (!session.isCurrent()) return;
       toast.error(t('subscribe.checkoutError') || 'Failed to create checkout session');
     }
   };
