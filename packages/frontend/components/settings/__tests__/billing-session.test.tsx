@@ -8,6 +8,7 @@ import {
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import { beforeEach, expect, it, vi } from 'vitest';
 import SubscribeScreen from '../../../app/(biglayout)/subscribe';
+import SettingsBillingScreen from '../../../app/(app)/settings/billing';
 import { BillingSection } from '../billing-section';
 import { useChangePlan } from '@/lib/hooks/use-billing';
 import { useBillingSession } from '@/lib/hooks/use-billing-session';
@@ -25,6 +26,7 @@ const state = vi.hoisted(() => {
     success: vi.fn(),
     error: vi.fn(),
     replace: vi.fn(),
+    accountDialog: vi.fn(),
     oxy: {
       http: { getSessionEpoch: () => 0, getAccessToken: () => 'test-token' as string | null },
     },
@@ -42,6 +44,7 @@ vi.mock('react-native', () => ({
 vi.mock('expo-linking', () => ({ createURL: (s: string) => `test:${s}`, openURL: state.open }));
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn(), replace: state.replace }),
+  useLocalSearchParams: () => ({ success: 'true' }),
 }));
 vi.mock('expo-router/head', () => ({ default: 'Head' }));
 vi.mock('@oxy.so/services/ui/client', () => ({
@@ -54,6 +57,7 @@ vi.mock('@oxy.so/services/ui/client', () => ({
     isAuthenticated: state.authenticated,
     canUsePrivateApi: state.privateReady,
     user: { id: state.actor },
+    openAccountDialog: state.accountDialog,
     oxyServices: state.oxy,
   }),
   OxySignInButton: 'SignIn',
@@ -64,6 +68,7 @@ vi.mock('@/lib/api/use-api-client', () => ({
 vi.mock('@oxy.so/bloom/button', () => ({ Button: 'Button', GlyphButton: 'GlyphButton' }));
 vi.mock('@oxy.so/bloom/toast', () => ({ toast: { success: state.success, error: state.error } }));
 vi.mock('@/components/ui/text', () => ({ Text: 'Text' }));
+vi.mock('@/components/settings/settings-header', () => ({ SettingsHeader: 'SettingsHeader' }));
 vi.mock('@/hooks/useTranslation', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('@/lib/useColorScheme', () => ({
   useColorScheme: () => ({ colors: { primary: 'black' } }),
@@ -104,13 +109,14 @@ beforeEach(() => {
   state.success.mockReset();
   state.error.mockReset();
   state.replace.mockReset();
+  state.accountDialog.mockReset();
   state.oxy = { http: { getSessionEpoch: () => state.epoch, getAccessToken: () => state.token } };
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 async function mount(kind: 'checkout' | 'billing') {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    defaultOptions: { queries: { retry: false, retryDelay: 1 }, mutations: { retry: false } },
   });
   let renderer!: ReactTestRenderer;
   await act(async () => {
@@ -363,36 +369,6 @@ it('suppresses an A-B-A completion using the real Core session epoch', async () 
   }
 });
 
-it.each([false, true])(
-  'only runs delayed payment navigation while the observed session remains current (switch: %s)',
-  async (changed) => {
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-    });
-    let renderer!: ReactTestRenderer;
-    try {
-      await act(async () => {
-        renderer = create(
-          <QueryClientProvider client={client}>
-            <BillingSection success />
-          </QueryClientProvider>,
-        );
-      });
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      });
-      expect(state.success).toHaveBeenCalledWith('billing.paymentSuccess');
-      if (changed) state.epoch = 1;
-      await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 130));
-      });
-      expect(state.replace).toHaveBeenCalledTimes(changed ? 0 : 1);
-    } finally {
-      await close(renderer, client);
-    }
-  },
-);
-
 it('does not replay a JSON-restored paused mutation without its session check', async () => {
   const { renderer, client } = await mount('billing');
   const restored = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
@@ -473,6 +449,9 @@ it('reports a failed offline-first request without silently queuing a retry', as
   const { dirname, join } = await import('node:path');
   const require = createRequire(import.meta.url);
   const servicesRoot = dirname(require.resolve('@oxy.so/services'));
+  const { onlineManager: sdkOnline } = require(
+    require.resolve('@tanstack/react-query', { paths: [servicesRoot] }),
+  ) as { onlineManager: typeof onlineManager };
   const { createQueryClient } = require(join(servicesRoot, 'ui/hooks/queryClient.js')) as {
     createQueryClient: () => QueryClient & { __oxyOnlineUnsubscribe: () => void };
   };
@@ -490,6 +469,7 @@ it('reports a failed offline-first request without silently queuing a retry', as
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 25));
     });
+    sdkOnline.setOnline(false);
     onlineManager.setOnline(false);
     await act(async () => {
       void button(renderer, 'billing.cancelSubscription')();
@@ -504,6 +484,7 @@ it('reports a failed offline-first request without silently queuing a retry', as
     ).toBe(false);
     expect(state.error).toHaveBeenCalledWith('offline');
   } finally {
+    sdkOnline.setOnline(true);
     await close(renderer, client);
     client.__oxyOnlineUnsubscribe();
   }
@@ -558,7 +539,7 @@ it.each(['not-ready', 'new-projection', 'new-service'] as const)(
 
 it('fences the unused change-plan hook when a paused mutation resumes in another session', async () => {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+    defaultOptions: { queries: { retry: false, retryDelay: 1 }, mutations: { retry: false } },
   });
   function Probe() {
     const session = useBillingSession();
@@ -687,3 +668,207 @@ it.each([
     await close(renderer, client);
   }
 });
+
+it('does not show the free plan while the authenticated session is not ready', async () => {
+  state.privateReady = false;
+  const { renderer, client } = await mount('billing');
+  try {
+    const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).not.toContain('billing.freePlan');
+    expect(texts).toContain('billing.sessionPending');
+    await act(async () => button(renderer, 'settings.account.title')());
+    expect(state.accountDialog).toHaveBeenCalledTimes(1);
+  } finally {
+    await close(renderer, client);
+  }
+});
+
+it('does not show an empty plan picker while the authenticated session is not ready', async () => {
+  state.privateReady = false;
+  const { renderer, client } = await mount('checkout');
+  try {
+    const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).toContain('billing.sessionPending');
+    expect(texts).not.toContain('subscribe.heading');
+  } finally {
+    await close(renderer, client);
+  }
+});
+
+it('does not attribute an unbound checkout return to a different session', async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, retryDelay: 1 }, mutations: { retry: false } },
+  });
+  let resolveOld!: (value: unknown) => void;
+  let calls = 0;
+  state.get.mockImplementation(async () => {
+    calls++;
+    if (calls === 1)
+      return new Promise((resolve) => {
+        resolveOld = resolve;
+      });
+    return {
+      subscription: {
+        id: `sub-${state.actor}`,
+        status: 'active',
+        cancelAtPeriodEnd: false,
+        currentPeriodEnd: '2027-01-01',
+        plan: { name: 'Pro', price: 1000 },
+      },
+    };
+  });
+  let renderer!: ReactTestRenderer;
+  try {
+    await act(async () => {
+      renderer = create(
+        <QueryClientProvider client={client}>
+          <SettingsBillingScreen />
+        </QueryClientProvider>,
+      );
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 15));
+    });
+    expect(calls).toBe(1);
+    const oldKey = client.getQueryCache().getAll()[0].queryKey;
+    state.actor = 'bob';
+    state.epoch = 1;
+    await act(async () => {
+      renderer.update(
+        <QueryClientProvider client={client}>
+          <SettingsBillingScreen />
+        </QueryClientProvider>,
+      );
+    });
+    await act(async () => {
+      resolveOld({ subscription: { id: 'sub-alice', status: 'active' } });
+      await new Promise((resolve) => setTimeout(resolve, 35));
+    });
+    expect(client.getQueryData(oldKey)).toBeUndefined();
+    expect(state.success).not.toHaveBeenCalledWith('billing.paymentSuccess');
+    expect(state.replace).not.toHaveBeenCalled();
+    const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+    expect(texts).toContain('billing.activeSubscription');
+  } finally {
+    await close(renderer, client);
+  }
+});
+
+it.each(['billing', 'checkout'] as const)(
+  'shows a retryable billing load error instead of a false plan (%s)',
+  async (kind) => {
+    state.get.mockRejectedValue(new Error('offline'));
+    const { renderer, client } = await mount(kind);
+    try {
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      });
+      const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+      expect(texts).toContain('billing.loadError');
+      expect(texts).not.toContain('billing.freePlan');
+      state.get.mockImplementation(async (url: string) =>
+        url.includes('/plans')
+          ? { plans: [{ id: 'pro', name: 'Pro', monthlyPrice: 10 }] }
+          : {
+              subscription: {
+                id: `sub-${state.actor}`,
+                status: 'active',
+                cancelAtPeriodEnd: false,
+                currentPeriodEnd: '2027-01-01',
+                plan: { name: 'Pro', price: 1000 },
+              },
+            },
+      );
+      await act(async () => {
+        button(renderer, 'common.retry')();
+        await new Promise((resolve) => setTimeout(resolve, 35));
+      });
+      const after = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+      expect(after).toContain(
+        kind === 'billing' ? 'billing.activeSubscription' : 'subscribe.heading',
+      );
+    } finally {
+      await close(renderer, client);
+    }
+  },
+);
+
+it('does not resume a paused billing read under a later session', async () => {
+  onlineManager.setOnline(false);
+  const { renderer, client } = await mount('billing');
+  try {
+    expect(state.get).not.toHaveBeenCalled();
+    const oldKey = client.getQueryCache().getAll()[0].queryKey;
+    state.epoch = 1;
+    state.actor = 'bob';
+    await act(async () => {
+      onlineManager.setOnline(true);
+      await new Promise((resolve) => setTimeout(resolve, 35));
+    });
+    expect(state.get).toHaveBeenCalledTimes(1);
+    expect(client.getQueryData(oldKey)).toBeUndefined();
+    const active = client
+      .getQueryCache()
+      .getAll()
+      .find((query) => (query.state.data as { id?: string } | undefined)?.id === 'sub-bob');
+    expect(active).toBeDefined();
+  } finally {
+    await close(renderer, client);
+  }
+});
+
+it.each([false, true])(
+  'retries an offline-first read only for its still-current session (switch: %s)',
+  async (changed) => {
+    const { createRequire } = await import('node:module');
+    const { dirname, join } = await import('node:path');
+    const require = createRequire(import.meta.url);
+    const servicesRoot = dirname(require.resolve('@oxy.so/services'));
+    const { onlineManager: sdkOnline } = require(
+      require.resolve('@tanstack/react-query', { paths: [servicesRoot] }),
+    ) as { onlineManager: typeof onlineManager };
+    const { createQueryClient } = require(join(servicesRoot, 'ui/hooks/queryClient.js')) as {
+      createQueryClient: () => QueryClient & { __oxyOnlineUnsubscribe: () => void };
+    };
+    const client = createQueryClient();
+    const defaults = client.getDefaultOptions();
+    client.setDefaultOptions({ ...defaults, queries: { ...defaults.queries, retryDelay: 1 } });
+    state.get.mockRejectedValueOnce(new Error('offline'));
+    sdkOnline.setOnline(false);
+    onlineManager.setOnline(false);
+    let renderer!: ReactTestRenderer;
+    try {
+      await act(async () => {
+        renderer = create(
+          <QueryClientProvider client={client}>
+            <BillingSection />
+          </QueryClientProvider>,
+        );
+      });
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      });
+      expect(state.get).toHaveBeenCalledTimes(1);
+      const originalQuery = client.getQueryCache().getAll()[0];
+      expect(originalQuery.state.fetchStatus).toBe('paused');
+      if (changed) {
+        state.actor = 'bob';
+        state.epoch = 1;
+      }
+      await act(async () => {
+        sdkOnline.setOnline(true);
+        onlineManager.setOnline(true);
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      });
+      expect(state.get).toHaveBeenCalledTimes(2);
+      if (changed) expect(originalQuery.state.data).toBeUndefined();
+      else expect(originalQuery.state.data).toMatchObject({ id: 'sub-alice' });
+      const texts = renderer.root.findAllByType('Text' as never).map((node) => node.props.children);
+      expect(texts).toContain('billing.activeSubscription');
+    } finally {
+      sdkOnline.setOnline(true);
+      await close(renderer, client);
+      client.__oxyOnlineUnsubscribe();
+    }
+  },
+);

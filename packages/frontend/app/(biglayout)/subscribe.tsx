@@ -16,6 +16,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { ArrowLeft, Check, Sparkles } from 'lucide-react-native';
 import { useColorScheme } from '@/lib/useColorScheme';
 import { useBillingSession } from '@/lib/hooks/use-billing-session';
+import { BillingSessionPending } from '@/components/settings/billing-session-pending';
 import Head from 'expo-router/head';
 
 export default function SubscribeScreen() {
@@ -26,8 +27,18 @@ export default function SubscribeScreen() {
   const { colors } = useColorScheme();
   const isLargeScreen = width >= 768;
 
-  const { data: plans, isLoading: plansLoading } = useSubscriptionPlans('clarity');
-  const { data: subscription } = useSubscription('clarity');
+  const {
+    data: plans,
+    isLoading: plansLoading,
+    isError: plansError,
+    refetch: refetchPlans,
+  } = useSubscriptionPlans('clarity');
+  const {
+    data: subscription,
+    isLoading: subscriptionLoading,
+    isError: subscriptionError,
+    refetch: refetchSubscription,
+  } = useSubscription('clarity');
   const checkoutMutation = useCreateSubscriptionCheckout();
   const session = useBillingSession();
 
@@ -52,7 +63,7 @@ export default function SubscribeScreen() {
     }
   };
 
-  if (authLoading || plansLoading) {
+  if (authLoading || (session.ready && (plansLoading || subscriptionLoading))) {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <ActivityIndicator color={colors.primary} />
@@ -64,6 +75,33 @@ export default function SubscribeScreen() {
     return (
       <View className="flex-1 bg-background items-center justify-center">
         <OxySignInButton />
+      </View>
+    );
+  }
+
+  if (!session.ready) {
+    return (
+      <View className="flex-1 bg-background justify-center gap-3 p-6">
+        <BillingSessionPending />
+        <Button onPress={() => router.back()}>{t('subscribe.back')}</Button>
+      </View>
+    );
+  }
+
+  if (plansError || subscriptionError) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center gap-3">
+        <Text>{t('billing.loadError')}</Text>
+        <Button
+          onPress={() => {
+            if (!session.isCurrent()) return;
+            if (plansError) void refetchPlans();
+            if (subscriptionError) void refetchSubscription();
+          }}
+        >
+          {t('common.retry')}
+        </Button>
+        <Button onPress={() => router.back()}>{t('subscribe.back')}</Button>
       </View>
     );
   }

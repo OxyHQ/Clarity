@@ -470,6 +470,8 @@
     }
   },
   "billing": {
+    "sessionPending": "Your account session is not ready. Check your account to continue.",
+    "loadError": "Billing details could not be loaded.",
     "title": "Billing",
     "subtitle": "Manage your subscription and payment methods",
     "paymentSuccess": "Payment successful! Your credits have been added.",

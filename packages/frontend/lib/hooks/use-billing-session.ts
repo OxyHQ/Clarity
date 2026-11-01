@@ -42,9 +42,8 @@ export function useBillingSession() {
   const ready = Boolean(
     isAuthenticated && canUsePrivateApi && userId && oxyServices.http.getAccessToken(),
   );
-  const isCurrent = useCallback(
+  const isObserved = useCallback(
     () =>
-      mounted.current &&
       isAuthenticated &&
       canUsePrivateApi &&
       !!userId &&
@@ -56,7 +55,13 @@ export function useBillingSession() {
       oxyServices.http.getSessionEpoch() === epoch,
     [oxyServices, isAuthenticated, canUsePrivateApi, userId, epoch],
   );
-  return { isCurrent, ready, cacheKey: [serviceId(oxyServices), userSlot(userId), epoch] as const };
+  const isCurrent = useCallback(() => mounted.current && isObserved(), [isObserved]);
+  return {
+    isCurrent,
+    isObserved,
+    ready,
+    cacheKey: [serviceId(oxyServices), userSlot(userId), epoch] as const,
+  };
 }
 
 export type BillingSessionCheck = () => boolean;

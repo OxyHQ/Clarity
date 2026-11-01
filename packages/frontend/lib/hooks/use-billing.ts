@@ -67,8 +67,10 @@ export function useSubscriptionPlans(product?: 'clarity' | 'codea') {
   return useQuery({
     queryKey: [...queryKeys.billing.plans(product), ...session.cacheKey],
     queryFn: async () => {
+      requireBillingSession(session.isObserved);
       const params = product ? `?product=${product}` : '';
       const data = await client.get<{ plans: SubscriptionPlan[] }>(`/billing/plans${params}`);
+      requireBillingSession(session.isObserved);
       return data.plans;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -88,56 +90,17 @@ export function useSubscription(product?: 'clarity' | 'codea') {
   return useQuery({
     queryKey: [...queryKeys.billing.subscription(product), ...session.cacheKey],
     queryFn: async () => {
+      requireBillingSession(session.isObserved);
       const params = product ? `?product=${product}` : '';
       const data = await client.get<{ subscription: Subscription | null }>(
         `/billing/subscription${params}`,
       );
+      requireBillingSession(session.isObserved);
       return data.subscription;
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
     retry: 2,
     enabled: session.ready,
-  });
-}
-
-// ======================
-// Subscription Polling (after checkout redirect)
-// ======================
-
-/**
- * Polls for subscription until it exists and is active, or timeout.
- * Used after checkout redirect to wait for webhook processing.
- */
-export function useSubscriptionPolling(
-  product?: 'clarity' | 'codea',
-  options?: { enabled?: boolean; intervalMs?: number; maxAttempts?: number },
-) {
-  const { enabled = false, intervalMs = 2000, maxAttempts = 15 } = options || {};
-  const client = useApiClient();
-  const session = useBillingSession();
-
-  return useQuery({
-    queryKey: [...queryKeys.billing.subscriptionPoll(product), ...session.cacheKey],
-    queryFn: async () => {
-      const params = product ? `?product=${product}` : '';
-      const data = await client.get<{ subscription: Subscription | null }>(
-        `/billing/subscription${params}`,
-      );
-      return data.subscription;
-    },
-    enabled: enabled && session.ready,
-    refetchInterval: (query) => {
-      const data = query.state.data;
-      if (data && (data.status === 'active' || data.status === 'trialing')) {
-        return false;
-      }
-      if (query.state.dataUpdateCount >= maxAttempts) {
-        return false;
-      }
-      return intervalMs;
-    },
-    staleTime: 0,
-    retry: 1,
   });
 }
 

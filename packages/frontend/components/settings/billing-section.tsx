@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -10,54 +9,28 @@ import { Text } from '@/components/ui/text';
 import { useTranslation } from '@/hooks/useTranslation';
 import { bloomIcon } from '@/lib/bloom-icon';
 import { useBillingSession } from '@/lib/hooks/use-billing-session';
+import { BillingSessionPending } from './billing-session-pending';
 import {
   useCancelSubscription,
   useCreatePortalSession,
   useSubscription,
-  useSubscriptionPolling,
 } from '@/lib/hooks/use-billing';
 
 /** Where a person's Alia credits and usage are, which every chat turn spends. */
 const ALIA_USAGE_URL = 'https://alia.onl/settings/usage';
-
-interface BillingSectionProps {
-  success?: boolean;
-}
 
 /**
  * Clarity's own billing: the plan, which unlocks Clarity's premium features
  * (deep research, higher power levels), and its payment methods. Chat itself is
  * paid with the person's Alia credits, which are Alia's to show and sell.
  */
-export function BillingSection({ success }: BillingSectionProps) {
+export function BillingSection() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { data: subscription, isLoading, refetch } = useSubscription();
+  const { data: subscription, isLoading, isError, refetch } = useSubscription();
   const cancelSubscriptionMutation = useCancelSubscription();
   const createPortalMutation = useCreatePortalSession();
   const session = useBillingSession();
-  const toastShown = useRef(false);
-
-  const { data: polledSubscription } = useSubscriptionPolling(undefined, {
-    enabled: !!success,
-  });
-
-  // Confirm the checkout once the webhook has made the subscription active.
-  useEffect(() => {
-    if (!success || toastShown.current || !session.isCurrent()) return;
-    if (
-      polledSubscription &&
-      (polledSubscription.status === 'active' || polledSubscription.status === 'trialing')
-    ) {
-      toastShown.current = true;
-      void refetch();
-      toast.success(t('billing.paymentSuccess'));
-      setTimeout(() => {
-        if (session.isCurrent()) router.replace('/(app)/settings/billing');
-      }, 100);
-    }
-  }, [success, polledSubscription, refetch, router, t, session.isCurrent]);
-
   const handleCancelSubscription = async () => {
     if (!subscription || !session.isCurrent()) return;
     try {
@@ -93,10 +66,27 @@ export function BillingSection({ success }: BillingSectionProps) {
     }
   };
 
+  if (!session.ready) return <BillingSessionPending />;
+
   if (isLoading) {
     return (
       <View className="py-6">
         <Text className="text-sm text-muted-foreground">{t('common.loading')}</Text>
+      </View>
+    );
+  }
+
+  if (isError) {
+    return (
+      <View className="gap-3 py-6">
+        <Text>{t('billing.loadError')}</Text>
+        <Button
+          onPress={() => {
+            if (session.isCurrent()) void refetch();
+          }}
+        >
+          {t('common.retry')}
+        </Button>
       </View>
     );
   }

@@ -470,6 +470,8 @@
     }
   },
   "billing": {
+    "sessionPending": "Tu sesión aún no está lista. Revisa tu cuenta para continuar.",
+    "loadError": "No se pudieron cargar los datos de facturación.",
     "title": "Billing",
     "subtitle": "Manage your subscription and payment methods",
     "paymentSuccess": "Payment successful! Your credits have been added.",
