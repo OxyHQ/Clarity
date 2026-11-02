@@ -61,6 +61,16 @@ const iconRefreshBatchSize = 10;
  */
 const oxyFilesIntervalMs = 10 * 1000;
 const jobRecrawlBatchSize = 50;
+/**
+ * Pages one worker crawls at the same time. The page lease (`SKIP LOCKED`) and
+ * the per-owner `concurrent_fetches` quota (8 for Oxy's own apps) already govern
+ * parallel crawling; the loop used to take one page at a time, so a single slow
+ * site (up to the 30 s deadline) held up every link behind it.
+ */
+const crawlConcurrency = Math.min(
+  16,
+  Math.max(1, Number.parseInt(process.env.CRAWL_CONCURRENCY ?? '', 10) || 8),
+);
 
 /** Reclaim crashed workers before counting concurrency. A stale claim never owns a write. */
 export async function recoverExpiredLeases(): Promise<number> {
@@ -881,6 +891,44 @@ function callerKindOf(job: { callerKind: string }): CrawlCallerKind | 'legacy' {
     : 'legacy';
 }
 
+/**
+ * Lease and crawl pages, up to `concurrency` at once, until stopped. `tick`
+ * runs between leases (maintenance beats). A page that throws is reported to
+ * `onError` and its lease simply expires; it never takes the other pages in
+ * flight, or the worker, down. Resolves once every page in flight has finished.
+ */
+export async function runCrawlSlots<Page>(options: {
+  concurrency: number;
+  isStopping: () => boolean;
+  tick: () => Promise<void>;
+  lease: () => Promise<Page | undefined>;
+  process: (page: Page) => Promise<void>;
+  onError: (error: unknown, page: Page) => void;
+  idleMs?: number;
+}): Promise<void> {
+  const active = new Set<Promise<void>>();
+  while (!options.isStopping()) {
+    await options.tick();
+    if (active.size >= options.concurrency) {
+      await Promise.race(active);
+      continue;
+    }
+    const page = await options.lease();
+    if (page === undefined) {
+      await new Promise((resolve) => setTimeout(resolve, options.idleMs ?? 1000));
+      continue;
+    }
+    const run: Promise<void> = options
+      .process(page)
+      .catch((error: unknown) => options.onError(error, page))
+      .finally(() => {
+        active.delete(run);
+      });
+    active.add(run);
+  }
+  await Promise.all(active);
+}
+
 async function main() {
   if (!connectPostgres(process.env.DATABASE_URL)) throw new Error('DATABASE_URL is required');
   let stopping = false;
@@ -898,32 +946,37 @@ async function main() {
   const iconRefreshLoop = runIconRefreshLoop(() => stopping);
   const productFeedLoop = runProductFeedLoop(() => stopping);
   const embeddingBacklogLoop = runEmbeddingBacklogLoop(() => stopping);
-  while (!stopping) {
-    if (Date.now() >= nextAccountEventSyncAt) {
-      nextAccountEventSyncAt = Date.now() + 60_000;
-      try {
-        await reconcileAccountEvents();
-      } catch (error) {
-        log.error(
-          { err: error },
-          'Account event reconciliation failed; the durable cursor is unchanged',
-        );
+  await runCrawlSlots({
+    concurrency: crawlConcurrency,
+    isStopping: () => stopping,
+    tick: async () => {
+      if (Date.now() >= nextAccountEventSyncAt) {
+        nextAccountEventSyncAt = Date.now() + 60_000;
+        try {
+          await reconcileAccountEvents();
+        } catch (error) {
+          log.error(
+            { err: error },
+            'Account event reconciliation failed; the durable cursor is unchanged',
+          );
+        }
       }
-    }
-    if (Date.now() >= nextMaintenanceAt) {
-      nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
-      await runJobMaintenance();
-      await runImageCacheSweep();
-      await runEffectReceiptSweep();
-    }
-    if (Date.now() >= nextOxyFilesAt) {
-      nextOxyFilesAt = Date.now() + oxyFilesIntervalMs;
-      await runOxyFiles();
-    }
-    const page = await leaseNextPage();
-    if (page) await processPage(page);
-    else await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
+      if (Date.now() >= nextMaintenanceAt) {
+        nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
+        await runJobMaintenance();
+        await runImageCacheSweep();
+        await runEffectReceiptSweep();
+      }
+      if (Date.now() >= nextOxyFilesAt) {
+        nextOxyFilesAt = Date.now() + oxyFilesIntervalMs;
+        await runOxyFiles();
+      }
+    },
+    lease: leaseNextPage,
+    process: processPage,
+    onError: (error, page) =>
+      log.error({ crawlPageId: page.id, err: error }, 'Crawl page failed; its lease will expire'),
+  });
   await feedLoop;
   await iconRefreshLoop;
   await productFeedLoop;
