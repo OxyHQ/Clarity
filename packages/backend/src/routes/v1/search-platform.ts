@@ -40,6 +40,7 @@ import {
   publicDocument,
   type DocumentRow,
 } from '../../search/public-document.js';
+import { warmDocumentImages } from '../../search/image-cache.js';
 import { listNewsStories } from '../../search/news.js';
 import { MAX_URL_LENGTH, publicUrlSchema } from '../../search/query-primitives.js';
 import {
@@ -228,6 +229,7 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   };
   const pending = urls.some((url) => !byUrl.has(url) && unfetchedStatus(url) === 'queued');
   const icons = await iconHostsOf([...byUrl.values()]);
+  warmDocumentImages([...byUrl.values()]);
   res.status(pending ? 202 : 200).json({
     data: urls.map((url) => {
       const document = byUrl.get(url);
