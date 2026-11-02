@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, or, sql } from 'drizzle-orm';
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 
@@ -145,6 +145,37 @@ router.post('/index/urls', requireResourceScope('clarity:index'), async (req, re
 
 /** How often a waiting resolve looks at its crawl. */
 const RESOLVE_POLL_MS = 400;
+/**
+ * How long a URL whose crawl exhausted its attempts is reported `failed` by
+ * `/resolve` without enqueueing another crawl. Without it a link that always
+ * fails (a 403, a bot challenge, a PDF, a dead host) left no document, so every
+ * read found "nothing fetched" and queued a fresh three-attempt crawl, answering
+ * `queued` each time: the consumer showed nothing, polled for ever, and the
+ * single crawl worker spent its capacity re-fetching pages that cannot succeed.
+ */
+const RESOLVE_FAILED_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+
+/** Of `urls`, those this principal's crawl already failed within the cooldown. */
+async function recentlyFailedUrls(
+  principal: ClarityResourcePrincipal,
+  urls: string[],
+): Promise<Set<string>> {
+  if (urls.length === 0) return new Set();
+  const rows = await getDb()
+    .selectDistinct({ url: crawlPages.url })
+    .from(crawlPages)
+    .innerJoin(crawlJobs, eq(crawlJobs.id, crawlPages.jobId))
+    .where(
+      and(
+        inArray(crawlPages.url, urls),
+        eq(crawlPages.status, 'failed'),
+        gt(crawlPages.updatedAt, new Date(Date.now() - RESOLVE_FAILED_COOLDOWN_MS)),
+        eq(crawlJobs.ownerAccountId, principal.accountId),
+        eq(crawlJobs.applicationId, applicationLedgerKey(principal)),
+      ),
+    );
+  return new Set(rows.map((row) => row.url));
+}
 const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
   'succeeded',
   'partial',
@@ -181,7 +212,11 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   if (!input) return;
   const { urls } = input;
   let byUrl = await fetchedDocuments(urls);
-  const missing = [...new Set(urls.filter((url) => !byUrl.has(url)))];
+  const unfetched = [...new Set(urls.filter((url) => !byUrl.has(url)))];
+  const failed = req.resourcePrincipal
+    ? await recentlyFailedUrls(req.resourcePrincipal, unfetched)
+    : new Set<string>();
+  const missing = unfetched.filter((url) => !failed.has(url));
   // A caller that waits has a person waiting on the answer (a composer, a
   // freshly published post); one that does not is warming in the background.
   const operations = missing.length
@@ -191,7 +226,7 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
         input.waitMs ? RESOLVE_WAITING_PRIORITY : RESOLVE_BACKGROUND_PRIORITY,
       )
     : new Map<string, typeof crawlJobs.$inferSelect>();
-  if (missing.length && operations.size === 0 && byUrl.size === 0) {
+  if (missing.length && operations.size === 0 && byUrl.size === 0 && failed.size === 0) {
     sendError(
       res,
       429,
@@ -220,6 +255,7 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   }
   if (input.waitMs) byUrl = await fetchedDocuments(urls);
   const unfetchedStatus = (url: string) => {
+    if (failed.has(url)) return 'failed';
     const operation = operations.get(url);
     if (!operation) return 'throttled';
     return !TERMINAL_OPERATIONS.has(statuses.get(operation.id) ?? operation.status)
@@ -237,9 +273,11 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
             url,
             operationId: operations.get(url)?.id,
             status: unfetchedStatus(url),
-            ...(!operations.has(url)
-              ? { error: { code: 'active_crawl_quota_exceeded', retryable: true } }
-              : {}),
+            ...(failed.has(url)
+              ? { error: { code: 'fetch_failed', retryable: false } }
+              : !operations.has(url)
+                ? { error: { code: 'active_crawl_quota_exceeded', retryable: true } }
+                : {}),
           };
     }),
   });
