@@ -230,4 +230,43 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
     const next = await bodyOf(await resolve([urls[0]]));
     expect(next.data[0].operationId).not.toBe(first.data[0].operationId);
   });
+
+  it('reports a recently failed URL as failed instead of queueing a new crawl each read', async () => {
+    const first = await bodyOf(await resolve([urls[0]]));
+    await getDb()
+      .update(crawlPages)
+      .set({ status: 'failed', updatedAt: new Date() })
+      .where(eq(crawlPages.jobId, first.data[0].operationId));
+    await getDb()
+      .update(crawlJobs)
+      .set({ status: 'failed' })
+      .where(eq(crawlJobs.id, first.data[0].operationId));
+
+    const response = await resolve([urls[0]]);
+    const [result] = (await bodyOf(response)).data;
+
+    expect(response.status).toBe(200);
+    expect(result).toMatchObject({
+      status: 'failed',
+      error: { code: 'fetch_failed', retryable: false },
+    });
+    expect(result.operationId).toBeUndefined();
+  });
+
+  it('tries a failed URL again once the cooldown has passed', async () => {
+    const first = await bodyOf(await resolve([urls[0]]));
+    await getDb()
+      .update(crawlPages)
+      .set({ status: 'failed', updatedAt: new Date(Date.now() - 7 * 60 * 60 * 1000) })
+      .where(eq(crawlPages.jobId, first.data[0].operationId));
+    await getDb()
+      .update(crawlJobs)
+      .set({ status: 'failed' })
+      .where(eq(crawlJobs.id, first.data[0].operationId));
+
+    const next = await bodyOf(await resolve([urls[0]]));
+
+    expect(next.data[0].status).toBe('queued');
+    expect(next.data[0].operationId).not.toBe(first.data[0].operationId);
+  });
 });
