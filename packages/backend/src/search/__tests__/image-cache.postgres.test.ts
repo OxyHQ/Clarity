@@ -44,6 +44,7 @@ import {
   publicImageUrl,
   resolveImage,
   sweepImageCache,
+  warmDocumentImages,
 } from '../image-cache.js';
 
 /**
@@ -128,6 +129,30 @@ suite('image cache on Postgres and Oxy Files', () => {
     expect(use).toMatchObject({ oxyFileId: 'file-1', imageKey: imageKey(url('a.png')) });
     // The trigger owes Oxy the same use (answered `exists` when drained).
     expect(await outboxOf('ict-a')).toEqual([{ op: 'add', file: 'file-1' }]);
+  });
+
+  it('imports the images of the documents it is given ahead of any request, once', async () => {
+    oxy.remote.set(url('w1.png'), PNG);
+    oxy.remote.set(url('w2.png'), JPEG);
+
+    warmDocumentImages([
+      { id: 'ict-w1', imageUrl: url('w1.png') },
+      { id: 'ict-w2', imageUrl: url('w2.png') },
+      { id: 'ict-w3', imageUrl: null },
+    ]);
+    await vi.waitFor(async () => {
+      const rows = await getDb()
+        .select()
+        .from(imageCache)
+        .where(inArray(imageCache.sourceUrl, [url('w1.png'), url('w2.png')]));
+      expect(rows.map((row) => row.status)).toEqual(['ready', 'ready']);
+    });
+
+    // The first request finds the file ready: no further import.
+    const imports = oxy.calls.filter((call) => call.startsWith('import')).length;
+    expect(await resolveImage(doc('w1'), url('w1.png'))).toMatchObject({ kind: 'oxy' });
+    expect(oxy.calls.filter((call) => call.startsWith('import')).length).toBe(imports);
+    expect(oxy.referencesOf('search_document', 'ict-w1')).toHaveLength(1);
   });
 
   it('shares one import between concurrent misses, and records each entity', async () => {

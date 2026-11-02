@@ -393,6 +393,43 @@ export async function resolveImage(
   return { kind: 'oxy', oxyFileId: stored.oxyFileId };
 }
 
+/** Imports a resolve may run at once; the rest of a large page queue behind them. */
+const WARM_CONCURRENCY = 4;
+
+/**
+ * Import the preview images of documents a consumer just asked for, so the
+ * first request for one finds it ready instead of waiting on the import
+ * (a fetch of the site's original and an upload) before its redirect.
+ *
+ * Only `POST /v1/resolve` calls this: a consumer asking for a document is
+ * about to show it. The crawler does NOT warm what it indexes, because most of
+ * the index is never shown and Clarity releases an image nobody looks at
+ * (IMAGE_IDLE_TTL_MS) — warming the whole crawl would import images only to
+ * release them. It goes through {@link resolveImage}, so the use is recorded
+ * exactly as when the image is served. Never throws and is not awaited: a
+ * failure costs the first viewer the import they would have paid anyway.
+ */
+export function warmDocumentImages(
+  documents: ReadonlyArray<{ id: string; imageUrl: string | null }>,
+): void {
+  const queue = documents.filter((document) => document.imageUrl);
+  const worker = async (): Promise<void> => {
+    for (let next = queue.shift(); next; next = queue.shift()) {
+      try {
+        await resolveImage(
+          { entityType: entityTypeOf('documents'), entityId: next.id },
+          next.imageUrl as string,
+        );
+      } catch (error) {
+        log.general.warn({ err: error, documentId: next.id }, 'Image warm failed');
+      }
+    }
+  };
+  for (let index = 0; index < Math.min(WARM_CONCURRENCY, queue.length); index += 1) {
+    void worker();
+  }
+}
+
 /**
  * Forget what the cache no longer needs to remember, and report how many rows
  * went: failures whose window has passed, legacy copies nobody read in
