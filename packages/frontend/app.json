@@ -60,7 +60,6 @@
       ],
       "expo-status-bar",
       ["expo-build-properties", { "android": { "gifEnabled": false, "webpEnabled": false } }],
-      "@oxy.so/app-preset/plugin/withOxyAndroidRelease",
       "@oxy.so/services/plugins/withOxySharedPermissions"
     ],
     "experiments": {
