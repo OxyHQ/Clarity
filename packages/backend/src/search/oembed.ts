@@ -37,45 +37,81 @@ export interface OembedMetadata {
   type?: string;
 }
 
+/** A registry URL scheme, split where its wildcards may match: host, then path and query. */
+interface Scheme {
+  host: string;
+  rest: string;
+}
+
 interface Provider {
   endpoint: string;
-  patterns: RegExp[];
+  schemes: Scheme[];
+}
+
+function parseScheme(scheme: string): Scheme | undefined {
+  const match = /^https?:\/\/([^/]*)(.*)$/i.exec(scheme);
+  return match ? { host: match[1].toLowerCase(), rest: match[2] || '/' } : undefined;
 }
 
 /**
- * A registry URL scheme as a pattern. `*` in the host matches within the host
- * only, and `*.` before a domain also matches the bare domain; `*` in the path
- * matches anything. http and https are the same resource.
+ * Whether `text` matches a `*` wildcard pattern. Greedy with one backtrack
+ * point, so it is linear in practice and never exponential, unlike a regular
+ * expression built from a scheme with several wildcards.
  */
-function schemePattern(scheme: string): RegExp {
-  const match = /^https?:\/\/([^/]*)(.*)$/i.exec(scheme);
-  if (!match) return /$^/;
-  const literal = (value: string) => value.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-  const host = literal(match[1].toLowerCase())
-    .replace(/^\*\\\./, '(?:[^/]+\\.)?')
-    .replace(/\*/g, '[^/]*');
-  const path = literal(match[2]).replace(/\*/g, '.*');
-  return new RegExp(`^https?://${host}${path || '/?'}$`);
+function wildcard(pattern: string, text: string): boolean {
+  let p = 0;
+  let t = 0;
+  let star = -1;
+  let resume = 0;
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] !== '*' && pattern[p] === text[t]) {
+      p += 1;
+      t += 1;
+    } else if (p < pattern.length && pattern[p] === '*') {
+      star = p;
+      resume = t;
+      p += 1;
+    } else if (star !== -1) {
+      p = star + 1;
+      resume += 1;
+      t = resume;
+    } else return false;
+  }
+  while (pattern[p] === '*') p += 1;
+  return p === pattern.length;
+}
+
+/**
+ * Whether a URL is one a scheme covers. `*.` before a domain also covers the
+ * bare domain, and a host wildcard never reaches into the path; http and https
+ * are the same resource.
+ */
+function covers(scheme: Scheme, url: URL): boolean {
+  const host = scheme.host.startsWith('*.')
+    ? url.hostname === scheme.host.slice(2) || wildcard(scheme.host, url.hostname)
+    : wildcard(scheme.host, url.hostname);
+  return host && wildcard(scheme.rest, `${url.pathname}${url.search}`);
 }
 
 const providers: Provider[] = registry.map((provider) => ({
   endpoint: provider.endpoint,
-  patterns: provider.schemes.map(schemePattern),
+  schemes: provider.schemes.flatMap((scheme) => parseScheme(scheme) ?? []),
 }));
 
 /** The endpoint request for `pageUrl`, if a registered provider covers it. */
 export function registeredOembedUrl(pageUrl: string): string | undefined {
-  let url: string;
+  let url: URL;
   try {
-    url = new URL(pageUrl).toString();
+    url = new URL(pageUrl);
   } catch {
     return undefined;
   }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
   const provider = providers.find((candidate) =>
-    candidate.patterns.some((pattern) => pattern.test(url)),
+    candidate.schemes.some((scheme) => covers(scheme, url)),
   );
   if (!provider) return undefined;
-  const request = `${provider.endpoint}${provider.endpoint.includes('?') ? '&' : '?'}url=${encodeURIComponent(url)}&format=json`;
+  const request = `${provider.endpoint}${provider.endpoint.includes('?') ? '&' : '?'}url=${encodeURIComponent(url.toString())}&format=json`;
   return storableUrl(request) ? request : undefined;
 }
 

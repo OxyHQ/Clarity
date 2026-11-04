@@ -203,10 +203,18 @@ export function declaredIconUrl(html: string, finalUrl: string): string | undefi
  * without one, wrapped in one.
  */
 function parseable(html: string): string {
-  const root = html.search(/<!doctype\s|<html[\s>]/i);
-  if (root >= 0 && /^(?:\s|﻿|<!--[\s\S]*?-->|<\?[\s\S]*?\?>)*$/.test(html.slice(0, root)))
-    return html.slice(root);
-  return `<!DOCTYPE html><html>${html}</html>`;
+  let start = 0;
+  for (;;) {
+    while (start < html.length && (/\s/.test(html[start]) || html[start] === '\uFEFF')) start += 1;
+    const close = html.startsWith('<!--', start) ? '-->' : html.startsWith('<?', start) ? '?>' : '';
+    if (!close) break;
+    const end = html.indexOf(close, start);
+    if (end === -1) break;
+    start = end + close.length;
+  }
+  return /^(?:<!doctype\s|<html[\s>])/i.test(html.slice(start, start + 15))
+    ? html.slice(start)
+    : `<!DOCTYPE html><html>${html}</html>`;
 }
 
 /**
