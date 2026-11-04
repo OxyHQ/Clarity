@@ -160,7 +160,12 @@ function clarityServiceClient(env: NodeJS.ProcessEnv): OxyServer {
     client?.dispose();
     client = new OxyServer({
       baseURL: config.baseUrl,
+      applicationId: CLARITY_IDENTITY.backendApplication.applicationId,
       workloadCredentials: createAwsWorkloadCredentialProvider(),
+      // Session-less reads (`users.get`, `organizations.get`, …) carry this
+      // workload's service token rather than going out anonymous, so they are
+      // charged to Clarity's application and not to the task's NAT address.
+      serviceIdentity: 'when-anonymous',
     });
     clientFingerprint = fingerprint;
   }

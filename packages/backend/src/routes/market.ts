@@ -33,7 +33,7 @@ import {
   MARKET_ASSET_PATTERN,
   MAX_QUOTE_ASSETS,
 } from '../lib/market-data.js';
-import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
+import { clarityRateLimit } from '../middleware/rate-limit.js';
 import { sendError } from '../middleware/resource-auth.js';
 
 const router = Router();
@@ -41,13 +41,13 @@ const router = Router();
 router.use(optionalAuth);
 
 /**
- * Burst protection for an anonymous surface, keyed by address, never by user.
+ * Burst protection, after `optionalAuth` has decided who is asking.
  *
  * Its own bucket rather than `/jobs`'s: two unrelated public surfaces sharing
  * one counter means reading the Finance page rate-limits the Jobs page, which
  * would read as a bug in whichever one the person opened second.
  */
-router.use(anonymousRateLimit('anon:market:'));
+router.use(clarityRateLimit('market'));
 
 const assetSchema = z.string().trim().min(1).max(64).regex(MARKET_ASSET_PATTERN);
 

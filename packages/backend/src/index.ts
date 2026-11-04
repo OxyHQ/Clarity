@@ -2,7 +2,8 @@ import express from 'express';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import http from 'node:http';
 import cors from 'cors';
-import { oxyTrustProxy } from '@oxy.so/core/server';
+import { createOxyCors, createOxySecurityHeaders, oxyTrustProxy } from '@oxy.so/core/server';
+import { CLARITY_APP_ORIGINS, EXPERIENCE_APP_ORIGINS } from './lib/app-origins.js';
 import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
 import {
@@ -18,7 +19,6 @@ import { createCapabilityLanes, mountCapabilityLanes } from './capabilities/moun
 import healthRouter from './routes/health.js';
 import faviconsRouter from './routes/favicons.js';
 import imagesRouter from './routes/images.js';
-import authRouter from './routes/auth.js';
 import v1Router from './routes/v1.js';
 import billingRouter from './routes/billing.js';
 import feedbackRouter from './routes/feedback.js';
@@ -90,7 +90,16 @@ initSocket(server).on('connection', (socket) => activity?.observeSocket(socket))
 const capabilityLanes = createCapabilityLanes();
 mountCapabilityLanes(app, capabilityLanes);
 
-// Public API routes (/v1) use the documented cross-origin API contract.
+// Headers only (HSTS, nosniff, frame and opener policy, a baseline CSP for any
+// document). Images and favicons are embedded by other origins, so the
+// resource policy is cross-origin.
+app.use(
+  createOxySecurityHeaders({ helmet: { crossOriginResourcePolicy: { policy: 'cross-origin' } } }),
+);
+
+// Public API routes (/v1) use the documented cross-origin API contract: any
+// origin, never credentials (a bearer is not a cookie). `createOxyCors` never
+// answers a wildcard by design, so this one surface keeps its own.
 app.use(
   '/v1',
   cors({
@@ -121,20 +130,7 @@ app.use('/v1', (_req, res, next) => {
 });
 
 // Public profile reads and user-authorized profile edits from Mention.
-app.use(
-  '/api/experience',
-  cors({
-    origin: [
-      'https://mention.earth',
-      'https://clarity.surf',
-      ...([process.env.WEB_URL].filter(Boolean) as string[]),
-      'http://localhost:8081',
-      'http://localhost:8082',
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Oxy-Activity-Id', 'X-Oxy-Edge-Region'],
-  }),
-);
+app.use('/api/experience', createOxyCors({ appOrigins: EXPERIENCE_APP_ORIGINS }));
 
 // Account deletion authenticates the signed event itself, independently of runtime readiness.
 app.use('/webhooks/oxy/account-events', oxyAccountEventsRouter);
@@ -142,60 +138,11 @@ app.use('/webhooks/oxy/account-events', oxyAccountEventsRouter);
 // is mounted before `express.json()`, like the account events above.
 app.use('/webhooks/oxy/files', oxyFileEventsRouter);
 
-// Internal routes - restricted to known origins
-const PRODUCTION_ORIGINS = ['https://clarity.surf'];
-
-const DEV_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:8081',
-  'exp://localhost:8081',
-  'http://10.0.2.2:8081',
-];
-
-const allowedOrigins = [
-  ...(process.env.WEB_URL ? [process.env.WEB_URL] : []),
-  ...PRODUCTION_ORIGINS,
-  ...DEV_ORIGINS,
-];
-
-// Internal routes CORS - skip /v1 routes (they have their own permissive CORS above)
+// Every other route admits Clarity's own web app (and the Oxy origin family).
+const appCors = createOxyCors({ appOrigins: CLARITY_APP_ORIGINS });
 app.use((req, res, next) => {
   if (req.path.startsWith('/v1') || req.path.startsWith('/api/experience')) return next();
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl)
-      if (!origin) return callback(null, true);
-
-      // An unlisted origin gets no CORS headers, so its browser withholds the
-      // response. Passing an Error instead turned each such request into a 500.
-      callback(null, allowedOrigins.includes(origin));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Requested-With',
-      'Accept',
-      'Origin',
-      'X-Service-Name',
-      'X-Timestamp',
-      'X-Signature',
-      'X-Session-Id',
-      'X-Device-Info',
-      'X-Workspace-Id',
-      'X-Oxy-Edge-Region',
-      'X-Oxy-Activity-Id',
-    ],
-    optionsSuccessStatus: 200,
-  })(req, res, next);
-});
-
-// Allow cross-origin resource loading (fixes ERR_BLOCKED_BY_RESPONSE.NotSameOrigin)
-app.use((_req, res, next) => {
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  next();
+  appCors(req, res, next);
 });
 
 // Stripe webhook needs raw body for signature verification
@@ -216,7 +163,6 @@ app.use('/health', healthRouter);
 // Keep every product/data route closed until the exact PostgreSQL snapshot has
 // been attested and this process can attest its own Oxy service identity.
 app.use(requireRuntimeReady);
-app.use('/auth', authRouter);
 app.use('/v1', v1Router);
 app.use('/favicons', faviconsRouter);
 app.use('/images', imagesRouter);
@@ -237,7 +183,6 @@ app.get('/', (_req, res) => {
     version: '1.0.0',
     endpoints: [
       '/health',
-      '/auth',
       '/v1',
       '/billing',
       '/feedback',
@@ -324,11 +269,13 @@ if (!database) {
               .catch((err) =>
                 log.general.warn(
                   { err },
-                  'Redis readiness check failed — rate limiting will fail-open',
+                  'Redis readiness check failed — rate-limited routes answer errors until it returns',
                 ),
               );
           } else {
-            log.general.info('Redis not configured (REDIS_URL not set) — rate limiting disabled');
+            log.general.info(
+              'Redis not configured (REDIS_URL not set) — rate limits count per task',
+            );
           }
         });
       });

@@ -25,6 +25,9 @@ vi.mock('../../middleware/auth.js', () => ({
     users: { get: repository.account },
     safety: { profileAccess: repository.profileAccess, contentAccess: repository.contentAccess },
   },
+  // The verified bearer, as the real middleware leaves it on the request. What
+  // it refuses (a non-Bearer or empty Authorization) is in
+  // middleware/__tests__/auth.test.ts.
   experienceOptionalAuth: (
     req: express.Request,
     _res: express.Response,
@@ -32,6 +35,8 @@ vi.mock('../../middleware/auth.js', () => ({
   ) => {
     const user = req.headers['test-user'];
     if (typeof user === 'string') req.user = { id: user, kind: 'personal' };
+    const bearer = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+    if (bearer) req.accessToken = bearer;
     next();
   },
   experienceAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -204,20 +209,6 @@ describe('Experience HTTP API', () => {
         })
       ).status,
     ).toBe(401);
-    expect(
-      (
-        await request('/users/owner', 'GET', undefined, undefined, {
-          authorization: 'Basic invalid',
-        })
-      ).status,
-    ).toBe(401);
-    expect(repository.listExperience).not.toHaveBeenCalled();
-  });
-  it('refuses an explicitly empty Authorization header before reading any profile', async () => {
-    expect(
-      (await request('/users/owner', 'GET', undefined, undefined, { authorization: '' })).status,
-    ).toBe(401);
-    expect(repository.profileAccess).not.toHaveBeenCalled();
     expect(repository.listExperience).not.toHaveBeenCalled();
   });
   it('requires a personal user session for every write', async () => {

@@ -436,7 +436,7 @@ describe('architecture gates', () => {
       index.indexOf('app.use(requireRuntimeReady)'),
     );
     expect(index.indexOf('app.use(requireRuntimeReady)')).toBeLessThan(
-      index.indexOf("app.use('/auth', authRouter)"),
+      index.indexOf("app.use('/v1', v1Router)"),
     );
     expect(socket).toContain('getRuntimeReadiness');
     expect(socket).not.toMatch(/subscribe-(?:agent|workflow|canvas)|agent-approval|agent-activity/);

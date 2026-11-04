@@ -12,7 +12,7 @@ import { optionalAuth } from '../middleware/auth.js';
  */
 import { Router, type Request, type Response } from 'express';
 
-import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
+import { clarityRateLimit } from '../middleware/rate-limit.js';
 import { log } from '../lib/logger.js';
 import { sendError } from '../middleware/resource-auth.js';
 import { jobReportSchema, reportJobPosting } from '../search/jobs/reports.js';
@@ -29,8 +29,8 @@ const router = Router();
 // This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
 router.use(optionalAuth);
 
-/** Burst protection for an anonymous surface, keyed by address, never by user. */
-router.use(anonymousRateLimit('anon:'));
+/** Burst protection in its own bucket, after `optionalAuth` has decided who is asking. */
+router.use(clarityRateLimit('jobs'));
 
 router.post('/search', async (req, res) => {
   const parsed = jobSearchSchema.safeParse(req.body);

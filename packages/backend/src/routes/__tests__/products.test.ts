@@ -19,11 +19,6 @@ import type { ProductDetail, ProductSearchResponse } from '@clarity/shared-types
  * the order Mercaria answered with is the order Clarity serves.
  */
 
-const checkLimit = vi.fn(
-  async () => ({ allowed: true }) as { allowed: boolean; resetInSeconds?: number },
-);
-vi.mock('../../lib/sliding-window-limiter.js', () => ({ checkLimit }));
-
 const { default: productsRouter } = await import('../products.js');
 const { setMercariaFetchForTests } = await import('../../search/products/mercaria-catalog.js');
 

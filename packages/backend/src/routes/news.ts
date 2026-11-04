@@ -13,7 +13,7 @@ import { optionalAuth } from '../middleware/auth.js';
 import { Router } from 'express';
 
 import { log } from '../lib/logger.js';
-import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
+import { clarityRateLimit } from '../middleware/rate-limit.js';
 import { sendError } from '../middleware/resource-auth.js';
 import { listNewsStories } from '../search/news.js';
 
@@ -22,7 +22,7 @@ const router = Router();
 router.use(optionalAuth);
 
 /** Its own bucket: reading Discover must not rate-limit Jobs or Finance. */
-router.use(anonymousRateLimit('anon:news:'));
+router.use(clarityRateLimit('news'));
 
 router.get('/', async (req, res) => {
   try {

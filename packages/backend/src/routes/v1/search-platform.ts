@@ -19,7 +19,11 @@ import {
   sendError,
   type ClarityResourcePrincipal,
 } from '../../middleware/resource-auth.js';
-import { clarityPlatformTransport } from '../../lib/clarity-service-auth.js';
+import { clarityOxyServer } from '../../lib/clarity-service-auth.js';
+import {
+  DomainVerificationUnavailableError,
+  verifyOxyDomainOwnership,
+} from '../../lib/oxy-domain-verification.js';
 import {
   applicationLedgerKey,
   consumeUsage,
@@ -334,13 +338,25 @@ router.post('/sites', requireResourceScope('clarity:sites:manage'), async (req, 
   const idempotencyKey = requireIdempotency(req, res);
   if (!input || !principal || !idempotencyKey) return;
   const origin = new URL(input.origin).origin;
-  if (
-    !(await verifyDomainOwnership(
-      principal.accountId,
-      input.verifiedDomainId,
-      new URL(origin).hostname,
-    ))
-  ) {
+  let verified: boolean;
+  try {
+    verified = await verifyOxyDomainOwnership(clarityOxyServer(), {
+      accountId: principal.accountId,
+      verifiedDomainId: input.verifiedDomainId,
+      originHost: new URL(origin).hostname,
+    });
+  } catch (error) {
+    if (!(error instanceof DomainVerificationUnavailableError)) throw error;
+    sendError(
+      res,
+      503,
+      'service_unavailable',
+      'Domain verification is temporarily unavailable. Retry shortly.',
+      req,
+    );
+    return;
+  }
+  if (!verified) {
     sendError(
       res,
       403,
@@ -1231,23 +1247,4 @@ function publicSite(row: typeof searchSites.$inferSelect) {
     nextCrawlAt: row.nextCrawlAt?.toISOString(),
   };
 }
-async function verifyDomainOwnership(
-  accountId: string,
-  verifiedDomainId: string,
-  originHost: string,
-): Promise<boolean> {
-  const response = await clarityPlatformTransport().fetch(
-    `${(process.env.OXY_API_URL || 'https://api.oxy.so').replace(/\/$/, '')}/auth/resources/domains/verify`,
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ accountId, verifiedDomainId, originHost }),
-      signal: AbortSignal.timeout(5_000),
-    },
-  );
-  if (!response.ok) return false;
-  const result = z.object({ verified: z.boolean() }).safeParse(await response.json());
-  return result.success && result.data.verified;
-}
-
 export default router;

@@ -49,20 +49,14 @@ router.get('/users/:userId', experienceOptionalAuth, async (req, res) => {
     error(res, 400, 'bad_request', 'This bounded profile list accepts no query parameters');
     return;
   }
-  const authorization = req.get('authorization');
-  const bearer = authorization?.match(/^Bearer ([^\s]+)$/i);
-  if (authorization !== undefined && !bearer) {
-    error(res, 401, 'unauthorized', 'A valid user session is required');
-    return;
-  }
+  // The bearer `experienceOptionalAuth` verified; it refused any other
+  // credential, so no Authorization header means anonymous.
+  const accessToken = req.accessToken ?? null;
   let access: Awaited<ReturnType<typeof oxyClient.safety.profileAccess>>;
   try {
     // Oxy derives the viewer from the original bearer. Explicit null is truly
     // anonymous and never falls back to this backend's service identity.
-    access = await oxyClient.safety.profileAccess(
-      { subjectAccountId: userId },
-      { accessToken: bearer?.[1] ?? null },
-    );
+    access = await oxyClient.safety.profileAccess({ subjectAccountId: userId }, { accessToken });
   } catch (err) {
     if ([401, 403].includes(getErrorStatus(err) ?? 0)) {
       error(res, 401, 'unauthorized', 'A valid user session is required');
@@ -85,7 +79,7 @@ router.get('/users/:userId', experienceOptionalAuth, async (req, res) => {
       audience: 'public',
       operation: req.user?.id === userId && !req.serviceApp ? 'manage_own' : 'read',
     },
-    { accessToken: bearer?.[1] ?? null },
+    { accessToken },
   );
   if (!content.allowed) {
     error(res, 404, 'not_found', 'Experience is not available');
