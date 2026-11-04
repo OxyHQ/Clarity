@@ -5,6 +5,12 @@ import { dateFromUrl, metadataFromStructuredData, plausibleDate } from './articl
 import { hasJobPosting } from './jobs/extract.js';
 import { storableUrl } from './query-primitives.js';
 
+export interface FieldEvidence {
+  source: string;
+  selector?: string;
+  extractedAt: string;
+}
+
 export interface ExtractedDocument {
   title?: string;
   description?: string;
@@ -16,6 +22,8 @@ export interface ExtractedDocument {
   publishedAt?: Date;
   modifiedAt?: Date;
   publisher?: string;
+  /** The page's own oEmbed endpoint (`<link rel="alternate" type="application/json+oembed">`). */
+  oembedUrl?: string;
   documentType:
     | 'page'
     | 'article'
@@ -29,13 +37,46 @@ export interface ExtractedDocument {
     | 'documentation'
     | 'other';
   structuredData: unknown[];
-  evidence: Record<string, { source: string; selector?: string; extractedAt: string }>;
+  evidence: Record<string, FieldEvidence>;
   noindex: boolean;
   nofollow: boolean;
 }
 
+type Document = ReturnType<typeof parseHTML>['document'];
+
+/** A field's value and where it was read. */
+interface Found {
+  value: string;
+  evidence: Omit<FieldEvidence, 'extractedAt'>;
+}
+
+/**
+ * Where a card's text and image come from, strongest first. What a page
+ * declares for sharing — OpenGraph, then its Twitter card, then its JSON-LD —
+ * outranks its bare `<title>`, meta description or what Readability infers from
+ * the body; an oEmbed answer (search/oembed.ts) slots in between the two, so
+ * it only replaces those weaker sources (see {@link isDeclared}).
+ */
+const TITLE_META = ['meta[property="og:title"]', 'meta[name="twitter:title"]'];
+const DESCRIPTION_META = ['meta[property="og:description"]', 'meta[name="twitter:description"]'];
+const IMAGE_META = [
+  'meta[property="og:image"]',
+  'meta[property="og:image:url"]',
+  'meta[property="og:image:secure_url"]',
+  'meta[name="twitter:image"]',
+  'meta[name="twitter:image:src"]',
+];
+const DECLARED_SELECTORS = new Set([...TITLE_META, ...DESCRIPTION_META, ...IMAGE_META]);
+
+/** Whether a field came from what the page declares for sharing (OpenGraph, Twitter card, JSON-LD). */
+export function isDeclared(evidence: FieldEvidence | undefined): boolean {
+  if (!evidence) return false;
+  if (evidence.source === 'json_ld' || evidence.source === 'oembed') return true;
+  return evidence.source === 'html' && DECLARED_SELECTORS.has(evidence.selector ?? '');
+}
+
 export function extractDocument(html: string, finalUrl: string): ExtractedDocument {
-  const { document } = parseHTML(html);
+  const { document } = parseHTML(parseable(html));
   const extractedAt = new Date().toISOString();
   const jsonLd = [...document.querySelectorAll('script[type="application/ld+json"]')]
     .flatMap((element) => {
@@ -47,7 +88,8 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
       }
     })
     .filter((value) => value !== null);
-  // Read before Readability, which rewrites the document it is given.
+  // Everything the head states is read before Readability, which rewrites the
+  // document it is given.
   const fromJsonLd = metadataFromStructuredData(jsonLd);
   const publishedAt =
     fromJsonLd.publishedAt ??
@@ -61,58 +103,79 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
   const publisher =
     fromJsonLd.publisher ??
     content(document, 'meta[property="og:site_name"]', 'content')?.slice(0, 200);
-  const readable = new Readability(document).parse();
-  const title =
-    content(document, 'meta[property="og:title"]', 'content') ||
-    readable?.title ||
-    document.title ||
-    undefined;
-  const description =
-    content(document, 'meta[property="og:description"]', 'content') ||
-    content(document, 'meta[name="description"]', 'content') ||
-    readable?.excerpt ||
-    undefined;
-  const canonicalUrl = absolute(content(document, 'link[rel="canonical"]', 'href'), finalUrl);
-  const imageUrl = absolute(
-    content(document, 'meta[property="og:image"]', 'content') ||
-      content(document, 'meta[name="twitter:image"]', 'content'),
+  const declaredTitle = firstMeta(document, TITLE_META) ?? jsonLdField(fromJsonLd.title);
+  const declaredDescription =
+    firstMeta(document, DESCRIPTION_META) ?? jsonLdField(fromJsonLd.description);
+  const imageFound = firstMeta(document, IMAGE_META) ?? jsonLdField(fromJsonLd.image);
+  const titleElement = clean(document.querySelector('title')?.textContent);
+  const metaDescription = content(document, 'meta[name="description"]', 'content');
+  const canonicalUrl = trustedCanonical(
+    absolute(content(document, 'link[rel="canonical"]', 'href'), finalUrl),
+    absolute(content(document, 'meta[property="og:url"]', 'content'), finalUrl),
     finalUrl,
   );
+  const imageUrl = absolute(imageFound?.value, finalUrl);
   const faviconUrl = absolute(content(document, 'link[rel~="icon"]', 'href'), finalUrl);
+  const oembedUrl = absolute(
+    content(document, 'link[rel~="alternate"][type="application/json+oembed"]', 'href') ??
+      content(document, 'link[rel~="alternate"][type="text/json+oembed"]', 'href'),
+    finalUrl,
+  );
+  const language = document.documentElement.getAttribute('lang') || undefined;
   const robots =
     `${content(document, 'meta[name="robots"]', 'content') || ''},${content(document, 'meta[name="googlebot"]', 'content') || ''}`
       .toLowerCase()
       .split(',')
       .map((item) => item.trim());
+  const readable = readableContent(document);
+  const title: Found | undefined =
+    declaredTitle ??
+    (readable?.title
+      ? { value: readable.title, evidence: { source: 'readability' } }
+      : undefined) ??
+    (titleElement
+      ? { value: titleElement, evidence: { source: 'html', selector: 'title' } }
+      : undefined);
+  const description: Found | undefined =
+    declaredDescription ??
+    (metaDescription
+      ? {
+          value: metaDescription,
+          evidence: { source: 'html', selector: 'meta[name="description"]' },
+        }
+      : undefined) ??
+    (readable?.excerpt
+      ? { value: readable.excerpt, evidence: { source: 'readability' } }
+      : undefined);
+  const stamp = (found: Found | undefined) =>
+    found ? { ...found.evidence, extractedAt } : undefined;
   return {
-    title,
-    description,
+    title: title?.value,
+    description: description?.value,
     mainContent:
       readable?.textContent?.trim() ||
       document.body?.textContent?.replace(/\s+/g, ' ').trim() ||
       undefined,
-    language: document.documentElement.getAttribute('lang') || undefined,
+    language,
     canonicalUrl,
     imageUrl,
     faviconUrl,
     publishedAt,
     modifiedAt,
     publisher,
+    oembedUrl,
     documentType: classify(jsonLd),
     structuredData: jsonLd,
-    evidence: {
-      ...(title
-        ? {
-            title: content(document, 'meta[property="og:title"]', 'content')
-              ? { source: 'html', selector: 'meta[property="og:title"]', extractedAt }
-              : { source: 'readability', extractedAt },
-          }
-        : {}),
-      ...(description ? { description: { source: 'html', extractedAt } } : {}),
-      ...(canonicalUrl
-        ? { canonicalUrl: { source: 'html', selector: 'link[rel="canonical"]', extractedAt } }
-        : {}),
-    },
+    evidence: Object.fromEntries(
+      Object.entries({
+        title: stamp(title),
+        description: stamp(description),
+        imageUrl: imageUrl ? stamp(imageFound) : undefined,
+        canonicalUrl: canonicalUrl
+          ? { source: 'html', selector: 'link[rel="canonical"]', extractedAt }
+          : undefined,
+      }).filter((entry): entry is [string, FieldEvidence] => entry[1] !== undefined),
+    ),
     noindex: robots.includes('noindex'),
     nofollow: robots.includes('nofollow'),
   };
@@ -126,15 +189,88 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
  */
 export function declaredIconUrl(html: string, finalUrl: string): string | undefined {
   const headEnd = html.search(/<\/head\s*>/i);
-  const { document } = parseHTML(headEnd === -1 ? html : html.slice(0, headEnd));
+  const { document } = parseHTML(parseable(headEnd === -1 ? html : html.slice(0, headEnd)));
   return absolute(content(document, 'link[rel~="icon"]', 'href'), finalUrl);
 }
 
-function content(
-  document: ReturnType<typeof parseHTML>['document'],
-  selector: string,
-  attribute: string,
+/**
+ * The markup as linkedom can parse it into a document. linkedom builds no
+ * `<html>` root unless the markup starts with one (or a doctype): a page that
+ * opens with whitespace, a BOM or a bare `<head>` came back with a null
+ * `documentElement`, which crashed extraction and failed thousands of
+ * fetchable pages a week. Whatever precedes the root that is not a comment or
+ * an XML prolog is not part of the page, so the markup is cut to the root or,
+ * without one, wrapped in one.
+ */
+function parseable(html: string): string {
+  let start = 0;
+  for (;;) {
+    while (start < html.length && (/\s/.test(html[start]) || html[start] === '\uFEFF')) start += 1;
+    const close = html.startsWith('<!--', start) ? '-->' : html.startsWith('<?', start) ? '?>' : '';
+    if (!close) break;
+    const end = html.indexOf(close, start);
+    if (end === -1) break;
+    start = end + close.length;
+  }
+  return /^(?:<!doctype\s|<html[\s>])/i.test(html.slice(start, start + 15))
+    ? html.slice(start)
+    : `<!DOCTYPE html><html>${html}</html>`;
+}
+
+/**
+ * The page's readable text, title and excerpt, or `undefined` when Readability
+ * cannot read it. Readability throws on some real-world markup (an orphaned top
+ * candidate, a node without a parent); that costs the page its body text, never
+ * the title, description and image its head declares.
+ */
+function readableContent(document: Document) {
+  try {
+    return new Readability(document).parse();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The declared canonical URL, when it names this page. A `<link rel=canonical>`
+ * decides which document a fetch is stored as, so a wrong one merges unrelated
+ * pages into one card: YouTube's degraded pages declare
+ * `https://www.youtube.com/undefined` for every video, and a misconfigured site
+ * names its home page for every article. It is accepted when it keeps the
+ * fetched URL's path (dropping tracking parameters, `www.`/`m.` or a trailing
+ * slash) or when the page's `og:url` states the same URL.
+ */
+function trustedCanonical(
+  declared: string | undefined,
+  ogUrl: string | undefined,
+  finalUrl: string,
 ): string | undefined {
+  if (!declared) return undefined;
+  if (declared === ogUrl) return declared;
+  const a = new URL(declared);
+  const b = new URL(finalUrl);
+  const host = (url: URL) => url.hostname.replace(/^(?:www|m)\./, '');
+  const path = (url: URL) => url.pathname.replace(/\/+$/, '');
+  return host(a) === host(b) && path(a) === path(b) ? declared : undefined;
+}
+
+function firstMeta(document: Document, selectors: readonly string[]): Found | undefined {
+  for (const selector of selectors) {
+    const value = content(document, selector, 'content');
+    if (value) return { value, evidence: { source: 'html', selector } };
+  }
+  return undefined;
+}
+
+function jsonLdField(value: string | undefined): Found | undefined {
+  return value ? { value, evidence: { source: 'json_ld' } } : undefined;
+}
+
+function clean(value: string | null | undefined): string | undefined {
+  return value?.replace(/\s+/g, ' ').trim() || undefined;
+}
+
+function content(document: Document, selector: string, attribute: string): string | undefined {
   return document.querySelector(selector)?.getAttribute(attribute)?.trim() || undefined;
 }
 

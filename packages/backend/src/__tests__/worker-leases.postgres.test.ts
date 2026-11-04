@@ -384,6 +384,56 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
     expect(job).toMatchObject({ status: 'succeeded', pagesCompleted: 1 });
   });
 
+  it("indexes a page the site refuses from its registered provider's oEmbed answer", async () => {
+    const queued = await page();
+    const url = `https://youtu.be/${crypto.randomUUID()}`;
+    await getDb().update(crawlPages).set({ url }).where(eq(crawlPages.id, queued.id));
+    urls.push(url);
+    const claim = await leaseNextPage();
+    if (!claim) throw new Error('Expected a leased page');
+    const answer = (status: number, body: string, contentType = 'application/json') => ({
+      status,
+      headers: { 'content-type': contentType },
+      finalUrl: '',
+      response: Readable.from([body]),
+    });
+    safeFetch.mockImplementation(async (requested: string) => {
+      if (requested === url) return answer(429, '', 'text/html');
+      if (requested.endsWith('/robots.txt')) return answer(404, '', 'text/plain');
+      return answer(
+        200,
+        JSON.stringify({
+          type: 'video',
+          title: 'The video',
+          author_name: 'Channel',
+          provider_name: 'YouTube',
+          thumbnail_url: 'https://i.ytimg.com/vi/x/hqdefault.jpg',
+          html: '<iframe src="https://www.youtube.com/embed/x"></iframe>',
+        }),
+      );
+    });
+    await processPage(claim);
+    const [document] = await getDb()
+      .select()
+      .from(searchDocuments)
+      .where(eq(searchDocuments.canonicalUrl, url));
+    expect(document).toMatchObject({
+      status: 'indexed',
+      title: 'The video',
+      imageUrl: 'https://i.ytimg.com/vi/x/hqdefault.jpg',
+      publisherName: 'YouTube',
+      documentType: 'video',
+      httpStatus: 429,
+      mainContent: null,
+    });
+    expect(document.fieldEvidence).toMatchObject({ title: { source: 'oembed' } });
+    const [attempt] = await getDb()
+      .select()
+      .from(fetchAttempts)
+      .where(eq(fetchAttempts.crawlPageId, claim.id));
+    expect(attempt).toMatchObject({ status: 'succeeded', fetchMode: 'oembed' });
+  });
+
   it('drops a late successful response after another worker has reclaimed the page', async () => {
     const claim = await page({ status: 'fetching' });
     let finish: (() => void) | undefined;
@@ -452,7 +502,7 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
       expect(current).toMatchObject({
         status: 'retry',
         leaseOwner: null,
-        lastErrorCode: 'fetch_failed',
+        lastErrorCode: 'fetch_unavailable',
       });
     } finally {
       deadline.mockRestore();

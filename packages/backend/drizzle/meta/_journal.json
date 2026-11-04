@@ -421,6 +421,13 @@
       "when": 1793330607546,
       "tag": "0059_news_image_seeds",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793765357829,
+      "tag": "0060_document_urls",
+      "breakpoints": true
     }
   ]
 }

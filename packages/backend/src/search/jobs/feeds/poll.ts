@@ -25,6 +25,7 @@ import type { JobFeedKind } from '@clarity/shared-types';
 
 import { getDb } from '../../../db/index.js';
 import { jobFeeds } from '../../../db/schema/index.js';
+import { decodeBody } from '../../decode-body.js';
 import { canonicalizePublicUrl } from '../../query-primitives.js';
 import type { ExtractedJobPosting } from '../extract.js';
 import { ingestJobPosting, recordJobSighting, storedJobFetch } from '../projection.js';
@@ -155,26 +156,6 @@ async function readBodyOnce(request: JobFeedRequest, maxBodyBytes: number): Prom
       ? gunzipSync(raw, { maxOutputLength: maxBodyBytes * 4 })
       : raw;
   return decodeBody(body, result.response.headers['content-type']);
-}
-
-/**
- * The body in the charset its Content-Type declares (many public-sector sites
- * still serve windows-1252), UTF-8 when it declares none or one the runtime
- * does not know.
- */
-export function decodeBody(body: Buffer, contentType: string | string[] | undefined): string {
-  const header = Array.isArray(contentType) ? contentType[0] : contentType;
-  const charset = /charset\s*=\s*"?([\w-]+)/i.exec(header ?? '')?.[1]?.toLowerCase();
-  if (charset && charset !== 'utf-8' && charset !== 'utf8') {
-    try {
-      // A header's label is whatever the server sent; TextDecoder validates it
-      // at runtime and throws on one it does not know (caught below).
-      return new TextDecoder(charset as ConstructorParameters<typeof TextDecoder>[0]).decode(body);
-    } catch {
-      // An unknown label falls through to UTF-8.
-    }
-  }
-  return body.toString('utf8');
 }
 
 /** An item never grows this large; a buffer that does means the element is not closing. */

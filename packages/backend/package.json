@@ -24,6 +24,7 @@
     "db:attest-fresh-install": "bun src/db/attest-fresh-install.ts",
     "import:oxy-link-previews": "bun src/scripts/import-oxy-link-previews.ts",
     "places:import": "bun src/scripts/import-geonames-places.ts",
+    "oembed:refresh": "bun src/scripts/refresh-oembed-providers.ts",
     "images:migrate-to-oxy": "bun src/scripts/migrate-images-to-oxy.ts",
     "images:storage-status": "bun src/scripts/image-storage-status.ts",
     "images:reconcile-references": "bun src/scripts/reconcile-oxy-file-references.ts"

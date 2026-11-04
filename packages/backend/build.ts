@@ -11,6 +11,9 @@ await esbuild.build({
     // One-shot operator task: `bun packages/backend/dist/db/import-places.js --target-database=clarity`.
     'db/import-places': 'src/scripts/import-geonames-places.ts',
     'db/recover-duplicate-resolves': 'src/scripts/recover-duplicate-resolves.ts',
+    // One-shot operator task (docs/crawl-recovery.md): re-queues link previews
+    // that failed for a cause since fixed.
+    'db/reindex-failed-previews': 'src/scripts/reindex-failed-previews.ts',
     // One-shot operator task: fills the job term bands the two-phase lexical
     // ranking reads (search/jobs/term-bands-backfill.ts).
     'db/backfill-job-term-bands': 'src/scripts/backfill-job-term-bands.ts',

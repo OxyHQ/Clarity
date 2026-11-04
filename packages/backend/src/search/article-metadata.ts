@@ -1,6 +1,7 @@
 /**
- * When an article was published, and by whom — read from what the page states
- * about itself, never guessed from when Clarity happened to crawl it.
+ * When an article was published, by whom, and what it is called — read from
+ * what the page states about itself, never guessed from when Clarity happened
+ * to crawl it.
  *
  * Sources, strongest first: the page's JSON-LD (`datePublished`, `publisher`),
  * then its meta tags, and for the date alone, a date written into the URL path
@@ -15,6 +16,11 @@ export interface ArticleMetadata {
   publishedAt?: Date;
   modifiedAt?: Date;
   publisher?: string;
+  /** `headline`, or the `name` of a node that is the page's subject. */
+  title?: string;
+  description?: string;
+  /** `image` (a URL, an ImageObject or a list of either) or `thumbnailUrl`, as written. */
+  image?: string;
 }
 
 /** Earliest and latest dates a publication date may plausibly carry. */
@@ -39,6 +45,27 @@ function isArticle(node: Record<string, unknown>): boolean {
   return typesOf(node).some((type) => /article|posting|report|blog/.test(type));
 }
 
+/** Nodes whose `name` is what the page is about, not the site or a breadcrumb. */
+function isSubject(node: Record<string, unknown>): boolean {
+  return typesOf(node).some((type) =>
+    /article|posting|report|blog|product|video|event|recipe|creativework|webpage|movie|book|episode/.test(
+      type,
+    ),
+  );
+}
+
+function text(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const clean = value.replace(/\s+/g, ' ').trim();
+  return clean ? clean.slice(0, max) : undefined;
+}
+
+function imageOf(value: unknown): string | undefined {
+  const first = Array.isArray(value) ? value[0] : value;
+  const url = typeof first === 'string' ? first : asRecord(first)?.url;
+  return typeof url === 'string' && url.trim() ? url.trim() : undefined;
+}
+
 function nameOf(value: unknown): string | undefined {
   const first = Array.isArray(value) ? value[0] : value;
   const name = typeof first === 'string' ? first : asRecord(first)?.name;
@@ -58,6 +85,13 @@ export function metadataFromStructuredData(
       plausibleDate(node.datePublished, now) ?? plausibleDate(node.dateCreated, now);
     metadata.modifiedAt ??= plausibleDate(node.dateModified, now);
     metadata.publisher ??= nameOf(node.publisher) ?? nameOf(node.sourceOrganization);
+    metadata.title ??=
+      text(node.headline, 500) ?? (isSubject(node) ? text(node.name, 500) : undefined);
+    // A job posting's description is the whole listing, not a summary of the page.
+    if (isSubject(node) && !typesOf(node).includes('jobposting')) {
+      metadata.description ??= text(node.description, 1_000);
+      metadata.image ??= imageOf(node.image) ?? imageOf(node.thumbnailUrl);
+    }
   }
   return metadata;
 }

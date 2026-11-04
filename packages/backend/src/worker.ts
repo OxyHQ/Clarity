@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { reconcileAccountEvents } from './lib/account-event-reconciliation.js';
 import { createHash } from 'node:crypto';
+import type { IncomingHttpHeaders } from 'node:http';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import { createLogger } from './lib/logger.js';
 import { and, eq, gt, gte, lt, ne, notInArray, or, sql } from 'drizzle-orm';
@@ -8,7 +9,17 @@ import { safeFetch } from '@oxy.so/core/server';
 
 import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
 import { crawlJobs, crawlPages, fetchAttempts, searchDocuments } from './db/schema/index.js';
-import { extractDocument } from './search/extractor.js';
+import { type ExtractedDocument, extractDocument } from './search/extractor.js';
+import { decodeBody } from './search/decode-body.js';
+import { PageFetchError, isTransientFetchFailure } from './search/fetch-failure.js';
+import { FEED_USER_AGENT } from './search/jobs/feeds/robots.js';
+import {
+  applyOembed,
+  documentFromOembed,
+  fetchOembed,
+  registeredOembedUrl,
+  wantsOembed,
+} from './search/oembed.js';
 import {
   chunkText,
   documentChunkState,
@@ -26,7 +37,7 @@ import {
 import { pollDueJobFeeds } from './search/jobs/feeds/poll.js';
 import { pollDueProductFeeds } from './search/products/feeds/feeds.js';
 import { mainContentToStore } from './search/page-text.js';
-import { answeredToAny } from './search/public-document.js';
+import { answeredToAny, recordDocumentUrls } from './search/public-document.js';
 import { storableUrl } from './search/query-primitives.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import {
@@ -324,191 +335,326 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
     return true;
   });
   if (!started) return;
+  let fetched: FetchedPage | undefined;
+  let failure: unknown;
   try {
-    const result = await safeFetch(page.url, {
-      headers: {
-        'User-Agent': 'ClarityBot/0.1 (+https://clarity.surf/bot)',
-        accept: 'text/html,application/xhtml+xml',
-      },
-      maxRedirects: 5,
-      headersTimeoutMs: 15_000,
-      signal: AbortSignal.timeout(30_000),
-    });
-    // A redirect can land on a URL too long to be a document's key.
-    if (!storableUrl(result.finalUrl)) {
-      result.response.destroy();
-      throw new Error('url_too_long');
-    }
+    fetched = await fetchPage(page.url);
+  } catch (error) {
+    failure = error;
+  }
+  try {
     // A listing that answers 404/410 has been withdrawn by its source. Record
     // the removal instead of indexing the error page.
-    if (result.status === 404 || result.status === 410) {
-      result.response.destroy();
-      await recordGoneDocument(page, result.finalUrl, result.status, attemptId, startedAt);
+    if (fetched?.kind === 'gone') {
+      await recordGoneDocument(page, fetched.finalUrl, fetched.httpStatus, attemptId, startedAt);
       return;
     }
-    if (result.status >= 400) {
-      result.response.destroy();
-      throw new Error(`http_status_${result.status}`);
-    }
-    const contentType = Array.isArray(result.headers['content-type'])
-      ? result.headers['content-type'][0]
-      : result.headers['content-type'];
-    if (!contentType?.includes('text/html')) {
-      result.response.destroy();
-      throw new Error('unsupported_content_type');
-    }
-    const chunks: Buffer[] = [];
-    let bytes = 0;
-    for await (const chunk of result.response) {
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      bytes += buffer.length;
-      if (bytes > maxBodyBytes) {
-        result.response.destroy();
-        throw new Error('response_too_large');
-      }
-      chunks.push(buffer);
-    }
-    const html = Buffer.concat(chunks).toString('utf8');
-    const extracted = extractDocument(html, result.finalUrl);
-    const canonicalUrl = extracted.canonicalUrl || result.finalUrl;
-    const contentHash = createHash('sha256')
-      .update(extracted.mainContent || '')
-      .digest('hex');
-    const textChunks = extracted.noindex ? [] : chunkText(extracted.mainContent || '');
-    const observedAt = new Date();
-    const postings = extracted.noindex
-      ? []
-      : extractJobPostings(
-          extracted.structuredData,
-          canonicalUrl,
-          observedAt.toISOString(),
-          'json_ld',
-        );
-    // A recrawl usually finds the page unchanged; its chunks are then kept as
-    // they are rather than deleted and re-inserted on every fetch.
-    const chunkState = await documentChunkState(
-      getDb(),
-      canonicalUrl,
-      extracted.mainContent || '',
-      textChunks.length,
-      extractorVersion,
-    );
-    const documentId = await getDb().transaction(async (tx) => {
-      if (!(await ownsPageLease(tx, page))) return undefined;
-      const documentStatus = extracted.noindex ? 'blocked' : 'indexed';
-      const nextFetchAt =
-        postings.length > 0
-          ? new Date(observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000)
-          : null;
-      const mutable = {
-        siteId: job.siteId,
-        finalUrl: result.finalUrl,
-        status: documentStatus,
-        documentType: extracted.documentType,
-        contentHash,
-        httpStatus: result.status,
-        etag: header(result.headers.etag),
-        lastModified: header(result.headers['last-modified']),
-        contentType,
-        language: extracted.language,
-        title: extracted.title,
-        description: extracted.description,
-        // The text is its chunks' unless they cannot give it back, and raw
-        // JSON-LD is kept only for news, whose list falls back to it for a
-        // date or publisher (search/page-text.ts, docs/search-storage.md).
-        // What else a page states is already a column: publisher, dates,
-        // authors, and a job posting's projection.
-        mainContent: mainContentToStore(extracted.mainContent, textChunks),
-        structuredData: extracted.documentType === 'news' ? extracted.structuredData : [],
-        fieldEvidence: extracted.evidence,
-        imageUrl: extracted.imageUrl,
-        faviconUrl: extracted.faviconUrl,
-        noindex: extracted.noindex,
-        nofollow: extracted.nofollow,
-        publishedAt: extracted.publishedAt,
-        modifiedAt: extracted.modifiedAt,
-        publisherName: extracted.publisher,
-        fetchedAt: observedAt,
-        indexedAt: extracted.noindex ? undefined : observedAt,
-        nextFetchAt,
-      };
-      const [document] = await tx
-        .insert(searchDocuments)
-        .values({ id: crypto.randomUUID(), requestedUrl: page.url, canonicalUrl, ...mutable })
-        .onConflictDoUpdate({
-          target: searchDocuments.canonicalUrl,
-          set: { ...mutable, updatedAt: observedAt },
-        })
-        .returning({ id: searchDocuments.id });
-      if (chunkState === 'stale')
-        await replaceDocumentChunks(tx, document.id, textChunks, undefined, extractorVersion);
-      await registerHosts(tx, [{ url: canonicalUrl, iconHintUrl: extracted.faviconUrl }]);
-      await projectJobPostings(tx, {
-        documentId: document.id,
-        documentStatus,
-        postings,
-        sourceType: job.siteId ? 'verified_site' : 'web',
-        observedAt,
-      });
-      await tx
-        .update(crawlPages)
-        .set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() })
-        .where(eq(crawlPages.id, page.id));
-      await tx
-        .update(crawlJobs)
-        .set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() })
-        .where(eq(crawlJobs.id, page.jobId));
-      await tx
-        .update(fetchAttempts)
-        .set({
-          status: 'succeeded',
-          httpStatus: result.status,
-          bytesReceived: bytes,
-          durationMs: Date.now() - startedAt,
-          finishedAt: new Date(),
-        })
-        .where(eq(fetchAttempts.id, attemptId));
-      await finishJobIfComplete(tx, page.jobId);
-      return document.id;
-    });
-    if (documentId !== undefined && chunkState !== 'current')
-      await queueChunkEmbeddings(documentId);
-    if (documentId !== undefined && !extracted.noindex)
-      await consumeUsage({
-        principal,
-        operation: 'page_indexed',
-        idempotencyKey: `crawl-page:${page.id}:indexed`,
-      });
+    // A page Clarity could not fetch may still be described by its publisher's
+    // oEmbed endpoint, which exists for exactly this: a preview of the link.
+    const source = fetched
+      ? await sourceFromPage(fetched, page.url)
+      : await sourceFromOembed(page.url, failure);
+    if (!source) throw failure;
+    await storeDocument(page, job, principal, attemptId, startedAt, source);
   } catch (error) {
-    const retry = page.attemptCount < 3;
-    const detail = error instanceof Error ? error.message.slice(0, 500) : 'unknown fetch failure';
-    await getDb().transaction(async (tx) => {
-      if (!(await ownsPageLease(tx, page))) return;
-      await tx
-        .update(crawlPages)
-        .set({
-          status: retry ? 'retry' : 'failed',
-          availableAt: sql`now() + (${2 ** page.attemptCount} * interval '1 minute')`,
-          leaseOwner: null,
-          leaseExpiresAt: null,
-          lastErrorCode: 'fetch_failed',
-          lastErrorDetail: detail,
-          updatedAt: new Date(),
-        })
-        .where(eq(crawlPages.id, page.id));
-      await tx
-        .update(fetchAttempts)
-        .set({
-          status: 'failed',
-          durationMs: Date.now() - startedAt,
-          errorCode: 'fetch_failed',
-          errorDetail: detail,
-          finishedAt: new Date(),
-        })
-        .where(eq(fetchAttempts.id, attemptId));
-      if (!retry) await finishJobIfComplete(tx, page.jobId);
-    });
+    await recordFetchFailure(page, attemptId, startedAt, error);
   }
+}
+
+/** What a fetch returned: a page to extract, or the source's word that the URL is gone. */
+type FetchedPage =
+  | { kind: 'gone'; finalUrl: string; httpStatus: number }
+  | {
+      kind: 'page';
+      finalUrl: string;
+      httpStatus: number;
+      headers: IncomingHttpHeaders;
+      contentType: string;
+      bytes: number;
+      html: string;
+    };
+
+/** Fetches the page; throws a {@link PageFetchError} when the answer is not an HTML page. */
+async function fetchPage(url: string): Promise<FetchedPage> {
+  const result = await safeFetch(url, {
+    headers: { 'User-Agent': FEED_USER_AGENT, accept: 'text/html,application/xhtml+xml' },
+    maxRedirects: 5,
+    headersTimeoutMs: 15_000,
+    signal: AbortSignal.timeout(30_000),
+  });
+  // A redirect can land on a URL too long to be a document's key.
+  if (!storableUrl(result.finalUrl)) {
+    result.response.destroy();
+    throw new PageFetchError('url_too_long');
+  }
+  if (result.status === 404 || result.status === 410) {
+    result.response.destroy();
+    return { kind: 'gone', finalUrl: result.finalUrl, httpStatus: result.status };
+  }
+  if (result.status >= 400) {
+    result.response.destroy();
+    throw new PageFetchError(`http_status_${result.status}`, result.status);
+  }
+  const contentType = header(result.headers['content-type']);
+  if (!contentType?.includes('text/html')) {
+    result.response.destroy();
+    throw new PageFetchError('unsupported_content_type');
+  }
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  for await (const chunk of result.response) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    bytes += buffer.length;
+    if (bytes > maxBodyBytes) {
+      result.response.destroy();
+      throw new PageFetchError('response_too_large');
+    }
+    chunks.push(buffer);
+  }
+  return {
+    kind: 'page',
+    finalUrl: result.finalUrl,
+    httpStatus: result.status,
+    headers: result.headers,
+    contentType,
+    bytes,
+    html: decodeBody(Buffer.concat(chunks), contentType),
+  };
+}
+
+/** What a document is written from: the fetch's facts and the extracted fields. */
+interface DocumentSource {
+  fetchMode: 'http' | 'oembed';
+  finalUrl: string;
+  httpStatus: number | null;
+  etag?: string;
+  lastModified?: string;
+  contentType: string;
+  bytes: number;
+  extracted: ExtractedDocument;
+}
+
+/**
+ * The fetched page's document. When the page declares no title, description or
+ * image for sharing, its oEmbed endpoint (the one it links, else the
+ * registry's) completes them (search/oembed.ts).
+ */
+async function sourceFromPage(
+  fetched: Extract<FetchedPage, { kind: 'page' }>,
+  requestedUrl: string,
+): Promise<DocumentSource> {
+  let extracted = extractDocument(fetched.html, fetched.finalUrl);
+  if (wantsOembed(extracted)) {
+    // The page's own link first; a degraded page can link a broken one, so
+    // the registry's endpoint is asked when it gives no answer.
+    const endpoints = [
+      extracted.oembedUrl,
+      registeredOembedUrl(fetched.finalUrl) ?? registeredOembedUrl(requestedUrl),
+    ].filter((endpoint, index, all): endpoint is string =>
+      Boolean(endpoint && all.indexOf(endpoint) === index),
+    );
+    for (const endpoint of endpoints) {
+      const oembed = await fetchOembed(endpoint);
+      if (!oembed) continue;
+      extracted = applyOembed(extracted, oembed, endpoint);
+      break;
+    }
+  }
+  return {
+    fetchMode: 'http',
+    finalUrl: fetched.finalUrl,
+    httpStatus: fetched.httpStatus,
+    etag: header(fetched.headers.etag),
+    lastModified: header(fetched.headers['last-modified']),
+    contentType: fetched.contentType,
+    bytes: fetched.bytes,
+    extracted,
+  };
+}
+
+/** A document from the registered provider's oEmbed answer alone, if it names the page. */
+async function sourceFromOembed(
+  url: string,
+  failure: unknown,
+): Promise<DocumentSource | undefined> {
+  const endpoint = registeredOembedUrl(url);
+  const oembed = endpoint ? await fetchOembed(endpoint) : undefined;
+  if (!endpoint || !oembed?.title) return undefined;
+  return {
+    fetchMode: 'oembed',
+    finalUrl: url,
+    // The page's own answer, kept for diagnosis; the fields came from oEmbed.
+    httpStatus: failure instanceof PageFetchError ? (failure.httpStatus ?? null) : null,
+    contentType: 'application/json+oembed',
+    bytes: 0,
+    extracted: documentFromOembed(oembed, endpoint, url),
+  };
+}
+
+async function storeDocument(
+  page: typeof crawlPages.$inferSelect,
+  job: typeof crawlJobs.$inferSelect,
+  principal: Parameters<typeof consumeUsage>[0]['principal'],
+  attemptId: string,
+  startedAt: number,
+  source: DocumentSource,
+): Promise<void> {
+  const { extracted } = source;
+  const canonicalUrl = extracted.canonicalUrl || source.finalUrl;
+  const contentHash = createHash('sha256')
+    .update(extracted.mainContent || '')
+    .digest('hex');
+  const textChunks = extracted.noindex ? [] : chunkText(extracted.mainContent || '');
+  const observedAt = new Date();
+  const postings = extracted.noindex
+    ? []
+    : extractJobPostings(
+        extracted.structuredData,
+        canonicalUrl,
+        observedAt.toISOString(),
+        'json_ld',
+      );
+  // A recrawl usually finds the page unchanged; its chunks are then kept as
+  // they are rather than deleted and re-inserted on every fetch.
+  const chunkState = await documentChunkState(
+    getDb(),
+    canonicalUrl,
+    extracted.mainContent || '',
+    textChunks.length,
+    extractorVersion,
+  );
+  const documentId = await getDb().transaction(async (tx) => {
+    if (!(await ownsPageLease(tx, page))) return undefined;
+    const documentStatus = extracted.noindex ? 'blocked' : 'indexed';
+    const nextFetchAt =
+      postings.length > 0
+        ? new Date(observedAt.getTime() + JOB_RECRAWL_INTERVAL_SECONDS * 1000)
+        : null;
+    const mutable = {
+      siteId: job.siteId,
+      finalUrl: source.finalUrl,
+      status: documentStatus,
+      documentType: extracted.documentType,
+      contentHash,
+      httpStatus: source.httpStatus,
+      etag: source.etag,
+      lastModified: source.lastModified,
+      contentType: source.contentType,
+      language: extracted.language,
+      title: extracted.title,
+      description: extracted.description,
+      // The text is its chunks' unless they cannot give it back, and raw
+      // JSON-LD is kept only for news, whose list falls back to it for a
+      // date or publisher (search/page-text.ts, docs/search-storage.md).
+      // What else a page states is already a column: publisher, dates,
+      // authors, and a job posting's projection.
+      mainContent: mainContentToStore(extracted.mainContent, textChunks),
+      structuredData: extracted.documentType === 'news' ? extracted.structuredData : [],
+      fieldEvidence: extracted.evidence,
+      imageUrl: extracted.imageUrl,
+      faviconUrl: extracted.faviconUrl,
+      noindex: extracted.noindex,
+      nofollow: extracted.nofollow,
+      publishedAt: extracted.publishedAt,
+      modifiedAt: extracted.modifiedAt,
+      publisherName: extracted.publisher,
+      fetchedAt: observedAt,
+      indexedAt: extracted.noindex ? undefined : observedAt,
+      nextFetchAt,
+    };
+    const [document] = await tx
+      .insert(searchDocuments)
+      .values({ id: crypto.randomUUID(), requestedUrl: page.url, canonicalUrl, ...mutable })
+      .onConflictDoUpdate({
+        target: searchDocuments.canonicalUrl,
+        set: { ...mutable, updatedAt: observedAt },
+      })
+      .returning({ id: searchDocuments.id });
+    // Every URL that reached this document finds it again (answeredToAny).
+    await recordDocumentUrls(tx, document.id, [page.url, source.finalUrl, canonicalUrl]);
+    if (chunkState === 'stale')
+      await replaceDocumentChunks(tx, document.id, textChunks, undefined, extractorVersion);
+    await registerHosts(tx, [{ url: canonicalUrl, iconHintUrl: extracted.faviconUrl }]);
+    await projectJobPostings(tx, {
+      documentId: document.id,
+      documentStatus,
+      postings,
+      sourceType: job.siteId ? 'verified_site' : 'web',
+      observedAt,
+    });
+    await tx
+      .update(crawlPages)
+      .set({ status: 'succeeded', leaseOwner: null, leaseExpiresAt: null, updatedAt: new Date() })
+      .where(eq(crawlPages.id, page.id));
+    await tx
+      .update(crawlJobs)
+      .set({ pagesCompleted: sql`${crawlJobs.pagesCompleted} + 1`, updatedAt: new Date() })
+      .where(eq(crawlJobs.id, page.jobId));
+    await tx
+      .update(fetchAttempts)
+      .set({
+        fetchMode: source.fetchMode,
+        status: 'succeeded',
+        httpStatus: source.httpStatus,
+        bytesReceived: source.bytes,
+        durationMs: Date.now() - startedAt,
+        finishedAt: new Date(),
+      })
+      .where(eq(fetchAttempts.id, attemptId));
+    await finishJobIfComplete(tx, page.jobId);
+    return document.id;
+  });
+  if (documentId !== undefined && chunkState !== 'current') await queueChunkEmbeddings(documentId);
+  if (documentId !== undefined && !extracted.noindex)
+    await consumeUsage({
+      principal,
+      operation: 'page_indexed',
+      idempotencyKey: `crawl-page:${page.id}:indexed`,
+    });
+}
+
+/**
+ * A fetch that ended without a document. A transient failure (search/fetch-failure.ts)
+ * is retried with backoff and reads as retryable (`fetch_unavailable`); the
+ * site's own refusal fails at once (`fetch_failed`).
+ */
+async function recordFetchFailure(
+  page: typeof crawlPages.$inferSelect,
+  attemptId: string,
+  startedAt: number,
+  error: unknown,
+): Promise<void> {
+  const transient = isTransientFetchFailure(error);
+  const retry = transient && page.attemptCount < 3;
+  const code = transient ? 'fetch_unavailable' : 'fetch_failed';
+  const detail = error instanceof Error ? error.message.slice(0, 500) : 'unknown fetch failure';
+  await getDb().transaction(async (tx) => {
+    if (!(await ownsPageLease(tx, page))) return;
+    await tx
+      .update(crawlPages)
+      .set({
+        status: retry ? 'retry' : 'failed',
+        availableAt: sql`now() + (${2 ** page.attemptCount} * interval '1 minute')`,
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        lastErrorCode: code,
+        lastErrorDetail: detail,
+        updatedAt: new Date(),
+      })
+      .where(eq(crawlPages.id, page.id));
+    await tx
+      .update(fetchAttempts)
+      .set({
+        status: 'failed',
+        httpStatus: error instanceof PageFetchError ? error.httpStatus : undefined,
+        durationMs: Date.now() - startedAt,
+        errorCode: code,
+        errorDetail: detail,
+        finishedAt: new Date(),
+      })
+      .where(eq(fetchAttempts.id, attemptId));
+    if (!retry) await finishJobIfComplete(tx, page.jobId);
+  });
 }
 
 /** The source withdrew this URL: remove the document and close its listings. */

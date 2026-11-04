@@ -5,7 +5,7 @@ import type { JobFeedKind } from '@clarity/shared-types';
 import { parseJobFeedPage } from '../adapters.js';
 import { jobFeedRequest } from '../endpoints.js';
 import { jsonLdBlocks, noindex, places } from '../listing.js';
-import { decodeBody } from '../poll.js';
+import { decodeBody } from '../../../decode-body.js';
 import { JOB_FEED_PROVIDERS } from '../registry.js';
 
 const extractedAt = '2026-10-10T00:00:00.000Z';
@@ -77,6 +77,8 @@ describe('shared page helpers', () => {
     expect(decodeBody(latin, 'text/html;charset=ISO-8859-1')).toBe('Más');
     expect(decodeBody(Buffer.from('Más'), 'text/html; charset=utf-8')).toBe('Más');
     expect(decodeBody(Buffer.from('Más'), undefined)).toBe('Más');
+    const declared = Buffer.concat([Buffer.from('<meta charset="windows-1252"><title>'), latin]);
+    expect(decodeBody(declared, 'text/html')).toBe('<meta charset="windows-1252"><title>Más');
   });
 
   it('recognizes pages that ask not to be indexed', () => {
