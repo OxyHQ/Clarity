@@ -19,9 +19,9 @@
  *
  * The most recently asked-for URLs go first: their posts are the ones being
  * read. Each batch is one `resolve:` operation with the original caller's authority,
- * at background priority, and the next batch waits until it drains: live
- * reads keep their place in the queue, and the queue never holds more than one
- * batch of this work. The default is a read-only preview.
+ * at background priority, and the next batch waits until it has been fetched
+ * once: live reads keep their place in the queue, and the queue never holds
+ * more than one batch of this work waiting for a first attempt. The default is a read-only preview.
  */
 import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
@@ -160,6 +160,11 @@ async function enqueue(scope: PreviewReindexScope, batch: Candidate[]): Promise<
   return jobIds;
 }
 
+/**
+ * Waits until the batch has had its first attempt. A page waiting out its
+ * retry backoff (2, 4, then 8 minutes) holds no fetch slot, so it does not hold
+ * up the next batch.
+ */
 async function drained(jobIds: string[], timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -168,7 +173,7 @@ async function drained(jobIds: string[], timeoutMs: number): Promise<void> {
       where job_id in (${sql.join(
         jobIds.map((id) => sql`${id}`),
         sql`, `,
-      )}) and status in ('queued', 'retry', 'fetching')`);
+      )}) and status in ('queued', 'fetching')`);
     if (pending === 0) return;
     await new Promise((resolve) => setTimeout(resolve, 10_000));
   }

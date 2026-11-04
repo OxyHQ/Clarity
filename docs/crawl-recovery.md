@@ -106,7 +106,7 @@ A candidate is a URL whose latest resolve crawl for that owner and application
 ended with no document, with nothing queued for it now. Repeat with `--apply`
 to queue the selected URLs in batches of `--batch`, each one resolve operation
 with the original caller's authority at background priority; the next batch
-waits for the previous one to drain, so live reads keep their place.
+waits until the previous one has been fetched once (retries wait out their own backoff), so live reads keep their place.
 
 ## Duplicate resolve batches
 
