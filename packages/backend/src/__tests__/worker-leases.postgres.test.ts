@@ -438,14 +438,15 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
     await page();
     const claim = await leaseNextPage();
     if (!claim) throw new Error('Expected a leased page');
-    safeFetch.mockResolvedValue({
-      status: 200,
+    // Nothing else answers: no oEmbed provider, no archived copy.
+    safeFetch.mockImplementation(async (requested: string) => ({
+      status: requested === claim.url ? 200 : 404,
       headers: { 'content-type': 'text/html' },
-      finalUrl: claim.url,
+      finalUrl: requested,
       response: Readable.from([
         '<html><head></head><body><script>location.reload()</script></body></html>',
       ]),
-    });
+    }));
     await processPage(claim);
     const [current] = await getDb().select().from(crawlPages).where(eq(crawlPages.id, claim.id));
     expect(current).toMatchObject({ status: 'retry', lastErrorCode: 'fetch_unavailable' });
@@ -454,6 +455,51 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
       .from(searchDocuments)
       .where(eq(searchDocuments.canonicalUrl, claim.url));
     expect(stored).toHaveLength(0);
+  });
+
+  it("indexes a refused page's card from the Wayback Machine's copy, never its text", async () => {
+    await page();
+    const claim = await leaseNextPage();
+    if (!claim) throw new Error('Expected a leased page');
+    const answer = (status: number, body: string, contentType: string) => ({
+      status,
+      headers: { 'content-type': contentType },
+      finalUrl: '',
+      response: Readable.from([body]),
+    });
+    safeFetch.mockImplementation(async (requested: string) => {
+      if (requested === claim.url) return answer(403, '', 'text/html');
+      if (requested.endsWith('/robots.txt')) return answer(404, '', 'text/plain');
+      if (requested.startsWith('https://archive.org/wayback/available'))
+        return answer(
+          200,
+          JSON.stringify({
+            archived_snapshots: { closest: { available: true, timestamp: '20261101000000' } },
+          }),
+          'application/json',
+        );
+      return answer(
+        200,
+        '<html><head><meta property="og:title" content="Archived headline"><meta name="author" content="Ana Ruiz"><meta property="og:image" content="/cover.jpg"></head><body><p>Archived article text.</p></body></html>',
+        'text/html',
+      );
+    });
+    await processPage(claim);
+    const [document] = await getDb()
+      .select()
+      .from(searchDocuments)
+      .where(eq(searchDocuments.canonicalUrl, claim.url));
+    expect(document).toMatchObject({
+      status: 'indexed',
+      title: 'Archived headline',
+      imageUrl: new URL('/cover.jpg', claim.url).toString(),
+      authors: [{ name: 'Ana Ruiz' }],
+      mainContent: null,
+      httpStatus: 403,
+    });
+    expect(document.fieldEvidence).toMatchObject({
+      title: { source: 'wayback', selector: '20261101000000' },
+    });
   });
 
   it('drops a late successful response after another worker has reclaimed the page', async () => {
@@ -500,7 +546,9 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
         // The test pushes chunks itself; nothing to pull.
       },
     });
-    safeFetch.mockImplementation(async (_url, options) => {
+    safeFetch.mockImplementation(async (url, options) => {
+      if (url !== claim.url)
+        return { status: 404, headers: {}, finalUrl: url, response: Readable.from([]) };
       options.signal.addEventListener(
         'abort',
         () => body.destroy(new Error('fetch deadline exceeded')),

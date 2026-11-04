@@ -13,6 +13,7 @@ import { type ExtractedDocument, extractDocument } from './search/extractor.js';
 import { decodeBody } from './search/decode-body.js';
 import { PageFetchError, isTransientFetchFailure } from './search/fetch-failure.js';
 import { fileName, pdfTitle } from './search/pdf-metadata.js';
+import { waybackDocument } from './search/wayback.js';
 import { FEED_USER_AGENT } from './search/jobs/feeds/robots.js';
 import {
   applyOembed,
@@ -343,21 +344,27 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
   } catch (error) {
     failure = error;
   }
-  try {
-    // A listing that answers 404/410 has been withdrawn by its source. Record
-    // the removal instead of indexing the error page.
-    if (fetched?.kind === 'gone') {
+  // A listing that answers 404/410 has been withdrawn by its source. Record
+  // the removal instead of indexing the error page.
+  if (fetched?.kind === 'gone') {
+    try {
       await recordGoneDocument(page, fetched.finalUrl, fetched.httpStatus, attemptId, startedAt);
-      return;
+    } catch (error) {
+      await recordFetchFailure(page, attemptId, startedAt, error);
     }
-    // A page Clarity could not fetch may still be described by its publisher's
-    // oEmbed endpoint, which exists for exactly this: a preview of the link.
-    const source =
-      fetched?.kind === 'pdf'
-        ? sourceFromPdf(fetched)
-        : fetched
-          ? await sourceFromPage(fetched, page.url)
-          : await sourceFromOembed(page.url, failure);
+    return;
+  }
+  let source: DocumentSource | undefined;
+  try {
+    if (fetched?.kind === 'pdf') source = sourceFromPdf(fetched);
+    else if (fetched) source = await sourceFromPage(fetched, page.url);
+  } catch (error) {
+    failure = error;
+  }
+  try {
+    // A page Clarity could not read may still be described by its publisher's
+    // oEmbed endpoint, else by the Internet Archive's copy of it.
+    source ??= await fallbackSource(page.url, failure);
     if (!source) throw failure;
     await storeDocument(page, job, principal, attemptId, startedAt, source);
   } catch (error) {
@@ -450,7 +457,7 @@ async function fetchPage(url: string): Promise<FetchedPage> {
 
 /** What a document is written from: the fetch's facts and the extracted fields. */
 interface DocumentSource {
-  fetchMode: 'http' | 'oembed';
+  fetchMode: 'http' | 'oembed' | 'wayback';
   finalUrl: string;
   httpStatus: number | null;
   etag?: string;
@@ -518,6 +525,7 @@ function sourceFromPdf(fetched: Extract<FetchedPage, { kind: 'pdf' }>): Document
     bytes: fetched.bytes,
     extracted: {
       title,
+      authors: [],
       documentType: 'other',
       structuredData: [],
       evidence: { title: { source: stated ? 'pdf_metadata' : 'url', extractedAt } },
@@ -527,22 +535,35 @@ function sourceFromPdf(fetched: Extract<FetchedPage, { kind: 'pdf' }>): Document
   };
 }
 
-/** A document from the registered provider's oEmbed answer alone, if it names the page. */
-async function sourceFromOembed(
-  url: string,
-  failure: unknown,
-): Promise<DocumentSource | undefined> {
+/**
+ * A document for a page Clarity could not read, from the registered provider's
+ * oEmbed answer, else the Wayback Machine's snapshot (search/wayback.ts). Its
+ * evidence names the source, and a later fetch of the page replaces it
+ * (`/resolve` re-queues such documents once a day).
+ */
+async function fallbackSource(url: string, failure: unknown): Promise<DocumentSource | undefined> {
+  // The page's own answer, kept for diagnosis; the fields came from elsewhere.
+  const httpStatus = failure instanceof PageFetchError ? (failure.httpStatus ?? null) : null;
   const endpoint = registeredOembedUrl(url);
   const oembed = endpoint ? await fetchOembed(endpoint) : undefined;
-  if (!endpoint || !oembed?.title) return undefined;
+  if (endpoint && oembed?.title)
+    return {
+      fetchMode: 'oembed',
+      finalUrl: url,
+      httpStatus,
+      contentType: 'application/json+oembed',
+      bytes: 0,
+      extracted: documentFromOembed(oembed, endpoint, url),
+    };
+  const archived = await waybackDocument(url);
+  if (!archived) return undefined;
   return {
-    fetchMode: 'oembed',
+    fetchMode: 'wayback',
     finalUrl: url,
-    // The page's own answer, kept for diagnosis; the fields came from oEmbed.
-    httpStatus: failure instanceof PageFetchError ? (failure.httpStatus ?? null) : null,
-    contentType: 'application/json+oembed',
+    httpStatus,
+    contentType: 'text/html',
     bytes: 0,
-    extracted: documentFromOembed(oembed, endpoint, url),
+    extracted: archived,
   };
 }
 
@@ -613,6 +634,7 @@ async function storeDocument(
       publishedAt: extracted.publishedAt,
       modifiedAt: extracted.modifiedAt,
       publisherName: extracted.publisher,
+      authors: extracted.authors,
       fetchedAt: observedAt,
       indexedAt: extracted.noindex ? undefined : observedAt,
       nextFetchAt,

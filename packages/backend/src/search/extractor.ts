@@ -1,7 +1,13 @@
 import { Readability } from '@mozilla/readability';
 import { parseHTML } from 'linkedom';
 
-import { dateFromUrl, metadataFromStructuredData, plausibleDate } from './article-metadata.js';
+import {
+  type Author,
+  cleanAuthors,
+  dateFromUrl,
+  metadataFromStructuredData,
+  plausibleDate,
+} from './article-metadata.js';
 import { hasJobPosting } from './jobs/extract.js';
 import { storableUrl } from './query-primitives.js';
 
@@ -22,6 +28,8 @@ export interface ExtractedDocument {
   publishedAt?: Date;
   modifiedAt?: Date;
   publisher?: string;
+  /** Bylines: JSON-LD `author`, else OpenGraph `article:author`, else `<meta name="author">`. */
+  authors: Author[];
   /** The page's own oEmbed endpoint (`<link rel="alternate" type="application/json+oembed">`). */
   oembedUrl?: string;
   documentType:
@@ -103,6 +111,14 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
   const publisher =
     fromJsonLd.publisher ??
     content(document, 'meta[property="og:site_name"]', 'content')?.slice(0, 200);
+  const authors = fromJsonLd.authors?.length
+    ? fromJsonLd.authors
+    : cleanAuthors(
+        [
+          ...document.querySelectorAll('meta[property="article:author"]'),
+          ...document.querySelectorAll('meta[name="author"]'),
+        ].map((element) => ({ name: element.getAttribute('content') ?? '' })),
+      );
   const declaredTitle = firstMeta(document, TITLE_META) ?? jsonLdField(fromJsonLd.title);
   const declaredDescription =
     firstMeta(document, DESCRIPTION_META) ?? jsonLdField(fromJsonLd.description);
@@ -163,6 +179,7 @@ export function extractDocument(html: string, finalUrl: string): ExtractedDocume
     publishedAt,
     modifiedAt,
     publisher,
+    authors,
     oembedUrl,
     documentType: classify(jsonLd),
     structuredData: jsonLd,

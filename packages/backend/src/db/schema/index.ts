@@ -454,6 +454,11 @@ export const searchDocuments = pgTable(
     structuredData: jsonb('structured_data').notNull().default(sql`'[]'::jsonb`),
     fieldEvidence: jsonb('field_evidence').notNull().default(sql`'{}'::jsonb`),
     publisherName: text('publisher_name'),
+    /** Who the page says wrote it, strongest source first (search/extractor.ts `authorsOf`). */
+    authors: jsonb('authors')
+      .$type<{ name: string; url?: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
     publishedAt: timestamp('published_at', { withTimezone: true }),
     modifiedAt: timestamp('modified_at', { withTimezone: true }),
     imageUrl: text('image_url'),
@@ -791,46 +796,6 @@ export const legacyImageReads = pgTable(
       'clarity_legacy_image_reads_surface_check',
       sql`${table.surface} in ('images', 'favicons', 'favicons_svg')`,
     ),
-  ],
-);
-
-export const searchDocumentAliases = pgTable(
-  'clarity_search_document_aliases',
-  {
-    url: text('url').primaryKey(),
-    documentId: text('document_id')
-      .notNull()
-      .references(() => searchDocuments.id, { onDelete: 'cascade' }),
-    kind: text('kind').notNull(),
-    discoveredAt: timestamp('discovered_at', { withTimezone: true }).notNull().defaultNow(),
-  },
-  (table) => [index('clarity_search_document_aliases_document_idx').on(table.documentId)],
-);
-
-export const searchAuthors = pgTable('clarity_search_authors', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  url: text('url'),
-  sameAs: text('same_as').array().notNull().default(sql`'{}'::text[]`),
-});
-
-export const searchDocumentAuthors = pgTable(
-  'clarity_search_document_authors',
-  {
-    documentId: text('document_id')
-      .notNull()
-      .references(() => searchDocuments.id, { onDelete: 'cascade' }),
-    authorId: text('author_id')
-      .notNull()
-      .references(() => searchAuthors.id, { onDelete: 'cascade' }),
-    position: integer('position').notNull().default(0),
-    evidence: jsonb('evidence').notNull().default(sql`'{}'::jsonb`),
-  },
-  (table) => [
-    primaryKey({
-      name: 'clarity_search_document_authors_pk',
-      columns: [table.documentId, table.authorId],
-    }),
   ],
 );
 

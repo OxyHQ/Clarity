@@ -1,10 +1,10 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { sql } from 'drizzle-orm';
 
 import { closePostgres, connectPostgres, getDb } from '../db/index.js';
-import { searchDocumentAliases, searchDocuments } from '../db/schema/index.js';
+import { searchDocuments } from '../db/schema/index.js';
+import { recordDocumentUrls } from '../search/public-document.js';
 import { parseLegacyLinkPreviewExport } from './legacy-link-preview-format.js';
 
 function documentId(canonicalUrl: string): string {
@@ -77,17 +77,7 @@ async function main(): Promise<void> {
         })
         .returning({ id: searchDocuments.id });
       if (!document) throw new Error(`Document upsert returned no row for ${record.canonicalUrl}`);
-      await transaction
-        .insert(searchDocumentAliases)
-        .values({
-          url: record.requestedUrl,
-          documentId: document.id,
-          kind: 'requested',
-        })
-        .onConflictDoUpdate({
-          target: searchDocumentAliases.url,
-          set: { documentId: document.id, kind: 'requested', discoveredAt: sql`now()` },
-        });
+      await recordDocumentUrls(transaction, document.id, [record.requestedUrl]);
     }
   });
 

@@ -8,7 +8,8 @@ describe('extractDocument', () => {
       <title>Fallback</title><meta property="og:title" content="Titular">
       <meta name="description" content="Resumen"><link rel="canonical" href="/article">
       <meta property="og:url" content="https://example.com/article">
-      <script type="application/ld+json">{"@type":"NewsArticle","headline":"Titular"}</script>
+      <meta name="author" content="Meta Writer">
+      <script type="application/ld+json">{"@type":"NewsArticle","headline":"Titular","author":[{"@type":"Person","name":"By Ana Ruiz","url":"https://example.com/ana"},"Ana Ruiz","https://example.com/x"]}</script>
       </head><body><article><h1>Titular</h1><p>${'Contenido útil. '.repeat(40)}</p></article></body></html>`,
       'https://example.com/source',
     );
@@ -20,6 +21,7 @@ describe('extractDocument', () => {
       documentType: 'news',
       noindex: false,
     });
+    expect(result.authors).toEqual([{ name: 'Ana Ruiz', url: 'https://example.com/ana' }]);
     expect(result.mainContent).toContain('Contenido útil');
     expect(result.structuredData).toHaveLength(1);
   });

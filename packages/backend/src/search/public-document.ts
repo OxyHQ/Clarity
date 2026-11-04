@@ -142,7 +142,7 @@ export function publicDocument(row: DocumentCardRow, icons: ReadonlySet<string>)
     status: row.status,
     language: row.language ?? undefined,
     publisher: row.publisherName ?? undefined,
-    authors: [],
+    authors: row.authors ?? [],
     publishedAt: row.publishedAt?.toISOString(),
     modifiedAt: row.modifiedAt?.toISOString(),
     imageUrl: publicImageUrl('documents', row.id, row.imageUrl),
