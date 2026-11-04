@@ -434,6 +434,28 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
     expect(attempt).toMatchObject({ status: 'succeeded', fetchMode: 'oembed' });
   });
 
+  it('retries a page with no title instead of storing a bot interstitial as its document', async () => {
+    await page();
+    const claim = await leaseNextPage();
+    if (!claim) throw new Error('Expected a leased page');
+    safeFetch.mockResolvedValue({
+      status: 200,
+      headers: { 'content-type': 'text/html' },
+      finalUrl: claim.url,
+      response: Readable.from([
+        '<html><head></head><body><script>location.reload()</script></body></html>',
+      ]),
+    });
+    await processPage(claim);
+    const [current] = await getDb().select().from(crawlPages).where(eq(crawlPages.id, claim.id));
+    expect(current).toMatchObject({ status: 'retry', lastErrorCode: 'fetch_unavailable' });
+    const stored = await getDb()
+      .select()
+      .from(searchDocuments)
+      .where(eq(searchDocuments.canonicalUrl, claim.url));
+    expect(stored).toHaveLength(0);
+  });
+
   it('drops a late successful response after another worker has reclaimed the page', async () => {
     const claim = await page({ status: 'fetching' });
     let finish: (() => void) | undefined;
@@ -543,6 +565,7 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
         canonicalUrl: url,
         status: 'indexed',
         documentType: 'article',
+        title: 'Stored',
         fetchedAt,
         indexedAt: fetchedAt,
       });

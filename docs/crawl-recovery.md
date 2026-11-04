@@ -69,6 +69,14 @@ transient: the page is retried with backoff and ends `fetch_unavailable`, which
 site's answer (`fetch_failed`), fails on the first attempt and is held for six
 hours. A worker that stops mid-fetch (`lease_expired`) is transient too.
 
+A page whose title comes from no source (OpenGraph, Twitter card, JSON-LD,
+oEmbed, `<title>`, Readability) is not stored: it is a bot interstitial or a
+script-only shell (Amazon serves one to most crawls), so it ends
+`untitled_page`, transient. `/resolve` ignores documents older crawls stored
+without a title and crawls those URLs again. A linked PDF is a document titled
+by its metadata (XMP `dc:title`, else the information dictionary's `/Title`)
+or, when that is compressed or absent, its file name (`src/search/pdf-metadata.ts`).
+
 Before a failure is recorded, a URL a registered oEmbed provider covers
 (`src/search/oembed-providers.generated.json`, refreshed with
 `bun run --filter @clarity/backend oembed:refresh` from oembed.com's registry)

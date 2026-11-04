@@ -9,13 +9,16 @@
  *
  * - `oembed` — a registered oEmbed provider covers it (search/oembed.ts);
  * - `extraction` — the page was fetched but extraction crashed (fixed markup
- *   parsing and Readability failures, search/extractor.ts);
- * - `unmatched` — the fetch succeeded but its document never answered to the
- *   URL (a share link merged into another canonical, or a broken canonical);
+ *   parsing and Readability failures, search/extractor.ts), or it was a PDF,
+ *   which now gets a card (search/pdf-metadata.ts);
+ * - `unmatched` — the fetch succeeded but no titled document answers to the URL
+ *   (a share link merged into another canonical, a broken canonical, or a bot
+ *   interstitial stored without a title);
  * - `transient` — the site was rate limiting, erroring or unreachable, which
  *   older crawls recorded as a permanent failure.
  *
- * Each batch is one `resolve:` operation with the original caller's authority,
+ * The most recently asked-for URLs go first: their posts are the ones being
+ * read. Each batch is one `resolve:` operation with the original caller's authority,
  * at background priority, and the next batch waits until it drains: live
  * reads keep their place in the queue, and the queue never holds more than one
  * batch of this work. The default is a read-only preview.
@@ -66,12 +69,14 @@ export function reindexCause(
   const status = /^http_status_(\d+)$/.exec(detail)?.[1];
   const matches: Record<ReindexCause, boolean> = {
     oembed: registeredOembedUrl(candidate.url) !== undefined,
-    extraction: candidate.status === 'failed' && EXTRACTION_CRASH.test(detail),
+    extraction:
+      candidate.status === 'failed' &&
+      (EXTRACTION_CRASH.test(detail) || /\.pdf(?:$|[?#])/i.test(candidate.url)),
     unmatched: candidate.status === 'succeeded',
     transient:
       candidate.status === 'failed' &&
       isTransientFetchFailure(
-        status ? new PageFetchError(detail, Number(status)) : new Error(detail),
+        status ? new PageFetchError(detail, { httpStatus: Number(status) }) : new Error(detail),
       ),
   };
   return causes.find((cause) => matches[cause]);
@@ -83,7 +88,7 @@ async function candidates(scope: PreviewReindexScope): Promise<Candidate[]> {
     await tx.execute(sql`set local statement_timeout = '120s'`);
     return tx.execute<Candidate>(sql`
       with latest as (
-        select distinct on (p.url) p.url, p.status, p.last_error_code, p.last_error_detail as detail,
+        select distinct on (p.url) p.url, p.status, p.last_error_code, p.last_error_detail as detail, p.updated_at,
           j.credential_id, j.caller_tier, j.caller_authority, j.caller_kind
         from clarity_crawl_pages p join clarity_crawl_jobs j on j.id = p.job_id
         where j.owner_account_id = ${scope.ownerAccountId} and j.application_id = ${scope.applicationId}
@@ -96,12 +101,12 @@ async function candidates(scope: PreviewReindexScope): Promise<Candidate[]> {
       where ((l.status = 'failed' and l.last_error_code in ('fetch_failed', 'fetch_unavailable'))
           or (l.status = 'succeeded' and l.last_error_code is null))
         and not exists (select 1 from clarity_search_documents d
-          where (d.canonical_url = l.url or d.requested_url = l.url or d.final_url = l.url)
-            and d.status <> 'discovered')
-        and not exists (select 1 from clarity_search_document_urls a where a.url = l.url)
+          where (d.canonical_url = l.url or d.requested_url = l.url or d.final_url = l.url
+              or d.id = any(array(select a.document_id from clarity_search_document_urls a where a.url = l.url)))
+            and d.status <> 'discovered' and d.title is not null)
         and not exists (select 1 from clarity_crawl_pages q
           where q.url = l.url and q.status in ('queued', 'retry', 'fetching'))
-      order by l.url`);
+      order by l.updated_at desc`);
   });
 }
 

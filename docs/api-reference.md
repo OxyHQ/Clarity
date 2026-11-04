@@ -73,7 +73,9 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   from what the page declares — OpenGraph, then its Twitter card, then JSON-LD —
   then its oEmbed answer, then its `<title>`, meta description or body; a page
   that cannot be fetched is indexed from its registered oEmbed provider when
-  one covers it (`evidence.*.source: 'oembed'`, `src/search/oembed.ts`). Repeated and overlapping
+  one covers it (`evidence.*.source: 'oembed'`, `src/search/oembed.ts`). Every
+  document has a title: a page with none is not stored, and a PDF is titled by
+  its metadata or file name. Repeated and overlapping
   requests reuse pending work within the same account and application and
   prioritize those queued/retry pages ahead of historical bulk work, without
   changing their retry schedule. A mixed

@@ -235,8 +235,10 @@ const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
 /**
  * Each requested URL's document, if Clarity has fetched it, by any URL it
  * answered to. The document the URL's own latest fetch produced comes first
- * (`clarity_search_document_urls`); a `discovered` document — known from a web
- * search, never fetched — does not count. Exported for its Postgres suite.
+ * (`clarity_search_document_urls`). A `discovered` document — known from a web
+ * search, never fetched — does not count, and neither does one without a title:
+ * older crawls stored bot interstitials that way, and a card needs a title, so
+ * the URL is crawled again. Exported for its Postgres suite.
  */
 export async function fetchedDocuments(urls: readonly string[]): Promise<Map<string, DocumentRow>> {
   const [rows, recorded] = await Promise.all([
@@ -245,7 +247,7 @@ export async function fetchedDocuments(urls: readonly string[]): Promise<Map<str
   ]);
   const fetched = await withPageText(
     getDb(),
-    rows.filter((row) => row.status !== 'discovered'),
+    rows.filter((row) => row.status !== 'discovered' && row.title),
   );
   const byUrl = new Map<string, DocumentRow>();
   for (const url of urls) {
