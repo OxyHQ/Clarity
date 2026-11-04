@@ -17,7 +17,8 @@
  * - `transient` — the site was rate limiting, erroring or unreachable, which
  *   older crawls recorded as a permanent failure.
  *
- * Each batch is one `resolve:` operation with the original caller's authority,
+ * The most recently asked-for URLs go first: their posts are the ones being
+ * read. Each batch is one `resolve:` operation with the original caller's authority,
  * at background priority, and the next batch waits until it drains: live
  * reads keep their place in the queue, and the queue never holds more than one
  * batch of this work. The default is a read-only preview.
@@ -87,7 +88,7 @@ async function candidates(scope: PreviewReindexScope): Promise<Candidate[]> {
     await tx.execute(sql`set local statement_timeout = '120s'`);
     return tx.execute<Candidate>(sql`
       with latest as (
-        select distinct on (p.url) p.url, p.status, p.last_error_code, p.last_error_detail as detail,
+        select distinct on (p.url) p.url, p.status, p.last_error_code, p.last_error_detail as detail, p.updated_at,
           j.credential_id, j.caller_tier, j.caller_authority, j.caller_kind
         from clarity_crawl_pages p join clarity_crawl_jobs j on j.id = p.job_id
         where j.owner_account_id = ${scope.ownerAccountId} and j.application_id = ${scope.applicationId}
@@ -105,7 +106,7 @@ async function candidates(scope: PreviewReindexScope): Promise<Candidate[]> {
             and d.status <> 'discovered' and d.title is not null)
         and not exists (select 1 from clarity_crawl_pages q
           where q.url = l.url and q.status in ('queued', 'retry', 'fetching'))
-      order by l.url`);
+      order by l.updated_at desc`);
   });
 }
 
