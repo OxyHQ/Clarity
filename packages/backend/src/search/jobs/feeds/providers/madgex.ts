@@ -7,7 +7,8 @@
  */
 import type { JobFeedProvider } from '../provider.js';
 import { XML_ACCEPT, date, elements, get, num, tag, text } from '../listing.js';
-import { jsonLdPage, withoutTracking } from './pagejsonld.js';
+import { withoutTracking } from '../../../resource-url.js';
+import { jsonLdPage } from './pagejsonld.js';
 
 const PAGE_SIZE = 20;
 

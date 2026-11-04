@@ -4,11 +4,18 @@ import { createHash } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import { createLogger } from './lib/logger.js';
-import { and, eq, gt, gte, isNotNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, inArray, isNotNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
 import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
-import { crawlJobs, crawlPages, fetchAttempts, searchDocuments } from './db/schema/index.js';
+import {
+  crawlJobs,
+  crawlPages,
+  fetchAttempts,
+  jobPostings,
+  searchDocuments,
+  searchDocumentUrls,
+} from './db/schema/index.js';
 import { type ExtractedDocument, extractDocument } from './search/extractor.js';
 import { decodeBody } from './search/decode-body.js';
 import { PageFetchError, isTransientFetchFailure } from './search/fetch-failure.js';
@@ -41,6 +48,7 @@ import { pollDueProductFeeds } from './search/products/feeds/feeds.js';
 import { mainContentToStore } from './search/page-text.js';
 import { answeredToAny, recordDocumentUrls } from './search/public-document.js';
 import { storableUrl } from './search/query-primitives.js';
+import { resourceUrl } from './search/resource-url.js';
 import { consumeUsage, effectiveQuota } from './search/quotas.js';
 import {
   classifiedCrawlAuthoritySql,
@@ -567,6 +575,46 @@ async function fallbackSource(url: string, failure: unknown): Promise<DocumentSo
   };
 }
 
+/**
+ * Folds into `documentId` any other document stored under one of `urls`: a
+ * link variant stored before its canonical was known, or a page that has since
+ * redirected, is this document now. The URLs that answered to it move here and
+ * it is deleted, so fetching converges duplicates without a batch repair. A
+ * document a job listing stands on is left to the Jobs lifecycle, which keeps
+ * every listing (search/jobs/dedupe.ts). Returns the URLs the folded documents
+ * were requested and fetched at, for the caller to record.
+ */
+async function absorbSupersededDocuments(
+  tx: ClarityExecutor,
+  documentId: string,
+  urls: readonly string[],
+): Promise<string[]> {
+  const superseded = await tx
+    .select({
+      id: searchDocuments.id,
+      requestedUrl: searchDocuments.requestedUrl,
+      finalUrl: searchDocuments.finalUrl,
+    })
+    .from(searchDocuments)
+    .where(
+      and(
+        inArray(searchDocuments.canonicalUrl, [...urls]),
+        ne(searchDocuments.id, documentId),
+        sql`not exists (select 1 from ${jobPostings} where ${jobPostings.documentId} = ${searchDocuments.id})`,
+      ),
+    );
+  if (superseded.length === 0) return [];
+  const ids = superseded.map((row) => row.id);
+  await tx
+    .update(searchDocumentUrls)
+    .set({ documentId, updatedAt: new Date() })
+    .where(inArray(searchDocumentUrls.documentId, ids));
+  await tx.delete(searchDocuments).where(inArray(searchDocuments.id, ids));
+  return superseded.flatMap((row) =>
+    row.finalUrl ? [row.requestedUrl, row.finalUrl] : [row.requestedUrl],
+  );
+}
+
 async function storeDocument(
   page: typeof crawlPages.$inferSelect,
   job: typeof crawlJobs.$inferSelect,
@@ -576,7 +624,9 @@ async function storeDocument(
   source: DocumentSource,
 ): Promise<void> {
   const { extracted } = source;
-  const canonicalUrl = extracted.canonicalUrl || source.finalUrl;
+  // What the page declares, else the resource's own URL (search/resource-url.ts):
+  // a link with a tracking parameter or a video's start time is the same document.
+  const canonicalUrl = extracted.canonicalUrl || resourceUrl(source.finalUrl);
   const contentHash = createHash('sha256')
     .update(extracted.mainContent || '')
     .digest('hex');
@@ -647,8 +697,18 @@ async function storeDocument(
         set: { ...mutable, updatedAt: observedAt },
       })
       .returning({ id: searchDocuments.id });
-    // Every URL that reached this document finds it again (answeredToAny).
-    await recordDocumentUrls(tx, document.id, [page.url, source.finalUrl, canonicalUrl]);
+    // Every URL that reached this document finds it again (answeredToAny),
+    // including those of a document it supersedes.
+    const superseded = await absorbSupersededDocuments(tx, document.id, [
+      page.url,
+      source.finalUrl,
+    ]);
+    await recordDocumentUrls(tx, document.id, [
+      page.url,
+      source.finalUrl,
+      canonicalUrl,
+      ...superseded,
+    ]);
     if (chunkState === 'stale')
       await replaceDocumentChunks(tx, document.id, textChunks, undefined, extractorVersion);
     await registerHosts(tx, [{ url: canonicalUrl, iconHintUrl: extracted.faviconUrl }]);

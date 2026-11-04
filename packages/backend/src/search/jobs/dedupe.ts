@@ -12,6 +12,7 @@
  */
 import type { JobSourceType } from '@clarity/shared-types';
 
+import { withoutTracking } from '../resource-url.js';
 import { urlDomain } from './taxonomy.js';
 
 export type JobSignatureKind = 'identifier' | 'listing_url' | 'content';
@@ -51,14 +52,11 @@ export const ATS_HOSTS: readonly string[] = [
   'workatastartup.com',
 ];
 
-const TRACKING_PARAMETERS =
-  /^(utm_|gh_|mc_|hsa_|pk_)|^(ref|source|src|gclid|fbclid|msclkid|trk|referrer|campaign)$/i;
-
 /** Strips presentation-only URL noise so syndicated links compare equal. */
 export function normalizeListingUrl(value: string): string | undefined {
   let url: URL;
   try {
-    url = new URL(value);
+    url = new URL(withoutTracking(value));
   } catch {
     return undefined;
   }
@@ -68,11 +66,7 @@ export function normalizeListingUrl(value: string): string | undefined {
   url.hostname = url.hostname.toLowerCase().replace(/^www\./, '');
   url.protocol = 'https:';
   url.port = '';
-  const parameters = [...url.searchParams.entries()]
-    .filter(([key]) => !TRACKING_PARAMETERS.test(key))
-    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0));
-  url.search = '';
-  for (const [key, parameterValue] of parameters) url.searchParams.append(key, parameterValue);
+  url.searchParams.sort();
   const pathname = url.pathname.replace(/\/+$/, '') || '/';
   return `${url.hostname}${pathname}${url.search}`;
 }

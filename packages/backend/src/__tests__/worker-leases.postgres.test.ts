@@ -7,6 +7,7 @@ import {
   crawlPages,
   fetchAttempts,
   searchDocuments,
+  searchDocumentUrls,
   searchUsageEvents,
   searchUsageRollups,
 } from '../db/schema/index.js';
@@ -384,11 +385,17 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
     expect(job).toMatchObject({ status: 'succeeded', pagesCompleted: 1 });
   });
 
-  it("indexes a page the site refuses from its registered provider's oEmbed answer", async () => {
+  it("indexes a page the site refuses from its registered provider's oEmbed answer, under the video's own URL", async () => {
     const queued = await page();
-    const url = `https://youtu.be/${crypto.randomUUID()}`;
+    const canonical = `https://www.youtube.com/watch?v=${crypto.randomUUID().slice(0, 11)}`;
+    const url = `${canonical}&t=2s`;
     await getDb().update(crawlPages).set({ url }).where(eq(crawlPages.id, queued.id));
-    urls.push(url);
+    urls.push(url, canonical);
+    // What an older fetch stored: the variant as a document of its own.
+    const [variant] = await getDb()
+      .insert(searchDocuments)
+      .values({ id: crypto.randomUUID(), requestedUrl: url, canonicalUrl: url, title: 'Old' })
+      .returning();
     const claim = await leaseNextPage();
     if (!claim) throw new Error('Expected a leased page');
     const answer = (status: number, body: string, contentType = 'application/json') => ({
@@ -413,10 +420,18 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
       );
     });
     await processPage(claim);
-    const [document] = await getDb()
+    const documents = await getDb()
       .select()
       .from(searchDocuments)
-      .where(eq(searchDocuments.canonicalUrl, url));
+      .where(inArray(searchDocuments.canonicalUrl, [url, canonical]));
+    expect(documents.map((row) => row.canonicalUrl)).toEqual([canonical]);
+    const [document] = documents;
+    const [alias] = await getDb()
+      .select()
+      .from(searchDocumentUrls)
+      .where(eq(searchDocumentUrls.url, url));
+    expect(alias?.documentId).toBe(document.id);
+    expect(document.id).not.toBe(variant.id);
     expect(document).toMatchObject({
       status: 'indexed',
       title: 'The video',

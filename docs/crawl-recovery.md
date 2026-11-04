@@ -101,6 +101,19 @@ its own path (`src/search/url-title.ts`: the last segment that reads as words,
 ids and numbers skipped, plus the site's host), evidence `title.source: 'url'`.
 It is never stored.
 
+A document is stored under the canonical URL its page declares, and when it
+declares none (an oEmbed answer, a snapshot without one, a page without one,
+or a URL-title card) under the resource's own URL (`src/search/resource-url.ts`):
+the URL without tracking parameters, in a provider's documented canonical form
+where Clarity knows one (a YouTube video is `https://www.youtube.com/watch?v=<id>`
+whether linked through `youtu.be`, `/live/`, `/embed/` or with a start time).
+Every other URL that reached it is recorded in `clarity_search_document_urls`.
+A fetch that stores a page also folds in any document stored under the URL it
+fetched before the canonical was known: that document's URLs move to the new
+one and it is deleted, unless a job listing stands on it. Older duplicates
+converge as `/resolve` refreshes their oEmbed and Archive cards, without a
+batch repair.
+
 After a fix, re-queue the previews that failed for its cause. Run the built
 one-shot with the live `clarity-worker` task definition; the default is a
 read-only preview of the candidates by cause:

@@ -13,6 +13,7 @@
  */
 import { createHash } from 'node:crypto';
 
+import { resourceUrl } from './resource-url.js';
 import { hostOf } from './site-icons.js';
 
 const EXTENSION = /\.(?:s?html?|php|aspx?|jsp|cfm)$/i;
@@ -93,9 +94,11 @@ export function titleFromUrl(url: string): string | undefined {
 export function urlDocument(url: string) {
   const title = titleFromUrl(url);
   if (!title) return undefined;
+  // Two links to one resource name one card, as a fetched document would.
+  const canonicalUrl = resourceUrl(url);
   return {
-    id: `url:${createHash('sha256').update(url).digest('hex').slice(0, 32)}`,
-    canonicalUrl: url,
+    id: `url:${createHash('sha256').update(canonicalUrl).digest('hex').slice(0, 32)}`,
+    canonicalUrl,
     requestedUrl: url,
     title,
     type: 'page' as const,
