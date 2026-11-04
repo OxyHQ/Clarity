@@ -6,6 +6,8 @@ import type {
   ProductSummary,
 } from '@clarity/shared-types';
 
+import { formatCurrency } from '@oxy.so/bloom/locale';
+
 import { publicApiStatus } from './api/public-api-error';
 
 /**
@@ -47,12 +49,7 @@ export function formatProductMoney(money: ProductMoney, locale: string): string 
   if (!Number.isSafeInteger(money.amount)) return null;
   const digits = currencyFractionDigits(money.currency);
   if (digits === null) return null;
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: money.currency.toUpperCase(),
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  }).format(money.amount / 10 ** digits);
+  return formatCurrency(money.amount / 10 ** digits, money.currency.toUpperCase(), locale, digits);
 }
 
 /** What a result card says about price: three different answers, never conflated. */
