@@ -511,6 +511,34 @@ export const searchDocuments = pgTable(
 );
 
 /**
+ * Every URL a fetch was asked for, or landed on, and the document it produced.
+ *
+ * A document is stored under its canonical URL, and only the first request's
+ * URL and the latest fetch's final URL were kept on it. Every other URL that
+ * reaches the same document — a share link with its own tracking parameters, a
+ * shortener (`buff.ly`, `lnkd.in`), `youtu.be` — then found nothing, so each
+ * read queued another fetch of a page Clarity already had: measured on
+ * 2026-11-04, 53% of three days' successful fetches. The resolver reads this
+ * table with the document's own URL columns (`answeredToAny`).
+ */
+export const searchDocumentUrls = pgTable(
+  'clarity_search_document_urls',
+  {
+    url: text('url').primaryKey(),
+    documentId: text('document_id').notNull(),
+    ...timestampColumns(),
+  },
+  (table) => [
+    foreignKey({
+      name: 'clarity_search_document_urls_document_fk',
+      columns: [table.documentId],
+      foreignColumns: [searchDocuments.id],
+    }).onDelete('cascade'),
+    index('clarity_search_document_urls_document_idx').on(table.documentId),
+  ],
+);
+
+/**
  * One row per host Clarity has seen a page from, holding that site's favicon.
  *
  * Favicons belong to a site, not a page, so they are fetched once per host and

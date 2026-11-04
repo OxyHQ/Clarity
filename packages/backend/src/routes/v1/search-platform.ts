@@ -40,6 +40,7 @@ import {
 } from '../../search/document-search.js';
 import {
   answeredToAny,
+  documentIdsByUrl,
   iconHostsOf,
   publicDocument,
   type DocumentRow,
@@ -151,35 +152,78 @@ router.post('/index/urls', requireResourceScope('clarity:index'), async (req, re
 /** How often a waiting resolve looks at its crawl. */
 const RESOLVE_POLL_MS = 400;
 /**
- * How long a URL whose crawl exhausted its attempts is reported `failed` by
- * `/resolve` without enqueueing another crawl. Without it a link that always
- * fails (a 403, a bot challenge, a PDF, a dead host) left no document, so every
- * read found "nothing fetched" and queued a fresh three-attempt crawl, answering
+ * How long a URL whose crawl ended without a page is answered from that ending
+ * by `/resolve`, without enqueueing another crawl. Without it a link that
+ * always fails (a 403, a bot challenge, a PDF, a dead host) left no document,
+ * so every read found "nothing fetched" and queued a fresh crawl, answering
  * `queued` each time: the consumer showed nothing, polled for ever, and the
- * single crawl worker spent its capacity re-fetching pages that cannot succeed.
+ * crawl worker spent its capacity re-fetching pages that cannot succeed.
+ *
+ * The site's own answer (a refusal, a removal) holds for six hours. A transient
+ * one — rate limited, erroring, unreachable, or a worker that stopped mid-fetch
+ * — is reported retryable and holds for half an hour.
  */
 const RESOLVE_FAILED_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const RESOLVE_UNAVAILABLE_COOLDOWN_MS = 30 * 60 * 1000;
+/** Crawl endings that say "not now": the infrastructure's or the site's momentary state. */
+const TRANSIENT_CRAWL_ENDINGS: ReadonlySet<string> = new Set([
+  'fetch_unavailable',
+  'lease_expired',
+]);
 
-/** Of `urls`, those this principal's crawl already failed within the cooldown. */
-async function recentlyFailedUrls(
+interface CrawlEnding {
+  status: 'failed' | 'removed';
+  error: { code: string; retryable: boolean };
+}
+
+/**
+ * Of `urls`, those this principal's latest crawl ended without a page within
+ * the cooldown, and how. A 404/410 ends `removed`. A page the duplicate-resolve
+ * repair superseded was never fetched, so it says nothing about the URL.
+ */
+async function recentCrawlEndings(
   principal: ClarityResourcePrincipal,
   urls: string[],
-): Promise<Set<string>> {
-  if (urls.length === 0) return new Set();
+): Promise<Map<string, CrawlEnding>> {
+  if (urls.length === 0) return new Map();
   const rows = await getDb()
-    .selectDistinct({ url: crawlPages.url })
+    .selectDistinctOn([crawlPages.url], {
+      url: crawlPages.url,
+      status: crawlPages.status,
+      code: crawlPages.lastErrorCode,
+      updatedAt: crawlPages.updatedAt,
+    })
     .from(crawlPages)
     .innerJoin(crawlJobs, eq(crawlJobs.id, crawlPages.jobId))
     .where(
       and(
         inArray(crawlPages.url, urls),
-        eq(crawlPages.status, 'failed'),
+        or(
+          and(
+            eq(crawlPages.status, 'failed'),
+            sql`${crawlPages.lastErrorCode} is distinct from 'resolve_superseded'`,
+          ),
+          and(eq(crawlPages.status, 'succeeded'), eq(crawlPages.lastErrorCode, 'http_gone')),
+        ),
         gt(crawlPages.updatedAt, new Date(Date.now() - RESOLVE_FAILED_COOLDOWN_MS)),
         eq(crawlJobs.ownerAccountId, principal.accountId),
         eq(crawlJobs.applicationId, applicationLedgerKey(principal)),
       ),
-    );
-  return new Set(rows.map((row) => row.url));
+    )
+    .orderBy(crawlPages.url, desc(crawlPages.updatedAt));
+  const endings = new Map<string, CrawlEnding>();
+  for (const row of rows) {
+    if (row.status === 'succeeded') {
+      endings.set(row.url, { status: 'removed', error: { code: 'http_gone', retryable: false } });
+      continue;
+    }
+    const code = row.code ?? 'fetch_failed';
+    const retryable = TRANSIENT_CRAWL_ENDINGS.has(code);
+    if (retryable && row.updatedAt.getTime() < Date.now() - RESOLVE_UNAVAILABLE_COOLDOWN_MS)
+      continue;
+    endings.set(row.url, { status: 'failed', error: { code, retryable } });
+  }
+  return endings;
 }
 const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
   'succeeded',
@@ -190,23 +234,29 @@ const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
 
 /**
  * Each requested URL's document, if Clarity has fetched it, by any URL it
- * answered to. A `discovered` document — known from a web search, never
- * fetched — does not count. Exported for its Postgres suite.
+ * answered to. The document the URL's own latest fetch produced comes first
+ * (`clarity_search_document_urls`); a `discovered` document — known from a web
+ * search, never fetched — does not count. Exported for its Postgres suite.
  */
 export async function fetchedDocuments(urls: readonly string[]): Promise<Map<string, DocumentRow>> {
-  const rows = await withPageText(
+  const [rows, recorded] = await Promise.all([
+    getDb().select().from(searchDocuments).where(answeredToAny(urls)),
+    documentIdsByUrl(getDb(), urls),
+  ]);
+  const fetched = await withPageText(
     getDb(),
-    await getDb().select().from(searchDocuments).where(answeredToAny(urls)),
+    rows.filter((row) => row.status !== 'discovered'),
   );
   const byUrl = new Map<string, DocumentRow>();
   for (const url of urls) {
-    const row = rows.find(
-      (candidate) =>
-        candidate.status !== 'discovered' &&
-        (candidate.canonicalUrl === url ||
+    const row =
+      fetched.find((candidate) => candidate.id === recorded.get(url)) ??
+      fetched.find(
+        (candidate) =>
+          candidate.canonicalUrl === url ||
           candidate.requestedUrl === url ||
-          candidate.finalUrl === url),
-    );
+          candidate.finalUrl === url,
+      );
     if (row) byUrl.set(url, row);
   }
   return byUrl;
@@ -219,8 +269,8 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   let byUrl = await fetchedDocuments(urls);
   const unfetched = [...new Set(urls.filter((url) => !byUrl.has(url)))];
   const failed = req.resourcePrincipal
-    ? await recentlyFailedUrls(req.resourcePrincipal, unfetched)
-    : new Set<string>();
+    ? await recentCrawlEndings(req.resourcePrincipal, unfetched)
+    : new Map<string, CrawlEnding>();
   const missing = unfetched.filter((url) => !failed.has(url));
   // A caller that waits has a person waiting on the answer (a composer, a
   // freshly published post); one that does not is warming in the background.
@@ -260,7 +310,8 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   }
   if (input.waitMs) byUrl = await fetchedDocuments(urls);
   const unfetchedStatus = (url: string) => {
-    if (failed.has(url)) return 'failed';
+    const ending = failed.get(url);
+    if (ending) return ending.status;
     const operation = operations.get(url);
     if (!operation) return 'throttled';
     return !TERMINAL_OPERATIONS.has(statuses.get(operation.id) ?? operation.status)
@@ -280,7 +331,7 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
             operationId: operations.get(url)?.id,
             status: unfetchedStatus(url),
             ...(failed.has(url)
-              ? { error: { code: 'fetch_failed', retryable: false } }
+              ? { error: failed.get(url)?.error }
               : !operations.has(url)
                 ? { error: { code: 'active_crawl_quota_exceeded', retryable: true } }
                 : {}),

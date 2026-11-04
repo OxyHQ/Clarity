@@ -7,6 +7,7 @@ describe('extractDocument', () => {
       `<!doctype html><html lang="es"><head>
       <title>Fallback</title><meta property="og:title" content="Titular">
       <meta name="description" content="Resumen"><link rel="canonical" href="/article">
+      <meta property="og:url" content="https://example.com/article">
       <script type="application/ld+json">{"@type":"NewsArticle","headline":"Titular"}</script>
       </head><body><article><h1>Titular</h1><p>${'Contenido útil. '.repeat(40)}</p></article></body></html>`,
       'https://example.com/source',
@@ -21,6 +22,27 @@ describe('extractDocument', () => {
     });
     expect(result.mainContent).toContain('Contenido útil');
     expect(result.structuredData).toHaveLength(1);
+  });
+
+  it('reads markup that opens before its root, declared metadata first, and only a canonical naming this page', () => {
+    const result = extractDocument(
+      `\n  <!DOCTYPE html>\n<html><head><title>Watch - Site</title>
+      <meta name="twitter:title" content="Card title"><meta name="description" content="Meta summary">
+      <link rel="canonical" href="https://example.com/undefined">
+      <link rel="alternate" type="application/json+oembed" href="/oembed?url=x">
+      <script type="application/ld+json">{"@type":"VideoObject","name":"Video","thumbnailUrl":"/thumb.jpg"}</script>
+      </head><body><p>Body</p></body></html>`,
+      'https://www.example.com/watch?v=1',
+    );
+    expect(result).toMatchObject({
+      title: 'Card title',
+      description: 'Meta summary',
+      imageUrl: 'https://www.example.com/thumb.jpg',
+      oembedUrl: 'https://www.example.com/oembed?url=x',
+      canonicalUrl: undefined,
+    });
+    expect(result.evidence.title).toMatchObject({ selector: 'meta[name="twitter:title"]' });
+    expect(result.evidence.imageUrl).toMatchObject({ source: 'json_ld' });
   });
 
   it('honours noindex and nofollow', () => {

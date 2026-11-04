@@ -60,6 +60,46 @@ indexing restriction remains a source-specific failure. Inspect the recorded
 fetch result before retrying it. Never manufacture a successful document to
 hide a stopped queue.
 
+## Failed previews
+
+A fetch failure is classified where it happens (`src/search/fetch-failure.ts`).
+Rate limiting (429), 408/425, 5xx, timeouts, resets and refused connections are
+transient: the page is retried with backoff and ends `fetch_unavailable`, which
+`/v1/resolve` reports as retryable for half an hour. Anything else is the
+site's answer (`fetch_failed`), fails on the first attempt and is held for six
+hours. A worker that stops mid-fetch (`lease_expired`) is transient too.
+
+Before a failure is recorded, a URL a registered oEmbed provider covers
+(`src/search/oembed-providers.generated.json`, refreshed with
+`bun run --filter @clarity/backend oembed:refresh` from oembed.com's registry)
+is indexed from the provider's answer when its endpoint allows ClarityBot in
+robots.txt. Measured on 2026-11-04, YouTube served Clarity's egress a degraded
+page (no OpenGraph, `<link rel=canonical href=".../undefined">`) or a 429 for
+nearly every video; its oEmbed endpoint answered every time. Some publishers
+cannot be reached this way: The New York Times disallows `/svc` (its oEmbed
+endpoint) and Reddit disallows everything for unnamed agents, and cbc.ca and
+npr.org drop connections from AWS addresses, robots.txt included.
+
+After a fix, re-queue the previews that failed for its cause. Run the built
+one-shot with the live `clarity-worker` task definition; the default is a
+read-only preview of the candidates by cause:
+
+```bash
+bun packages/backend/dist/db/reindex-failed-previews.js \
+  --target-database=clarity \
+  --owner-account-id=REVIEWED_OWNER \
+  --application-id=REVIEWED_APPLICATION \
+  --since=2026-10-28T00:00:00Z \
+  --causes=oembed,extraction,unmatched,transient \
+  --limit=1000 --batch=200
+```
+
+A candidate is a URL whose latest resolve crawl for that owner and application
+ended with no document, with nothing queued for it now. Repeat with `--apply`
+to queue the selected URLs in batches of `--batch`, each one resolve operation
+with the original caller's authority at background priority; the next batch
+waits for the previous one to drain, so live reads keep their place.
+
 ## Duplicate resolve batches
 
 `POST /v1/resolve` reuses active URL operations within the caller's account and

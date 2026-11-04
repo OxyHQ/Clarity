@@ -1,7 +1,7 @@
 import { getTableColumns, inArray, type SQL, sql } from 'drizzle-orm';
 
-import { getDb } from '../db/index.js';
-import { searchDocuments } from '../db/schema/index.js';
+import { type ClarityExecutor, getDb } from '../db/index.js';
+import { searchDocuments, searchDocumentUrls } from '../db/schema/index.js';
 import { excerpt } from './query-primitives.js';
 import { hostOf, hostsWithIcons, siteIconUrl } from './site-icons.js';
 import { publicImageUrl } from './image-cache.js';
@@ -50,12 +50,51 @@ export const searchResultColumns = {
 /**
  * The documents that answered to any of these URLs. A crawl stores a page under
  * its canonical URL, which a redirect or a `<link rel=canonical>` can make
- * differ from the URL asked for, so the requested and final URLs find it too.
- * Each column has its own index: a branch without one makes the whole OR a
- * sequential scan of the table (126k buffers a call in production until 0026).
+ * differ from the URL asked for, so the requested and final URLs find it too,
+ * and so does every URL a fetch recorded for it (`clarity_search_document_urls`,
+ * {@link recordDocumentUrls}). Each branch has its own index: a branch without
+ * one makes the whole OR a sequential scan of the table (126k buffers a call in
+ * production until 0026). The recorded URLs are read as an array first
+ * (`= any(array(...))`): an `in (subquery)` branch is a hashed subplan, which
+ * no index serves, and turned the OR into that scan again.
  */
 export function answeredToAny(urls: readonly string[]): SQL {
-  return sql`(${inArray(searchDocuments.canonicalUrl, urls)} or ${inArray(searchDocuments.requestedUrl, urls)} or ${inArray(searchDocuments.finalUrl, urls)})`;
+  if (urls.length === 0) return sql`false`;
+  const list = sql.join(
+    urls.map((url) => sql`${url}`),
+    sql`, `,
+  );
+  return sql`(${inArray(searchDocuments.canonicalUrl, urls)} or ${inArray(searchDocuments.requestedUrl, urls)} or ${inArray(searchDocuments.finalUrl, urls)} or clarity_search_documents.id = any(array(select alias.document_id from clarity_search_document_urls alias where alias.url in (${list}))))`;
+}
+
+/** Of these URLs, those a fetch recorded, and the document each produced last. */
+export async function documentIdsByUrl(
+  executor: ClarityExecutor,
+  urls: readonly string[],
+): Promise<Map<string, string>> {
+  if (urls.length === 0) return new Map();
+  const rows = await executor
+    .select({ url: searchDocumentUrls.url, documentId: searchDocumentUrls.documentId })
+    .from(searchDocumentUrls)
+    .where(inArray(searchDocumentUrls.url, [...urls]));
+  return new Map(rows.map((row) => [row.url, row.documentId]));
+}
+
+/** Records that these URLs reached `documentId`; a URL that reached another document moves. */
+export async function recordDocumentUrls(
+  executor: ClarityExecutor,
+  documentId: string,
+  urls: readonly string[],
+): Promise<void> {
+  const unique = [...new Set(urls)];
+  if (unique.length === 0) return;
+  await executor
+    .insert(searchDocumentUrls)
+    .values(unique.map((url) => ({ url, documentId })))
+    .onConflictDoUpdate({
+      target: searchDocumentUrls.url,
+      set: { documentId, updatedAt: new Date() },
+    });
 }
 
 /** The hosts among these documents whose favicon Clarity serves. */

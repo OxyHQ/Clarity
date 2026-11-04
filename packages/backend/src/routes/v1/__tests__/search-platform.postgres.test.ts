@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
 import { searchChunks, searchChunkTsvector, searchDocuments } from '../../../db/schema/index.js';
 import { replaceDocumentChunks } from '../../../search/chunking.js';
-import { answeredToAny } from '../../../search/public-document.js';
+import { answeredToAny, recordDocumentUrls } from '../../../search/public-document.js';
 import { recordDiscoveredPages } from '../../../search/web-discovery.js';
 import { rankedSearch, type SearchInput } from '../../../search/document-search.js';
 import { nearestChunks } from '../../../search/nearest-chunks.js';
@@ -232,14 +232,21 @@ suite('ranked search on Postgres', () => {
       .set({ requestedUrl: redirectedUrl, finalUrl: urls[0] })
       .where(inArray(searchDocuments.id, [documentIds[0]]));
 
+    // Any other URL a fetch recorded for a document finds it too, before a
+    // document that merely names it.
+    const sharedUrl = 'https://share.example/watch?v=1&si=tracking';
+    await recordDocumentUrls(getDb(), documentIds[1], [sharedUrl]);
+
     const found = await fetchedDocuments([
       redirectedUrl,
       urls[1],
+      sharedUrl,
       discoveredUrl,
       'https://nowhere.example/',
     ]);
 
     expect(found.get(redirectedUrl)?.id).toBe(documentIds[0]);
+    expect(found.get(sharedUrl)?.id).toBe(documentIds[1]);
     expect(found.get(urls[1])?.id).toBe(documentIds[1]);
     // Known from a web search, never fetched: not a document to read yet.
     expect(found.has(discoveredUrl)).toBe(false);
@@ -267,6 +274,7 @@ suite('ranked search on Postgres', () => {
       'clarity_search_documents_canonical_unique',
       'clarity_search_documents_requested_url_idx',
       'clarity_search_documents_final_url_idx',
+      'clarity_search_document_urls_pkey',
     ])
       expect(plan).toContain(index);
   });

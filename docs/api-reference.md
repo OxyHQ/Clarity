@@ -62,7 +62,18 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   (found by its canonical, requested or final URL); otherwise it queues the
   crawl and, with `waitMs` (≤ 10 000), waits for that crawl and answers as soon
   as it ends. A URL the ended crawl could not fetch is `failed`; one still
-  crawling is `queued` with its `operationId` (202). Repeated and overlapping
+  crawling is `queued` with its `operationId` (202). A recent ending is
+  answered without another crawl: the site's refusal as `failed` with
+  `error: { code: 'fetch_failed', retryable: false }` for six hours, a
+  transient one (rate limited, erroring, unreachable) as `failed` with
+  `error: { code: 'fetch_unavailable', retryable: true }` for half an hour, and
+  a 404/410 as `removed` with `error: { code: 'http_gone', retryable: false }`.
+  Every URL a fetch was asked for or landed on finds its document
+  (`clarity_search_document_urls`). A card's title, description and image come
+  from what the page declares — OpenGraph, then its Twitter card, then JSON-LD —
+  then its oEmbed answer, then its `<title>`, meta description or body; a page
+  that cannot be fetched is indexed from its registered oEmbed provider when
+  one covers it (`evidence.*.source: 'oembed'`, `src/search/oembed.ts`). Repeated and overlapping
   requests reuse pending work within the same account and application and
   prioritize those queued/retry pages ahead of historical bulk work, without
   changing their retry schedule. A mixed

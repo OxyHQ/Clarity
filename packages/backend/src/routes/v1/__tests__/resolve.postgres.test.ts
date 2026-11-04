@@ -1,7 +1,7 @@
 import type { ResolveResult } from '@clarity.surf/sdk';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closePostgres, connectPostgres, getDb } from '../../../db/index.js';
@@ -251,6 +251,32 @@ suite('resolve queue ownership on PostgreSQL and HTTP', () => {
       error: { code: 'fetch_failed', retryable: false },
     });
     expect(result.operationId).toBeUndefined();
+  });
+
+  it('reports a transient ending as retryable and a removed page as removed', async () => {
+    const first = await bodyOf(await resolve([urls[0], urls[1]]));
+    const ended = async (url: string, values: Partial<typeof crawlPages.$inferInsert>) =>
+      getDb()
+        .update(crawlPages)
+        .set({ ...values, updatedAt: new Date() })
+        .where(and(eq(crawlPages.jobId, first.data[0].operationId), eq(crawlPages.url, url)));
+    await ended(urls[0], { status: 'failed', lastErrorCode: 'fetch_unavailable' });
+    await ended(urls[1], { status: 'succeeded', lastErrorCode: 'http_gone' });
+    await getDb()
+      .update(crawlJobs)
+      .set({ status: 'partial' })
+      .where(eq(crawlJobs.id, first.data[0].operationId));
+
+    const [unavailable, removed] = (await bodyOf(await resolve([urls[0], urls[1]]))).data;
+
+    expect(unavailable).toMatchObject({
+      status: 'failed',
+      error: { code: 'fetch_unavailable', retryable: true },
+    });
+    expect(removed).toMatchObject({
+      status: 'removed',
+      error: { code: 'http_gone', retryable: false },
+    });
   });
 
   it('tries a failed URL again once the cooldown has passed', async () => {

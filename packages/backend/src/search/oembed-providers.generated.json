@@ -1,0 +1,3264 @@
+[
+ {
+  "name": "1mind",
+  "endpoint": "https://app.1mind.com/oembed",
+  "schemes": [
+   "https://app.1mind.com/embed/*",
+   "https://app.1mind.com/embed/*/*",
+   "https://app.dev.1mind.com/embed/*",
+   "https://app.dev.1mind.com/embed/*/*"
+  ]
+ },
+ {
+  "name": "23HQ",
+  "endpoint": "http://www.23hq.com/23/oembed",
+  "schemes": [
+   "http://www.23hq.com/*/photo/*"
+  ]
+ },
+ {
+  "name": "3Q",
+  "endpoint": "https://playout.3qsdn.com/oembed",
+  "schemes": [
+   "https://playout.3qsdn.com/embed/*"
+  ]
+ },
+ {
+  "name": "3Speak",
+  "endpoint": "https://3speak.tv/oembed",
+  "schemes": [
+   "https://3speak.tv/watch?v=*",
+   "https://www.3speak.tv/watch?v=*",
+   "https://3speak.tv/shorts?v=*",
+   "https://www.3speak.tv/shorts?v=*"
+  ]
+ },
+ {
+  "name": "Abraia",
+  "endpoint": "https://api.abraia.me/oembed",
+  "schemes": [
+   "https://store.abraia.me/*"
+  ]
+ },
+ {
+  "name": "Acast",
+  "endpoint": "https://oembed.acast.com/v1/embed-player",
+  "schemes": [
+   "https://play.acast.com/s/*",
+   "https://shows.acast.com/*/episodes/*"
+  ]
+ },
+ {
+  "name": "ActBlue",
+  "endpoint": "https://secure.actblue.com/cf/oembed",
+  "schemes": [
+   "https://secure.actblue.com/donate/*"
+  ]
+ },
+ {
+  "name": "Adilo",
+  "endpoint": "https://adilo.bigcommand.com/web/oembed",
+  "schemes": [
+   "https://adilo.bigcommand.com/watch/*"
+  ]
+ },
+ {
+  "name": "afreecaTV",
+  "endpoint": "https://openapi.afreecatv.com/oembed/embedinfo",
+  "schemes": [
+   "https://vod.afreecatv.com/player/",
+   "https://v.afree.ca/ST/",
+   "https://vod.afreecatv.com/ST/",
+   "https://vod.afreecatv.com/PLAYER/STATION/",
+   "https://play.afreecatv.com/"
+  ]
+ },
+ {
+  "name": "Altium LLC",
+  "endpoint": "https://viewer.altium.com/shell/oembed",
+  "schemes": [
+   "https://altium.com/viewer/*"
+  ]
+ },
+ {
+  "name": "Altru",
+  "endpoint": "https://api.altrulabs.com/api/v1/social/oembed",
+  "schemes": [
+   "https://app.altrulabs.com/*/*?answer_id=*",
+   "https://app.altrulabs.com/player/*"
+  ]
+ },
+ {
+  "name": "amCharts",
+  "endpoint": "https://live.amcharts.com/api/oembed",
+  "schemes": [
+   "https://chart.amcharts.com/*/*"
+  ]
+ },
+ {
+  "name": "Amtraker",
+  "endpoint": "https://api.amtraker.com/v3/oembed",
+  "schemes": [
+   "https://amtraker.com/trains/*",
+   "https://amtraker.com/trains/*/*",
+   "https://*.amtraker.com/trains/*",
+   "https://*.amtraker.com/trains/*/*"
+  ]
+ },
+ {
+  "name": "Animatron",
+  "endpoint": "https://animatron.com/oembed/json",
+  "schemes": [
+   "https://www.animatron.com/project/*",
+   "https://animatron.com/project/*"
+  ]
+ },
+ {
+  "name": "Animoto",
+  "endpoint": "http://animoto.com/oembeds/create",
+  "schemes": [
+   "http://animoto.com/play/*"
+  ]
+ },
+ {
+  "name": "AnnieMusic",
+  "endpoint": "https://api.anniemusic.app/api/v1/oembed",
+  "schemes": [
+   "https://anniemusic.app/t/*",
+   "https://anniemusic.app/p/*"
+  ]
+ },
+ {
+  "name": "AppForceStudio",
+  "endpoint": "https://us-central1-themerax-cc903.cloudfunctions.net/playgroundApi/oembed",
+  "schemes": [
+   "https://appforcestudio.com/playground/*"
+  ]
+ },
+ {
+  "name": "Apple Podcasts",
+  "endpoint": "https://podcasts.apple.com/api/oembed",
+  "schemes": [
+   "https://podcasts.apple.com/*"
+  ]
+ },
+ {
+  "name": "ArcGIS StoryMaps",
+  "endpoint": "https://storymaps.arcgis.com/oembed",
+  "schemes": [
+   "https://storymaps.arcgis.com/stories/*"
+  ]
+ },
+ {
+  "name": "AssemblrWorld",
+  "endpoint": "https://studio.assemblrworld.com/api/oembed",
+  "schemes": [
+   "http://*.studio.assemblrworld.com/creation/*",
+   "http://studio.assemblrworld.com/creation/*",
+   "http://*.app-edu.assemblrworld.com/Creation/*",
+   "http://app-edu.assemblrworld.com/Creation/*",
+   "http://assemblr.world/*",
+   "http://editor.assemblrworld.com/*",
+   "http://*.assemblrworld.com/creation/*",
+   "http://*.assemblrworld.com/Creation/*",
+   "https://*.studio.assemblrworld.com/creation/*",
+   "https://studio.assemblrworld.com/creation/*",
+   "https://*.app-edu.assemblrworld.com/Creation/*",
+   "https://app-edu.assemblrworld.com/Creation/*",
+   "https://assemblr.world/*",
+   "https://editor.assemblrworld.com/*",
+   "https://*.assemblrworld.com/creation/*",
+   "https://*.assemblrworld.com/Creation/*"
+  ]
+ },
+ {
+  "name": "Atlantis Data Solutions",
+  "endpoint": "https://atlantisdatasolutions.com/oembed",
+  "schemes": [
+   "https://atlantisdatasolutions.com/*/*",
+   "https://atlantisdatasolutions.com/embed/chart/*/*",
+   "https://atlantisdatasolutions.com/yield-curves",
+   "https://atlantisdatasolutions.com/sovereign-yield-curves",
+   "https://atlantisdatasolutions.com/screener",
+   "https://atlantisdatasolutions.com/bubble-chart-screener",
+   "https://atlantisdatasolutions.com/embed/yield-curve",
+   "https://atlantisdatasolutions.com/embed/sovereign-curve",
+   "https://atlantisdatasolutions.com/embed/screener",
+   "https://atlantisdatasolutions.com/embed/europe-screener",
+   "https://atlantisdatasolutions.com/embed/rankings/*"
+  ]
+ },
+ {
+  "name": "audio.com",
+  "endpoint": "https://api.audio.com/oembed",
+  "schemes": [
+   "https://audio.com/*",
+   "https://www.audio.com/*",
+   "http://audio.com/*",
+   "http://www.audio.com/*"
+  ]
+ },
+ {
+  "name": "Audioboom",
+  "endpoint": "https://audioboom.com/publishing/oembed.json",
+  "schemes": [
+   "https://audioboom.com/channels/*",
+   "https://audioboom.com/channel/*",
+   "https://audioboom.com/playlists/*",
+   "https://audioboom.com/podcasts/*",
+   "https://audioboom.com/podcast/*",
+   "https://audioboom.com/posts/*",
+   "https://audioboom.com/episodes/*"
+  ]
+ },
+ {
+  "name": "AudioClip",
+  "endpoint": "https://audioclip.naver.com/oembed",
+  "schemes": [
+   "https://audioclip.naver.com/channels/*/clips/*",
+   "https://audioclip.naver.com/audiobooks/*"
+  ]
+ },
+ {
+  "name": "Audiomack",
+  "endpoint": "https://audiomack.com/oembed",
+  "schemes": [
+   "https://audiomack.com/*/song/*",
+   "https://audiomack.com/*/album/*",
+   "https://audiomack.com/*/playlist/*"
+  ]
+ },
+ {
+  "name": "Audiomeans",
+  "endpoint": "https://podcasts.audiomeans.fr/services/oembed",
+  "schemes": [
+   "https://podcasts.audiomeans.fr/*"
+  ]
+ },
+ {
+  "name": "AudioSFX",
+  "endpoint": "https://audiosfx.org/api/oembed",
+  "schemes": [
+   "https://audiosfx.org/audio/*",
+   "https://audiosfx.org/playlist/*"
+  ]
+ },
+ {
+  "name": "Audius",
+  "endpoint": "https://audius.co/oembed",
+  "schemes": [
+   "https://audius.co/*"
+  ]
+ },
+ {
+  "name": "Backtracks",
+  "endpoint": "https://backtracks.fm/oembed",
+  "schemes": [
+   "https://backtracks.fm/*/*/e/*",
+   "https://backtracks.fm/*/s/*/*",
+   "https://backtracks.fm/*/*/*/*/e/*/*",
+   "https://backtracks.fm/*",
+   "http://backtracks.fm/*"
+  ]
+ },
+ {
+  "name": "Balsamiq Cloud",
+  "endpoint": "https://balsamiq.cloud/oembed",
+  "schemes": [
+   "https://balsamiq.cloud/*"
+  ]
+ },
+ {
+  "name": "Behance",
+  "endpoint": "https://www.behance.net/services/oembed",
+  "schemes": [
+   "https://www.behance.net/gallery/*/*",
+   "https://www.behance.net/*/services/*/*"
+  ]
+ },
+ {
+  "name": "Beta QuellenSuche",
+  "endpoint": "http://beta.quellensuche.de/api/oembed",
+  "schemes": [
+   "http://beta.quellensuche.de/*"
+  ]
+ },
+ {
+  "name": "biqapp",
+  "endpoint": "https://biqapp.net/api/oembed",
+  "schemes": [
+   "https://biqapp.net/f/*",
+   "https://www.biqapp.net/f/*"
+  ]
+ },
+ {
+  "name": "Blackfire.io",
+  "endpoint": "https://blackfire.io/oembed",
+  "schemes": [
+   "https://blackfire.io/profiles/*/graph",
+   "https://blackfire.io/profiles/compare/*/graph"
+  ]
+ },
+ {
+  "name": "Blogcast",
+  "endpoint": "https://blogcast.host/oembed",
+  "schemes": [
+   "https://blogcast.host/embed/*",
+   "https://blogcast.host/embedly/*"
+  ]
+ },
+ {
+  "name": "Bluesky Social",
+  "endpoint": "https://embed.bsky.app/oembed",
+  "schemes": [
+   "https://bsky.app/profile/*/post/*"
+  ]
+ },
+ {
+  "name": "BondByIsin",
+  "endpoint": "https://bondbyisin.com/oembed",
+  "schemes": [
+   "https://bondbyisin.com/bond/*",
+   "https://bondbyisin.com/swap-curves*",
+   "https://bondbyisin.com/embed/bond-price/*",
+   "https://bondbyisin.com/embed/swap-curve*",
+   "https://www.bondbyisin.com/bond/*",
+   "https://www.bondbyisin.com/swap-curves*",
+   "https://www.bondbyisin.com/embed/bond-price/*",
+   "https://www.bondbyisin.com/embed/swap-curve*"
+  ]
+ },
+ {
+  "name": "Bookingmood",
+  "endpoint": "https://bookingmood.com/api/oembed",
+  "schemes": [
+   "https://www.bookingmood.com/embed/*/*"
+  ]
+ },
+ {
+  "name": "Bornetube",
+  "endpoint": "https://www.bornetube.dk/media/lasync/oembed/",
+  "schemes": [
+   "https://www.bornetube.dk/media/*",
+   "https://www.bornetube.dk/video/*"
+  ]
+ },
+ {
+  "name": "Box Office Buz",
+  "endpoint": "https://api.boxofficebuz.com/v2/oembed",
+  "schemes": [
+   "https://boxofficebuz.com/embed/video/*"
+  ]
+ },
+ {
+  "name": "Brightcove",
+  "endpoint": "https://oembed.brightcove.com/",
+  "schemes": [
+   "https://players.brightcove.net/*/*/index.html?videoId=*",
+   "https://players.brightcove.net/*/*/index.html?playlistId=*",
+   "https://bcove.video/*"
+  ]
+ },
+ {
+  "name": "BudgetPixel",
+  "endpoint": "https://budgetpixel.com/oembed",
+  "schemes": [
+   "https://budgetpixel.com/p/*",
+   "https://budgetpixel.com/sfx/*",
+   "https://budgetpixel.com/background-music/*"
+  ]
+ },
+ {
+  "name": "Bumper",
+  "endpoint": "https://www.bumper.com/oembed/bumper",
+  "schemes": [
+   "https://www.bumper.com/oembed/bumper",
+   "https://www.bumper.com/oembed-s/bumper"
+  ]
+ },
+ {
+  "name": "bunny.net",
+  "endpoint": "https://video.bunnycdn.com/OEmbed",
+  "schemes": [
+   "https://player.mediadelivery.net/*",
+   "http://player.mediadelivery.net/*",
+   "https://iframe.mediadelivery.net/*",
+   "http://iframe.mediadelivery.net/*",
+   "https://video.bunnycdn.com/*",
+   "http://video.bunnycdn.com/*"
+  ]
+ },
+ {
+  "name": "Buttondown",
+  "endpoint": "https://buttondown.email/embed",
+  "schemes": [
+   "https://buttondown.email/*"
+  ]
+ },
+ {
+  "name": "Byzart Project",
+  "endpoint": "https://cmc.byzart.eu/oembed/",
+  "schemes": [
+   "https://cmc.byzart.eu/files/*"
+  ]
+ },
+ {
+  "name": "Cacoo",
+  "endpoint": "http://cacoo.com/oembed.json",
+  "schemes": [
+   "https://cacoo.com/diagrams/*"
+  ]
+ },
+ {
+  "name": "CalGet",
+  "endpoint": "https://calget.com/oembed",
+  "schemes": [
+   "https://calget.com/calendar-embed/*"
+  ]
+ },
+ {
+  "name": "Canva",
+  "endpoint": "https://www.canva.com/_oembed",
+  "schemes": [
+   "https://www.canva.com/design/*/view"
+  ]
+ },
+ {
+  "name": "Carbon",
+  "endpoint": "https://carbon.music/oembed",
+  "schemes": [
+   "https://carbon.music/*",
+   "https://www.carbon.music/*"
+  ]
+ },
+ {
+  "name": "Carbon Voice",
+  "endpoint": "https://carbonvoice.app/api/oembed",
+  "schemes": [
+   "https://carbonvoice.app/s/*",
+   "https://carbonvoice.app/m/*",
+   "https://carbonvoice.app/c/*"
+  ]
+ },
+ {
+  "name": "Castle",
+  "endpoint": "https://castle.xyz/api/oembed",
+  "schemes": [
+   "https://castle.xyz/d/*"
+  ]
+ },
+ {
+  "name": "castmake",
+  "endpoint": "http://castmake-ai.com/api/embed",
+  "schemes": [
+   "https://www.castmake-ai.com/c/*/episodes/*"
+  ]
+ },
+ {
+  "name": "CatBoat",
+  "endpoint": "http://img.catbo.at/oembed.json",
+  "schemes": [
+   "http://img.catbo.at/*"
+  ]
+ },
+ {
+  "name": "Celero",
+  "endpoint": "https://api.celero.io/api/oembed",
+  "schemes": [
+   "https://embeds.celero.io/*"
+  ]
+ },
+ {
+  "name": "Ceros",
+  "endpoint": "http://view.ceros.com/oembed",
+  "schemes": [
+   "http://view.ceros.com/*",
+   "https://view.ceros.com/*"
+  ]
+ },
+ {
+  "name": "ChanceIndex",
+  "endpoint": "https://chanceindex.com/api/oembed",
+  "schemes": [
+   "https://chanceindex.com/odds/*"
+  ]
+ },
+ {
+  "name": "ChartBlocks",
+  "endpoint": "http://embed.chartblocks.com/1.0/oembed",
+  "schemes": [
+   "http://public.chartblocks.com/c/*"
+  ]
+ },
+ {
+  "name": "CHROCO",
+  "endpoint": "https://chroco.ooo/embed",
+  "schemes": [
+   "https://chroco.ooo/mypage/*",
+   "https://chroco.ooo/story/*"
+  ]
+ },
+ {
+  "name": "CircleZeroEight",
+  "endpoint": "https://www.circlezeroeight.com/api/oembed",
+  "schemes": [
+   "https://www.circlezeroeight.com/features/*",
+   "https://www.circlezeroeight.com/news/*",
+   "https://www.circlezeroeight.com/sport/*",
+   "https://www.circlezeroeight.com/style/*",
+   "https://www.circlezeroeight.com/culture/*"
+  ]
+ },
+ {
+  "name": "CircuitLab",
+  "endpoint": "https://www.circuitlab.com/circuit/oembed/",
+  "schemes": [
+   "https://www.circuitlab.com/circuit/*"
+  ]
+ },
+ {
+  "name": "Clipform",
+  "endpoint": "https://api.clipform.io/v1/oembed",
+  "schemes": [
+   "https://clipform.io/*"
+  ]
+ },
+ {
+  "name": "Clipland",
+  "endpoint": "https://www.clipland.com/api/oembed",
+  "schemes": [
+   "http://www.clipland.com/v/*",
+   "https://www.clipland.com/v/*"
+  ]
+ },
+ {
+  "name": "Clueso",
+  "endpoint": "https://clueso.site/api/oembed",
+  "schemes": [
+   "https://clueso.site/*"
+  ]
+ },
+ {
+  "name": "Clyp",
+  "endpoint": "http://api.clyp.it/oembed/",
+  "schemes": [
+   "http://clyp.it/*",
+   "http://clyp.it/playlist/*"
+  ]
+ },
+ {
+  "name": "CodeHS",
+  "endpoint": "https://codehs.com/api/sharedprogram/1/oembed/",
+  "schemes": [
+   "https://codehs.com/editor/share_abacus/*"
+  ]
+ },
+ {
+  "name": "CodePen",
+  "endpoint": "https://codepen.io/api/oembed",
+  "schemes": [
+   "http://codepen.io/*",
+   "https://codepen.io/*"
+  ]
+ },
+ {
+  "name": "Codepoints",
+  "endpoint": "https://codepoints.net/api/v1/oembed",
+  "schemes": [
+   "http://codepoints.net/*",
+   "https://codepoints.net/*",
+   "http://www.codepoints.net/*",
+   "https://www.codepoints.net/*"
+  ]
+ },
+ {
+  "name": "CodeSandbox",
+  "endpoint": "https://codesandbox.io/oembed",
+  "schemes": [
+   "https://codesandbox.io/s/*",
+   "https://codesandbox.io/embed/*"
+  ]
+ },
+ {
+  "name": "CollegeHumor",
+  "endpoint": "http://www.collegehumor.com/oembed.json",
+  "schemes": [
+   "http://www.collegehumor.com/video/*"
+  ]
+ },
+ {
+  "name": "Coloring Monster",
+  "endpoint": "https://coloringmonster.com/oembed",
+  "schemes": [
+   "https://coloringmonster.com/coloring-page/*",
+   "https://coloringmonster.com/monsterpieces/*"
+  ]
+ },
+ {
+  "name": "Commaful",
+  "endpoint": "https://commaful.com/api/oembed/",
+  "schemes": [
+   "https://commaful.com/play/*"
+  ]
+ },
+ {
+  "name": "Coub",
+  "endpoint": "http://coub.com/api/oembed.json",
+  "schemes": [
+   "http://coub.com/view/*",
+   "http://coub.com/embed/*"
+  ]
+ },
+ {
+  "name": "Crumb.sh",
+  "endpoint": "https://crumb.sh/oembed/",
+  "schemes": [
+   "https://crumb.sh/*"
+  ]
+ },
+ {
+  "name": "Cueup DJ Booking",
+  "endpoint": "https://gql.cueup.io/oembed",
+  "schemes": [
+   "https://cueup.io/user/*/sounds/*"
+  ]
+ },
+ {
+  "name": "Curated",
+  "endpoint": "https://api.curated.co/oembed",
+  "schemes": [
+   "https://*.curated.co/*"
+  ]
+ },
+ {
+  "name": "d.calculators",
+  "endpoint": "https://dcalculators.com/oembed",
+  "schemes": [
+   "https://dcalculators.com/*/*/*/"
+  ]
+ },
+ {
+  "name": "dadan",
+  "endpoint": "https://app.dadan.io/api/video/oembed",
+  "schemes": [
+   "https://app.dadan.io/*",
+   "https://stage.dadan.io/*"
+  ]
+ },
+ {
+  "name": "Dailymotion",
+  "endpoint": "https://www.dailymotion.com/services/oembed",
+  "schemes": [
+   "https://www.dailymotion.com/video/*",
+   "https://geo.dailymotion.com/player.html?video=*"
+  ]
+ },
+ {
+  "name": "DALEXNI",
+  "endpoint": "https://dalexni.com/oembed/",
+  "schemes": [
+   "https://dalexni.com/i/*"
+  ]
+ },
+ {
+  "name": "Datawrapper",
+  "endpoint": "https://api.datawrapper.de/v3/oembed/",
+  "schemes": [
+   "https://datawrapper.dwcdn.net/*"
+  ]
+ },
+ {
+  "name": "Debatr",
+  "endpoint": "https://debatr.tv/api/oembed",
+  "schemes": [
+   "https://debatr.tv/d/*",
+   "https://debatr.tv/t/*",
+   "https://debatr.tv/embed/*"
+  ]
+ },
+ {
+  "name": "Demofly",
+  "endpoint": "https://app.demofly.ai/api/oembed",
+  "schemes": [
+   "https://app.demofly.ai/s/*",
+   "https://demofly.ai/s/*"
+  ]
+ },
+ {
+  "name": "Deseret News",
+  "endpoint": "https://embed.deseret.com/",
+  "schemes": [
+   "https://*.deseret.com/*"
+  ]
+ },
+ {
+  "name": "Deviantart.com",
+  "endpoint": "http://backend.deviantart.com/oembed",
+  "schemes": [
+   "http://*.deviantart.com/art/*",
+   "http://*.deviantart.com/*#/d*",
+   "http://fav.me/*",
+   "http://sta.sh/*",
+   "https://*.deviantart.com/art/*",
+   "https://*.deviantart.com/*/art/*",
+   "https://sta.sh/*",
+   "https://*.deviantart.com/*#/d*"
+  ]
+ },
+ {
+  "name": "Digiteka",
+  "endpoint": "https://www.ultimedia.com/api/search/oembed",
+  "schemes": [
+   "https://www.ultimedia.com/central/video/edit/id/*/topic_id/*/",
+   "https://www.ultimedia.com/default/index/videogeneric/id/*/showtitle/1/viewnc/1",
+   "https://www.ultimedia.com/default/index/videogeneric/id/*"
+  ]
+ },
+ {
+  "name": "DocDroid",
+  "endpoint": "https://www.docdroid.net/api/oembed",
+  "schemes": [
+   "https://*.docdroid.net/*",
+   "http://*.docdroid.net/*",
+   "https://docdro.id/*",
+   "http://docdro.id/*",
+   "https://*.docdroid.com/*",
+   "http://*.docdroid.com/*"
+  ]
+ },
+ {
+  "name": "Docswell",
+  "endpoint": "https://www.docswell.com/service/oembed",
+  "schemes": [
+   "http://docswell.com/s/*/*",
+   "https://docswell.com/s/*/*",
+   "http://www.docswell.com/s/*/*",
+   "https://www.docswell.com/s/*/*"
+  ]
+ },
+ {
+  "name": "DocumentCloud",
+  "endpoint": "https://api.www.documentcloud.org/api/oembed",
+  "schemes": [
+   "https://www.documentcloud.org/documents/*"
+  ]
+ },
+ {
+  "name": "Dotsub",
+  "endpoint": "http://dotsub.com/services/oembed",
+  "schemes": [
+   "http://dotsub.com/view/*"
+  ]
+ },
+ {
+  "name": "Dream Broker",
+  "endpoint": "https://dreambroker.com/channel/oembed",
+  "schemes": [
+   "https://www.dreambroker.com/channel/*/*"
+  ]
+ },
+ {
+  "name": "DTube",
+  "endpoint": "https://api.d.tube/oembed",
+  "schemes": [
+   "https://d.tube/v/*"
+  ]
+ },
+ {
+  "name": "Ecency",
+  "endpoint": "https://ecency.com/api/oembed",
+  "schemes": [
+   "https://ecency.com/@*/*",
+   "https://ecency.com/*/@*/*"
+  ]
+ },
+ {
+  "name": "EgliseInfo",
+  "endpoint": "http://egliseinfo.catholique.fr/api/oembed",
+  "schemes": [
+   "http://egliseinfo.catholique.fr/*"
+  ]
+ },
+ {
+  "name": "Election Tracker",
+  "endpoint": "https://electiontracker.eu/oembed",
+  "schemes": [
+   "https://electiontracker.eu/*"
+  ]
+ },
+ {
+  "name": "ElevenLabs",
+  "endpoint": "https://elevenlabs.io/next/oembed",
+  "schemes": [
+   "https://elevenlabs.io/*"
+  ]
+ },
+ {
+  "name": "Elupedia",
+  "endpoint": "https://www.elupedia.fr/api/oembed",
+  "schemes": [
+   "https://www.elupedia.fr/elus/*",
+   "https://www.elupedia.fr/scrutins/*"
+  ]
+ },
+ {
+  "name": "Embases",
+  "endpoint": "https://www.embases.com/api/oembed",
+  "schemes": [
+   "https://www.embases.com/e/*"
+  ]
+ },
+ {
+  "name": "Embedery",
+  "endpoint": "https://embedery.com/api/oembed",
+  "schemes": [
+   "https://embedery.com/widget/*"
+  ]
+ },
+ {
+  "name": "Ethfiddle",
+  "endpoint": "https://ethfiddle.com/services/oembed/",
+  "schemes": [
+   "https://ethfiddle.com/*"
+  ]
+ },
+ {
+  "name": "EventLive",
+  "endpoint": "https://evt.live/api/oembed",
+  "schemes": [
+   "https://evt.live/*",
+   "https://evt.live/*/*",
+   "https://live.eventlive.pro/*",
+   "https://live.eventlive.pro/*/*"
+  ]
+ },
+ {
+  "name": "everviz",
+  "endpoint": "https://api.everviz.com/oembed",
+  "schemes": [
+   "https://app.everviz.com/embed/*",
+   "http://app.everviz.com/embed/*"
+  ]
+ },
+ {
+  "name": "Everwall",
+  "endpoint": "https://cdn.everwall.com/hubs/oembed",
+  "schemes": [
+   "https://cdn.everwall.com/hubs/iframe/*"
+  ]
+ },
+ {
+  "name": "EveryPage",
+  "endpoint": "https://everypage.co/oembed",
+  "schemes": [
+   "https://everypage.co/*"
+  ]
+ },
+ {
+  "name": "Facebook",
+  "endpoint": "https://graph.facebook.com/v16.0/oembed_page",
+  "schemes": [
+   "https://www.facebook.com/*"
+  ]
+ },
+ {
+  "name": "Facebook",
+  "endpoint": "https://graph.facebook.com/v16.0/oembed_post",
+  "schemes": [
+   "https://www.facebook.com/*/posts/*",
+   "https://www.facebook.com/*/activity/*",
+   "https://www.facebook.com/*/photos/*",
+   "https://www.facebook.com/photo.php?fbid=*",
+   "https://www.facebook.com/photos/*",
+   "https://www.facebook.com/permalink.php?story_fbid=*",
+   "https://www.facebook.com/media/set?set=*",
+   "https://www.facebook.com/questions/*",
+   "https://www.facebook.com/notes/*/*/*"
+  ]
+ },
+ {
+  "name": "Facebook",
+  "endpoint": "https://graph.facebook.com/v16.0/oembed_video",
+  "schemes": [
+   "https://www.facebook.com/*/videos/*",
+   "https://www.facebook.com/video.php?id=*",
+   "https://www.facebook.com/video.php?v=*"
+  ]
+ },
+ {
+  "name": "Faithlife TV",
+  "endpoint": "https://faithlifetv.com/api/oembed",
+  "schemes": [
+   "https://faithlifetv.com/items/*",
+   "https://faithlifetv.com/items/resource/*/*",
+   "https://faithlifetv.com/media/*",
+   "https://faithlifetv.com/media/assets/*",
+   "https://faithlifetv.com/media/resource/*/*"
+  ]
+ },
+ {
+  "name": "FazenHaus",
+  "endpoint": "https://haus.fazen.co/api/oembed",
+  "schemes": [
+   "https://haus.fazen.co/embed/music/*"
+  ]
+ },
+ {
+  "name": "Figma",
+  "endpoint": "https://www.figma.com/api/oembed",
+  "schemes": [
+   "https://www.figma.com/file/*",
+   "https://www.figma.com/design/*",
+   "https://www.figma.com/board/*",
+   "https://www.figma.com/slides/*",
+   "https://www.figma.com/buzz/*",
+   "https://www.figma.com/site/*",
+   "https://www.figma.com/make/*"
+  ]
+ },
+ {
+  "name": "Filestage",
+  "endpoint": "https://app.filestage.io/oembed",
+  "schemes": [
+   "https://app.filestage.io/step/**"
+  ]
+ },
+ {
+  "name": "Firework",
+  "endpoint": "https://www.fireworktv.com/oembed",
+  "schemes": [
+   "https://*.fireworktv.com/*",
+   "https://*.fireworktv.com/embed/*/v/*"
+  ]
+ },
+ {
+  "name": "FITE",
+  "endpoint": "https://www.fite.tv/oembed",
+  "schemes": [
+   "https://www.fite.tv/watch/*"
+  ]
+ },
+ {
+  "name": "Flat",
+  "endpoint": "https://flat.io/services/oembed",
+  "schemes": [
+   "https://flat.io/score/*",
+   "https://*.flat.io/score/*"
+  ]
+ },
+ {
+  "name": "Flickr",
+  "endpoint": "https://www.flickr.com/services/oembed/",
+  "schemes": [
+   "http://*.flickr.com/photos/*",
+   "http://flic.kr/p/*",
+   "http://flic.kr/s/*",
+   "https://*.flickr.com/photos/*",
+   "https://flic.kr/p/*",
+   "https://flic.kr/s/*",
+   "https://*.*.flickr.com/*/*",
+   "http://*.*.flickr.com/*/*"
+  ]
+ },
+ {
+  "name": "Flourish",
+  "endpoint": "https://app.flourish.studio/api/v1/oembed",
+  "schemes": [
+   "https://public.flourish.studio/visualisation/*",
+   "https://public.flourish.studio/story/*"
+  ]
+ },
+ {
+  "name": "FlowHubOrg",
+  "endpoint": "https://flowhub.org/o/embed",
+  "schemes": [
+   "https://flowhub.org/f/*",
+   "https://flowhub.org/s/*"
+  ]
+ },
+ {
+  "name": "Fooday",
+  "endpoint": "https://fooday.app/oembed",
+  "schemes": [
+   "https://fooday.app/*/reviews/*",
+   "https://fooday.app/*/spots/*"
+  ]
+ },
+ {
+  "name": "Form-Data",
+  "endpoint": "https://forms.form-data.com/api/oembed",
+  "schemes": [
+   "https://forms.form-data.com/*"
+  ]
+ },
+ {
+  "name": "FOX SPORTS Australia",
+  "endpoint": "https://fiso.foxsports.com.au/oembed",
+  "schemes": [
+   "http://fiso.foxsports.com.au/isomorphic-widget/*",
+   "https://fiso.foxsports.com.au/isomorphic-widget/*"
+  ]
+ },
+ {
+  "name": "Framatube",
+  "endpoint": "https://framatube.org/services/oembed",
+  "schemes": [
+   "https://framatube.org/w/*"
+  ]
+ },
+ {
+  "name": "FrameBuzz",
+  "endpoint": "https://framebuzz.com/oembed/",
+  "schemes": [
+   "http://framebuzz.com/v/*",
+   "https://framebuzz.com/v/*"
+  ]
+ },
+ {
+  "name": "Framer",
+  "endpoint": "https://api.framer.com/web/oembed",
+  "schemes": [
+   "https://framer.com/share/*",
+   "https://framer.com/embed/*"
+  ]
+ },
+ {
+  "name": "FrameRate",
+  "endpoint": "https://framerate.tv/api/oembed",
+  "schemes": [
+   "https://framerate.tv/watch/*"
+  ]
+ },
+ {
+  "name": "frequencing",
+  "endpoint": "https://frequencing.com/api/oembed",
+  "schemes": [
+   "https://frequencing.com/track/*",
+   "https://frequencing.com/post/*",
+   "https://frequencing.com/user/*/playlists/*"
+  ]
+ },
+ {
+  "name": "Fritube",
+  "endpoint": "https://fritube.ch/services/oembed",
+  "schemes": [
+   "https://fritube.ch/v/*"
+  ]
+ },
+ {
+  "name": "GeometryViewer",
+  "endpoint": "https://geometryviewer.com/oembed",
+  "schemes": [
+   "https://geometryviewer.com/v/*",
+   "https://www.geometryviewer.com/v/*"
+  ]
+ },
+ {
+  "name": "Getty Images",
+  "endpoint": "http://embed.gettyimages.com/oembed",
+  "schemes": [
+   "http://gty.im/*"
+  ]
+ },
+ {
+  "name": "Gifnote",
+  "endpoint": "https://www.gifnote.com/services/oembed",
+  "schemes": [
+   "https://www.gifnote.com/play/*"
+  ]
+ },
+ {
+  "name": "GigNGo",
+  "endpoint": "https://gigngo.org/oembed",
+  "schemes": [
+   "https://gigngo.org/watch/*",
+   "https://gigngo.org/embed/*"
+  ]
+ },
+ {
+  "name": "GIPHY",
+  "endpoint": "https://giphy.com/services/oembed",
+  "schemes": [
+   "https://giphy.com/gifs/*",
+   "https://giphy.com/clips/*",
+   "http://gph.is/*",
+   "https://media.giphy.com/media/*/giphy.gif"
+  ]
+ },
+ {
+  "name": "GMetri",
+  "endpoint": "https://embed.gmetri.com/oembed/",
+  "schemes": [
+   "https://view.gmetri.com/*",
+   "https://*.gmetri.com/*"
+  ]
+ },
+ {
+  "name": "Gong",
+  "endpoint": "https://app.gong.io/oembed",
+  "schemes": [
+   "https://app.gong.io/call?id=*"
+  ]
+ },
+ {
+  "name": "GOOD FOR JOB",
+  "endpoint": "https://www.good-for-job.jp/api/oembed",
+  "schemes": [
+   "https://www.good-for-job.jp/slides/*"
+  ]
+ },
+ {
+  "name": "Grain",
+  "endpoint": "https://api.grain.com/_/api/oembed",
+  "schemes": [
+   "https://grain.co/highlight/*",
+   "https://grain.co/share/*",
+   "https://grain.com/share/*"
+  ]
+ },
+ {
+  "name": "Gumlet",
+  "endpoint": "https://api.gumlet.com/v1/oembed",
+  "schemes": [
+   "https://gumlet.tv/watch/*",
+   "https://play.gumlet.io/embed/*"
+  ]
+ },
+ {
+  "name": "GW2 Fashions",
+  "endpoint": "https://gw2fashions.com/fashion/oembed",
+  "schemes": [
+   "https://gw2fashions.com/fashion/*"
+  ]
+ },
+ {
+  "name": "Gyazo",
+  "endpoint": "https://api.gyazo.com/api/oembed",
+  "schemes": [
+   "https://gyazo.com/*"
+  ]
+ },
+ {
+  "name": "HASH",
+  "endpoint": "https://api.hash.ai/oembed",
+  "schemes": [
+   "https://core.hash.ai/@*"
+  ]
+ },
+ {
+  "name": "hearthis.at",
+  "endpoint": "https://hearthis.at/oembed/?format=json",
+  "schemes": [
+   "https://hearthis.at/*/*/",
+   "https://hearthis.at/*/set/*/"
+  ]
+ },
+ {
+  "name": "Heyzine",
+  "endpoint": "https://heyzine.com/api1/oembed",
+  "schemes": [
+   "https://heyzine.com/flip-book/*",
+   "https://*.hflip.co/*",
+   "https://*.aflip.in/*"
+  ]
+ },
+ {
+  "name": "hihaho",
+  "endpoint": "https://player.hihaho.com/services/oembed",
+  "schemes": [
+   "https://player.hihaho.com/*"
+  ]
+ },
+ {
+  "name": "HippoVideo",
+  "endpoint": "https://www.hippovideo.io/services/oembed",
+  "schemes": [
+   "http://*.hippovideo.io/*",
+   "https://*.hippovideo.io/*"
+  ]
+ },
+ {
+  "name": "Hivo",
+  "endpoint": "https://app.hivo.com.au/api/drupal/oembed",
+  "schemes": [
+   "https://cdn.hivo.com.au/*",
+   "https://cdn.digital-assets.uq.edu.au/*",
+   "https://cdn.southerndesigngroup.com/*",
+   "https://freedom.hivocdn.com/*",
+   "https://cdn.cockburn.wa.gov.au/*",
+   "https://cdn.somnomed.com/*",
+   "https://cdn.snowtunnel.com/*",
+   "https://cdn.brenclosures.com.au/*"
+  ]
+ },
+ {
+  "name": "Homey",
+  "endpoint": "https://homey.app/api/oembed/flow",
+  "schemes": [
+   "https://homey.app/f/*",
+   "https://homey.app/*/flow/*"
+  ]
+ },
+ {
+  "name": "HuffDuffer",
+  "endpoint": "http://huffduffer.com/oembed",
+  "schemes": [
+   "http://huffduffer.com/*/*"
+  ]
+ },
+ {
+  "name": "Hulu",
+  "endpoint": "http://www.hulu.com/api/oembed.json",
+  "schemes": [
+   "http://www.hulu.com/watch/*"
+  ]
+ },
+ {
+  "name": "Icosa Gallery",
+  "endpoint": "https://api.icosa.gallery/v1/oembed",
+  "schemes": [
+   "https://icosa.gallery/view/*"
+  ]
+ },
+ {
+  "name": "Ideamapper",
+  "endpoint": "https://oembed.ideamapper.com/oembed",
+  "schemes": [
+   "https://oembed.ideamapper.com/*"
+  ]
+ },
+ {
+  "name": "Idomoo",
+  "endpoint": "https://oembed.idomoo.com/oembed",
+  "schemes": [
+   "https://*.idomoo.com/*"
+  ]
+ },
+ {
+  "name": "iFixit",
+  "endpoint": "http://www.ifixit.com/Embed",
+  "schemes": [
+   "http://www.ifixit.com/Guide/View/*"
+  ]
+ },
+ {
+  "name": "IFTTT",
+  "endpoint": "http://www.ifttt.com/oembed/",
+  "schemes": [
+   "http://ifttt.com/recipes/*"
+  ]
+ },
+ {
+  "name": "Ignite",
+  "endpoint": "https://app.ignitevideo.cloud/api/oembed",
+  "schemes": [
+   "https://*.videocdn.net/player/*",
+   "https://*.euvideocdn.com/player/*"
+  ]
+ },
+ {
+  "name": "iHeartRadio",
+  "endpoint": "https://www.iheart.com/oembed",
+  "schemes": [
+   "https://www.iheart.com/podcast/*/*"
+  ]
+ },
+ {
+  "name": "iMenuPro",
+  "endpoint": "https://qr.imenupro.com/api/oembed",
+  "schemes": [
+   "http://qr.imenupro.com/*",
+   "https://qr.imenupro.com/*"
+  ]
+ },
+ {
+  "name": "Indaco",
+  "endpoint": "https://player.indacolive.com/services/oembed",
+  "schemes": [
+   "https://player.indacolive.com/player/jwp/clients/*"
+  ]
+ },
+ {
+  "name": "Infogram",
+  "endpoint": "https://infogram.com/oembed",
+  "schemes": [
+   "https://infogram.com/*"
+  ]
+ },
+ {
+  "name": "Infoveave",
+  "endpoint": "https://infoveave.net/services/oembed/",
+  "schemes": [
+   "https://*.infoveave.net/E/*",
+   "https://*.infoveave.net/P/*"
+  ]
+ },
+ {
+  "name": "Injurymap",
+  "endpoint": "https://www.injurymap.com/services/oembed",
+  "schemes": [
+   "https://www.injurymap.com/exercises/*"
+  ]
+ },
+ {
+  "name": "Inoreader",
+  "endpoint": "https://www.inoreader.com/oembed/api/",
+  "schemes": [
+   "https://www.inoreader.com/oembed/"
+  ]
+ },
+ {
+  "name": "inphood",
+  "endpoint": "http://api.inphood.com/oembed",
+  "schemes": [
+   "http://*.inphood.com/*"
+  ]
+ },
+ {
+  "name": "Insight Timer",
+  "endpoint": "https://widgets.insighttimer.com/services/oembed",
+  "schemes": [
+   "https://insighttimer.com/*"
+  ]
+ },
+ {
+  "name": "Instagram",
+  "endpoint": "https://graph.facebook.com/v16.0/instagram_oembed",
+  "schemes": [
+   "http://instagram.com/*/p/*",
+   "http://www.instagram.com/*/p/*",
+   "https://instagram.com/*/p/*",
+   "https://www.instagram.com/*/p/*",
+   "http://instagram.com/p/*",
+   "http://instagr.am/p/*",
+   "http://www.instagram.com/p/*",
+   "http://www.instagr.am/p/*",
+   "https://instagram.com/p/*",
+   "https://instagr.am/p/*",
+   "https://www.instagram.com/p/*",
+   "https://www.instagr.am/p/*",
+   "http://instagram.com/tv/*",
+   "http://instagr.am/tv/*",
+   "http://www.instagram.com/tv/*",
+   "http://www.instagr.am/tv/*",
+   "https://instagram.com/tv/*",
+   "https://instagr.am/tv/*",
+   "https://www.instagram.com/tv/*",
+   "https://www.instagr.am/tv/*",
+   "http://www.instagram.com/reel/*",
+   "https://www.instagram.com/reel/*",
+   "http://instagram.com/reel/*",
+   "https://instagram.com/reel/*",
+   "http://instagr.am/reel/*",
+   "https://instagr.am/reel/*"
+  ]
+ },
+ {
+  "name": "Insticator Inc",
+  "endpoint": "https://www.insticator.com/oembed",
+  "schemes": [
+   "https://ppa.insticator.com/embed-unit/*"
+  ]
+ },
+ {
+  "name": "Issuu",
+  "endpoint": "https://issuu.com/oembed",
+  "schemes": [
+   "https://issuu.com/*/docs/*"
+  ]
+ },
+ {
+  "name": "Itabtech infosys",
+  "endpoint": "https://samay.itabtechinfosys.com/oembed/",
+  "schemes": [
+   "https://samay.itabtechinfosys.com/*"
+  ]
+ },
+ {
+  "name": "Jawafdehi",
+  "endpoint": "https://api.jawafdehi.org/oembed/",
+  "schemes": [
+   "https://jawafdehi.org/case/*"
+  ]
+ },
+ {
+  "name": "Jovian",
+  "endpoint": "https://api.jovian.com/oembed.json",
+  "schemes": [
+   "https://jovian.ml/*",
+   "https://jovian.ml/viewer*",
+   "https://*.jovian.ml/*",
+   "https://jovian.ai/*",
+   "https://jovian.ai/viewer*",
+   "https://*.jovian.ai/*",
+   "https://jovian.com/*",
+   "https://jovian.com/viewer*",
+   "https://*.jovian.com/*"
+  ]
+ },
+ {
+  "name": "Juntos",
+  "endpoint": "https://play.juntos.live/api/oembed",
+  "schemes": [
+   "https://play.juntos.live/solo/*",
+   "https://play.juntos.live/host/quiz/*"
+  ]
+ },
+ {
+  "name": "JustSpin",
+  "endpoint": "https://www.justspin.cc/api/oembed",
+  "schemes": [
+   "https://www.justspin.cc/workouts/*"
+  ]
+ },
+ {
+  "name": "Keystone Practice",
+  "endpoint": "https://keystonepractice.co/api/oembed",
+  "schemes": [
+   "https://keystonepractice.co/tools/*",
+   "https://keystonepractice.co/embed/*"
+  ]
+ },
+ {
+  "name": "Kickstarter",
+  "endpoint": "http://www.kickstarter.com/services/oembed",
+  "schemes": [
+   "http://www.kickstarter.com/projects/*"
+  ]
+ },
+ {
+  "name": "Kirim.Email",
+  "endpoint": "https://halaman.email/service/oembed",
+  "schemes": [
+   "https://halaman.email/form/*",
+   "https://aplikasi.kirim.email/form/*"
+  ]
+ },
+ {
+  "name": "Kitchenbowl",
+  "endpoint": "http://www.kitchenbowl.com/oembed",
+  "schemes": [
+   "http://www.kitchenbowl.com/recipe/*"
+  ]
+ },
+ {
+  "name": "Knowledge Pad",
+  "endpoint": "https://api.spoonacular.com/knowledge/oembed",
+  "schemes": [
+   "https://knowledgepad.co/#/knowledge/*"
+  ]
+ },
+ {
+  "name": "Kommodo",
+  "endpoint": "https://kommodo.ai/api/oembed",
+  "schemes": [
+   "https://kommodo.ai/recordings/*",
+   "https://kommodo.ai/guides/*"
+  ]
+ },
+ {
+  "name": "Kubit",
+  "endpoint": "https://kubit.ai/services/oembed",
+  "schemes": [
+   "https://kubit.ai/*",
+   "https://*.kubit.ai/*"
+  ]
+ },
+ {
+  "name": "Kurozora",
+  "endpoint": "https://kurozora.app/oembed",
+  "schemes": [
+   "https://kurozora.app/episodes/*",
+   "https://kurozora.app/songs/*"
+  ]
+ },
+ {
+  "name": "Land of Assets",
+  "endpoint": "https://api.landofassets.com/oembed",
+  "schemes": [
+   "https://landofassets.com/*",
+   "https://landofassets.com/*/assets",
+   "https://landofassets.com/*/assets/*",
+   "https://landofassets.com/*/assets/*/embed"
+  ]
+ },
+ {
+  "name": "Laude",
+  "endpoint": "http://laude.org/api/oembed",
+  "schemes": [
+   "https://laude.org/impact/*",
+   "https://laude.org/im/*"
+  ]
+ },
+ {
+  "name": "LearningApps.org",
+  "endpoint": "http://learningapps.org/oembed.php",
+  "schemes": [
+   "http://learningapps.org/*"
+  ]
+ },
+ {
+  "name": "Lille.Pod",
+  "endpoint": "https://pod.univ-lille.fr/video/oembed",
+  "schemes": [
+   "https://pod.univ-lille.fr/video/*"
+  ]
+ },
+ {
+  "name": "Line Place",
+  "endpoint": "https://place.line.me/oembed",
+  "schemes": [
+   "https://place.line.me/businesses/*"
+  ]
+ },
+ {
+  "name": "Linkstackz",
+  "endpoint": "https://api.linkstackz.com/oembed",
+  "schemes": [
+   "https://linkstackz.com/irf/*",
+   "https://linkstackz.com/post/*"
+  ]
+ },
+ {
+  "name": "LiveCodes",
+  "endpoint": "https://livecodes.io/oembed",
+  "schemes": [
+   "https://livecodes.io/",
+   "https://livecodes.io/?*",
+   "https://*.livecodes.io/",
+   "https://*.livecodes.io/?*"
+  ]
+ },
+ {
+  "name": "Livid",
+  "endpoint": "https://livid.com/oembed",
+  "schemes": [
+   "https://livid.com/watch/*"
+  ]
+ },
+ {
+  "name": "Loom",
+  "endpoint": "https://www.loom.com/v1/oembed",
+  "schemes": [
+   "https://loom.com/i/*",
+   "https://loom.com/share/*"
+  ]
+ },
+ {
+  "name": "LottieFiles",
+  "endpoint": "https://embed.lottiefiles.com/oembed",
+  "schemes": [
+   "https://lottiefiles.com/*",
+   "https://*.lottiefiles.com/*",
+   "https://*.lottie.host/*",
+   "https://lottie.host/*"
+  ]
+ },
+ {
+  "name": "Ludus",
+  "endpoint": "https://app.ludus.one/oembed",
+  "schemes": [
+   "https://app.ludus.one/*"
+  ]
+ },
+ {
+  "name": "Lumiere",
+  "endpoint": "https://admin.lumiere.is/api/services/oembed",
+  "schemes": [
+   "https://*.lumiere.is/v/*"
+  ]
+ },
+ {
+  "name": "Marbella Wire",
+  "endpoint": "https://api.marbellawire.com/oembed",
+  "schemes": [
+   "https://marbellawire.com/*"
+  ]
+ },
+ {
+  "name": "marimo",
+  "endpoint": "https://marimo.app/oembed",
+  "schemes": [
+   "https://marimo.app/*"
+  ]
+ },
+ {
+  "name": "MathEmbed",
+  "endpoint": "http://mathembed.com/oembed",
+  "schemes": [
+   "http://mathembed.com/latex?inputText=*",
+   "http://mathembed.com/latex?inputText=*"
+  ]
+ },
+ {
+  "name": "me.me",
+  "endpoint": "https://me.me/oembed",
+  "schemes": [
+   "https://me.me/i/*"
+  ]
+ },
+ {
+  "name": "Mediastream",
+  "endpoint": "https://mdstrm.com/oembed",
+  "schemes": [
+   "https://mdstrm.com/embed/*",
+   "https://mdstrm.com/live-stream/*",
+   "https://mdstrm.com/image/*"
+  ]
+ },
+ {
+  "name": "Medienarchiv der Künste - Zürcher Hochschule der Künste",
+  "endpoint": "https://medienarchiv.zhdk.ch/oembed.json",
+  "schemes": [
+   "https://medienarchiv.zhdk.ch/entries/*",
+   "https://zhdk.medienarchiv.ch/entries/*"
+  ]
+ },
+ {
+  "name": "MemeStack",
+  "endpoint": "https://api.memestack.ai/v1/oembed",
+  "schemes": [
+   "https://memestack.ai/gallery/*"
+  ]
+ },
+ {
+  "name": "Mermaid Ink",
+  "endpoint": "https://mermaid.ink/services/oembed",
+  "schemes": [
+   "https://mermaid.ink/img/*",
+   "https://mermaid.ink/svg/*"
+  ]
+ },
+ {
+  "name": "Microsoft Stream",
+  "endpoint": "https://web.microsoftstream.com/oembed",
+  "schemes": [
+   "https://*.microsoftstream.com/video/*",
+   "https://*.microsoftstream.com/channel/*"
+  ]
+ },
+ {
+  "name": "Mirame360",
+  "endpoint": "https://mirame360.com/api/oembed/",
+  "schemes": [
+   "https://mirame360.com/embed/*",
+   "https://mirame360.com/embed/tour/*",
+   "https://mirame360.com/video/url/*",
+   "https://mirame360.com/tour/*",
+   "https://mirame360.com/user/*/media/*"
+  ]
+ },
+ {
+  "name": "Miro",
+  "endpoint": "https://miro.com/api/v1/oembed",
+  "schemes": [
+   "https://miro.com/app/board/*"
+  ]
+ },
+ {
+  "name": "Miro",
+  "endpoint": "https://miro.com/video-player/oembed",
+  "schemes": [
+   "https://miro.com/video-player/*"
+  ]
+ },
+ {
+  "name": "MixCloud",
+  "endpoint": "https://www.mixcloud.com/oembed/",
+  "schemes": [
+   "http://www.mixcloud.com/*/*/",
+   "https://www.mixcloud.com/*/*/"
+  ]
+ },
+ {
+  "name": "Mixpanel",
+  "endpoint": "https://mixpanel.com/api/app/embed/oembed/",
+  "schemes": [
+   "https://mixpanel.com/*",
+   "https://*.mixpanel.com/*"
+  ]
+ },
+ {
+  "name": "Moby Picture",
+  "endpoint": "http://api.mobypicture.com/oEmbed",
+  "schemes": [
+   "http://www.mobypicture.com/user/*/view/*",
+   "http://moby.to/*"
+  ]
+ },
+ {
+  "name": "Music Box Maniacs",
+  "endpoint": "https://musicboxmaniacs.com/embed/",
+  "schemes": [
+   "https://musicboxmaniacs.com/explore/melody/*"
+  ]
+ },
+ {
+  "name": "myBeweeg",
+  "endpoint": "https://mybeweeg.com/services/oembed",
+  "schemes": [
+   "https://mybeweeg.com/w/*"
+  ]
+ },
+ {
+  "name": "MySQL Visual Explain",
+  "endpoint": "https://api.mysqlexplain.com/v2/oembed.json",
+  "schemes": [
+   "https://mysqlexplain.com/explain/*",
+   "https://embed.mysqlexplain.com/explain/*"
+  ]
+ },
+ {
+  "name": "Namchey",
+  "endpoint": "https://namchey.com/api/oembed",
+  "schemes": [
+   "https://namchey.com/embeds/*"
+  ]
+ },
+ {
+  "name": "nanoo.tv",
+  "endpoint": "https://www.nanoo.tv/services/oembed",
+  "schemes": [
+   "http://*.nanoo.tv/link/*",
+   "http://nanoo.tv/link/*",
+   "http://*.nanoo.pro/link/*",
+   "http://nanoo.pro/link/*",
+   "https://*.nanoo.tv/link/*",
+   "https://nanoo.tv/link/*",
+   "https://*.nanoo.pro/link/*",
+   "https://nanoo.pro/link/*",
+   "http://media.zhdk.ch/signatur/*",
+   "http://new.media.zhdk.ch/signatur/*",
+   "https://media.zhdk.ch/signatur/*",
+   "https://new.media.zhdk.ch/signatur/*"
+  ]
+ },
+ {
+  "name": "Nasjonalbiblioteket",
+  "endpoint": "https://api.nb.no/catalog/v1/oembed",
+  "schemes": [
+   "https://www.nb.no/items/*"
+  ]
+ },
+ {
+  "name": "Natural Atlas",
+  "endpoint": "https://naturalatlas.com/oembed.json",
+  "schemes": [
+   "https://naturalatlas.com/*",
+   "https://naturalatlas.com/*/*",
+   "https://naturalatlas.com/*/*/*",
+   "https://naturalatlas.com/*/*/*/*"
+  ]
+ },
+ {
+  "name": "Naver Clip",
+  "endpoint": "https://m.naver.com/shorts/oEmbed",
+  "schemes": [
+   "https://naver.me/*",
+   "https://m.naver.com/shorts/*"
+  ]
+ },
+ {
+  "name": "NDLA - Norwegian Digital Learning Arena",
+  "endpoint": "https://ndla.no/oembed",
+  "schemes": [
+   "https://ndla.no/*",
+   "https://ndla.no/article/*",
+   "https://ndla.no/audio/*",
+   "https://ndla.no/concept/*",
+   "https://ndla.no/image/*",
+   "https://ndla.no/video/*"
+  ]
+ },
+ {
+  "name": "Nebula",
+  "endpoint": "https://nebula.tv/api/oembed",
+  "schemes": [
+   "https://nebula.tv/videos/*"
+  ]
+ },
+ {
+  "name": "Nebula Beta",
+  "endpoint": "https://beta.nebula.tv/api/oembed",
+  "schemes": [
+   "https://beta.nebula.tv/videos/*"
+  ]
+ },
+ {
+  "name": "Needle Cloud",
+  "endpoint": "https://cloud.needle.tools/oembed",
+  "schemes": [
+   "https://cloud.needle.tools/-/assets/*/file",
+   "https://cloud.needle.tools/view?file=*",
+   "https://*.needle.run/*"
+  ]
+ },
+ {
+  "name": "neetoRecord",
+  "endpoint": "https://api.neetorecord.com/api/v1/oembed",
+  "schemes": [
+   "https://*.neetorecord.com/watch/*"
+  ]
+ },
+ {
+  "name": "nfb.ca",
+  "endpoint": "http://www.nfb.ca/remote/services/oembed/",
+  "schemes": [
+   "http://*.nfb.ca/film/*"
+  ]
+ },
+ {
+  "name": "Northwest Falls",
+  "endpoint": "https://northlink.cc/oembed",
+  "schemes": [
+   "https://northlink.cc/t/*",
+   "https://northlink.cc/r/*",
+   "https://northlink.cc/@*"
+  ]
+ },
+ {
+  "name": "Nouncify",
+  "endpoint": "https://nouncify.com/api/oembed",
+  "schemes": [
+   "https://nouncify.com/i/*",
+   "https://nouncify.com/brand/*",
+   "https://nouncify.com/e/*",
+   "https://sandbox.nouncify.com/i/*",
+   "https://sandbox.nouncify.com/brand/*",
+   "https://sandbox.nouncify.com/e/*"
+  ]
+ },
+ {
+  "name": "Observable",
+  "endpoint": "https://api.observablehq.com/oembed",
+  "schemes": [
+   "https://observablehq.com/@*/*",
+   "https://observablehq.com/d/*",
+   "https://observablehq.com/embed/*"
+  ]
+ },
+ {
+  "name": "Odds.com.au",
+  "endpoint": "https://www.odds.com.au/api/oembed/",
+  "schemes": [
+   "https://www.odds.com.au/*",
+   "https://odds.com.au/*"
+  ]
+ },
+ {
+  "name": "Odesli (formerly Songlink)",
+  "endpoint": "https://song.link/oembed",
+  "schemes": [
+   "https://song.link/*",
+   "https://album.link/*",
+   "https://artist.link/*",
+   "https://playlist.link/*",
+   "https://pods.link/*",
+   "https://mylink.page/*",
+   "https://odesli.co/*"
+  ]
+ },
+ {
+  "name": "Odysee",
+  "endpoint": "https://odysee.com/$/oembed",
+  "schemes": [
+   "https://odysee.com/*/*",
+   "https://odysee.com/*"
+  ]
+ },
+ {
+  "name": "Official FM",
+  "endpoint": "http://official.fm/services/oembed.json",
+  "schemes": [
+   "http://official.fm/tracks/*",
+   "http://official.fm/playlists/*"
+  ]
+ },
+ {
+  "name": "Omniscope",
+  "endpoint": "https://omniscope.me/_global_/oembed/json",
+  "schemes": [
+   "https://omniscope.me/*"
+  ]
+ },
+ {
+  "name": "Omny Studio",
+  "endpoint": "https://omny.fm/oembed",
+  "schemes": [
+   "https://omny.fm/shows/*"
+  ]
+ },
+ {
+  "name": "Orbitvu",
+  "endpoint": "http://orbitvu.co/service/oembed",
+  "schemes": [
+   "https://orbitvu.co/001/*/ov3601/view",
+   "https://orbitvu.co/001/*/ov3601/*/view",
+   "https://orbitvu.co/001/*/ov3602/*/view",
+   "https://orbitvu.co/001/*/2/orbittour/*/view",
+   "https://orbitvu.co/001/*/1/2/orbittour/*/view",
+   "http://orbitvu.co/001/*/ov3601/view",
+   "http://orbitvu.co/001/*/ov3601/*/view",
+   "http://orbitvu.co/001/*/ov3602/*/view",
+   "http://orbitvu.co/001/*/2/orbittour/*/view",
+   "http://orbitvu.co/001/*/1/2/orbittour/*/view"
+  ]
+ },
+ {
+  "name": "Origits",
+  "endpoint": "https://origits.com/oembed",
+  "schemes": [
+   "https://origits.com/v/*"
+  ]
+ },
+ {
+  "name": "Origits",
+  "endpoint": "https://origits.net/oembed",
+  "schemes": [
+   "https://origits.com/v/*"
+  ]
+ },
+ {
+  "name": "Orizn Widgets",
+  "endpoint": "https://embed.orizn.app/api/oembed",
+  "schemes": [
+   "https://embed.orizn.app/frame/*",
+   "https://embed.orizn.app/widgets/*"
+  ]
+ },
+ {
+  "name": "Outplayed.tv",
+  "endpoint": "https://outplayed.tv/oembed",
+  "schemes": [
+   "https://outplayed.tv/media/*"
+  ]
+ },
+ {
+  "name": "Overflow",
+  "endpoint": "https://overflow.io/services/oembed",
+  "schemes": [
+   "https://overflow.io/s/*",
+   "https://overflow.io/embed/*"
+  ]
+ },
+ {
+  "name": "Padlet",
+  "endpoint": "https://padlet.com/oembed/",
+  "schemes": [
+   "https://padlet.com/*"
+  ]
+ },
+ {
+  "name": "Panda Video",
+  "endpoint": "https://api-v2.pandavideo.com.br/oembed",
+  "schemes": [
+   "https://*.tv.pandavideo.com.br/embed/?v=*",
+   "https://*.tv.pandavideo.com.br/*/playlist.m3u8",
+   "https://dashboard.pandavideo.com.br/#/videos/*"
+  ]
+ },
+ {
+  "name": "Parler",
+  "endpoint": "https://app.parler.com/oembed",
+  "schemes": [
+   "https://app.parler.com/post/*",
+   "https://app.parler.com/b/*"
+  ]
+ },
+ {
+  "name": "Parta.io",
+  "endpoint": "https://app.parta.io/core/oembed",
+  "schemes": [
+   "https://app.parta.io/core/embed/*",
+   "https://*.parta.io/core/embed/*"
+  ]
+ },
+ {
+  "name": "Pastery",
+  "endpoint": "https://www.pastery.net/oembed",
+  "schemes": [
+   "http://pastery.net/*",
+   "https://pastery.net/*",
+   "http://www.pastery.net/*",
+   "https://www.pastery.net/*"
+  ]
+ },
+ {
+  "name": "PeerTube.TV",
+  "endpoint": "https://peertube.tv/services/oembed",
+  "schemes": [
+   "https://peertube.tv/w/*"
+  ]
+ },
+ {
+  "name": "Pinpoll",
+  "endpoint": "https://tools.pinpoll.com/oembed",
+  "schemes": [
+   "https://tools.pinpoll.com/embed/*"
+  ]
+ },
+ {
+  "name": "Pinterest",
+  "endpoint": "https://www.pinterest.com/oembed.json",
+  "schemes": [
+   "https://www.pinterest.com/*"
+  ]
+ },
+ {
+  "name": "PitchHub",
+  "endpoint": "https://player.pitchhub.com/en/public/oembed",
+  "schemes": [
+   "https://player.pitchhub.com/en/public/player/*"
+  ]
+ },
+ {
+  "name": "Pixdor",
+  "endpoint": "https://store.pixdor.com/oembed",
+  "schemes": [
+   "https://store.pixdor.com/place-marker-widget/*/show",
+   "https://store.pixdor.com/map/*/show"
+  ]
+ },
+ {
+  "name": "Plinth",
+  "endpoint": "https://plinth.it/model-viewer/oembed",
+  "schemes": [
+   "https://plinth.it/model-viewer/*/*"
+  ]
+ },
+ {
+  "name": "Plusdocs",
+  "endpoint": "https://app.plusdocs.com/oembed",
+  "schemes": [
+   "https://app.plusdocs.com/*/snapshots/*",
+   "https://app.plusdocs.com/*/pages/edit/*",
+   "https://app.plusdocs.com/*/pages/share/*"
+  ]
+ },
+ {
+  "name": "Podbean",
+  "endpoint": "https://api.podbean.com/v1/oembed",
+  "schemes": [
+   "https://*.podbean.com/e/*",
+   "http://*.podbean.com/e/*"
+  ]
+ },
+ {
+  "name": "Poll Daddy",
+  "endpoint": "http://polldaddy.com/oembed/",
+  "schemes": [
+   "http://*.polldaddy.com/s/*",
+   "http://*.polldaddy.com/poll/*",
+   "http://*.polldaddy.com/ratings/*"
+  ]
+ },
+ {
+  "name": "Portfolium",
+  "endpoint": "https://api.portfolium.com/oembed",
+  "schemes": [
+   "https://portfolium.com/entry/*"
+  ]
+ },
+ {
+  "name": "Prezi Video",
+  "endpoint": "https://prezi.com/v/oembed",
+  "schemes": [
+   "https://prezi.com/v/*",
+   "https://*.prezi.com/v/*"
+  ]
+ },
+ {
+  "name": "Puzzel.org",
+  "endpoint": "https://puzzel.org/api/oembed",
+  "schemes": [
+   "https://puzzel.org/*/*/play?p=*",
+   "https://puzzel.org/*/*/embed?p=*"
+  ]
+ },
+ {
+  "name": "Pyzia",
+  "endpoint": "https://www.pyzia.app/api/oembed",
+  "schemes": [
+   "https://www.pyzia.app/dashboard?*",
+   "https://pyzia.app/dashboard?*",
+   "https://www.pyzia.app/embed/chart?*",
+   "https://pyzia.app/embed/chart?*"
+  ]
+ },
+ {
+  "name": "QTpi",
+  "endpoint": "https://qtpi.gg/fashion/oembed",
+  "schemes": [
+   "https://qtpi.gg/fashion/*"
+  ]
+ },
+ {
+  "name": "Quartr",
+  "endpoint": "https://web.quartr.com/api/oembed",
+  "schemes": [
+   "https://quartr.com/*",
+   "https://web.quartr.com/*"
+  ]
+ },
+ {
+  "name": "QuellenSuche",
+  "endpoint": "http://quellensuche.de/api/oembed",
+  "schemes": [
+   "http://quellensuche.de/*"
+  ]
+ },
+ {
+  "name": "Quiz.biz",
+  "endpoint": "http://www.quiz.biz/api/oembed",
+  "schemes": [
+   "http://www.quiz.biz/quizz-*.html"
+  ]
+ },
+ {
+  "name": "Quizz.biz",
+  "endpoint": "http://www.quizz.biz/api/oembed",
+  "schemes": [
+   "http://www.quizz.biz/quizz-*.html"
+  ]
+ },
+ {
+  "name": "rcvis",
+  "endpoint": "https://animatron.com/oembed",
+  "schemes": [
+   "https://www.rcvis.com/v/*",
+   "https://www.rcvis.com/visualize=*",
+   "https://www.rcvis.com/ve/*",
+   "https://www.rcvis.com/visualizeEmbedded=*"
+  ]
+ },
+ {
+  "name": "Reddit",
+  "endpoint": "https://www.reddit.com/oembed",
+  "schemes": [
+   "https://reddit.com/r/*/comments/*/*",
+   "https://www.reddit.com/r/*/comments/*/*"
+  ]
+ },
+ {
+  "name": "Redlof-Medien",
+  "endpoint": "https://api.wexcreator.com/oembed/",
+  "schemes": [
+   "https://show.wexcreator.com/*",
+   "https://showroom.redlof-medien.de/*"
+  ]
+ },
+ {
+  "name": "Redlof-Medien",
+  "endpoint": "https://redlof-medien.de/wp-json/oembed/1.0/embed",
+  "schemes": [
+   "https://redlof-medien.de/*",
+   "https://www.redlof-medien.de/*"
+  ]
+ },
+ {
+  "name": "ReleaseWire",
+  "endpoint": "http://publisher.releasewire.com/oembed/",
+  "schemes": [
+   "http://rwire.com/*"
+  ]
+ },
+ {
+  "name": "Replit",
+  "endpoint": "https://replit.com/data/oembed",
+  "schemes": [
+   "https://repl.it/@*/*",
+   "https://replit.com/@*/*"
+  ]
+ },
+ {
+  "name": "ReverbNation",
+  "endpoint": "https://www.reverbnation.com/oembed",
+  "schemes": [
+   "https://www.reverbnation.com/*",
+   "https://www.reverbnation.com/*/songs/*"
+  ]
+ },
+ {
+  "name": "Risky Business",
+  "endpoint": "https://risky.biz/oembed",
+  "schemes": [
+   "https://risky.biz/*"
+  ]
+ },
+ {
+  "name": "Roomshare",
+  "endpoint": "http://roomshare.jp/en/oembed.json",
+  "schemes": [
+   "http://roomshare.jp/post/*",
+   "http://roomshare.jp/en/post/*"
+  ]
+ },
+ {
+  "name": "RoosterTeeth",
+  "endpoint": "https://roosterteeth.com/oembed",
+  "schemes": [
+   "https://roosterteeth.com/*"
+  ]
+ },
+ {
+  "name": "Rumble",
+  "endpoint": "https://rumble.com/api/Media/oembed.json",
+  "schemes": [
+   "https://rumble.com/*",
+   "https://rumble.com/shorts/*"
+  ]
+ },
+ {
+  "name": "rushes.cc",
+  "endpoint": "https://api.rushes.cc/oembed",
+  "schemes": [
+   "https://www.rushes.cc/video/*",
+   "https://www.rushes.cc/embed/*",
+   "https://rushes.cc/video/*",
+   "https://rushes.cc/embed/*"
+  ]
+ },
+ {
+  "name": "Sagenverse",
+  "endpoint": "https://app2.sagenverse.com/oembed",
+  "schemes": [
+   "https://app2.sagenverse.com/embed/*"
+  ]
+ },
+ {
+  "name": "Saooti",
+  "endpoint": "https://octopus.saooti.com/oembed",
+  "schemes": [
+   "https://octopus.saooti.com/main/pub/podcast/*"
+  ]
+ },
+ {
+  "name": "Sapo Videos",
+  "endpoint": "http://videos.sapo.pt/oembed",
+  "schemes": [
+   "http://videos.sapo.pt/*"
+  ]
+ },
+ {
+  "name": "Satcat",
+  "endpoint": "https://www.satcat.com/api/sats/oembed",
+  "schemes": [
+   "https://www.satcat.com/sats/*"
+  ]
+ },
+ {
+  "name": "Sato Video Player",
+  "endpoint": "https://api.satoplayer.com/players/oembed",
+  "schemes": [
+   "https://api.satoplayer.com/players/embed/*"
+  ]
+ },
+ {
+  "name": "sbedit",
+  "endpoint": "https://sbedit.net/oembed/",
+  "schemes": [
+   "https://sbedit.net/*"
+  ]
+ },
+ {
+  "name": "Scibly",
+  "endpoint": "https://app.scibly.com/api/oembed",
+  "schemes": [
+   "https://app.scibly.com/public/courses/*",
+   "https://app.scibly.com/embed/courses/*",
+   "https://app.scibly.com/en/public/courses/*",
+   "https://app.scibly.com/en/embed/courses/*",
+   "https://app.scibly.com/de/public/courses/*",
+   "https://app.scibly.com/de/embed/courses/*"
+  ]
+ },
+ {
+  "name": "Screen9",
+  "endpoint": "https://api.screen9.com/oembed",
+  "schemes": [
+   "https://console.screen9.com/*",
+   "https://*.screen9.tv/*"
+  ]
+ },
+ {
+  "name": "Screencast.com",
+  "endpoint": "https://api.screencast.com/external/oembed",
+  "schemes": [
+   "http://www.screencast.com/*"
+  ]
+ },
+ {
+  "name": "Screenr",
+  "endpoint": "http://www.screenr.com/api/oembed.json",
+  "schemes": [
+   "http://www.screenr.com/*/"
+  ]
+ },
+ {
+  "name": "ScribbleMaps",
+  "endpoint": "https://scribblemaps.com/api/services/oembed.json",
+  "schemes": [
+   "http://www.scribblemaps.com/maps/view/*",
+   "https://www.scribblemaps.com/maps/view/*",
+   "http://scribblemaps.com/maps/view/*",
+   "https://scribblemaps.com/maps/view/*"
+  ]
+ },
+ {
+  "name": "Scribd",
+  "endpoint": "http://www.scribd.com/services/oembed/",
+  "schemes": [
+   "http://www.scribd.com/doc/*"
+  ]
+ },
+ {
+  "name": "SendtoNews",
+  "endpoint": "https://embed.sendtonews.com/services/oembed",
+  "schemes": [
+   "https://embed.sendtonews.com/oembed/*"
+  ]
+ },
+ {
+  "name": "SharedFile",
+  "endpoint": "https://shared-file-kappa.vercel.app/file/api/oembed",
+  "schemes": [
+   "https://shared-file-kappa.vercel.app/file/*"
+  ]
+ },
+ {
+  "name": "Shoudio",
+  "endpoint": "http://shoudio.com/api/oembed",
+  "schemes": [
+   "http://shoudio.com/*",
+   "http://shoud.io/*"
+  ]
+ },
+ {
+  "name": "Show by Animaker",
+  "endpoint": "https://api.getshow.io/oembed.json",
+  "schemes": [
+   "https://app.getshow.io/iframe/*",
+   "https://*.getshow.io/share/*"
+  ]
+ },
+ {
+  "name": "Show the Way, actionable location info",
+  "endpoint": "https://showtheway.io/oembed",
+  "schemes": [
+   "https://showtheway.io/to/*"
+  ]
+ },
+ {
+  "name": "Simplecast",
+  "endpoint": "https://simplecast.com/oembed",
+  "schemes": [
+   "https://simplecast.com/s/*"
+  ]
+ },
+ {
+  "name": "Sizzle",
+  "endpoint": "https://onsizzle.com/oembed",
+  "schemes": [
+   "https://onsizzle.com/i/*"
+  ]
+ },
+ {
+  "name": "Sketch",
+  "endpoint": "https://graphql.sketch.cloud/embed/oembed",
+  "schemes": [
+   "https://www.sketch.com/s/*",
+   "https://www.sketch.com/preview/*"
+  ]
+ },
+ {
+  "name": "Sketchfab",
+  "endpoint": "http://sketchfab.com/oembed",
+  "schemes": [
+   "http://sketchfab.com/*models/*",
+   "https://sketchfab.com/*models/*",
+   "https://sketchfab.com/*/folders/*"
+  ]
+ },
+ {
+  "name": "Skhema",
+  "endpoint": "https://skhema.com/api/oembed",
+  "schemes": [
+   "https://skhema.com/embed/e/*",
+   "https://skhema.com/embed/c/*"
+  ]
+ },
+ {
+  "name": "Skoletube",
+  "endpoint": "https://www.skoletube.dk/media/lasync/oembed/",
+  "schemes": [
+   "https://www.skoletube.dk/media/*",
+   "https://www.skoletube.dk/video/*",
+   "https://www.studietube.dk/media/*",
+   "https://www.studietube.dk/video/*"
+  ]
+ },
+ {
+  "name": "Slidesfly",
+  "endpoint": "https://slidesfly.com/api/oembed",
+  "schemes": [
+   "https://slidesfly.xyz/d/*"
+  ]
+ },
+ {
+  "name": "SlideShare",
+  "endpoint": "https://www.slideshare.net/api/oembed/2",
+  "schemes": [
+   "https://www.slideshare.net/*/*",
+   "http://www.slideshare.net/*/*",
+   "https://fr.slideshare.net/*/*",
+   "http://fr.slideshare.net/*/*",
+   "https://de.slideshare.net/*/*",
+   "http://de.slideshare.net/*/*",
+   "https://es.slideshare.net/*/*",
+   "http://es.slideshare.net/*/*",
+   "https://pt.slideshare.net/*/*",
+   "http://pt.slideshare.net/*/*"
+  ]
+ },
+ {
+  "name": "SmashNotes",
+  "endpoint": "https://smashnotes.com/services/oembed",
+  "schemes": [
+   "https://smashnotes.com/p/*",
+   "https://smashnotes.com/p/*/e/* - https://smashnotes.com/p/*/e/*/s/*"
+  ]
+ },
+ {
+  "name": "Smrthi",
+  "endpoint": "https://www.smrthi.com/api/oembed",
+  "schemes": [
+   "https://www.smrthi.com/book/*"
+  ]
+ },
+ {
+  "name": "SmugMug",
+  "endpoint": "https://api.smugmug.com/services/oembed/",
+  "schemes": [
+   "http://*.smugmug.com/*",
+   "https://*.smugmug.com/*"
+  ]
+ },
+ {
+  "name": "SocialExplorer",
+  "endpoint": "https://www.socialexplorer.com/services/oembed/",
+  "schemes": [
+   "https://www.socialexplorer.com/*/explore",
+   "https://www.socialexplorer.com/*/view",
+   "https://www.socialexplorer.com/*/edit",
+   "https://www.socialexplorer.com/*/embed"
+  ]
+ },
+ {
+  "name": "SOOP",
+  "endpoint": "https://openapi.sooplive.com/oembed/embedinfo",
+  "schemes": [
+   "https://vod.sooplive.com/player/",
+   "https://v.afree.ca/ST/",
+   "https://vod.sooplive.com/ST/",
+   "https://vod.sooplive.com/PLAYER/STATION/",
+   "https://play.sooplive.com/"
+  ]
+ },
+ {
+  "name": "SoundCloud",
+  "endpoint": "https://soundcloud.com/oembed",
+  "schemes": [
+   "http://soundcloud.com/*",
+   "https://soundcloud.com/*",
+   "https://on.soundcloud.com/*",
+   "https://soundcloud.app.goog.gl/*"
+  ]
+ },
+ {
+  "name": "SpeakerDeck",
+  "endpoint": "https://speakerdeck.com/oembed.json",
+  "schemes": [
+   "http://speakerdeck.com/*/*",
+   "https://speakerdeck.com/*/*"
+  ]
+ },
+ {
+  "name": "Spotify",
+  "endpoint": "https://open.spotify.com/oembed",
+  "schemes": [
+   "https://open.spotify.com/*",
+   "spotify:*",
+   "https://spotify.link/*"
+  ]
+ },
+ {
+  "name": "Spotlightr",
+  "endpoint": "https://api.spotlightr.com/getOEmbed",
+  "schemes": [
+   "https://*.spotlightr.com/watch/*",
+   "https://*.spotlightr.com/publish/*",
+   "https://*.cdn.spotlightr.com/watch/*",
+   "https://*.cdn.spotlightr.com/publish/*"
+  ]
+ },
+ {
+  "name": "Spreaker",
+  "endpoint": "https://api.spreaker.com/oembed",
+  "schemes": [
+   "http://*.spreaker.com/*",
+   "https://*.spreaker.com/*"
+  ]
+ },
+ {
+  "name": "SproutVideo",
+  "endpoint": "http://sproutvideo.com/oembed.json",
+  "schemes": [
+   "https://sproutvideo.com/videos/*",
+   "https://*.vids.io/videos/*"
+  ]
+ },
+ {
+  "name": "Spyke",
+  "endpoint": "https://api.spyke.social/embed/oembed",
+  "schemes": [
+   "http://spyke.social/p/*",
+   "http://spyke.social/u/*",
+   "http://spyke.social/g/*",
+   "http://spyke.social/c/*",
+   "https://spyke.social/p/*",
+   "https://spyke.social/u/*",
+   "https://spyke.social/g/*",
+   "https://spyke.social/c/*",
+   "http://www.spyke.social/p/*",
+   "http://www.spyke.social/u/*",
+   "http://www.spyke.social/g/*",
+   "http://www.spyke.social/c/*",
+   "https://www.spyke.social/p/*",
+   "https://www.spyke.social/u/*",
+   "https://www.spyke.social/g/*",
+   "https://www.spyke.social/c/*"
+  ]
+ },
+ {
+  "name": "Stanford Digital Repository",
+  "endpoint": "https://purl.stanford.edu/embed.json",
+  "schemes": [
+   "https://purl.stanford.edu/*"
+  ]
+ },
+ {
+  "name": "StemFM",
+  "endpoint": "https://www.stem.fm/oembed",
+  "schemes": [
+   "https://stem.fm/session/*",
+   "https://www.stem.fm/session/*",
+   "https://stem.fm/s/*",
+   "https://www.stem.fm/s/*"
+  ]
+ },
+ {
+  "name": "Streamable",
+  "endpoint": "https://api.streamable.com/oembed.json",
+  "schemes": [
+   "http://streamable.com/*",
+   "https://streamable.com/*"
+  ]
+ },
+ {
+  "name": "Streamio",
+  "endpoint": "https://streamio.com/api/v1/oembed",
+  "schemes": [
+   "https://s3m.io/*",
+   "https://23m.io/*"
+  ]
+ },
+ {
+  "name": "Street Art Cities",
+  "endpoint": "https://oembed.streetartcities.com/oembed",
+  "schemes": [
+   "https://streetartcities.com/markers/*"
+  ]
+ },
+ {
+  "name": "Sudomemo",
+  "endpoint": "https://www.sudomemo.net/oembed",
+  "schemes": [
+   "https://www.sudomemo.net/watch/*",
+   "http://www.sudomemo.net/watch/*",
+   "https://archive.sudomemo.net/watch/*",
+   "http://archive.sudomemo.net/watch/*",
+   "https://flipnot.es/*",
+   "http://flipnot.es/*"
+  ]
+ },
+ {
+  "name": "Supercut",
+  "endpoint": "https://supercut.ai/oembed",
+  "schemes": [
+   "https://supercut.ai/share/*"
+  ]
+ },
+ {
+  "name": "Sutori",
+  "endpoint": "https://www.sutori.com/api/oembed",
+  "schemes": [
+   "https://www.sutori.com/story/*"
+  ]
+ },
+ {
+  "name": "Sway",
+  "endpoint": "https://sway.com/api/v1.0/oembed",
+  "schemes": [
+   "https://sway.com/*",
+   "https://www.sway.com/*"
+  ]
+ },
+ {
+  "name": "Sway Office",
+  "endpoint": "https://sway.office.com/api/v1.0/oembed",
+  "schemes": [
+   "https://sway.office.com/*"
+  ]
+ },
+ {
+  "name": "SynthCamp",
+  "endpoint": "https://synthcamp.net/api/oembed",
+  "schemes": [
+   "https://synthcamp.net/r/*"
+  ]
+ },
+ {
+  "name": "Synthesia",
+  "endpoint": "https://69jr5v75rc.execute-api.eu-west-1.amazonaws.com/prod/v2/oembed",
+  "schemes": [
+   "https://share.synthesia.io/*"
+  ]
+ },
+ {
+  "name": "Tech Post Cast",
+  "endpoint": "https://techpostcast.com/oembed/",
+  "schemes": [
+   "https://techpostcast.com/headline-topic-programs/*"
+  ]
+ },
+ {
+  "name": "TED",
+  "endpoint": "https://www.ted.com/services/v1/oembed.json",
+  "schemes": [
+   "http://ted.com/talks/*",
+   "https://ted.com/talks/*",
+   "http://www.ted.com/talks/*",
+   "https://www.ted.com/talks/*",
+   "https://embed.ted.com/talks/*"
+  ]
+ },
+ {
+  "name": "Tegula",
+  "endpoint": "https://tegula.io/api/oembed/",
+  "schemes": [
+   "https://tegula.io/m/*",
+   "https://www.tegula.io/m/*",
+   "https://tegula.io/c/*",
+   "https://www.tegula.io/c/*",
+   "https://tegula.io/cat.html?model=*",
+   "https://www.tegula.io/cat.html?model=*"
+  ]
+ },
+ {
+  "name": "Tella",
+  "endpoint": "https://www.tella.tv/api/oembed",
+  "schemes": [
+   "https://www.tella.tv/video/*",
+   "https://tella.video/*"
+  ]
+ },
+ {
+  "name": "TextExpander",
+  "endpoint": "https://rest-prod.tenet.textexpander.com/oembed",
+  "schemes": [
+   "https://rest-prod.tenet.textexpander.com/share/*"
+  ]
+ },
+ {
+  "name": "The DAM consultants",
+  "endpoint": "https://hubspot-media-bridge.thedamconsultants.com/oembed/",
+  "schemes": [
+   "https://hubspot-media-bridge.thedamconsultants.com/*"
+  ]
+ },
+ {
+  "name": "The New York Times",
+  "endpoint": "https://www.nytimes.com/svc/oembed/json/",
+  "schemes": [
+   "https://www.nytimes.com/svc/oembed",
+   "https://nytimes.com/*",
+   "https://*.nytimes.com/*"
+  ]
+ },
+ {
+  "name": "They Said So",
+  "endpoint": "https://theysaidso.com/extensions/oembed/",
+  "schemes": [
+   "https://theysaidso.com/image/*"
+  ]
+ },
+ {
+  "name": "TickCounter",
+  "endpoint": "https://www.tickcounter.com/oembed",
+  "schemes": [
+   "http://www.tickcounter.com/widget/*",
+   "http://www.tickcounter.com/countdown/*",
+   "http://www.tickcounter.com/countup/*",
+   "http://www.tickcounter.com/ticker/*",
+   "http://www.tickcounter.com/clock/*",
+   "http://www.tickcounter.com/worldclock/*",
+   "http://www.tickcounter.com/embed/*",
+   "http://www.tickcounter.com/full/*",
+   "https://www.tickcounter.com/widget/*",
+   "https://www.tickcounter.com/countdown/*",
+   "https://www.tickcounter.com/countup/*",
+   "https://www.tickcounter.com/ticker/*",
+   "https://www.tickcounter.com/clock/*",
+   "https://www.tickcounter.com/worldclock/*",
+   "https://www.tickcounter.com/embed/*",
+   "https://www.tickcounter.com/full/*"
+  ]
+ },
+ {
+  "name": "TikTok",
+  "endpoint": "https://www.tiktok.com/oembed",
+  "schemes": [
+   "https://www.tiktok.com/*",
+   "https://www.tiktok.com/*/video/*"
+  ]
+ },
+ {
+  "name": "TixFox",
+  "endpoint": "https://tixfox.co/api/oembed",
+  "schemes": [
+   "https://tixfox.co/e/*",
+   "https://tixfox.co/o/*"
+  ]
+ },
+ {
+  "name": "tksn-me",
+  "endpoint": "https://tksn.me/api/oembed/",
+  "schemes": [
+   "https://tksn.me/*",
+   "https://*.tksn.me/*"
+  ]
+ },
+ {
+  "name": "TLexDR",
+  "endpoint": "https://tlexdr.com/oembed",
+  "schemes": [
+   "https://tlexdr.com/episode/*"
+  ]
+ },
+ {
+  "name": "Tonic Audio",
+  "endpoint": "https://tonicaudio.com/oembed",
+  "schemes": [
+   "https://tonicaudio.com/take/*",
+   "https://tonicaudio.com/song/*",
+   "https://tnic.io/song/*",
+   "https://tnic.io/take/*"
+  ]
+ },
+ {
+  "name": "Toornament",
+  "endpoint": "https://widget.toornament.com/oembed",
+  "schemes": [
+   "https://www.toornament.com/tournaments/*/information",
+   "https://www.toornament.com/tournaments/*/registration/",
+   "https://www.toornament.com/tournaments/*/matches/schedule",
+   "https://www.toornament.com/tournaments/*/stages/*/"
+  ]
+ },
+ {
+  "name": "Topy",
+  "endpoint": "http://www.topy.se/oembed/",
+  "schemes": [
+   "http://www.topy.se/image/*"
+  ]
+ },
+ {
+  "name": "Totango",
+  "endpoint": "https://app-test.totango.com/oembed",
+  "schemes": [
+   "https://app-test.totango.com/*"
+  ]
+ },
+ {
+  "name": "Trackspace",
+  "endpoint": "https://trackspace.upitup.com/oembed",
+  "schemes": [
+   "http://trackspace.upitup.com/*"
+  ]
+ },
+ {
+  "name": "Trinity Audio",
+  "endpoint": "https://trinitymedia.ai/services/oembed",
+  "schemes": [
+   "https://trinitymedia.ai/player/*",
+   "https://trinitymedia.ai/player/*/*",
+   "https://trinitymedia.ai/player/*/*/*"
+  ]
+ },
+ {
+  "name": "TryCLI Studio",
+  "endpoint": "https://trycli.com/api/oembed",
+  "schemes": [
+   "https://trycli.com/e/*",
+   "https://trycli.com/*/*"
+  ]
+ },
+ {
+  "name": "Tumblr",
+  "endpoint": "https://www.tumblr.com/oembed/1.0",
+  "schemes": [
+   "https://*.tumblr.com/post/*"
+  ]
+ },
+ {
+  "name": "Tuvelia",
+  "endpoint": "https://tuvelia.com/oembed",
+  "schemes": [
+   "https://tuvelia.com/embed/*",
+   "https://www.tuvelia.com/embed/*"
+  ]
+ },
+ {
+  "name": "Tuxx",
+  "endpoint": "https://www.tuxx.be/services/oembed",
+  "schemes": [
+   "https://www.tuxx.be/*"
+  ]
+ },
+ {
+  "name": "tvcf",
+  "endpoint": "https://play.tvcf.co.kr/rest/oembed",
+  "schemes": [
+   "https://play.tvcf.co.kr/*",
+   "https://*.tvcf.co.kr/*"
+  ]
+ },
+ {
+  "name": "Twinmotion",
+  "endpoint": "https://twinmotion.unrealengine.com/oembed",
+  "schemes": [
+   "https://twinmotion.unrealengine.com/presentation/*",
+   "https://twinmotion.unrealengine.com/panorama/*"
+  ]
+ },
+ {
+  "name": "Twitter",
+  "endpoint": "https://publish.twitter.com/oembed",
+  "schemes": [
+   "https://twitter.com/*",
+   "https://twitter.com/*/status/*",
+   "https://*.twitter.com/*/status/*"
+  ]
+ },
+ {
+  "name": "Typecel",
+  "endpoint": "https://app.typecel.io/api/oembed",
+  "schemes": [
+   "https://app.typecel.io/*/*",
+   "https://app.typecel.io/embed/*/*"
+  ]
+ },
+ {
+  "name": "u-poll",
+  "endpoint": "https://u-poll.com/oembed",
+  "schemes": [
+   "https://u-poll.com/p/*"
+  ]
+ },
+ {
+  "name": "UAPod",
+  "endpoint": "https://uapod.univ-antilles.fr/oembed",
+  "schemes": [
+   "https://uapod.univ-antilles.fr/video/*"
+  ]
+ },
+ {
+  "name": "University of Cambridge Map",
+  "endpoint": "https://map.cam.ac.uk/oembed/",
+  "schemes": [
+   "https://map.cam.ac.uk/*"
+  ]
+ },
+ {
+  "name": "UnivParis1.Pod",
+  "endpoint": "https://mediatheque.univ-paris1.fr/oembed",
+  "schemes": [
+   "https://mediatheque.univ-paris1.fr/video/*"
+  ]
+ },
+ {
+  "name": "Upec.Pod",
+  "endpoint": "https://pod.u-pec.fr/oembed",
+  "schemes": [
+   "https://pod.u-pec.fr/video/*"
+  ]
+ },
+ {
+  "name": "Ustream",
+  "endpoint": "http://www.ustream.tv/oembed",
+  "schemes": [
+   "http://*.ustream.tv/*",
+   "http://*.ustream.com/*"
+  ]
+ },
+ {
+  "name": "uStudio, Inc.",
+  "endpoint": "https://app.ustudio.com/api/v2/oembed",
+  "schemes": [
+   "https://*.ustudio.com/embed/*",
+   "https://*.ustudio.com/embed/*/*"
+  ]
+ },
+ {
+  "name": "Vectree",
+  "endpoint": "https://vectree.io/api/oembed",
+  "schemes": [
+   "https://vectree.io/c/*",
+   "http://vectree.io/c/*"
+  ]
+ },
+ {
+  "name": "VerseDB",
+  "endpoint": "https://versedb.com/oembed",
+  "schemes": [
+   "https://versedb.com/title/*",
+   "https://versedb.com/series/*",
+   "https://versedb.com/issue/*",
+   "https://versedb.com/event/*",
+   "https://versedb.com/creator/*"
+  ]
+ },
+ {
+  "name": "VEVO",
+  "endpoint": "https://www.vevo.com/oembed",
+  "schemes": [
+   "http://www.vevo.com/*",
+   "https://www.vevo.com/*"
+  ]
+ },
+ {
+  "name": "Videfit",
+  "endpoint": "https://videfit.com/oembed",
+  "schemes": [
+   "https://videfit.com/videos/*"
+  ]
+ },
+ {
+  "name": "Videobot",
+  "endpoint": "https://videobot.com/embed/oembed",
+  "schemes": [
+   "https://videobot.com/embed/*"
+  ]
+ },
+ {
+  "name": "VidLink",
+  "endpoint": "https://www.vidlink.it/api/oembed",
+  "schemes": [
+   "https://vidlink.it/videos/*",
+   "https://www.vidlink.it/videos/*"
+  ]
+ },
+ {
+  "name": "VidMount",
+  "endpoint": "https://vidmount.com/oembed",
+  "schemes": [
+   "https://vidmount.com/*"
+  ]
+ },
+ {
+  "name": "Vidyard",
+  "endpoint": "https://api.vidyard.com/dashboard/v1.1/oembed",
+  "schemes": [
+   "http://*.vidyard.com/*",
+   "https://*.vidyard.com/*",
+   "http://*.hubs.vidyard.com/*",
+   "https://*.hubs.vidyard.com/*"
+  ]
+ },
+ {
+  "name": "Vimeo",
+  "endpoint": "https://vimeo.com/api/oembed.json",
+  "schemes": [
+   "https://vimeo.com/*",
+   "https://vimeo.com/album/*/video/*",
+   "https://vimeo.com/channels/*/*",
+   "https://vimeo.com/groups/*/videos/*",
+   "https://vimeo.com/ondemand/*/*",
+   "https://player.vimeo.com/video/*",
+   "https://vimeo.com/event/*/*"
+  ]
+ },
+ {
+  "name": "Viostream",
+  "endpoint": "https://play.viostream.com/oembed",
+  "schemes": [
+   "https://share.viostream.com/*"
+  ]
+ },
+ {
+  "name": "Viously",
+  "endpoint": "https://www.viously.com/oembed",
+  "schemes": [
+   "https://www.viously.com/*/*"
+  ]
+ },
+ {
+  "name": "Vizdom",
+  "endpoint": "https://vizdom.dev/api/v1/oembed",
+  "schemes": [
+   "https://vizdom.dev/link/*"
+  ]
+ },
+ {
+  "name": "Vizzlo",
+  "endpoint": "https://eu.vizzlo.com/oembed",
+  "schemes": [
+   "https://eu.vizzlo.com/d/*",
+   "https://eu.vizzlo.com/share/*",
+   "https://eu.vizzlo.com/embed/*"
+  ]
+ },
+ {
+  "name": "Vizzlo",
+  "endpoint": "https://vizzlo.com/oembed",
+  "schemes": [
+   "https://vizzlo.com/d/*",
+   "https://vizzlo.com/share/*",
+   "https://vizzlo.com/embed/*"
+  ]
+ },
+ {
+  "name": "Vlipsy",
+  "endpoint": "https://vlipsy.com/oembed",
+  "schemes": [
+   "https://vlipsy.com/*"
+  ]
+ },
+ {
+  "name": "VLIVE",
+  "endpoint": "https://www.vlive.tv/oembed",
+  "schemes": [
+   "https://www.vlive.tv/video/*"
+  ]
+ },
+ {
+  "name": "Vouch",
+  "endpoint": "https://embed.vouchfor.com/v1/oembed",
+  "schemes": [
+   "https://*.vouchfor.com/*"
+  ]
+ },
+ {
+  "name": "VoxSnap",
+  "endpoint": "https://data.voxsnap.com/oembed",
+  "schemes": [
+   "https://article.voxsnap.com/*/*"
+  ]
+ },
+ {
+  "name": "WATCHPEOPLEFIGHT",
+  "endpoint": "https://watchpeoplefight.com/api/oembed",
+  "schemes": [
+   "https://watchpeoplefight.com/watch/*"
+  ]
+ },
+ {
+  "name": "Wave.video",
+  "endpoint": "https://embed.wave.video/oembed",
+  "schemes": [
+   "https://watch.wave.video/*",
+   "https://embed.wave.video/*"
+  ]
+ },
+ {
+  "name": "Web3 is Going Just Great",
+  "endpoint": "https://www.web3isgoinggreat.com/api/oembed",
+  "schemes": [
+   "https://www.web3isgoinggreat.com/?id=*",
+   "https://www.web3isgoinggreat.com/single/*",
+   "https://www.web3isgoinggreat.com/embed/*"
+  ]
+ },
+ {
+  "name": "wecandeo",
+  "endpoint": "https://play.wecandeo.com/oembed/",
+  "schemes": [
+   "https://play.wecandeo.com/video/v/*"
+  ]
+ },
+ {
+  "name": "Wewtalk",
+  "endpoint": "https://www.wewtalk.com/api/oembed",
+  "schemes": [
+   "https://www.wewtalk.com/voice/*",
+   "https://wewtalk.com/voice/*"
+  ]
+ },
+ {
+  "name": "Whimsical",
+  "endpoint": "https://whimsical.com/api/oembed",
+  "schemes": [
+   "https://whimsical.com/*",
+   "https://whimsical.com/*/*"
+  ]
+ },
+ {
+  "name": "Whyp",
+  "endpoint": "https://api.whyp.it/api/oembed",
+  "schemes": [
+   "https://whyp.it/tracks/*",
+   "https://whyp.it/collections/*",
+   "https://www.whyp.it/tracks/*",
+   "https://www.whyp.it/collections/*"
+  ]
+ },
+ {
+  "name": "Wikitólica",
+  "endpoint": "https://www.wikitolica.com/oembed",
+  "schemes": [
+   "https://www.wikitolica.com/*/*/"
+  ]
+ },
+ {
+  "name": "Wistia, Inc.",
+  "endpoint": "https://fast.wistia.com/oembed.json",
+  "schemes": [
+   "https://fast.wistia.com/embed/iframe/*",
+   "https://fast.wistia.com/embed/playlists/*",
+   "https://*.wistia.com/medias/*",
+   "https://*.wistia.com/s/*"
+  ]
+ },
+ {
+  "name": "wizer.me",
+  "endpoint": "https://app.wizer.me/api/oembed.json",
+  "schemes": [
+   "https://*.wizer.me/learn/*",
+   "https://*.wizer.me/preview/*"
+  ]
+ },
+ {
+  "name": "Wokwi",
+  "endpoint": "https://wokwi.com/api/oembed",
+  "schemes": [
+   "https://wokwi.com/share/*"
+  ]
+ },
+ {
+  "name": "Wolfram Cloud",
+  "endpoint": "https://www.wolframcloud.com/oembed",
+  "schemes": [
+   "https://*.wolframcloud.com/*"
+  ]
+ },
+ {
+  "name": "WordPress.com",
+  "endpoint": "http://public-api.wordpress.com/oembed/",
+  "schemes": [
+   "https://wordpress.com/*",
+   "http://wordpress.com/*",
+   "https://*.wordpress.com/*",
+   "http://*.wordpress.com/*",
+   "https://*.*.wordpress.com/*",
+   "http://*.*.wordpress.com/*",
+   "https://wp.me/*",
+   "http://wp.me/*"
+  ]
+ },
+ {
+  "name": "World Event Trading",
+  "endpoint": "https://www.worldeventtrading.com/api/oembed",
+  "schemes": [
+   "https://worldeventtrading.com/predictions/*",
+   "https://www.worldeventtrading.com/predictions/*"
+  ]
+ },
+ {
+  "name": "WPPaste",
+  "endpoint": "https://wppaste.com/api/oembed",
+  "schemes": [
+   "https://wppaste.com/p/*"
+  ]
+ },
+ {
+  "name": "X",
+  "endpoint": "https://publish.x.com/oembed",
+  "schemes": [
+   "https://x.com/*",
+   "https://x.com/*/status/*",
+   "https://*.x.com/*/status/*"
+  ]
+ },
+ {
+  "name": "YouPickBest",
+  "endpoint": "https://youpick.best/api/oembed",
+  "schemes": [
+   "https://youpick.best/ranking/*"
+  ]
+ },
+ {
+  "name": "YouTube",
+  "endpoint": "https://www.youtube.com/oembed",
+  "schemes": [
+   "https://*.youtube.com/watch*",
+   "https://*.youtube.com/v/*",
+   "https://youtu.be/*",
+   "https://*.youtube.com/playlist?list=*",
+   "https://youtube.com/playlist?list=*",
+   "https://*.youtube.com/shorts*",
+   "https://youtube.com/shorts*",
+   "https://*.youtube.com/embed/*",
+   "https://*.youtube.com/live*",
+   "https://youtube.com/live*"
+  ]
+ },
+ {
+  "name": "YUMPU",
+  "endpoint": "https://www.yumpu.com/services/oembed",
+  "schemes": [
+   "https://www.yumpu.com/*/document/view/*/*"
+  ]
+ },
+ {
+  "name": "Zeplin",
+  "endpoint": "https://app.zeplin.io/embed",
+  "schemes": [
+   "https://app.zeplin.io/project/*/screen/*",
+   "https://app.zeplin.io/project/*/screen/*/version/*",
+   "https://app.zeplin.io/project/*/styleguide/components?coid=*",
+   "https://app.zeplin.io/styleguide/*/components?coid=*"
+  ]
+ },
+ {
+  "name": "ZingSoft",
+  "endpoint": "https://app.zingsoft.com/oembed",
+  "schemes": [
+   "https://app.zingsoft.com/embed/*",
+   "https://app.zingsoft.com/view/*"
+  ]
+ },
+ {
+  "name": "ZnipeTV",
+  "endpoint": "https://api.znipe.tv/v3/oembed/",
+  "schemes": [
+   "https://*.znipe.tv/*"
+  ]
+ },
+ {
+  "name": "Zoomable",
+  "endpoint": "https://srv2.zoomable.ca/oembed",
+  "schemes": [
+   "https://srv2.zoomable.ca/viewer.php*"
+  ]
+ }
+]
