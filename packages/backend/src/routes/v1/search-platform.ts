@@ -46,6 +46,7 @@ import {
   type DocumentRow,
 } from '../../search/public-document.js';
 import { warmDocumentImages } from '../../search/image-cache.js';
+import { urlDocument } from '../../search/url-title.js';
 import { listNewsStories } from '../../search/news.js';
 import { MAX_URL_LENGTH, publicUrlSchema } from '../../search/query-primitives.js';
 import {
@@ -225,6 +226,20 @@ async function recentCrawlEndings(
   }
   return endings;
 }
+/** How long a card read from oEmbed or an archived copy stands before the page is tried again. */
+const FALLBACK_REFRESH_MS = 24 * 60 * 60 * 1000;
+
+/** A document whose title came from oEmbed or the Wayback Machine, older than a day. */
+function isStaleFallback(document: DocumentRow | undefined): boolean {
+  if (!document?.fetchedAt) return false;
+  const evidence = document.fieldEvidence as Record<string, { source?: string } | undefined>;
+  const source = evidence?.title?.source;
+  return (
+    (source === 'oembed' || source === 'wayback') &&
+    document.fetchedAt.getTime() < Date.now() - FALLBACK_REFRESH_MS
+  );
+}
+
 const TERMINAL_OPERATIONS: ReadonlySet<string> = new Set([
   'succeeded',
   'partial',
@@ -270,10 +285,15 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   const { urls } = input;
   let byUrl = await fetchedDocuments(urls);
   const unfetched = [...new Set(urls.filter((url) => !byUrl.has(url)))];
+  const stale = [...new Set(urls.filter((url) => isStaleFallback(byUrl.get(url))))];
   const failed = req.resourcePrincipal
-    ? await recentCrawlEndings(req.resourcePrincipal, unfetched)
+    ? await recentCrawlEndings(req.resourcePrincipal, [...unfetched, ...stale])
     : new Map<string, CrawlEnding>();
   const missing = unfetched.filter((url) => !failed.has(url));
+  // A card read from oEmbed or an archived copy is answered as it is, and the
+  // page is fetched again in the background so a real read can replace it.
+  const refresh = stale.filter((url) => !failed.has(url));
+  if (refresh.length) await resolveIndexOperations(req, refresh, RESOLVE_BACKGROUND_PRIORITY);
   // A caller that waits has a person waiting on the answer (a composer, a
   // freshly published post); one that does not is warming in the background.
   const operations = missing.length
@@ -326,12 +346,17 @@ router.post('/resolve', requireResourceScope('clarity:index'), async (req, res) 
   res.status(pending ? 202 : 200).json({
     data: urls.map((url) => {
       const document = byUrl.get(url);
+      const status = unfetchedStatus(url);
+      // A link Clarity could not read still gets the title its URL spells
+      // (search/url-title.ts); never stored, so it never stands in for a fetch.
+      const fromUrl = !document && status === 'failed' ? urlDocument(url) : undefined;
       return document
         ? { url, document: publicDocument(document, icons), status: document.status }
         : {
             url,
+            ...(fromUrl ? { document: fromUrl } : {}),
             operationId: operations.get(url)?.id,
-            status: unfetchedStatus(url),
+            status,
             ...(failed.has(url)
               ? { error: failed.get(url)?.error }
               : !operations.has(url)

@@ -75,7 +75,12 @@ Credentialed `/v1` routes (an `oxy_sk` resource credential, not a user session):
   that cannot be fetched is indexed from its registered oEmbed provider when
   one covers it (`evidence.*.source: 'oembed'`, `src/search/oembed.ts`). Every
   document has a title: a page with none is not stored, and a PDF is titled by
-  its metadata or file name. Repeated and overlapping
+  its metadata or file name. A page Clarity cannot read is described by its
+  oEmbed provider, else the Internet Archive's copy (`evidence.*.source:
+  'wayback'`); a `failed` URL still carries a `document` written from its path
+  (`evidence.title.source: 'url'`, status `failed`, never stored). `authors`
+  holds the page's bylines (JSON-LD `author`, `article:author`,
+  `<meta name="author">`, oEmbed `author_name`). Repeated and overlapping
   requests reuse pending work within the same account and application and
   prioritize those queued/retry pages ahead of historical bulk work, without
   changing their retry schedule. A mixed

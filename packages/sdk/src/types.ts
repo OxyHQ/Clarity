@@ -77,6 +77,7 @@ export interface Document {
   status: DocumentStatus;
   language?: string;
   publisher?: string;
+  /** Bylines the page states (JSON-LD, OpenGraph, `<meta name="author">`) or its oEmbed author. */
   authors: Author[];
   publishedAt?: string;
   modifiedAt?: string;
@@ -94,6 +95,12 @@ export interface Document {
    */
   faviconUrl?: string;
   indexedAt?: string;
+  /**
+   * Where each field was read. `evidence.title.source` is `oembed` or `wayback`
+   * for a card read from the publisher's oEmbed endpoint or the Internet
+   * Archive's copy when the page itself could not be read, and `url` for the
+   * card `/resolve` writes from a `failed` URL's own words (status `failed`).
+   */
   evidence: Record<string, CitationEvidence>;
 }
 
@@ -176,7 +183,16 @@ export interface ResolveResult {
   operationId?: string;
   /** `throttled` has no queued operation: retry after active crawl capacity frees. */
   status: DocumentStatus | 'queued' | 'throttled';
-  error?: { code: 'active_crawl_quota_exceeded'; retryable: true };
+  /**
+   * Why there is no fetched document: `fetch_failed` (the site refused, held six
+   * hours), `fetch_unavailable` (rate limited, erroring or unreachable; retryable
+   * after half an hour), `http_gone` (404/410, status `removed`) or
+   * `active_crawl_quota_exceeded` (status `throttled`).
+   */
+  error?: {
+    code: 'fetch_failed' | 'fetch_unavailable' | 'http_gone' | 'active_crawl_quota_exceeded';
+    retryable: boolean;
+  };
 }
 
 /** An asynchronous crawl/index operation — never an employment listing. */

@@ -18,7 +18,7 @@ import { readResponseJson, safeFetch } from '@oxy.so/core/server';
 
 import { asRecord } from '../lib/json-record.js';
 import { createLogger } from '../lib/logger.js';
-import { dateFromUrl, plausibleDate } from './article-metadata.js';
+import { cleanAuthors, dateFromUrl, plausibleDate } from './article-metadata.js';
 import { type ExtractedDocument, type FieldEvidence, isDeclared } from './extractor.js';
 import { FEED_USER_AGENT, robotsAllowUrl } from './jobs/feeds/robots.js';
 import registry from './oembed-providers.generated.json';
@@ -31,6 +31,7 @@ export interface OembedMetadata {
   title?: string;
   description?: string;
   authorName?: string;
+  authorUrl?: string;
   providerName?: string;
   thumbnailUrl?: string;
   publishedAt?: Date;
@@ -134,6 +135,7 @@ export function parseOembed(value: unknown): OembedMetadata | undefined {
     title: text(record.title, 500),
     description: text(record.description, 1_000) ?? text(record.summary, 1_000),
     authorName: text(record.author_name, 200),
+    authorUrl: text(record.author_url, 2_000),
     providerName: text(record.provider_name, 200),
     thumbnailUrl: thumbnail && /^https?:\/\//i.test(thumbnail) ? thumbnail : undefined,
     publishedAt: plausibleDate(record.publication_date),
@@ -205,6 +207,8 @@ export function applyOembed(
     next.evidence.imageUrl = evidence;
   }
   next.publisher ??= oembed.providerName;
+  if (next.authors.length === 0 && oembed.authorName)
+    next.authors = cleanAuthors([{ name: oembed.authorName, url: oembed.authorUrl }]);
   next.publishedAt ??= oembed.publishedAt;
   if (oembed.type === 'video' && next.documentType === 'page') next.documentType = 'video';
   return next;
@@ -217,7 +221,14 @@ export function documentFromOembed(
   pageUrl: string,
 ): ExtractedDocument {
   const document = applyOembed(
-    { documentType: 'page', structuredData: [], evidence: {}, noindex: false, nofollow: false },
+    {
+      authors: [],
+      documentType: 'page',
+      structuredData: [],
+      evidence: {},
+      noindex: false,
+      nofollow: false,
+    },
     oembed,
     requestUrl,
   );

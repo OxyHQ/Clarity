@@ -88,6 +88,19 @@ cannot be reached this way: The New York Times disallows `/svc` (its oEmbed
 endpoint) and Reddit disallows everything for unnamed agents, and cbc.ca and
 npr.org drop connections from AWS addresses, robots.txt included.
 
+When no oEmbed provider covers the URL, the Internet Archive's closest
+snapshot (`src/search/wayback.ts`: the public availability API, then the
+snapshot requested unmodified) gives the card: title, description, image,
+publisher, dates and authors, never the archived text. Measured on 2026-11-04
+over 80 previews that failed this way, 26 had a snapshot and all 26 carried
+OpenGraph metadata; well-known RSS/Atom feed paths held 1 of the 80, so feeds
+are not used. A card read from oEmbed or the Archive is re-queued in the
+background by `/resolve` once it is a day old, so a real fetch replaces it.
+A URL with no card at all is answered `failed` with a document written from
+its own path (`src/search/url-title.ts`: the last segment that reads as words,
+ids and numbers skipped, plus the site's host), evidence `title.source: 'url'`.
+It is never stored.
+
 After a fix, re-queue the previews that failed for its cause. Run the built
 one-shot with the live `clarity-worker` task definition; the default is a
 read-only preview of the candidates by cause:

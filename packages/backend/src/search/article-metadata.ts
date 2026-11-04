@@ -21,6 +21,46 @@ export interface ArticleMetadata {
   description?: string;
   /** `image` (a URL, an ImageObject or a list of either) or `thumbnailUrl`, as written. */
   image?: string;
+  /** The subject's `author`: names, or Person/Organization nodes with a name. */
+  authors?: Author[];
+}
+
+export interface Author {
+  name: string;
+  url?: string;
+}
+
+/**
+ * Bylines as a card shows them: trimmed, without a leading "By", at most five,
+ * each name once. A value that is itself a URL (OpenGraph's `article:author`
+ * is often a profile link) is no name.
+ */
+export function cleanAuthors(authors: readonly Author[]): Author[] {
+  const seen = new Set<string>();
+  const out: Author[] = [];
+  for (const author of authors) {
+    const name = author.name
+      .replace(/\s+/g, ' ')
+      .replace(/^by\s+/i, '')
+      .trim()
+      .slice(0, 200);
+    if (!name || /^https?:\/\//i.test(name) || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    const url =
+      author.url && /^https?:\/\//i.test(author.url) ? author.url.slice(0, 2_000) : undefined;
+    out.push(url ? { name, url } : { name });
+    if (out.length === 5) break;
+  }
+  return out;
+}
+
+function authorsOf(value: unknown): Author[] {
+  return (Array.isArray(value) ? value : [value]).flatMap((item): Author[] => {
+    if (typeof item === 'string') return [{ name: item }];
+    const record = asRecord(item);
+    if (typeof record?.name !== 'string') return [];
+    return [{ name: record.name, url: typeof record.url === 'string' ? record.url : undefined }];
+  });
 }
 
 /** Earliest and latest dates a publication date may plausibly carry. */
@@ -88,6 +128,10 @@ export function metadataFromStructuredData(
     metadata.title ??=
       text(node.headline, 500) ?? (isSubject(node) ? text(node.name, 500) : undefined);
     // A job posting's description is the whole listing, not a summary of the page.
+    if (!metadata.authors?.length && isSubject(node)) {
+      const authors = cleanAuthors(authorsOf(node.author));
+      if (authors.length) metadata.authors = authors;
+    }
     if (isSubject(node) && !typesOf(node).includes('jobposting')) {
       metadata.description ??= text(node.description, 1_000);
       metadata.image ??= imageOf(node.image) ?? imageOf(node.thumbnailUrl);
