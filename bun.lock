@@ -14,7 +14,7 @@
       },
       "devDependencies": {
         "@biomejs/biome": "2.5.15",
-        "@oxy.so/doctor": "1.5.0",
+        "@oxy.so/doctor": "1.6.0",
         "typescript": "~6.0.3",
       },
     },
@@ -694,7 +694,7 @@
 
     "@oxy.so/db": ["@oxy.so/db@1.4.0", "", { "peerDependencies": { "drizzle-orm": "^0.45.2", "postgres": "^3.4.9" }, "bin": { "oxy-db-check-migration-locks": "dist/cjs/bin/check-migration-locks.js" } }, "sha512-qumZQoZ4khGXOl+LYC5uZquw5N3DdjBZoV3+WbwJ/zlLXCJ180Qhg72nRSalvIUQHoFIosuIr5DFHT0ia3Garg=="],
 
-    "@oxy.so/doctor": ["@oxy.so/doctor@1.5.0", "", { "bin": { "oxy-doctor": "src/cli.mjs", "oxy-emulator-preflight": "src/emulator-preflight.mjs", "oxy-doctor-expo-android": "src/expo-android.mjs" } }, "sha512-Bg7K+OElxi6rJd9ZRAABNaUuDGBjvgfOOEI12yQfDqorC1I/fxvU837qAZyTzZ6le4bQf/MXZXhNS/W3NCib+g=="],
+    "@oxy.so/doctor": ["@oxy.so/doctor@1.6.0", "", { "bin": { "oxy-doctor": "src/cli.mjs", "oxy-doctor-i18n": "src/i18n-cli.mjs", "oxy-emulator-preflight": "src/emulator-preflight.mjs", "oxy-doctor-expo-android": "src/expo-android.mjs" } }, "sha512-Cgp+s7y3v9JlHAm25lsu1QJ4A12wGJu2ZpamcQZ6uMW8lS+9kweYhVUEa9ENDJV82ZgWm92v6SY20MDpt0BEFQ=="],
 
     "@oxy.so/mcp": ["@oxy.so/mcp@1.4.1", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.32.2", "@oxy.so/contracts": "^6.5.0", "zod": "^4.6.7" } }, "sha512-xE7qEMOClukImw5DKqjyZRsFZvC5SDmpu+EBdhepasVyIHccaSgFsumWJJ6GwrMTph6YdNy7cUgJ23POXXowFQ=="],
 
