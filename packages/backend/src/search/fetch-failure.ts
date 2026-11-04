@@ -10,14 +10,19 @@
  */
 import { isAbortError, isTransientNetworkError } from '../lib/error-classification.js';
 
-/** A fetch that reached the site but got no usable page. */
+/**
+ * A fetch that reached the site but got no usable page. `transient` marks an
+ * answer that is not the page at all — a bot interstitial with no title — so
+ * the URL is asked again later rather than stored as an empty document.
+ */
 export class PageFetchError extends Error {
-  constructor(
-    message: string,
-    readonly httpStatus?: number,
-  ) {
+  readonly httpStatus?: number;
+  readonly transient: boolean;
+  constructor(message: string, options: { httpStatus?: number; transient?: boolean } = {}) {
     super(message);
     this.name = 'PageFetchError';
+    this.httpStatus = options.httpStatus;
+    this.transient = options.transient ?? false;
   }
 }
 
@@ -32,7 +37,7 @@ const TRANSIENT_MESSAGE =
 
 export function isTransientFetchFailure(error: unknown): boolean {
   if (error instanceof PageFetchError)
-    return error.httpStatus !== undefined && transientStatus(error.httpStatus);
+    return error.transient || (error.httpStatus !== undefined && transientStatus(error.httpStatus));
   if (isTransientNetworkError(error) || isAbortError(error)) return true;
   if (error instanceof Error && error.name === 'TimeoutError') return true;
   return error instanceof Error && TRANSIENT_MESSAGE.test(error.message);

@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import { createLogger } from './lib/logger.js';
-import { and, eq, gt, gte, lt, ne, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, gt, gte, isNotNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
 import { closePostgres, connectPostgres, getDb, type ClarityExecutor } from './db/index.js';
@@ -12,6 +12,7 @@ import { crawlJobs, crawlPages, fetchAttempts, searchDocuments } from './db/sche
 import { type ExtractedDocument, extractDocument } from './search/extractor.js';
 import { decodeBody } from './search/decode-body.js';
 import { PageFetchError, isTransientFetchFailure } from './search/fetch-failure.js';
+import { fileName, pdfTitle } from './search/pdf-metadata.js';
 import { FEED_USER_AGENT } from './search/jobs/feeds/robots.js';
 import {
   applyOembed,
@@ -351,9 +352,12 @@ async function processLeasedPage(page: typeof crawlPages.$inferSelect): Promise<
     }
     // A page Clarity could not fetch may still be described by its publisher's
     // oEmbed endpoint, which exists for exactly this: a preview of the link.
-    const source = fetched
-      ? await sourceFromPage(fetched, page.url)
-      : await sourceFromOembed(page.url, failure);
+    const source =
+      fetched?.kind === 'pdf'
+        ? sourceFromPdf(fetched)
+        : fetched
+          ? await sourceFromPage(fetched, page.url)
+          : await sourceFromOembed(page.url, failure);
     if (!source) throw failure;
     await storeDocument(page, job, principal, attemptId, startedAt, source);
   } catch (error) {
@@ -372,9 +376,18 @@ type FetchedPage =
       contentType: string;
       bytes: number;
       html: string;
+    }
+  | {
+      kind: 'pdf';
+      finalUrl: string;
+      httpStatus: number;
+      headers: IncomingHttpHeaders;
+      contentType: string;
+      bytes: number;
+      body: Buffer;
     };
 
-/** Fetches the page; throws a {@link PageFetchError} when the answer is not an HTML page. */
+/** Fetches the page; throws a {@link PageFetchError} when the answer is neither HTML nor a PDF. */
 async function fetchPage(url: string): Promise<FetchedPage> {
   const result = await safeFetch(url, {
     headers: { 'User-Agent': FEED_USER_AGENT, accept: 'text/html,application/xhtml+xml' },
@@ -393,10 +406,11 @@ async function fetchPage(url: string): Promise<FetchedPage> {
   }
   if (result.status >= 400) {
     result.response.destroy();
-    throw new PageFetchError(`http_status_${result.status}`, result.status);
+    throw new PageFetchError(`http_status_${result.status}`, { httpStatus: result.status });
   }
   const contentType = header(result.headers['content-type']);
-  if (!contentType?.includes('text/html')) {
+  const pdf = contentType?.includes('application/pdf') ?? false;
+  if (!contentType || (!contentType.includes('text/html') && !pdf)) {
     result.response.destroy();
     throw new PageFetchError('unsupported_content_type');
   }
@@ -404,13 +418,25 @@ async function fetchPage(url: string): Promise<FetchedPage> {
   let bytes = 0;
   for await (const chunk of result.response) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    bytes += buffer.length;
-    if (bytes > maxBodyBytes) {
+    if (bytes + buffer.length > maxBodyBytes) {
       result.response.destroy();
+      // A PDF's card needs only its metadata, which a partial read may hold.
+      if (pdf) break;
       throw new PageFetchError('response_too_large');
     }
+    bytes += buffer.length;
     chunks.push(buffer);
   }
+  if (pdf)
+    return {
+      kind: 'pdf',
+      finalUrl: result.finalUrl,
+      httpStatus: result.status,
+      headers: result.headers,
+      contentType,
+      bytes,
+      body: Buffer.concat(chunks),
+    };
   return {
     kind: 'page',
     finalUrl: result.finalUrl,
@@ -460,6 +486,10 @@ async function sourceFromPage(
       break;
     }
   }
+  // A page with no title from any source is not the page: a bot interstitial
+  // or a script-only shell (Amazon serves one to most crawls). It is asked
+  // again later instead of stored as an empty card.
+  if (!extracted.title) throw new PageFetchError('untitled_page', { transient: true });
   return {
     fetchMode: 'http',
     finalUrl: fetched.finalUrl,
@@ -469,6 +499,31 @@ async function sourceFromPage(
     contentType: fetched.contentType,
     bytes: fetched.bytes,
     extracted,
+  };
+}
+
+/** A linked PDF: its metadata's title, else its file name (search/pdf-metadata.ts). */
+function sourceFromPdf(fetched: Extract<FetchedPage, { kind: 'pdf' }>): DocumentSource {
+  const stated = pdfTitle(fetched.body);
+  const title = stated ?? fileName(fetched.finalUrl);
+  if (!title) throw new PageFetchError('untitled_page');
+  const extractedAt = new Date().toISOString();
+  return {
+    fetchMode: 'http',
+    finalUrl: fetched.finalUrl,
+    httpStatus: fetched.httpStatus,
+    etag: header(fetched.headers.etag),
+    lastModified: header(fetched.headers['last-modified']),
+    contentType: fetched.contentType,
+    bytes: fetched.bytes,
+    extracted: {
+      title,
+      documentType: 'other',
+      structuredData: [],
+      evidence: { title: { source: stated ? 'pdf_metadata' : 'url', extractedAt } },
+      noindex: false,
+      nofollow: false,
+    },
   };
 }
 
@@ -735,6 +790,7 @@ async function completeIfAlreadyFetched(
         and(
           answeredToAny([page.url]),
           ne(searchDocuments.status, 'discovered'),
+          isNotNull(searchDocuments.title),
           gte(searchDocuments.fetchedAt, page.createdAt),
         ),
       )
