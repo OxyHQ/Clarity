@@ -33,7 +33,7 @@ import {
   workplace,
 } from '../listing.js';
 import { normalizeCountry } from '../../taxonomy.js';
-import { withoutTracking } from './pagejsonld.js';
+import { withoutTracking } from '../../../resource-url.js';
 
 function indeedPlace(job: string) {
   const city = text(tag(job, 'city'));

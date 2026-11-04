@@ -21,7 +21,7 @@ import {
   seniority,
   text,
 } from '../listing.js';
-import { withoutTracking } from './pagejsonld.js';
+import { withoutTracking } from '../../../resource-url.js';
 
 export const jobscore: JobFeedProvider = {
   kind: 'jobscore',
