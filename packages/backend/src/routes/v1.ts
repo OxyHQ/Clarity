@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
-import { sessionRateLimit } from '../middleware/session-rate-limit.js';
+import { clarityRateLimit } from '../middleware/rate-limit.js';
 import searchPlatformRouter from './v1/search-platform.js';
 import marketRouter from './v1/market.js';
 
@@ -21,8 +21,8 @@ router.use('/market', marketRouter);
 // Apply canonical Oxy user authentication to all other v1 routes.
 router.use(authenticateToken);
 
-// Apply product-tier burst protection.
-router.use(sessionRateLimit);
+// Burst protection for the signed-in person.
+router.use(clarityRateLimit('v1-session'));
 
 /**
  * GET /v1/me

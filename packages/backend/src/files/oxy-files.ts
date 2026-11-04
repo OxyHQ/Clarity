@@ -1,13 +1,14 @@
-import {
-  OxyServices,
-  type ApplicationFileImport,
-  type ApplicationFileUpload,
-  type FileVisibility,
-  type ServiceFileReference,
-  type ServiceFileReferenceResult,
-  type ServiceReferenceInventoryItem,
-  type ServiceReferenceReconcileResult,
+import type {
+  ApplicationFileImport,
+  ApplicationFileUpload,
+  FileVisibility,
+  ServiceFileReference,
+  ServiceFileReferenceResult,
+  ServiceReferenceInventoryItem,
+  ServiceReferenceReconcileResult,
 } from '@oxy.so/core';
+
+import { getClarityFilesClient } from '../lib/clarity-service-auth.js';
 
 /**
  * The ONE place Clarity talks to Oxy Files (ADR 0043).
@@ -73,28 +74,21 @@ export interface OxyFiles {
 
 let override: OxyFiles | undefined;
 
-/**
- * The attested service identity's `assets`, loaded on first use rather than
- * imported: a module that only builds image URLs (or a test that stubs
- * `@oxy.so/core/server` down to `safeFetch`) must not pull in the service
- * identity to do it.
- */
-async function serviceAssets() {
-  const { getClarityFilesClient } = await import('../lib/clarity-service-auth.js');
+/** The attested service identity's `assets`: the process's one `OxyServer`. */
+function serviceAssets() {
   return getClarityFilesClient().assets;
 }
 
 const serviceFiles: OxyFiles = {
-  importAppFile: async (sourceUrl, options) =>
-    (await serviceAssets()).importAppFile(sourceUrl, options),
+  importAppFile: async (sourceUrl, options) => serviceAssets().importAppFile(sourceUrl, options),
   uploadAppFile: async (bytes, mime, options) =>
-    (await serviceAssets()).uploadAppFile(bytes, mime, options),
-  metadataByIds: async (ids, options) => (await serviceAssets()).metadataByIds(ids, options),
+    serviceAssets().uploadAppFile(bytes, mime, options),
+  metadataByIds: async (ids, options) => serviceAssets().metadataByIds(ids, options),
   references: {
-    add: async (references) => (await serviceAssets()).references.add(references),
-    remove: async (references) => (await serviceAssets()).references.remove(references),
+    add: async (references) => serviceAssets().references.add(references),
+    remove: async (references) => serviceAssets().references.remove(references),
     reconcile: async (entityType, items, options) =>
-      (await serviceAssets()).references.reconcile(entityType, items, options),
+      serviceAssets().references.reconcile(entityType, items, options),
   },
 };
 
@@ -132,12 +126,8 @@ export function svgUploadRefusal(error: unknown): 'type_not_supported' | 'invali
  * `w1280`, …) or as stored. Pure: Clarity's files are all `public`.
  */
 export function oxyFileUrl(fileId: string, variant?: string): string {
-  urlBuilder ??= new OxyServices({ baseURL: process.env.OXY_API_URL || 'https://api.oxy.so' });
-  return urlBuilder.assets.publicUrl(fileId, variant);
+  return serviceAssets().publicUrl(fileId, variant);
 }
-
-/** Builds CDN addresses only: it never sends a request. */
-let urlBuilder: OxyServices | undefined;
 
 /** The HTTP status and code an Oxy SDK call failed with, when it says. */
 export function oxyErrorOf(error: unknown): { status?: number; code?: string } {

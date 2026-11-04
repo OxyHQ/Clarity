@@ -16,7 +16,7 @@
 
 import { createCatalogMcpHttpServiceWithInvocationPrincipal } from '@oxy.so/mcp';
 
-import { canonicalBaseUrl, clarityOxyServer } from '../lib/clarity-service-auth.js';
+import { canonicalBaseUrl, clarityPlatformTransport } from '../lib/clarity-service-auth.js';
 import { log } from '../lib/logger.js';
 import { CLARITY_CAPABILITY_CATALOG } from './clarity.catalog.js';
 import { CLARITY_INVOCATION_HANDLERS } from './clarity.handlers.js';
@@ -49,9 +49,7 @@ export function createClarityMcpHttpService(options: ClarityMcpHttpServiceOption
     catalog: CLARITY_CAPABILITY_CATALOG,
     handlers: CLARITY_INVOCATION_HANDLERS,
     authorizationServer,
-    transport:
-      options.transport ??
-      clarityOxyServer().createServiceClient({ baseURL: authorizationServer, audience: 'oxy-api' }),
+    transport: options.transport ?? clarityPlatformTransport(),
     allowedOrigins: parseClarityMcpAllowedOrigins(),
     maxBodyBytes: CLARITY_MCP_MAX_BODY_BYTES,
     authorize: async (_input, context) =>

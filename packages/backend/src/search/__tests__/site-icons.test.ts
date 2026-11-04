@@ -9,6 +9,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 const safeFetch = vi.fn();
 vi.mock('@oxy.so/core/server', () => ({ safeFetch }));
+// Oxy Files is reached only through the service identity, which needs the real
+// `@oxy.so/core/server`; nothing here calls Oxy.
+vi.mock('../../lib/clarity-service-auth.js', () => ({
+  getClarityFilesClient: () => {
+    throw new Error('Oxy Files is not part of this suite');
+  },
+}));
 // This suite exercises icon bytes/hostname parsing, not HTTP authentication.
 // Actual SDK bearer and policy handling is covered by experience-supervised.test.ts.
 vi.mock('../../middleware/auth.js', () => ({

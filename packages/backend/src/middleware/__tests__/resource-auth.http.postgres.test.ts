@@ -44,6 +44,9 @@ let own: ClarityClient, personal: ClarityClient;
 let liveCaller = true,
   introspections = 0;
 let leakedRequests = 0;
+/** What the fixture Oxy answers to the next domain verifications, in order. */
+const domainAnswers: Array<{ status: number; body?: unknown }> = [];
+let domainChecks = 0;
 const mintedVersions: number[] = [];
 const accounts = [ownerA, ownerB, org];
 const operation = (accountId: string) => `${accountId}-operation`;
@@ -126,6 +129,11 @@ suite('Clarity SDK → HTTP → shared live authority → account-owned operatio
         expiresAt: new Date((now + 300) * 1000).toISOString(),
       });
       res.json({ token, expiresIn: 300, appName: 'Fixture' });
+    });
+    authority.post('/auth/resources/domains/verify', (_req, res) => {
+      domainChecks += 1;
+      const answer = domainAnswers.shift() ?? { status: 500 };
+      res.status(answer.status).json(answer.body ?? {});
     });
     authority.get('/leak', (_req, res) => {
       leakedRequests += 1;
@@ -289,6 +297,30 @@ suite('Clarity SDK → HTTP → shared live authority → account-owned operatio
     principals.set(sessionToken(org), { active: false });
     await expect(personal.operations.get(operation(org))).rejects.toMatchObject({ status: 401 });
     if (valid) principals.set(sessionToken(org), valid);
+  });
+  it('answers 503 when Oxy cannot verify a domain, and only 403/404 mean not verified', async () => {
+    const site = { origin: 'https://shop.example', verifiedDomainId: `${prefix}-domain` };
+    const create = (key: string) => own.sites.create(site, { idempotencyKey: `${prefix}:${key}` });
+    domainChecks = 0;
+    domainAnswers.push(
+      { status: 503, body: { error: { code: 'service_unavailable', message: 'Down' } } },
+      { status: 500 },
+      { status: 404, body: { error: { code: 'not_found', message: 'No such domain' } } },
+      { status: 403, body: { error: { code: 'forbidden', message: 'Not yours' } } },
+      { status: 200, body: { verified: false } },
+    );
+    for (const key of ['outage', 'error'])
+      await expect(create(key)).rejects.toMatchObject({
+        status: 503,
+        code: 'service_unavailable',
+      });
+    // The outage was not remembered: the next answers are read as they come.
+    for (const key of ['missing', 'foreign', 'unverified'])
+      await expect(create(key)).rejects.toMatchObject({
+        status: 403,
+        code: 'domain_not_verified',
+      });
+    expect(domainChecks).toBe(5);
   });
   it('never follows a redirect with workload or external-key authority', async () => {
     await expect(own.operations.get('redirect')).rejects.toThrow();

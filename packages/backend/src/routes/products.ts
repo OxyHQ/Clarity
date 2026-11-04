@@ -10,7 +10,7 @@
  */
 import { Router } from 'express';
 
-import { anonymousRateLimit } from '../middleware/anonymous-rate-limit.js';
+import { clarityRateLimit } from '../middleware/rate-limit.js';
 import { optionalAuth } from '../middleware/auth.js';
 import { sendError } from '../middleware/resource-auth.js';
 import {
@@ -25,7 +25,7 @@ const router = Router();
 // This surface is not reviewed for supervised consumption. Presented bearers never downgrade to anonymous.
 router.use(optionalAuth);
 /** Its own bucket: reading the Shopping page must not rate-limit Jobs or Finance. */
-router.use(anonymousRateLimit('anon:products:'));
+router.use(clarityRateLimit('products'));
 
 router.get('/search', async (req, res) => {
   const parsed = productSearchSchema.safeParse({

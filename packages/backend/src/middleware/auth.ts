@@ -25,10 +25,10 @@ declare global {
 }
 
 /** Canonical Oxy user-session middleware. */
-export const authenticateToken = createOxyAuthMiddleware(oxyClient, { auth: { debug: true } });
+export const authenticateToken = createOxyAuthMiddleware(oxyClient);
 
 const oxyOptionalAuth = createOptionalOxyAuth(oxyClient, {
-  auth: { debug: true, strictOptionalBearer: true },
+  auth: { strictOptionalBearer: true },
 });
 
 /** Only the Experience domain is reviewed for supervised profile management. */

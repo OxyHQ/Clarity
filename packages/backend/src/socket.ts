@@ -3,23 +3,21 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import type http from 'node:http';
 import { getRedisClient, getRedisSubClient } from './lib/redis.js';
 import { log } from './lib/logger.js';
+import { createOxySocketCors } from '@oxy.so/core/server';
+import { CLARITY_APP_ORIGINS } from './lib/app-origins.js';
 import { oxyClient } from './middleware/auth.js';
 import { getRuntimeReadiness } from './db/runtime-readiness.js';
 
 /** Socket.IO Socket augmented with auth user */
 type AuthenticatedSocket = Socket & { user?: { id: string } };
 
-const ALLOWED_ORIGINS = [process.env.WEB_URL || 'http://localhost:3000', 'https://clarity.surf'];
-
 let io: Server | null = null;
 
 export function initSocket(server: http.Server) {
   io = new Server(server, {
-    cors: {
-      origin: ALLOWED_ORIGINS,
-      methods: ['GET', 'POST'],
-      credentials: true,
-    },
+    // The same browsers the HTTP routes admit, on polling and on the
+    // WebSocket handshake (which browsers apply no CORS to).
+    ...createOxySocketCors({ appOrigins: CLARITY_APP_ORIGINS }),
     transports: ['websocket', 'polling'],
   });
 
