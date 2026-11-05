@@ -27,7 +27,7 @@
     "@expo/vector-icons": "^15.1.1",
     "@hugeicons/react-native": "^1.0.15",
     "@oxy.so/app-preset": "6.0.0",
-    "@oxy.so/bloom": "17.5.0",
+    "@oxy.so/bloom": "17.9.0",
     "@oxy.so/contracts": "6.9.0",
     "@oxy.so/core": "7.23.0",
     "@oxy.so/services": "14.3.8",
