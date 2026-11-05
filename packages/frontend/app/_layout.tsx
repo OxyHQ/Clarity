@@ -4,7 +4,8 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { OxyProvider, useAccountColor } from '@oxy.so/services/ui/client';
-import { BloomThemeProvider } from '@oxy.so/bloom/theme';
+import { BloomProvider } from '@oxy.so/bloom/provider';
+import { expoRouterScrollAdapter } from '@oxy.so/bloom/scroll/expo-router';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -77,7 +78,8 @@ function RootLayout() {
 
   return (
     <AppErrorBoundary>
-      <BloomThemeProvider
+      <BloomProvider
+        scrollAdapter={expoRouterScrollAdapter}
         defaultMode="system"
         defaultColorPreset="yellow"
         persistKey={BLOOM_THEME_PERSIST_KEY}
@@ -98,7 +100,7 @@ function RootLayout() {
         >
           <AppContent />
         </OxyProvider>
-      </BloomThemeProvider>
+      </BloomProvider>
     </AppErrorBoundary>
   );
 }
