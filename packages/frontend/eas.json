@@ -1,7 +1,7 @@
 {
   "cli": {
     "version": ">= 15.0.0",
-    "appVersionSource": "remote"
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -20,7 +20,9 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.clarity.surf"
+      }
     }
   }
 }

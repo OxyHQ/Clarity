@@ -8,6 +8,13 @@
  * An EAS file environment variable `GOOGLE_SERVICES_JSON` provides it on EAS;
  * a local build may use the ignored `./google-services.json`. With neither,
  * the Android app still builds, without FCM push delivery.
+ *
+ * OTA updates come from Oxy Updates (`withOxyUpdates` in `app.json`, the same
+ * client id `app/_layout.tsx` hands the OxyProvider), published on every push to
+ * main by `.github/workflows/publish-update.yml`. The runtime is `version`
+ * (appVersion policy): bump it for a native change, which also releases a new
+ * binary (`.github/workflows/android-release.yml`). android.versionCode and
+ * ios.buildNumber are derived from `version`; never set them.
  */
 const { existsSync } = require('node:fs');
 const { resolve } = require('node:path');

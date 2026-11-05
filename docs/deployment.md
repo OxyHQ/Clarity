@@ -65,6 +65,28 @@ directory cannot stop it from starting. CI's `Build SearXNG image` job
 tmpfs and root-owned bind-mounted volumes. Moving it out of the API's task is
 proposed in `docs/searxng-own-service.md`.
 
+## Native app releases and OTA updates
+
+The Expo app (`packages/frontend`, `so.oxy.clarity`) ships natively outside AWS:
+
+- **Android binary** — `.github/workflows/android-release.yml` calls oxy's reusable
+  `android-release.yml`, which runs only on Oxy's build machine (`seldon`). When the
+  app `version` (`packages/frontend/app.json`) has no GitHub release
+  `android-v<version>` yet, it builds the AAB and APK signed with the Oxy ecosystem
+  key and publishes them as that release; otherwise it ends there.
+- **OTA update** — `.github/workflows/publish-update.yml` publishes every push to
+  main that touches the app, `shared-types` or `sdk` to Oxy Updates (oxy-api),
+  channel `production`, with `oxy-ship` over GitHub trusted publishing (OIDC, no
+  secret; the trusted publisher pins this repository, `refs/heads/main` and that
+  file path).
+
+`version` is both the OTA runtime (`withOxyUpdates`, appVersion policy) and the
+store build number (`@oxy.so/app-preset` derives `versionCode` 1.0.0 -> 1000000):
+bump it for a native change, never for a JS-only one. Both builds take their
+environment from the `production` profile's `env` in `packages/frontend/eas.json`.
+The root `postinstall` builds `shared-types` and `sdk`, which the app imports from
+their `dist`, so a plain `bun install` is enough to bundle it.
+
 ## Required secrets and bindings
 
 Every runtime secret lives only in SSM Parameter Store under `/oxy/clarity/`
