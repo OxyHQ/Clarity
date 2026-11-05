@@ -1,7 +1,7 @@
 /**
- * `app.json`, plus the two things it cannot say: Noxcturnal on in development
- * only (below), and where Firebase's `google-services.json` (Android push)
- * comes from. The file is not in the
+ * `app.json`, plus the three things it cannot say: the app id and name of the
+ * build variant (below), Noxcturnal on in development only, and where
+ * Firebase's `google-services.json` (Android push) comes from. The file is not in the
  * repository (it is gitignored), so an EAS build never receives it from the
  * project archive and `expo prebuild` used to fail copying it.
  *
@@ -19,9 +19,20 @@
 const { existsSync } = require('node:fs');
 const { resolve } = require('node:path');
 
+// App variant: a development build sits next to the production app on the SAME
+// device with a distinct applicationId/bundleId and name. Build it with
+// `APP_VARIANT=development` (e.g. `APP_VARIANT=development npx expo run:android`);
+// production is the default. The id is clarity.surf reversed, plus `.app`.
+const IS_DEV_VARIANT = process.env.APP_VARIANT === 'development';
+const APP_ID = IS_DEV_VARIANT ? 'surf.clarity.app.dev' : 'surf.clarity.app';
+const APP_NAME = IS_DEV_VARIANT ? 'Clarity (Dev)' : 'Clarity';
+
 module.exports = ({ config: appJson }) => {
   const config = {
     ...appJson,
+    name: APP_NAME,
+    ios: { ...appJson.ios, bundleIdentifier: APP_ID },
+    android: { ...appJson.android, package: APP_ID },
     experiments: {
       ...appJson.experiments,
       // Expo's oxc transformer, about 2x faster cold bundles than Babel. Development

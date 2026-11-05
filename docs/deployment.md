@@ -67,7 +67,7 @@ proposed in `docs/searxng-own-service.md`.
 
 ## Native app releases and OTA updates
 
-The Expo app (`packages/frontend`, `so.oxy.clarity`) ships natively outside AWS:
+The Expo app (`packages/frontend`, `surf.clarity.app`; `surf.clarity.app.dev` for `APP_VARIANT=development`) ships natively outside AWS:
 
 - **Android binary** — `.github/workflows/android-release.yml` calls oxy's reusable
   `android-release.yml`, which runs only on Oxy's build machine (`seldon`). When the
