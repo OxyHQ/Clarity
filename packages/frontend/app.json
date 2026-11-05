@@ -3,14 +3,13 @@
     "owner": "oxyhq",
     "name": "Clarity",
     "slug": "clarity",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon-512.png",
     "scheme": "clarity",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "so.oxy.clarity",
       "infoPlist": {
         "UIBackgroundModes": ["remote-notification"]
       }
@@ -22,7 +21,6 @@
         "backgroundColor": "#FFFFFF"
       },
       "googleServicesFile": "./google-services.json",
-      "package": "so.oxy.clarity",
       "predictiveBackGestureEnabled": false,
       "permissions": ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SETTINGS"]
     },
