@@ -60,7 +60,11 @@
       ],
       "expo-status-bar",
       ["expo-build-properties", { "android": { "gifEnabled": false, "webpEnabled": false } }],
-      "@oxy.so/services/plugins/withOxySharedPermissions"
+      "@oxy.so/services/plugins/withOxySharedPermissions",
+      [
+        "@oxy.so/app-preset/plugin/withOxyUpdates",
+        { "clientId": "oxy_dk_75cdd9996d19362e15ddedcc5ab0f4fb310de8d7b5e8523a" }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
