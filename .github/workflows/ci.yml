@@ -141,6 +141,12 @@ jobs:
       - name: Translation key convention
         run: bun run i18n:check
 
+      # One copy of every package one version can serve and of every package
+      # that must be single (@oxy.so/*, react, expo, ...), Oxy releases inside
+      # their upgrade window, and the native peers @oxy.so/services requires.
+      - name: Oxy dependency health (oxy-doctor)
+        run: bun run doctor:oxy
+
       - name: Lint and format check (Biome)
         run: bunx biome ci .
 
