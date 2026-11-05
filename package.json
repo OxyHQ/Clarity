@@ -23,6 +23,7 @@
     "check:backend-entrypoints": "bun scripts/check-backend-entrypoints.ts",
     "lint": "biome check .",
     "i18n:check": "oxy-doctor-i18n --ci",
+    "doctor:oxy": "oxy-doctor --ci",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "android": "bun run --filter @clarity/frontend android",
@@ -40,7 +41,7 @@
   "author": "",
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
-    "@oxy.so/doctor": "1.6.0",
+    "@oxy.so/doctor": "1.7.0",
     "typescript": "~6.0.3"
   },
   "overrides": {
