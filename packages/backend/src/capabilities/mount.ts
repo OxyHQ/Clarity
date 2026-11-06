@@ -35,6 +35,14 @@ export function mountCapabilityLanes(app: Express, lanes: CapabilityLanes): void
   app.all(lanes.external.mcpPath, (request, response) => {
     void lanes.external.handleMcp(request, response);
   });
+  // The MCP host's root answers like its MCP endpoint. Clarity's public root serves
+  // the API welcome JSON with no authentication, and a client that probes the bare
+  // resource URL reads that 200 as "no OAuth needed" and never starts login.
+  const mcpHost = new URL(CLARITY_CAPABILITY_CATALOG.externalMcp?.resource ?? '').host;
+  app.all('/', (request, response, next) => {
+    if (request.headers.host?.toLowerCase() !== mcpHost) return next();
+    void lanes.external.handleMcp(request, response);
+  });
 }
 
 /** The production lanes, bound to Clarity's Oxy authority. */
