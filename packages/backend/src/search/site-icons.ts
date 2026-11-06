@@ -45,7 +45,7 @@ const CLAIM_MS = 15 * 60 * 1000;
 /** Unused, already-stored icons moved off the due list per refresh. */
 const PARK_BATCH = 500;
 /** Hosts whose icons are fetched at once. */
-const ICON_FETCH_CONCURRENCY = 4;
+const ICON_FETCH_CONCURRENCY = 16;
 const REFRESH_MS = 30 * 24 * 60 * 60 * 1000;
 const RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 /** When Oxy could not take an icon (unreachable), it is fetched again this soon. */
