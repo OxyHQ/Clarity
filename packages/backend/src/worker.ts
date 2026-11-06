@@ -79,8 +79,8 @@ const extractorVersion = 'readability-0.6.0';
 /** How often stored job statuses are reconciled with the lifecycle policy. */
 const jobMaintenanceIntervalMs = 15 * 60 * 1000;
 /** Site icons: a small batch every half minute, on their own loop. */
-const iconRefreshIntervalMs = 30 * 1000;
-const iconRefreshBatchSize = 10;
+const iconRefreshIntervalMs = 5 * 1000;
+const iconRefreshBatchSize = 100;
 /**
  * Clarity's file references owed to Oxy (files/references.ts): drained every
  * ten seconds, so a released image leaves Oxy's books promptly; the nightly
