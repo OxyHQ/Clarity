@@ -30,7 +30,7 @@
         "@oxy.so/contracts": "6.12.0",
         "@oxy.so/core": "7.30.0",
         "@oxy.so/db": "^1.4.0",
-        "@oxy.so/mcp": "1.4.1",
+        "@oxy.so/mcp": "1.4.2",
         "@oxy.so/utils": "1.5.2",
         "@socket.io/redis-adapter": "^8.3.0",
         "cheerio": "^1.2.0",
@@ -204,7 +204,7 @@
     "@oxy.so/bloom": "17.14.1",
     "@oxy.so/contracts": "6.12.0",
     "@oxy.so/core": "7.30.0",
-    "@oxy.so/mcp": "1.4.1",
+    "@oxy.so/mcp": "1.4.2",
     "@oxy.so/protocol": "1.9.0",
     "@oxy.so/services": "14.9.0",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -698,7 +698,7 @@
 
     "@oxy.so/doctor": ["@oxy.so/doctor@1.7.0", "", { "dependencies": { "semver": "^7.7.4" }, "bin": { "oxy-doctor": "src/cli.mjs", "oxy-doctor-i18n": "src/i18n-cli.mjs", "oxy-emulator-preflight": "src/emulator-preflight.mjs", "oxy-doctor-expo-android": "src/expo-android.mjs" } }, "sha512-g/xbx4YK59fOWqsJw2CyZSMR/NQyzi8vASxHTUNnIx5TVA762R+33PKqazeUeRB+DudcnLEKnIFDcs4EsImwhg=="],
 
-    "@oxy.so/mcp": ["@oxy.so/mcp@1.4.1", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.32.2", "@oxy.so/contracts": "^6.5.0", "zod": "^4.6.7" } }, "sha512-xE7qEMOClukImw5DKqjyZRsFZvC5SDmpu+EBdhepasVyIHccaSgFsumWJJ6GwrMTph6YdNy7cUgJ23POXXowFQ=="],
+    "@oxy.so/mcp": ["@oxy.so/mcp@1.4.2", "", { "dependencies": { "@modelcontextprotocol/sdk": "^1.32.2", "@oxy.so/contracts": "^6.14.0", "zod": "^4.6.7" } }, "sha512-msmeHTLvfys25fnVizcAxEzD6lcZwbi7E3t2m2dDRSWq1BYzkHTNVy2KrJ0CVlJ+I94bdvKCVOT8XaOA3pQmhQ=="],
 
     "@oxy.so/protocol": ["@oxy.so/protocol@1.9.0", "", { "dependencies": { "@noble/curves": "^2.4.0", "@oxy.so/contracts": "^6.12.0" }, "peerDependencies": { "@react-native-async-storage/async-storage": "<4.0.0", "expo-crypto": "<59.0.0", "expo-modules-core": "<59.0.0", "expo-secure-store": "<59.0.0", "express": "^4.18.0 || ^5.0.0" }, "optionalPeers": ["@react-native-async-storage/async-storage", "expo-crypto", "expo-secure-store", "express"] }, "sha512-kogJUdm1dEBthzyl8Pu2D+zGa77H4ISDrCCdn1UeO5IAjO8mWf19y6+1V78FVokVN+znCQw8L5pyEuHJsnWrIQ=="],
 

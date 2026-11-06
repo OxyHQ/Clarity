@@ -126,6 +126,12 @@ describe('mcp.clarity.surf/mcp', () => {
     expect((await mcp('tools/list', {}, 'api.clarity.surf')).status).toBe(421);
   });
 
+  it('answers the bare resource URL with the OAuth challenge, not an unauthenticated 200', async () => {
+    const res = await send(port, { method: 'GET', path: '/', host: HOST });
+    expect(res.status).toBe(401);
+    expect(String(res.headers['www-authenticate'])).toContain('resource_metadata=');
+  });
+
   it('serves its protected-resource metadata, naming Oxy as the authorization server', async () => {
     const res = await send(port, {
       method: 'GET',
