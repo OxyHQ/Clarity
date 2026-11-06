@@ -3,6 +3,7 @@ import { reconcileAccountEvents } from './lib/account-event-reconciliation.js';
 import { createHash } from 'node:crypto';
 import type { IncomingHttpHeaders } from 'node:http';
 import { startPlatformActivity } from './lib/platform-activity.js';
+import { createLivenessBeat } from './lib/liveness.js';
 import { createLogger } from './lib/logger.js';
 import { and, eq, gt, gte, inArray, isNotNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
@@ -16,7 +17,12 @@ import {
   searchDocuments,
   searchDocumentUrls,
 } from './db/schema/index.js';
-import { type ExtractedDocument, extractDocument } from './search/extractor.js';
+import type { ExtractedDocument } from './search/extractor.js';
+import {
+  ExtractionTimeoutError,
+  closeExtractionPool,
+  extractDocumentInThread,
+} from './search/extraction-pool.js';
 import { decodeBody } from './search/decode-body.js';
 import { PageFetchError, isTransientFetchFailure } from './search/fetch-failure.js';
 import { fileName, pdfTitle } from './search/pdf-metadata.js';
@@ -480,11 +486,25 @@ interface DocumentSource {
  * image for sharing, its oEmbed endpoint (the one it links, else the
  * registry's) completes them (search/oembed.ts).
  */
+/**
+ * {@link extractDocumentInThread}, with a page that outlasts the extraction
+ * deadline reported as the site's answer about this URL: asking again repeats
+ * the same wait, so the page fails now instead of being retried.
+ */
+async function extractInThread(html: string, finalUrl: string): Promise<ExtractedDocument> {
+  try {
+    return await extractDocumentInThread(html, finalUrl);
+  } catch (error) {
+    if (error instanceof ExtractionTimeoutError) throw new PageFetchError('extraction_timeout');
+    throw error;
+  }
+}
+
 async function sourceFromPage(
   fetched: Extract<FetchedPage, { kind: 'page' }>,
   requestedUrl: string,
 ): Promise<DocumentSource> {
-  let extracted = extractDocument(fetched.html, fetched.finalUrl);
+  let extracted = await extractInThread(fetched.html, fetched.finalUrl);
   if (wantsOembed(extracted)) {
     // The page's own link first; a degraded page can link a broken one, so
     // the registry's endpoint is asked when it gives no answer.
@@ -1216,6 +1236,9 @@ export async function runCrawlSlots<Page>(options: {
 async function main() {
   if (!connectPostgres(process.env.DATABASE_URL)) throw new Error('DATABASE_URL is required');
   let stopping = false;
+  // The ECS health check fails once this stops (lib/liveness.ts).
+  const beat = createLivenessBeat();
+  beat();
   const activity = startPlatformActivity(() => !stopping, 'clarity-worker');
   let nextMaintenanceAt = 0;
   let nextAccountEventSyncAt = 0;
@@ -1234,6 +1257,7 @@ async function main() {
     concurrency: crawlConcurrency,
     isStopping: () => stopping,
     tick: async () => {
+      beat();
       if (Date.now() >= nextAccountEventSyncAt) {
         nextAccountEventSyncAt = Date.now() + 60_000;
         try {
@@ -1248,12 +1272,16 @@ async function main() {
       if (Date.now() >= nextMaintenanceAt) {
         nextMaintenanceAt = Date.now() + jobMaintenanceIntervalMs;
         await runJobMaintenance();
+        beat();
         await runImageCacheSweep();
+        beat();
         await runEffectReceiptSweep();
+        beat();
       }
       if (Date.now() >= nextOxyFilesAt) {
         nextOxyFilesAt = Date.now() + oxyFilesIntervalMs;
         await runOxyFiles();
+        beat();
       }
     },
     lease: leaseNextPage,
@@ -1266,6 +1294,7 @@ async function main() {
   await productFeedLoop;
   await embeddingBacklogLoop;
   await activity?.stop();
+  await closeExtractionPool();
   await closePostgres();
 }
 
