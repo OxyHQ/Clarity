@@ -5,6 +5,11 @@ await esbuild.build({
   entryPoints: {
     index: 'src/index.ts',
     worker: 'src/worker.ts',
+    // The thread page extraction runs in (search/extraction-pool.ts); the pool
+    // resolves it next to the bundle.
+    'extraction-thread': 'src/search/extraction-thread.ts',
+    // The ECS health check of the crawl worker (lib/liveness.ts).
+    healthcheck: 'src/healthcheck.ts',
     'db/migrate': 'src/db/migrate.ts',
     'db/attest-cutover': 'src/db/attest-cutover.ts',
     'db/attest-fresh-install': 'src/db/attest-fresh-install.ts',

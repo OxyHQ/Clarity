@@ -20,7 +20,8 @@ import { readResponseBody, readResponseJson, safeFetch } from '@oxy.so/core/serv
 import { asRecord } from '../lib/json-record.js';
 import { createLogger } from '../lib/logger.js';
 import { decodeBody } from './decode-body.js';
-import { type ExtractedDocument, extractDocument } from './extractor.js';
+import { extractDocumentInThread } from './extraction-pool.js';
+import type { ExtractedDocument } from './extractor.js';
 import { FEED_USER_AGENT, robotsAllowUrl } from './jobs/feeds/robots.js';
 
 const log = createLogger('wayback');
@@ -79,7 +80,7 @@ export async function waybackDocument(url: string): Promise<ExtractedDocument | 
     });
     if (body.kind !== 'ok') return undefined;
     // Relative references resolve against the page's own URL, as on the live site.
-    const extracted = extractDocument(decodeBody(body.body, type), url);
+    const extracted = await extractDocumentInThread(decodeBody(body.body, type), url);
     if (!extracted.title) return undefined;
     const evidence = {
       source: 'wayback',

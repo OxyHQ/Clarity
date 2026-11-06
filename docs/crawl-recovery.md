@@ -60,6 +60,31 @@ indexing restriction remains a source-specific failure. Inspect the recorded
 fetch result before retrying it. Never manufacture a successful document to
 hide a stopped queue.
 
+## A frozen worker
+
+The crawl worker is one event loop. When that loop stops turning, ECS still
+reports the task as running; on 2026-11-06 it sat frozen from 18:13 UTC with
+10,000 pages queued, one connection `idle in transaction` and the task's CPU
+pinned near 100%.
+
+Two things now keep it from happening again:
+
+- **Page extraction runs off the loop.** `extractDocument` (linkedom +
+  Readability) is synchronous and its cost grows with the page, so it runs in a
+  pool of threads (`search/extraction-pool.ts`). A page that outlasts
+  `EXTRACTION_TIMEOUT_MS` (20 s) has its thread terminated and fails as
+  `extraction_timeout`, which is not retried. `EXTRACTION_THREADS` sets the
+  pool size (default 2).
+- **A health check that sees the loop.** The crawl loop touches a heartbeat file
+  (`lib/liveness.ts`); `dist/healthcheck.js`, run by ECS in its own process,
+  fails when it is older than `CLARITY_LIVENESS_MAX_AGE_SECONDS` (600) and ECS
+  replaces the task. The `healthCheck` is declared in oxy-infra's
+  `app-clarity.tf`.
+
+If pages are queued with `attempt_count = 0` and nothing completes, the worker
+is stuck: look for a `clarity-worker` task with no recent log lines and a
+pegged CPU, and replace it with a forced new deployment.
+
 ## Failed previews
 
 A fetch failure is classified where it happens (`src/search/fetch-failure.ts`).
