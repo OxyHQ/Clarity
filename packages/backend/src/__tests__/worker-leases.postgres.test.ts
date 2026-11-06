@@ -11,6 +11,7 @@ import {
   searchUsageEvents,
   searchUsageRollups,
 } from '../db/schema/index.js';
+import { ExtractionTimeoutError } from '../search/extraction-pool.js';
 import {
   leaseNextPage,
   enqueueJobRecrawls,
@@ -20,8 +21,21 @@ import {
   renewPageLease,
 } from '../worker.js';
 
-const { safeFetch } = vi.hoisted(() => ({ safeFetch: vi.fn() }));
+const { safeFetch, extractInThread } = vi.hoisted(() => ({
+  safeFetch: vi.fn(),
+  extractInThread: vi.fn(),
+}));
 vi.mock('@oxy.so/core/server', async (original) => ({ ...(await original<object>()), safeFetch }));
+// The worker extracts in a thread (search/extraction-pool.ts), and a thread
+// cannot load this source tree's TypeScript under Node. Here the thread boundary
+// is replaced by the extractor itself; the pool has its own suite.
+vi.mock('../search/extraction-pool.js', async (original) => {
+  const { extractDocument } = await import('../search/extractor.js');
+  extractInThread.mockImplementation(async (html: string, url: string) =>
+    extractDocument(html, url),
+  );
+  return { ...(await original<object>()), extractDocumentInThread: extractInThread };
+});
 vi.mock('../search/chunking.js', async (original) => ({
   ...(await original<object>()),
   queueChunkEmbeddings: async () => undefined,
@@ -447,6 +461,29 @@ suite('crawl worker lease recovery on PostgreSQL', () => {
       .from(fetchAttempts)
       .where(eq(fetchAttempts.crawlPageId, claim.id));
     expect(attempt).toMatchObject({ status: 'succeeded', fetchMode: 'oembed' });
+  });
+
+  it('fails a page whose extraction outlasts its deadline without retrying it', async () => {
+    await page();
+    const claim = await leaseNextPage();
+    if (!claim) throw new Error('Expected a leased page');
+    safeFetch.mockImplementation(async (requested: string) => ({
+      status: requested === claim.url ? 200 : 404,
+      headers: { 'content-type': 'text/html' },
+      finalUrl: requested,
+      response: Readable.from(['<html><head><title>Huge</title></head><body>x</body></html>']),
+    }));
+    extractInThread.mockImplementationOnce(async () => {
+      throw new ExtractionTimeoutError(20_000);
+    });
+    await processPage(claim);
+    const [current] = await getDb().select().from(crawlPages).where(eq(crawlPages.id, claim.id));
+    // The same page would take the same time again: it fails now, not at attempt 3.
+    expect(current).toMatchObject({
+      status: 'failed',
+      lastErrorCode: 'fetch_failed',
+      lastErrorDetail: 'extraction_timeout',
+    });
   });
 
   it('retries a page with no title instead of storing a bot interstitial as its document', async () => {
