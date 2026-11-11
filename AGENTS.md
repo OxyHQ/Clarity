@@ -1,6 +1,6 @@
 # Clarity
 
-> Universal standards live in `~/AGENTS.md`, Oxy-wide gotchas in `~/Oxy/AGENTS.md`. Documentation belongs in `docs/`, history in git, status in issues. This file holds only RULES, commands and pointers. **Budget: under 8 KB.**
+> Universal standards and Oxy-wide gotchas live in `~/Oxy/AGENTS.md`. Documentation belongs in `docs/`, history in git, status in issues. This file holds only RULES, commands and pointers. **Budget: under 8 KB.**
 
 Clarity is an Expo product plus an Express product API. Its assistant is an
 ordinary Alia agent (Alia ADR 0020): `docs/assistant.mdx`.
