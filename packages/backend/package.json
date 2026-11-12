@@ -35,7 +35,7 @@
     "@kaana.ai/sdk": "3.3.0",
     "@mercaria.co/sdk": "0.7.1",
     "@mozilla/readability": "^0.6.0",
-    "@oxy.so/contracts": "6.24.0",
+    "@oxy.so/contracts": "6.25.0",
     "@oxy.so/core": "7.48.0",
     "@oxy.so/db": "^1.4.0",
     "@oxy.so/mcp": "1.4.2",
