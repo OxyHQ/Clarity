@@ -148,7 +148,7 @@ describe('architecture gates', () => {
     // assertion that tells Gemies the assistant is opened inside Clarity, labels the
     // conversations Clarity starts, lets Clarity's pure `lib/` tell its catalogue's
     // results apart (`@gemies/sdk/tools`) and talks to `api.gemies.ai`.
-    expect(frontendPackage.dependencies['@gemies/sdk']).toBe('1.0.0');
+    expect(frontendPackage.dependencies['@gemies/sdk']).toBe('3.1.0');
     const agent = readFileSync(join(frontendRoot, 'lib', 'clarity-agent.ts'), 'utf8');
     expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
     // Clarity's interface is Clarity's; the conversation under it — the stream, the
