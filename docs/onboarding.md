@@ -4,7 +4,7 @@
 
 Read the repository `AGENTS.md`, then `docs/index.mdx`. The important split is:
 Clarity persists its product in PostgreSQL; its assistant is an ordinary Alia
-agent the frontend opens through `@alia.onl/sdk`, reaching Clarity through the
+agent the frontend opens through `@gemies/sdk`, reaching Clarity through the
 capability catalogue; Oxy and Kaana own inference.
 
 ## 2. Install and configure
@@ -47,7 +47,7 @@ unattested cutover.
 | `packages/backend/src/capabilities/clarity.catalog.ts` | The capability catalogue: every tool the assistant has in Clarity |
 | `packages/backend/src/capabilities/mount.ts` | `/_oxy/mcp` (Alia) and `mcp.clarity.surf/mcp` (OAuth clients) |
 | `packages/frontend/components/chat-page-content.tsx` | Clarity's search page, over Alia's conversation runtime |
-| `packages/frontend/hooks/useChatConversation.ts` | The conversation, from `@alia.onl/sdk`'s `useConversationThread` |
+| `packages/frontend/hooks/useChatConversation.ts` | The conversation, from `@gemies/sdk`'s `useConversationThread` |
 | `packages/frontend/components/chat/clarity-tool-renderers.tsx` | Catalogue results as Clarity's own cards |
 
 ## 5. Validate

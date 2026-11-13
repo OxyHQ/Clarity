@@ -23,11 +23,11 @@ import {
 import { useTranslation } from '@/hooks/useTranslation';
 import { useColorScheme } from '@/lib/useColorScheme';
 import {
-  aliaQueryKeys,
+  gemieQueryKeys,
   type Conversation,
   useConversations,
   useDeleteConversation,
-} from '@alia.onl/sdk';
+} from '@gemies/sdk';
 import { useQueryClient } from '@tanstack/react-query';
 import { CLARITY_AGENT_ID, conversationPath } from '@/lib/clarity-agent';
 import {
@@ -235,7 +235,7 @@ export default function HistoryScreen() {
       deleteConversation(id, {
         onSuccess: () =>
           queryClient.invalidateQueries({
-            queryKey: aliaQueryKeys.conversations.filtered({ agentId: CLARITY_AGENT_ID }),
+            queryKey: gemieQueryKeys.conversations.filtered({ agentId: CLARITY_AGENT_ID }),
           }),
       });
     },

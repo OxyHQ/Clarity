@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardStickyView } from '@/lib/keyboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useStore } from '@/lib/globalStore';
-import { Globe, X, Search, Menu, ArrowUp } from 'lucide-react-native';
+import { X, Search, Menu, ArrowUp } from 'lucide-react-native';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -26,7 +26,7 @@ import {
   useDocumentPicker,
   useImagePicker,
   usePrefetchConversation,
-} from '@alia.onl/sdk';
+} from '@gemies/sdk';
 import { toast } from '@oxy.so/bloom/toast';
 import { ComposerPill } from '@oxy.so/bloom/composer-panel';
 import type { ComposerPanelAddMenuGroup } from '@oxy.so/bloom/composer-panel';
@@ -47,7 +47,7 @@ import {
 } from '@/lib/hooks/use-suggestions';
 import { relativeTimeAgo } from '@/lib/relative-time';
 
-type Mode = 'search' | 'deepResearch';
+type Mode = 'deepResearch';
 
 type HomeCard = {
   key: string;
@@ -69,13 +69,6 @@ const MODE_CONFIG: Record<
     featureId?: string;
   }
 > = {
-  search: {
-    label: 'modes.searchLabel',
-    icon: Globe,
-    color: '#3b82f6',
-    onToast: 'modes.searchOn',
-    offToast: 'modes.searchOff',
-  },
   deepResearch: {
     label: 'modes.deepResearchLabel',
     icon: Search,
@@ -163,14 +156,12 @@ export const ChatPageContent = ({
     },
     [prefetchConversation, router],
   );
-  const webSearchMode = useStore((s) => s.webSearchMode);
   const deepResearchMode = useStore((s) => s.deepResearchMode);
   const activeModes = useMemo(() => {
     const modes = new Set<Mode>();
-    if (webSearchMode) modes.add('search');
     if (deepResearchMode) modes.add('deepResearch');
     return modes;
-  }, [webSearchMode, deepResearchMode]);
+  }, [deepResearchMode]);
   const setSidebarOpen = useUIStore((s) => s.setSidebarOpen);
   const dimensions = useWindowDimensions();
   const isLargeScreen = dimensions.width >= 768;
@@ -249,9 +240,7 @@ export const ChatPageContent = ({
         onFeatureLocked(config.featureId);
         return;
       }
-      const store = useStore.getState();
-      if (mode === 'search') store.setWebSearchMode(turningOn);
-      else store.setDeepResearchMode(turningOn);
+      useStore.getState().setDeepResearchMode(turningOn);
       toast.info(t(turningOn ? config.onToast : config.offToast));
     },
     [activeModes, agentFeatures, t, onFeatureLocked],
@@ -361,17 +350,6 @@ export const ChatPageContent = ({
 
   const actionsLeftContent = (
     <>
-      <Button
-        appearance={activeModes.has('search') ? 'solid' : 'outline'}
-        tone={activeModes.has('search') ? 'accent' : 'neutral'}
-        size="sm"
-        iconOnly
-        icon={bloomIcon(Globe)}
-        pressed={activeModes.has('search')}
-        onPress={() => toggleMode('search')}
-        accessibilityLabel={t('actions.webSearch')}
-      />
-
       {activeModes.has('deepResearch') && (
         <ModeChip
           icon={MODE_CONFIG.deepResearch.icon}
@@ -620,16 +598,6 @@ export const ChatPageContent = ({
                             badge Clarity's own ModelSelector shows, so it stays separate. */}
                   <View className="mt-2 flex-row items-center justify-between px-1">
                     <View className="flex-row items-center gap-1.5 flex-wrap">
-                      <Button
-                        appearance={activeModes.has('search') ? 'subtle' : 'outline'}
-                        tone={activeModes.has('search') ? 'accent' : 'neutral'}
-                        size="sm"
-                        leadingIcon={bloomIcon(Globe)}
-                        pressed={activeModes.has('search')}
-                        onPress={() => toggleMode('search')}
-                      >
-                        Focus
-                      </Button>
                       {activeModes.has('deepResearch') && (
                         <ModeChip
                           icon={MODE_CONFIG.deepResearch.icon}

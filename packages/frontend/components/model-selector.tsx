@@ -8,7 +8,7 @@
  * (`GET /v1/agents/:id/features`), and a locked pick opens the subscribe screen.
  */
 
-import { POWER_LEVELS, type PowerLevel, useAgentFeatures } from '@alia.onl/sdk';
+import { POWER_LEVELS, type PowerLevel, useAgentFeatures } from '@gemies/sdk';
 import { Button } from '@oxy.so/bloom/button';
 import {
   DropdownMenu,

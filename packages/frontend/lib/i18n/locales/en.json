@@ -155,7 +155,7 @@
     "experience": "Experience",
     "alia": {
       "title": "Managed in Alia",
-      "description": "Clarity's assistant is an Alia agent. Your credits and usage, what Alia remembers, the channels you chat from and the agent audit are managed in Alia.",
+      "description": "Clarity's assistant is a gemie. Your credits and usage, what Alia remembers, the channels you chat from and the gemie's audit are managed in Alia.",
       "usage": "Credits and usage",
       "memory": "Memory",
       "bots": "Telegram and Discord",
@@ -701,8 +701,7 @@
     "searchModes": "Search modes",
     "share": "Share",
     "stop": "Stop generating",
-    "voiceInput": "Voice input",
-    "webSearch": "Web search"
+    "voiceInput": "Voice input"
   },
   "profile": {
     "experience": {
@@ -807,11 +806,8 @@
     "selectModel": "Power level"
   },
   "modes": {
-    "searchOn": "Web search will be used",
-    "searchOff": "Web search turned off",
     "deepResearchOn": "Deep research mode activated",
     "deepResearchOff": "Deep research disabled",
-    "searchLabel": "Search",
     "deepResearchLabel": "Deep research"
   },
   "powerLevels": {

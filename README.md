@@ -8,7 +8,7 @@
 Clarity client (Expo)
   -> Clarity API: search, Jobs, places, market, news, Experience,
      notifications, feedback, plans (PostgreSQL)
-  -> Alia, through @alia.onl/sdk, under the person's own Oxy session:
+  -> Alia, through @gemies/sdk, under the person's own Oxy session:
      the Clarity agent's conversation, paid by the person's Alia credits
        -> Clarity's capability catalogue (/_oxy/mcp), under the person's ticket
 ```

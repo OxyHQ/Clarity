@@ -15,7 +15,7 @@ export const CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9';
 export const CLARITY_AGENT = { id: CLARITY_AGENT_ID } as const;
 
 /**
- * The agents `useAskAgent().ask(key)` opens in the app's one sheet: `alia` (no id —
+ * The agents `useAskGemie().ask(key)` opens in the app's one sheet: `alia` (no id —
  * Alia herself) and `clarity`.
  */
 export const CLARITY_ASK_AGENTS = { alia: {}, clarity: CLARITY_AGENT } as const;

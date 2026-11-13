@@ -10,7 +10,7 @@ import {
   File,
 } from 'lucide-react-native';
 import { Text } from '@/components/ui/text';
-import { formatFileSize } from '@alia.onl/sdk';
+import { formatFileSize } from '@gemies/sdk';
 import { usePromptInput, type Attachment } from './context';
 
 const REMOVE_BUTTON_POSITION = { position: 'absolute', top: 6, right: 6 } as const;

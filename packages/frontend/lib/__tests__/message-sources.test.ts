@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ToolInvocation } from '@alia.onl/sdk/model';
+import type { ToolInvocation } from '@gemies/sdk/model';
 
 import {
   citationUrls,

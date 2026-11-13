@@ -1,4 +1,4 @@
-import { DEFAULT_POWER_LEVEL, isPowerLevel, type PowerLevel } from '@alia.onl/sdk';
+import { DEFAULT_POWER_LEVEL, isPowerLevel, type PowerLevel } from '@gemies/sdk';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';

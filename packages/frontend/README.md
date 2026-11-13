@@ -1,7 +1,7 @@
 # Clarity frontend
 
 Expo app for web, iOS, and Android. It calls Clarity's API for Clarity's own
-product and Alia, through `@alia.onl/sdk`, for the conversation. It never calls
+product and Alia, through `@gemies/sdk`, for the conversation. It never calls
 inference providers or Kaana directly.
 
 ## Runtime boundaries
@@ -10,7 +10,7 @@ inference providers or Kaana directly.
   answer with its sources and citations, research progress, reasoning and the
   power level (`components/chat-page-content.tsx`, `components/chat-interface.tsx`).
   The conversation under it is Alia's: `useConversationThread` from
-  `@alia.onl/sdk` (`hooks/useChatConversation.ts`, configured by
+  `@gemies/sdk` (`hooks/useChatConversation.ts`, configured by
   `components/chat/clarity-chat-runtime.tsx`) streams and stores it with
   Clarity's agent, an ordinary public Alia agent confined to Clarity
   (`lib/clarity-agent.ts`), under the person's own Oxy session; the person's

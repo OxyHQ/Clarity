@@ -11,16 +11,16 @@
  * The conversation itself — history, titles, streaming, attachments — is Alia's.
  */
 
-import type { AliaChatLabels } from '@alia.onl/sdk';
+import type { GemieChatLabels } from '@gemies/sdk';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 
 import { useTranslation } from '@/hooks/useTranslation';
 
 /** The chat's own words, in the reader's language where Clarity has them. */
-export function useClarityChatLabels(): Partial<AliaChatLabels> {
+export function useClarityChatLabels(): Partial<GemieChatLabels> {
   const { t, locale } = useTranslation();
-  return useMemo<Partial<AliaChatLabels>>(
+  return useMemo<Partial<GemieChatLabels>>(
     () => ({
       locale,
       placeholder: (leadName) => t('chat.placeholder', { name: leadName }),

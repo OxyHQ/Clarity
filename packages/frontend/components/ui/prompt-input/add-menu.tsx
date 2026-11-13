@@ -8,7 +8,7 @@ import {
 } from '@oxy.so/bloom/dropdown-menu';
 import { bloomIcon, MenuRowIcon } from '@/lib/bloom-icon';
 import { useTranslation } from '@/hooks/useTranslation';
-import { useDocumentPicker, useImagePicker } from '@alia.onl/sdk';
+import { useDocumentPicker, useImagePicker } from '@gemies/sdk';
 import { usePromptInput } from './context';
 
 export type PromptInputAddMenuProps = {

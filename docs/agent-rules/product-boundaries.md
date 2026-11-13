@@ -14,7 +14,7 @@ The full ownership and datastore rules moved here from `AGENTS.md`. Each is chec
   product-paid chat. Never re-add a Clarity conversation table, a Clarity stream
   or a backend chat route. Clarity's interface IS the product, so the search page
   is Clarity's own (`components/chat-page-content.tsx`), drawn over Alia's
-  conversation runtime (`useConversationThread` from `@alia.onl/sdk`, opened with
+  conversation runtime (`useConversationThread` from `@gemies/sdk`, opened with
   Clarity's agent, `hooks/useChatConversation.ts`) under the person's own
   session — the runtime owns streaming and storage, Clarity owns every pixel.
 - Alia reaches Clarity only through the capability catalogue

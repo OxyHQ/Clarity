@@ -155,7 +155,7 @@
     "experience": "Experiencia",
     "alia": {
       "title": "Se gestiona en Alia",
-      "description": "El asistente de Clarity es un agente de Alia. Tus créditos y tu uso, lo que Alia recuerda, los canales desde los que chateas y la auditoría del agente se gestionan en Alia.",
+      "description": "El asistente de Clarity es un gemie. Tus créditos y tu uso, lo que Alia recuerda, los canales desde los que chateas y la auditoría del gemie se gestionan en Alia.",
       "usage": "Créditos y uso",
       "memory": "Memoria",
       "bots": "Telegram y Discord",
@@ -701,8 +701,7 @@
     "searchModes": "Modos de búsqueda",
     "share": "Compartir",
     "stop": "Detener la generación",
-    "voiceInput": "Entrada de voz",
-    "webSearch": "Búsqueda web"
+    "voiceInput": "Entrada de voz"
   },
   "profile": {
     "experience": {
@@ -807,11 +806,8 @@
     "selectModel": "Nivel de potencia"
   },
   "modes": {
-    "searchOn": "Se usará la búsqueda web",
-    "searchOff": "Búsqueda web desactivada",
     "deepResearchOn": "Investigación profunda activada",
     "deepResearchOff": "Investigación profunda desactivada",
-    "searchLabel": "Búsqueda",
     "deepResearchLabel": "Investigación profunda"
   },
   "powerLevels": {

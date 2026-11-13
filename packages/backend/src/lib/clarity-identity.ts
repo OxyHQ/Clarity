@@ -8,7 +8,7 @@
  *
  * Clarity's assistant is not here. It is an ordinary Alia agent owned by the
  * project account below (Alia ADR 0020), confined to Clarity by Oxy (Oxy ADR
- * 0044), and the frontend opens it by id through `@alia.onl/sdk`. The backend
+ * 0044), and the frontend opens it by id through `@gemies/sdk`. The backend
  * never calls Alia.
  */
 export const CLARITY_IDENTITY = Object.freeze({

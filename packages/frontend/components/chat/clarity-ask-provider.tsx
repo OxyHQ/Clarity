@@ -1,14 +1,14 @@
 /**
  * "Ask Alia" (and "Ask Clarity"): the SDK's one sheet, mounted once around the app
- * frame. Anything below calls `useAskAgent().ask('alia' | 'clarity', turn?)` from
- * `@alia.onl/sdk`; signed out, the SDK opens Oxy's sign-in instead.
+ * frame. Anything below calls `useAskGemie().ask('alia' | 'clarity', turn?)` from
+ * `@gemies/sdk`; signed out, the SDK opens Oxy's sign-in instead.
  *
  * The sheet floats over whatever page the person was reading, so it is told which
  * page that is (`clientContext`). Clarity's cards draw Clarity's tool results in it,
  * whoever called the tool — Clarity's agent, or Alia consulting it.
  */
 
-import { AliaAskProvider, type AliaSuggestion } from '@alia.onl/sdk';
+import { GemieAskProvider, type GemieSuggestion } from '@gemies/sdk';
 import { usePathname } from 'expo-router';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -38,7 +38,7 @@ export function ClarityAskProvider({ children }: { children: React.ReactNode }) 
   const model = usePowerLevelStore((state) => state.powerLevel);
 
   // Alia's lines over her empty composer; Clarity's agent offers its own starters.
-  const welcomeSuggestions = useMemo<AliaSuggestion[]>(
+  const welcomeSuggestions = useMemo<GemieSuggestion[]>(
     () => [
       { id: 'search', text: t('askAlia.suggestion.search') },
       { id: 'research', text: t('askAlia.suggestion.research') },
@@ -53,7 +53,7 @@ export function ClarityAskProvider({ children }: { children: React.ReactNode }) 
   );
 
   return (
-    <AliaAskProvider
+    <GemieAskProvider
       app={CLARITY_APP}
       agents={CLARITY_ASK_AGENTS}
       toolRenderers={CLARITY_TOOL_RENDERERS}
@@ -64,6 +64,6 @@ export function ClarityAskProvider({ children }: { children: React.ReactNode }) 
       welcomeSuggestions={welcomeSuggestions}
     >
       {children}
-    </AliaAskProvider>
+    </GemieAskProvider>
   );
 }

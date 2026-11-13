@@ -1,10 +1,10 @@
 /**
- * Share a search: Alia mints the link (`https://alia.onl/shared/<token>`, 24 hours),
+ * Share a search: Gemies mints the link (`https://gemies.ai/shared/<token>`, 24 hours),
  * the one address a shared conversation has whichever app it was started in. Native
  * hands it to the system share sheet; the web copies it.
  */
 
-import { useShareConversation } from '@alia.onl/sdk';
+import { useShareConversation } from '@gemies/sdk';
 import { toast } from '@oxy.so/bloom/toast';
 import * as Clipboard from 'expo-clipboard';
 import { useCallback } from 'react';
