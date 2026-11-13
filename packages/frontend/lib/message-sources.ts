@@ -1,6 +1,6 @@
-import type { Message, ToolInvocation } from '@alia.onl/sdk/model';
+import type { Message, ToolInvocation } from '@gemies/sdk/model';
 
-import { parseCatalogueTool } from '@alia.onl/sdk/tools';
+import { parseCatalogueTool } from '@gemies/sdk/tools';
 
 import { hostnameOf, type Source } from './sources';
 import { sourceOfDocument, sourcesOfSearch } from './tool-outputs';

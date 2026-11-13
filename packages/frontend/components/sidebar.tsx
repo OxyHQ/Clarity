@@ -9,8 +9,8 @@ import {
   ArrowLeft,
 } from 'lucide-react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { type Conversation, useAskAgent, useConversations } from '@alia.onl/sdk';
-import { AliaAvatarIcon } from '@alia.onl/sdk/avatar';
+import { type Conversation, useAskGemie, useConversations } from '@gemies/sdk';
+import { GemieAvatarIcon } from '@gemies/sdk/avatar';
 import type { SidebarNavItem, SidebarTree, SidebarIcon, SidebarProps } from '@oxy.so/bloom/sidebar';
 import {
   RiSearchLine,
@@ -186,7 +186,7 @@ export function useSearchSidebarConfig(): SidebarProps {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
-  const { ask } = useAskAgent();
+  const { ask } = useAskGemie();
 
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
@@ -255,7 +255,7 @@ export function useSearchSidebarConfig(): SidebarProps {
     {
       key: 'ask-alia',
       label: t('sidebar.askAlia'),
-      icon: AliaAvatarIcon,
+      icon: GemieAvatarIcon,
       onPress: () => ask('alia'),
     },
   ];

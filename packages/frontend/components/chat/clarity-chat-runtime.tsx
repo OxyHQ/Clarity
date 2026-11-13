@@ -1,6 +1,6 @@
 /**
  * The runtime under Clarity's own search page: Alia's conversation data layer
- * (`@alia.onl/sdk` runtime — the stream, the cache, attachments, the app assertion),
+ * (`@gemies/sdk` runtime — the stream, the cache, attachments, the app assertion),
  * configured for Clarity's routes, Clarity's modes and Clarity's plans.
  *
  * Clarity draws every pixel of the page itself (`components/chat-page-content.tsx`);
@@ -18,7 +18,7 @@
  *  - `app` — a conversation started here is labelled `clarity`.
  */
 
-import { AliaChatLabelsProvider, AliaRuntimeProvider, type AliaRuntimeHost } from '@alia.onl/sdk';
+import { GemieChatLabelsProvider, GemieRuntimeProvider, type GemieRuntimeHost } from '@gemies/sdk';
 import { useRouter } from 'expo-router';
 import type React from 'react';
 import { useMemo } from 'react';
@@ -40,7 +40,7 @@ export function ClarityChatRuntime({
   const labels = useClarityChatLabels();
   const onFeatureLocked = useFeatureLockedHandler();
 
-  const host = useMemo<AliaRuntimeHost>(
+  const host = useMemo<GemieRuntimeHost>(
     () => ({
       openConversation: (id) => {
         if (id !== conversationId) router.replace(conversationPath(id));
@@ -49,8 +49,7 @@ export function ClarityChatRuntime({
         if (conversationId) router.replace('/');
       },
       turnRequest: () => {
-        const { webSearchMode, deepResearchMode } = useStore.getState();
-        return { webSearch: webSearchMode, deepResearch: deepResearchMode };
+        return { deepResearch: useStore.getState().deepResearchMode };
       },
       onFeatureLocked,
       faviconUrl,
@@ -59,10 +58,10 @@ export function ClarityChatRuntime({
   );
 
   return (
-    <AliaChatLabelsProvider labels={labels}>
-      <AliaRuntimeProvider app={CLARITY_APP} host={host}>
+    <GemieChatLabelsProvider labels={labels}>
+      <GemieRuntimeProvider app={CLARITY_APP} host={host}>
         {children}
-      </AliaRuntimeProvider>
-    </AliaChatLabelsProvider>
+      </GemieRuntimeProvider>
+    </GemieChatLabelsProvider>
   );
 }

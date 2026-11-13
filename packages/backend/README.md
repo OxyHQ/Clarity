@@ -10,7 +10,7 @@ reaches all of it.
 - PostgreSQL/Drizzle: the search index and Jobs, suggestions, feedback,
   notifications, experience, product catalogue, subscriptions and entitlements.
 - Alia: Clarity's assistant is an ordinary Alia agent, opened by the frontend
-  through `@alia.onl/sdk` under the person's own session and paid by the
+  through `@gemies/sdk` under the person's own session and paid by the
   person's Alia credits. Its conversations, memory, credits and telemetry are
   Alia's. This backend never calls Alia.
 - Oxy: identity, capability tickets, inference accounting and route authorization.

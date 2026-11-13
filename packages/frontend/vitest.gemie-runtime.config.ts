@@ -6,6 +6,6 @@ export default defineConfig({
   resolve: { alias: { '@': fileURLToPath(new URL('.', import.meta.url)) } },
   test: {
     environment: 'node',
-    include: ['components/chat/__tests__/alia-runtime.test.tsx'],
+    include: ['components/chat/__tests__/gemie-runtime.test.tsx'],
   },
 });

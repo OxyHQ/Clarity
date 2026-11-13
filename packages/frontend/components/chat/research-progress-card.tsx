@@ -11,7 +11,7 @@ import {
   ExternalLink,
   Loader2,
 } from 'lucide-react-native';
-import type { ResearchProgress } from '@alia.onl/sdk';
+import type { ResearchProgress } from '@gemies/sdk';
 
 interface ResearchProgressCardProps {
   progress: ResearchProgress;

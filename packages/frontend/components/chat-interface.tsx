@@ -47,7 +47,7 @@ import Animated, {
 import * as Clipboard from 'expo-clipboard';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ui/reasoning';
 import {
-  ALIA_API_ROUTES,
+  GEMIES_API_ROUTES,
   getImagesFromContent,
   getResearchActiveLabel,
   getTextFromContent,
@@ -56,8 +56,8 @@ import {
   type Message as ProductMessage,
   type ResearchProgress as ResearchProgressData,
   toolRendererKey,
-  useAliaApi,
-} from '@alia.onl/sdk';
+  useGemieApi,
+} from '@gemies/sdk';
 import { CLARITY_TOOL_RENDERERS } from '@/components/chat/clarity-tool-renderers';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
 import { ResearchProgressCard } from '@/components/chat/research-progress-card';
@@ -680,7 +680,7 @@ export const ChatInterface = React.memo(function ChatInterface({
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [votedMessages, setVotedMessages] = useState<Record<string, 'up' | 'down'>>({});
   const voteInFlightRef = useRef<Set<string>>(new Set());
-  const aliaApi = useAliaApi();
+  const gemieApi = useGemieApi();
 
   const { isAtBottom, onScroll, onContentSizeChange } = useScrollToBottom(scrollViewRef);
 
@@ -724,8 +724,8 @@ export const ChatInterface = React.memo(function ChatInterface({
       });
       if (!conversationId) return;
       voteInFlightRef.current.add(messageId);
-      aliaApi
-        .patch(ALIA_API_ROUTES.conversations.vote(conversationId, messageId), { vote: newVote })
+      gemieApi
+        .patch(GEMIES_API_ROUTES.conversations.vote(conversationId, messageId), { vote: newVote })
         .then(() => toast.success(t('chat.thanksFeedback')))
         .catch(() => {
           setVotedMessages((prev) => {
@@ -735,7 +735,7 @@ export const ChatInterface = React.memo(function ChatInterface({
         })
         .finally(() => voteInFlightRef.current.delete(messageId));
     },
-    [conversationId, t, aliaApi],
+    [conversationId, t, gemieApi],
   );
 
   // Auto-scroll on new messages

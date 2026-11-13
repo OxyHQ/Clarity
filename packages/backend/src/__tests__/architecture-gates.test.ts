@@ -112,7 +112,9 @@ describe('architecture gates', () => {
     const source = backendRuntimeSource();
     // No Alia origin, no pinned agent, no relay of a person as a header, no
     // product-paid chat, no proxy into Alia's own product surfaces.
-    expect(source).not.toMatch(/api\.alia\.onl|ALIA_API_URL|CLARITY_ALIA_AGENT_ID/);
+    expect(source).not.toMatch(
+      /api\.alia\.onl|api\.gemies\.ai|ALIA_API_URL|GEMIES_API_URL|CLARITY_ALIA_AGENT_ID/,
+    );
     expect(source).not.toMatch(/X-Oxy-User-Id|X-Oxy-Requester-Assertion|RequesterAssertion/i);
     expect(source).not.toMatch(/proxyAlia|fetchAlia|completeAsClarityAgent|alia-agent-client/);
     expect(source).not.toMatch(/clarity-agent-manifest|agentId|agent_id|aliaAgent/);
@@ -142,17 +144,11 @@ describe('architecture gates', () => {
   it('draws its own search page over Alia’s conversation runtime, with no chat backend of its own (Alia ADR 0018/0020)', () => {
     const frontendRoot = join(repoRoot, 'packages', 'frontend');
     const frontendPackage = JSON.parse(readFileSync(join(frontendRoot, 'package.json'), 'utf8'));
-    // 19.1.0 is the first SDK that sends the app assertion, without which Alia
-    // cannot tell the assistant is opened inside Clarity (Alia ADR 0021); 21.0.0
-    // labels the conversations Clarity starts; 21.2.0 lets Clarity's pure `lib/`
-    // tell its catalogue's results apart (`@alia.onl/sdk/tools`); 21.3.0 is the
-    // first that runs on Expo SDK 58 / React Native 0.88; 21.5.0 takes
-    // `useAppAssertion` from services' lean `ui/client` entry, which keeps the
-    // account screens out of first paint. 22.0.0 uses the shared Oxy session
-    // transport for conversation/audio calls and requires Core 7.1+ / services 13+.
-    // 22.1.1 acknowledges explicit Stop and fences delayed acknowledgements
-    // across thread/account changes, including Clarity's custom chat controls.
-    expect(frontendPackage.dependencies['@alia.onl/sdk']).toBe('22.10.1');
+    // `@gemies/sdk` (Gemies ADR 0034) sends the app
+    // assertion that tells Gemies the assistant is opened inside Clarity, labels the
+    // conversations Clarity starts, lets Clarity's pure `lib/` tell its catalogue's
+    // results apart (`@gemies/sdk/tools`) and talks to `api.gemies.ai`.
+    expect(frontendPackage.dependencies['@gemies/sdk']).toBe('1.0.0');
     const agent = readFileSync(join(frontendRoot, 'lib', 'clarity-agent.ts'), 'utf8');
     expect(agent).toContain("CLARITY_AGENT_ID = '01a0646a-078f-7642-95ef-439952f4f3f9'");
     // Clarity's interface is Clarity's; the conversation under it — the stream, the

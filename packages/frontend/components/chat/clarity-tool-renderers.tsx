@@ -11,7 +11,7 @@
  * generic tool card.
  */
 
-import type { AliaToolRenderers, AliaToolResult } from '@alia.onl/sdk';
+import type { GemieToolRenderers, GemieToolResult } from '@gemies/sdk';
 import type { ProductDetail, ProductSource, ProductSummary } from '@clarity/shared-types';
 import { useRouter } from 'expo-router';
 import type React from 'react';
@@ -142,28 +142,28 @@ function Quotes({ output }: { output: unknown }) {
   );
 }
 
-const oneDocument = (result: AliaToolResult): React.ReactNode => {
+const oneDocument = (result: GemieToolResult): React.ReactNode => {
   const source = sourceOfDocument(result.output);
   return source ? <Sources sources={[source]} startExpanded /> : null;
 };
 
-const oneJob = (result: AliaToolResult): React.ReactNode => {
+const oneJob = (result: GemieToolResult): React.ReactNode => {
   const job = jobOf(result.output);
   return job ? <Jobs jobs={[job]} /> : null;
 };
 
-const productSearch = (result: AliaToolResult): React.ReactNode => {
+const productSearch = (result: GemieToolResult): React.ReactNode => {
   const answer = productsOfSearch(result.output);
   return answer ? <Products products={answer.results} source={answer.source} /> : null;
 };
 
 /** A `getProduct` result drawn as its card, linking the full detail page. */
-const oneProduct = (result: AliaToolResult): React.ReactNode => {
+const oneProduct = (result: GemieToolResult): React.ReactNode => {
   const product = productOf(result.output);
   return product ? <Products products={[product]} source={product.source} /> : null;
 };
 
-export const CLARITY_TOOL_RENDERERS: AliaToolRenderers = {
+export const CLARITY_TOOL_RENDERERS: GemieToolRenderers = {
   'clarity:search': (result) => <Sources sources={sourcesOfSearch(result.output)} />,
   'clarity:getDocument': oneDocument,
   'clarity:getDocumentByUrl': oneDocument,

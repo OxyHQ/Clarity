@@ -3,11 +3,11 @@
  *
  * Everything that is the conversation — its messages, the stream, the first turn
  * that creates it, edits, stop, the attachments' upload, the app assertion — is
- * `useConversationThread` from `@alia.onl/sdk`, under `ClarityChatRuntime`. The page
+ * `useConversationThread` from `@gemies/sdk`, under `ClarityChatRuntime`. The page
  * adds only what is the page's: the scroll view it keeps at the bottom.
  */
 
-import { useConversationThread } from '@alia.onl/sdk';
+import { useConversationThread } from '@gemies/sdk';
 import { useCallback, useRef } from 'react';
 import type { ScrollViewInstance } from 'react-native';
 

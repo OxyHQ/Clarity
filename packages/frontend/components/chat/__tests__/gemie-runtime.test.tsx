@@ -13,12 +13,12 @@ const fixture = vi.hoisted(() => ({
 }));
 
 // Use the installed runtime implementation without loading the root entry's native UI graph.
-vi.mock('@alia.onl/sdk', async () => {
+vi.mock('@gemies/sdk', async () => {
   const runtime =
-    await vi.importActual<typeof import('@alia.onl/sdk/runtime')>('@alia.onl/sdk/runtime');
+    await vi.importActual<typeof import('@gemies/sdk/runtime')>('@gemies/sdk/runtime');
   return {
     ...runtime,
-    AliaChatLabelsProvider: ({ children }: { children: React.ReactNode }) => children,
+    GemieChatLabelsProvider: ({ children }: { children: React.ReactNode }) => children,
   };
 });
 vi.mock('@oxy.so/bloom/toast', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
@@ -102,7 +102,7 @@ vi.mock('@/lib/stores/power-level-store', () => ({
     selector({ powerLevel: 'auto' }),
 }));
 vi.mock('@/lib/globalStore', () => ({
-  useStore: { getState: () => ({ webSearchMode: false, deepResearchMode: true }) },
+  useStore: { getState: () => ({ deepResearchMode: true }) },
 }));
 vi.mock('react-native', () => ({
   Platform: { OS: 'web', select: (values: { web?: unknown }) => values.web },
@@ -233,7 +233,6 @@ it('sends the configured Clarity turn and exposes the streamed answer', async ()
     agentId: '01a0646a-078f-7642-95ef-439952f4f3f9',
     conversationId: 'chat-1',
     model: 'auto',
-    webSearch: false,
     deepResearch: true,
     stream: true,
     host: { app: 'clarity', version: 1, tools: [] },

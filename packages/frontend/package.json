@@ -9,7 +9,7 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "generate-sitemap": "bun scripts/generate-sitemap.ts",
-    "test": "vitest run && bun run --cwd ../sdk build && vitest run --config vitest.experience.config.ts && vitest run --config vitest.billing.config.ts && vitest run --config vitest.alia-runtime.config.ts",
+    "test": "vitest run && bun run --cwd ../sdk build && vitest run --config vitest.experience.config.ts && vitest run --config vitest.billing.config.ts && vitest run --config vitest.gemie-runtime.config.ts",
     "eas-build-post-install": "bun run --cwd ../.. build:shared-types && bun run --cwd ../.. build:sdk",
     "typecheck": "tsc --noEmit -p .",
     "prebuild": "bun run generate-sitemap",
@@ -19,12 +19,12 @@
     "build:ios": "eas build --platform ios"
   },
   "dependencies": {
-    "@alia.onl/sdk": "22.10.1",
     "@clarity.surf/sdk": "workspace:*",
     "@clarity/shared-types": "workspace:*",
     "@expo/app-integrity": "~58.0.2",
     "@expo/html-elements": "^58.0.3",
     "@expo/vector-icons": "^15.1.1",
+    "@gemies/sdk": "1.0.0",
     "@hugeicons/react-native": "^1.0.15",
     "@oxy.so/app-preset": "6.6.0",
     "@oxy.so/bloom": "19.9.1",
