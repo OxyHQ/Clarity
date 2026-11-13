@@ -1,6 +1,6 @@
 /**
- * `app.json`, plus the three things it cannot say: the app id and name of the
- * build variant (below), Noxcturnal on in development only, and where
+ * `app.json`, plus the two things it cannot say: the app id and name of the
+ * build variant (below) and where
  * Firebase's `google-services.json` (Android push) comes from. The file is not in the
  * repository (it is gitignored), so an EAS build never receives it from the
  * project archive and `expo prebuild` used to fail copying it.
@@ -33,14 +33,6 @@ module.exports = ({ config: appJson }) => {
     name: APP_NAME,
     ios: { ...appJson.ios, bundleIdentifier: APP_ID },
     android: { ...appJson.android, package: APP_ID },
-    experiments: {
-      ...appJson.experiments,
-      // Expo's oxc transformer, about 2x faster cold bundles than Babel. Development
-      // only: in a production export it keeps the requires of dead platform branches
-      // (`if (Platform.OS !== 'web') require(...)`), pulling native-only packages into
-      // the web bundle. The CLI sets NODE_ENV before it reads this config.
-      noxcturnalTransformWorker: process.env.NODE_ENV !== 'production',
-    },
   };
   const file = process.env.GOOGLE_SERVICES_JSON?.trim() || config.android?.googleServicesFile;
   if (file && existsSync(resolve(__dirname, file))) {

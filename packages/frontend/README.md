@@ -55,13 +55,10 @@ API configuration lives in `lib/config.ts`; the production product API is
 `https://api.clarity.surf`. This source declaration does not prove that DNS or
 a production API deployment exists.
 
-Development bundles use Noxcturnal, Expo's oxc transformer
-(`experiments.noxcturnalTransformWorker` in `app.config.js`). It runs only when
-the Babel config resolves to the bare Expo preset and Metro keeps its default
-transformer, so `babel.config.js` is `@oxy.so/app-preset/babel` alone (bare
-`babel-preset-expo` in development), `@/` resolves through `tsconfig.json`
-paths, and an SVG drawn as a component is a TSX component, not an `.svg` import.
-Production exports (`NODE_ENV=production`) stay on Babel: Noxcturnal keeps the
-requires of dead platform branches and pulls native-only packages into the web
-bundle. Run Expo with `LOG_EVENTS=<file>` to see which files fall back to Babel
-and why (`transform:noxcturnal:fallback`).
+Noxcturnal, Expo's oxc transformer (`experiments.noxcturnalTransformWorker`),
+stays off: noxcturnal 0.1.11 to 0.1.13 miscompile `@tanstack/query-core`'s
+`QueriesObserver` on web (the temporary holding the lowered constructor's return
+value reuses `_result`, the name of the `#result` private key), so every
+`useQueries` throws "attempted to use private field on non-instance" in
+development. Development and production both bundle with Babel; turn it back on
+only with a release that compiles that class correctly.
