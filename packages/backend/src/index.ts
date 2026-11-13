@@ -3,6 +3,7 @@ import { startPlatformActivity } from './lib/platform-activity.js';
 import http from 'node:http';
 import cors from 'cors';
 import { createOxyCors, createOxySecurityHeaders, oxyTrustProxy } from '@oxy.so/core/server';
+import { OXY_TELEMETRY_REQUEST_HEADERS } from '@oxy.so/telemetry';
 import { CLARITY_APP_ORIGINS, EXPERIENCE_APP_ORIGINS } from './lib/app-origins.js';
 import { closePostgres, connectPostgres } from './db/index.js';
 import { log } from './lib/logger.js';
@@ -116,8 +117,7 @@ app.use(
       'X-Signature',
       'X-Session-Id',
       'X-Device-Info',
-      'X-Oxy-Edge-Region',
-      'X-Oxy-Activity-Id',
+      ...OXY_TELEMETRY_REQUEST_HEADERS,
     ],
     optionsSuccessStatus: 200,
   }),
