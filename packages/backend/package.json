@@ -36,7 +36,7 @@
     "@mercaria.co/sdk": "0.7.1",
     "@mozilla/readability": "^0.6.0",
     "@oxy.so/contracts": "7.1.0",
-    "@oxy.so/core": "7.49.0",
+    "@oxy.so/core": "7.51.0",
     "@oxy.so/db": "^1.4.0",
     "@oxy.so/mcp": "1.4.3",
     "@oxy.so/telemetry": "2.2.0",
