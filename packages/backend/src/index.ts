@@ -60,7 +60,7 @@ const server = http.createServer(
   app,
 );
 const activity = startPlatformActivity(() => server.listening);
-if (activity) app.use(activity.observeHttp);
+app.use(activity.observeHttp);
 
 // Handle HTTP server errors (e.g. EADDRINUSE)
 server.on('error', (error: NodeJS.ErrnoException) => {
@@ -79,7 +79,7 @@ server.on('connection', (socket) => {
   socket.setKeepAlive(true, 60000);
 });
 
-initSocket(server).on('connection', (socket) => activity?.observeSocket(socket));
+initSocket(server).on('connection', (socket) => activity.observeSocket(socket));
 
 /**
  * The capability catalogue's two MCP lanes — `/_oxy/mcp` (Alia, capability
@@ -322,7 +322,7 @@ if (!database) {
           await closeRedis();
           log.general.info('Redis connections closed');
 
-          await activity?.stop();
+          await activity.stop();
           clearInterval(legacyReadFlush);
           await flushLegacyReads().catch((err) =>
             log.general.warn({ err }, 'Legacy image read counts lost at shutdown'),

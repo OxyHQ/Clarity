@@ -1,4 +1,4 @@
-import { createEcosystemTraffic } from '@oxy.so/core/server';
+import { startEcosystemTraffic } from '@oxy.so/core/server';
 import { createAwsWorkloadCredentialProvider } from '@oxy.so/core/server/aws';
 import { hasExactClarityServiceConfiguration } from './clarity-service-auth.js';
 import { createLogger } from './logger.js';
@@ -38,17 +38,18 @@ function outageReporter() {
   };
 }
 
-/** Start once per deployed process; local sessions have no infrastructure location. */
+/** Start once per process; the Clarity-only parts around the shared `startEcosystemTraffic`. */
 export function startPlatformActivity(ready: () => boolean, service = 'clarity') {
-  if (process.env.OXY_ECOSYSTEM_ACTIVITY_ENABLED !== 'true') return undefined;
-  if (!hasExactClarityServiceConfiguration())
+  if (
+    process.env.OXY_ECOSYSTEM_ACTIVITY_ENABLED === 'true' &&
+    !hasExactClarityServiceConfiguration()
+  )
     throw new Error('Ecosystem activity requires the canonical Clarity service configuration');
-  const traffic = createEcosystemTraffic({
+  return startEcosystemTraffic({
     service,
     ready,
     workloadCredentials: createAwsWorkloadCredentialProvider(),
+    deployedOnly: true,
     ...outageReporter(),
   });
-  traffic.installFetch();
-  return traffic;
 }
