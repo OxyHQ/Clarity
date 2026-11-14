@@ -35,6 +35,7 @@ DATABASE_URL=postgresql://... bun run --filter @clarity/backend db:migrate -- \
 - PostgreSQL/Drizzle is the only datastore: no other driver, fallback, dual write or compatibility reader.
 - The backend never calls Alia; Alia reaches Clarity only through the capability catalogue, and a tool's account comes from the verified ticket or OAuth connection, never input. Bump the catalogue `version` on any tool change.
 - Canonical IDs come from `packages/backend/src/lib/clarity-identity.ts`, matched byte for byte, never discovered by name or list.
+- First-party never asks people for permissions: this app acts for a person with `actingFor` on what oxy's first-party registry declares (oxy ADR 0066); permissions, scopes and consent are only for third parties.
 - Jobs index public postings only: no applicant, CV or candidate data, and no commercial signal in ranking (`ranking-contract.test.ts` enforces it; extend it, do not bypass it).
 - Search embeddings are the only direct Kaana call (`src/lib/kaana-embeddings.ts`, `https://kaana.ai/v1`); no provider credentials, adapters or routing tables here.
 - `jobs` means employment; async crawl or index work is an operation (`/v1/operations/:id`).
