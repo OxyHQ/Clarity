@@ -13,8 +13,8 @@
     "eas-build-post-install": "bun run --cwd ../.. build:shared-types && bun run --cwd ../.. build:sdk",
     "typecheck": "tsc --noEmit -p .",
     "prebuild": "bun run generate-sitemap",
-    "build": "bun x setup-skia-web public && bun x expo export --platform web",
-    "build:production": "NODE_ENV=production bun x setup-skia-web public && bun x expo export --platform web --clear",
+    "build": "bun x setup-skia-web public && bun x expo export --platform web && oxy-web-pwa dist --theme-color=#f9f3ea,#100e09",
+    "build:production": "NODE_ENV=production bun x setup-skia-web public && bun x expo export --platform web --clear && oxy-web-pwa dist --theme-color=#f9f3ea,#100e09",
     "build:android": "eas build --platform android",
     "build:ios": "eas build --platform ios"
   },

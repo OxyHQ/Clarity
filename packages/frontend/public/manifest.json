@@ -3,6 +3,7 @@
   "short_name": "Clarity",
   "description": "AI-powered search engine by Oxy. Get comprehensive answers with cited sources.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#040711",
   "theme_color": "#ca52e9",
@@ -17,6 +18,12 @@
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
