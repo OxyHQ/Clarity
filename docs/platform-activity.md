@@ -13,7 +13,7 @@ PoPs, direction, scope, category and aggregate counts. It never sends payloads,
 paths, query strings, IPs, user IDs, credentials or socket IDs. A Cloudflare PoP
 is a network ingress location, not a visitor's physical location.
 
-`OXY_ECOSYSTEM_ACTIVITY_ENABLED=true` explicitly enables the deployed producer; it is disabled by default. Keep it false in local environments, even when using AWS storage.
+The API and the worker start through `startEcosystemTraffic` from `@oxy.so/core/server`. `OXY_ECOSYSTEM_ACTIVITY_ENABLED` is `true` or `false` (anything else fails at boot) and wins; unset, they publish only on an ECS task. Keep it `false` in local environments, even when using AWS storage. Once publishing, a missing `AWS_REGION` fails at boot.
 
 `AWS_REGION` supplies the process location. Publication authenticates with the
 same Clarity service token as every other Oxy call, which deployed tasks obtain

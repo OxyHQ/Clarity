@@ -1293,7 +1293,7 @@ async function main() {
   await iconRefreshLoop;
   await productFeedLoop;
   await embeddingBacklogLoop;
-  await activity?.stop();
+  await activity.stop();
   await closeExtractionPool();
   await closePostgres();
 }
