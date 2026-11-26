@@ -457,7 +457,8 @@ jobs:
   # reason this workflow declares, so a cancelled or unexplained-skipped job can
   # never read as a pass. Required checks by job name cannot follow the Seldon
   # race (a twin and a rescue share their job's name, and a cancelled loser is
-  # not a failure); this one can.
+  # not a failure); this one can, and it is the one check the `main: protect`
+  # ruleset (24913171) requires.
   #
   # The skips it allows, and nothing else:
   #   - `changes` runs on pull_request only.
