@@ -48,6 +48,18 @@ export const MIN_REQUEST_INTERVAL_MS = 2_000;
 export const MAX_IN_FLIGHT = 2;
 /** Chunks held at most; more are left unembedded until their document is indexed again. */
 export const MAX_PENDING_CHUNKS = 4_096;
+/**
+ * A store slower than this means the shared database is struggling: a healthy
+ * one writes a batch's two narrow rows a chunk in well under a second. The queue
+ * then rests as long as that store took, so it never spends more than half its
+ * time writing into an index that is already starved for disk reads. Production
+ * on 2026-11-26: 341 stores in 90 minutes averaged 22 s each while the disk sat
+ * at its throughput ceiling, and they slowed every other app's queries on the
+ * instance (crawl leases 19 s, identity locks 8 s).
+ */
+export const SLOW_STORE_MS = 2_000;
+/** The longest the queue rests after one slow store. */
+export const MAX_STORE_REST_MS = 60_000;
 /** The back-off after a first failure, doubled by each consecutive one up to the maximum. */
 export const FAILURE_BACKOFF_MS = 5_000;
 export const MAX_FAILURE_BACKOFF_MS = 5 * 60_000;
@@ -96,6 +108,7 @@ export class EmbeddingQueue {
   #inFlight = 0;
   #lastRequestAt = Number.NEGATIVE_INFINITY;
   #backoffUntil = Number.NEGATIVE_INFINITY;
+  #storeRestUntil = Number.NEGATIVE_INFINITY;
   #consecutiveFailures = 0;
 
   constructor(options: EmbeddingQueueOptions) {
@@ -157,6 +170,7 @@ export class EmbeddingQueue {
     const ready = Math.max(
       this.#lastRequestAt + MIN_REQUEST_INTERVAL_MS,
       this.#backoffUntil,
+      this.#storeRestUntil,
       full ? Number.NEGATIVE_INFINITY : batch[0][1].queuedAt + MAX_WAIT_MS,
     );
     this.#timer = setTimeout(() => void this.#send(), Math.max(0, ready - Date.now()));
@@ -185,15 +199,27 @@ export class EmbeddingQueue {
         return;
       }
       this.#consecutiveFailures = 0;
+      const storeStartedAt = Date.now();
       try {
         await this.#options.store(chunks, embeddings);
       } catch (error) {
         this.#options.onStoreFailure?.(error, chunks.length);
+      } finally {
+        this.#restAfterStore(Date.now() - storeStartedAt);
       }
     } finally {
       this.#inFlight -= 1;
       this.#schedule();
     }
+  }
+
+  /** Rests as long as a slow store took, so a struggling database is written to at most half the time. */
+  #restAfterStore(storeMs: number): void {
+    if (storeMs <= SLOW_STORE_MS) return;
+    this.#storeRestUntil = Math.max(
+      this.#storeRestUntil,
+      Date.now() + Math.min(storeMs, MAX_STORE_REST_MS),
+    );
   }
 
   #backOff(error: unknown): void {

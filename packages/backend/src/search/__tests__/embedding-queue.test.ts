@@ -13,9 +13,11 @@ import {
   MAX_BATCH_INPUTS,
   MAX_IN_FLIGHT,
   MAX_PENDING_CHUNKS,
+  MAX_STORE_REST_MS,
   MAX_WAIT_MS,
   MIN_REQUEST_INTERVAL_MS,
   type PendingChunk,
+  SLOW_STORE_MS,
 } from '../embedding-queue.js';
 
 /** A document's chunks, the way indexing queues them: ~4 of up to 2,000 characters. */
@@ -237,5 +239,55 @@ describe('EmbeddingQueue', () => {
     await advance(0);
     await advance(0);
     expect(embed).toHaveBeenCalledTimes(MAX_IN_FLIGHT + 1);
+  });
+
+  describe('when the database is slow to store', () => {
+    /**
+     * Three full batches against {@link MAX_IN_FLIGHT} of two: the third request
+     * starts only once a store has finished, which is when the rest applies.
+     */
+    /** One-second steps, so each store that ends schedules its successor before the clock moves on. */
+    async function run(ms: number): Promise<void> {
+      for (let elapsed = 0; elapsed < ms; elapsed += 1_000) await advance(1_000);
+    }
+
+    function slowStoreHarness(storeMs: number) {
+      const embed = vi.fn(async (texts: readonly string[]) => texts.map(() => [0.5]));
+      const store = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, storeMs)));
+      const queue = new EmbeddingQueue({ embed, store });
+      for (let batch = 0; batch < 3; batch += 1) {
+        queue.enqueue(documentChunks(batch, MAX_BATCH_INPUTS, 100));
+      }
+      return { embed };
+    }
+
+    it('rests as long as the slow store took before the next request', async () => {
+      const storeMs = SLOW_STORE_MS * 4;
+      const { embed } = slowStoreHarness(storeMs);
+
+      await run(MIN_REQUEST_INTERVAL_MS);
+      expect(embed).toHaveBeenCalledTimes(2);
+      // The first store ends at storeMs; the third request waits the same again.
+      await run(storeMs);
+      expect(embed).toHaveBeenCalledTimes(2);
+      await run(storeMs);
+      expect(embed).toHaveBeenCalledTimes(3);
+    });
+
+    it('never rests longer than the cap', async () => {
+      const storeMs = MAX_STORE_REST_MS * 3;
+      const { embed } = slowStoreHarness(storeMs);
+
+      // Without the cap the third request would wait the store's own 180 s again.
+      await run(storeMs + MAX_STORE_REST_MS + MIN_REQUEST_INTERVAL_MS);
+      expect(embed).toHaveBeenCalledTimes(3);
+    });
+
+    it('does not rest after a fast store', async () => {
+      const { embed } = slowStoreHarness(SLOW_STORE_MS);
+
+      await run(SLOW_STORE_MS + MIN_REQUEST_INTERVAL_MS);
+      expect(embed).toHaveBeenCalledTimes(3);
+    });
   });
 });
