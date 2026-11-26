@@ -246,9 +246,12 @@ describe('EmbeddingQueue', () => {
      * Three full batches against {@link MAX_IN_FLIGHT} of two: the third request
      * starts only once a store has finished, which is when the rest applies.
      */
-    /** One-second steps, so each store that ends schedules its successor before the clock moves on. */
+    /** The two runners start a timer a millisecond apart; the margin keeps a boundary from deciding a test. */
+    const MARGIN_MS = 1_000;
+
+    /** Quarter-second steps, so each store that ends schedules its successor before the clock moves on. */
     async function run(ms: number): Promise<void> {
-      for (let elapsed = 0; elapsed < ms; elapsed += 1_000) await advance(1_000);
+      for (let elapsed = 0; elapsed < ms; elapsed += 250) await advance(250);
     }
 
     function slowStoreHarness(storeMs: number) {
@@ -265,7 +268,7 @@ describe('EmbeddingQueue', () => {
       const storeMs = SLOW_STORE_MS * 4;
       const { embed } = slowStoreHarness(storeMs);
 
-      await run(MIN_REQUEST_INTERVAL_MS);
+      await run(MIN_REQUEST_INTERVAL_MS + MARGIN_MS);
       expect(embed).toHaveBeenCalledTimes(2);
       // The first store ends at storeMs; the third request waits the same again.
       await run(storeMs);
@@ -279,14 +282,14 @@ describe('EmbeddingQueue', () => {
       const { embed } = slowStoreHarness(storeMs);
 
       // Without the cap the third request would wait the store's own 180 s again.
-      await run(storeMs + MAX_STORE_REST_MS + MIN_REQUEST_INTERVAL_MS);
+      await run(storeMs + MAX_STORE_REST_MS + MIN_REQUEST_INTERVAL_MS + MARGIN_MS);
       expect(embed).toHaveBeenCalledTimes(3);
     });
 
     it('does not rest after a fast store', async () => {
       const { embed } = slowStoreHarness(SLOW_STORE_MS);
 
-      await run(SLOW_STORE_MS + MIN_REQUEST_INTERVAL_MS);
+      await run(SLOW_STORE_MS + MIN_REQUEST_INTERVAL_MS + MARGIN_MS);
       expect(embed).toHaveBeenCalledTimes(3);
     });
   });
