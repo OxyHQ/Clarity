@@ -62,12 +62,52 @@ jobs:
               - 'packages/searxng/**'
               - '.github/**'
 
+  # The Seldon race (OxyHQ/oxy docs/engineering/build-and-deploy.md, CI on
+  # Seldon), opt-in with the repository variable CI_SELDON_RACE=true, on
+  # same-repository pull requests (and merge_group, should a queue be added)
+  # only. Push runs stay hosted, because deploy.yml and deploy-aws.yml trust a
+  # push run that concluded `success`. Unset, every job runs hosted as before
+  # and none of these takes a runner. Set, Lint & Test and Build frontend (both
+  # run a full typecheck) run on the self-hosted seldon-ci pool; a lane still
+  # queued 3 minutes after it was created gets its hosted twin (the `-hosted`
+  # jobs), the lane that starts first wins and the finish job cancels the other
+  # through its job-level concurrency group. A Seldon lane that fails, whatever
+  # the reason (the house network drops new connections in bursts), reruns
+  # hosted in its `-rescue` job, which fails again on a genuine failure. CI
+  # complete takes the raced jobs' verdict from the race.
+  race:
+    if: ${{ vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork }}
+    uses: OxyHQ/oxy/.github/workflows/seldon-race-start.yml@main
+    permissions:
+      actions: read
+    with:
+      names: |
+        Lint & Test
+        Build frontend
+
+  race-finish:
+    needs: race
+    # `!cancelled()`: an ancestor skipped on this event must not skip it.
+    if: ${{ !cancelled() && needs.race.outputs.race == 'true' }}
+    uses: OxyHQ/oxy/.github/workflows/seldon-race-finish.yml@main
+    permissions:
+      actions: read
+    with:
+      names: |
+        Lint & Test
+        Build frontend
+
   lint-and-test:
     name: Lint & Test
-    runs-on: ubuntu-latest
+    runs-on: &seldon-lane ${{ vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork && 'seldon-ci' || 'ubuntu-latest' }}
+    concurrency:
+      group: seldon-race-${{ github.run_id }}-${{ github.run_attempt }}-seldon-Lint & Test
+    permissions: &race-lane-permissions
+      contents: read
+      actions: read # the Seldon race guard reads this run's jobs
     timeout-minutes: 15
 
-    services:
+    services: &lint-and-test-services
       postgres:
         image: pgvector/pgvector:pg17
         env:
@@ -82,10 +122,17 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
-    env:
+    env: &lint-and-test-env
       TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/clarity_ci
 
-    steps:
+    steps: &lint-and-test-steps
+      # A lane that starts after its hosted twin waits here to be cancelled (the Seldon race).
+      - &race-guard
+        name: Seldon race guard
+        if: vars.CI_SELDON_RACE == 'true' && !endsWith(github.job, '-rescue')
+        uses: OxyHQ/oxy/.github/actions/seldon-race@main
+        with:
+          mode: guard
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The production image's build inputs (Dockerfile, context, target and
@@ -99,11 +146,13 @@ jobs:
         with:
           phase: check
       # Which commit the deploys release and whether the web app changed
-      # (deploy.yml, deploy-aws.yml), driven both ways on fixtures.
-      - name: Prove the deploy scope decisions
+      # (deploy.yml, deploy-aws.yml), and what CI complete accepts, driven both
+      # ways on fixtures.
+      - name: Prove the deploy scope and CI complete decisions
         run: |
           bash -n .github/scripts/*.sh
           bash .github/scripts/test-deploy-scope.sh
+          bash .github/scripts/test-ci-complete.sh
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
@@ -208,6 +257,33 @@ jobs:
       # exit is deferred to an unref'd timer can exit 0 on either runtime.
       - name: The built backend exits non-zero when boot fails
         run: bun run check:backend-entrypoints
+
+  # lint-and-test's hosted twin in the Seldon race: the same name, services and steps.
+  lint-and-test-hosted:
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Lint & Test' || 'Lint & Test (Seldon twin, idle)' }}
+    needs: race
+    if: ${{ !cancelled() && needs.race.outputs.race == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: seldon-race-${{ github.run_id }}-${{ github.run_attempt }}-hosted-Lint & Test
+    permissions: *race-lane-permissions
+    services: *lint-and-test-services
+    env: *lint-and-test-env
+    steps: *lint-and-test-steps
+
+  # lint-and-test's rescue: reruns it hosted when its Seldon lane failed (the house
+  # network drops connections); a genuine failure fails again.
+  lint-and-test-rescue:
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Lint & Test' || 'Lint & Test (Seldon rescue, idle)' }}
+    needs: lint-and-test
+    if: ${{ !cancelled() && needs.lint-and-test.result == 'failure' && vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: *race-lane-permissions
+    services: *lint-and-test-services
+    env: *lint-and-test-env
+    steps: *lint-and-test-steps
 
   # The production image as ECS runs it, on the architecture it ships for.
   build-backend-image:
@@ -316,7 +392,10 @@ jobs:
 
   build-frontend:
     name: Build frontend
-    runs-on: ubuntu-latest
+    runs-on: *seldon-lane
+    concurrency:
+      group: seldon-race-${{ github.run_id }}-${{ github.run_attempt }}-seldon-Build frontend
+    permissions: *race-lane-permissions
     timeout-minutes: 15
     # Independent of lint-and-test, so it runs in parallel. On pull requests it
     # runs only when the frontend or a shared input changed.
@@ -325,7 +404,8 @@ jobs:
       !cancelled() &&
       (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true')
 
-    steps:
+    steps: &build-frontend-steps
+      - *race-guard
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -348,3 +428,80 @@ jobs:
 
       - name: Build frontend
         run: bun run build:frontend
+
+  # build-frontend's hosted twin in the Seldon race: the same name and steps.
+  build-frontend-hosted:
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build frontend' || 'Build frontend (Seldon twin, idle)' }}
+    needs: [changes, race]
+    if: ${{ !cancelled() && needs.race.outputs.race == 'true' && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: seldon-race-${{ github.run_id }}-${{ github.run_attempt }}-hosted-Build frontend
+    permissions: *race-lane-permissions
+    steps: *build-frontend-steps
+
+  # build-frontend's rescue: reruns it hosted when its Seldon lane failed (the house
+  # network drops connections); a genuine failure fails again.
+  build-frontend-rescue:
+    name: ${{ vars.CI_SELDON_RACE == 'true' && 'Build frontend' || 'Build frontend (Seldon rescue, idle)' }}
+    needs: [changes, build-frontend]
+    if: ${{ !cancelled() && needs.build-frontend.result == 'failure' && vars.CI_SELDON_RACE == 'true' && github.run_attempt == 1 && (github.event_name == 'pull_request' || github.event_name == 'merge_group') && !github.event.pull_request.head.repo.fork && (github.event_name != 'pull_request' || needs.changes.outputs.frontend == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions: *race-lane-permissions
+    steps: *build-frontend-steps
+
+  # The one check this workflow stands for, modelled on OxyHQ/Gemies' and
+  # OxyHQ/Bloom's: green only when every job above passed or skipped for a
+  # reason this workflow declares, so a cancelled or unexplained-skipped job can
+  # never read as a pass. Required checks by job name cannot follow the Seldon
+  # race (a twin and a rescue share their job's name, and a cancelled loser is
+  # not a failure); this one can.
+  #
+  # The skips it allows, and nothing else:
+  #   - `changes` runs on pull_request only.
+  #   - On pull_request, a job filtered by `changes` skips when its filter said
+  #     no (Build backend image, Build SearXNG image, Build frontend).
+  #   - The race's jobs, twins and rescues skip whenever they are not needed.
+  # When the race or the rescue ran, a raced job passes on the race's verdict:
+  # each of its names passed in some lane and failed in no hosted lane.
+  ci-complete:
+    name: CI complete
+    if: always()
+    # Not race-finish: its reapers run on seldon-ci-light and only follow the
+    # cancellation, so needing it would wait on Seldon.
+    needs:
+      - changes
+      - race
+      - lint-and-test
+      - lint-and-test-hosted
+      - lint-and-test-rescue
+      - build-backend-image
+      - build-searxng-image
+      - build-frontend
+      - build-frontend-hosted
+      - build-frontend-rescue
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read # the gate script
+      actions: read # the Seldon race verdict reads this run's jobs
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: .github/scripts
+      # Per job name: passed when one of its lanes succeeded and no hosted lane
+      # failed. Whenever the race is on: a rescue can run without the race.
+      - name: Seldon race verdict
+        id: race
+        if: vars.CI_SELDON_RACE == 'true'
+        uses: OxyHQ/oxy/.github/actions/seldon-race@main
+        with:
+          mode: verdict
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+          RACE_VERDICT: ${{ steps.race.outputs.outcome }}
+        run: bash .github/scripts/ci-complete.sh
