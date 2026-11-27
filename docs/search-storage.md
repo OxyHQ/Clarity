@@ -167,3 +167,61 @@ alternatives, none of which keeps ranking and speed (2026-10-21):
   vector at query time made ranking a common query 40% slower (12.7 s → 17.6 s,
   every match is scored);
 - `lz4` (already the default) does not compress a tsvector at all.
+
+## Retention (draft, owner decision)
+
+What grows without being read, and the one-shot that deletes it. **Nothing
+here runs on its own**: `db/search-retention` is a dry run unless it is given
+`--execute --confirm-delete=<database>`, and deleting production data is the
+app owner's decision.
+
+Measured on production (2026-11-27/28): the `clarity` database was 154.7 GiB
+of a 440 GiB shared volume losing 6–11 GiB a day. A chunk costs ~5.8 KiB
+across its three tables (vector 2.9 KiB, chunk 2.2 KiB, code 0.75 KiB); a job
+document ~36 KiB with its ~3 chunks, its row (3.8 KiB) and its listing with
+the listing's search vector, signatures, term bands and headline (15 KiB).
+
+| Target | Deletes | Keeps |
+|---|---|---|
+| `crawl` | crawl pages and their fetch attempts of operations finished more than N days ago; the operations left without pages | operations still queued or running, `removal` operations, and the newest page of each job document's requested URL — job recrawls are queued under its operation's owner (`enqueueJobRecrawls`); only its attempts go |
+| `job-vectors` | the half-precision vectors of dead job documents' chunks (btree-only table, cheap to vacuum) | codes, chunks, documents, listings |
+| `job-documents` | dead job documents, as the worker's 90-day pass does, with their listings, chunks, codes, vectors, signatures, term bands, headlines, search vectors, reports and feed links; clusters re-elect | everything else |
+
+A job document is **dead** when its retention clock (`coalesce(fetched_at,
+updated_at)`) is older than N days and none of its listings is active, seen in
+the last N days, or in a status other than closed, expired or removed —
+`--include-stale` adds stale. Usage events are not a target: they are the
+metering ledger and `consumeUsage`'s idempotency guard; the monthly rollups
+hold the totals the quota and `/v1/usage` read.
+
+**The semantic index.** Deleting a code leaves a deleted element in the HNSW
+index over the codes, which VACUUM repairs element by element — reading the
+graph from a disk that is already at its IOPS limit. So the vectors go first
+(`job-vectors`: no HNSW change), and codes only in one purge
+(`job-documents`) followed by `REINDEX INDEX CONCURRENTLY
+clarity_search_chunk_embeddings_code_hnsw_idx` and then `VACUUM`, as the
+pgvector README recommends after large deletes; the one-shot prints those
+statements when it removed codes. A document whose vectors were dropped and
+whose listing comes back keeps lexical ranking only until its text changes or
+it is purged.
+
+**Pacing.** Batches by key (documents by retention clock and id, through
+`clarity_search_documents_job_retention_idx`; crawl pages by status and
+`available_at`, through `clarity_crawl_pages_lease_idx`), each one short
+transaction with `skip locked`, a 60 s statement and 5 s lock timeout; only
+inside 01:00–07:00 UTC by default (`--window`); at half duty cycle; a batch
+slower than `--max-batch-ms` pauses the run (`--pause-ms`) and halves the next
+batch. The cursor it logs resumes it (`--after`); a run from the start is
+correct too.
+
+**Space.** `DELETE` frees space for reuse inside the tables: they stop growing
+until it is used up. It does not return space to the volume (RDS storage never
+shrinks; `VACUUM FULL` or `pg_repack` would return it to the free-space
+metric).
+
+```bash
+# Dry run (counts and estimated bytes), then the real one, as ECS one-shots:
+bun packages/backend/dist/db/search-retention.js --target-database=clarity --target=crawl
+bun packages/backend/dist/db/search-retention.js --target-database=clarity --target=job-vectors \
+  --days=30 --execute --confirm-delete=clarity
+```
