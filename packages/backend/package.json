@@ -18,7 +18,7 @@
     "test:coverage": "vitest run --coverage",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/db/migrate.ts",
-    "db:check-locks": "oxy-db-check-migration-locks --migrations=drizzle --after=30 --hot-tables=clarity_search_documents,clarity_search_chunks,clarity_search_rate_limit_buckets,clarity_search_quota_grants,clarity_search_usage_events,clarity_subscriptions",
+    "db:check-locks": "oxy-db-check-migration-locks --migrations=drizzle --after=30 --hot-tables=clarity_search_documents,clarity_search_chunks,clarity_search_chunk_embeddings,clarity_search_rate_limit_buckets,clarity_search_quota_grants,clarity_search_usage_events,clarity_subscriptions",
     "db:backfill": "bun src/db/backfill.ts",
     "db:attest-cutover": "bun src/db/attest-cutover.ts",
     "db:attest-fresh-install": "bun src/db/attest-fresh-install.ts",

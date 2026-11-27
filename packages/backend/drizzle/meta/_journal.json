@@ -435,6 +435,27 @@
       "when": 1793770269911,
       "tag": "0061_document_authors",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1795819977104,
+      "tag": "0062_search_chunk_backlog",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1795819983947,
+      "tag": "0063_search_chunk_backlog_copy",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1795819986329,
+      "tag": "0064_search_chunk_embeddings_move_unembedded",
+      "breakpoints": true
     }
   ]
 }
