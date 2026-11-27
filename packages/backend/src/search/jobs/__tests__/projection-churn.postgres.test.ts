@@ -6,6 +6,7 @@ import {
   jobClusters,
   jobPostingSignatures,
   jobPostings,
+  searchChunkBacklog,
   searchChunkEmbeddings,
   searchChunks,
   searchDocuments,
@@ -171,6 +172,15 @@ async function snapshot(url: string): Promise<Snapshot> {
     chunkIds: chunks.map((row) => row.id),
     embeddedChunks: chunks.filter((row) => row.embedded).length,
   };
+}
+
+/** How many of these chunks the backlog still holds. */
+async function owedChunks(chunkIds: readonly string[]): Promise<number> {
+  const owed = await getDb()
+    .select({ id: searchChunkBacklog.chunkId })
+    .from(searchChunkBacklog)
+    .where(inArray(searchChunkBacklog.chunkId, [...chunkIds]));
+  return owed.length;
 }
 
 const tables = {
@@ -378,6 +388,8 @@ suite('re-observing job listings on Postgres', () => {
     // queues nothing: the vectors it owes are the backlog sweep's.
     await flushChunkEmbeddingsForTests();
     expect(createEmbeddings).not.toHaveBeenCalled();
+    // What they owe is in the backlog the sweep reads, not in NULL-code rows.
+    expect(await owedChunks(lexical.chunkIds)).toBe(lexical.chunkIds.length);
     for (let sweeps = 0; sweeps < 20; sweeps += 1) {
       await queueEmbeddingBacklog();
       await flushChunkEmbeddingsForTests();
@@ -387,6 +399,7 @@ suite('re-observing job listings on Postgres', () => {
     expect(createEmbeddings).toHaveBeenCalled();
     const embedded = await snapshot(loneUrl);
     expect(embedded.embeddedChunks).toBe(embedded.chunkIds.length);
+    expect(await owedChunks(embedded.chunkIds)).toBe(0);
     // The vectors are written into the chunks already stored, not by replacing them.
     expect(embedded.chunkIds).toEqual(lexical.chunkIds);
 

@@ -843,12 +843,15 @@ export const searchChunks = pgTable(
 );
 
 /**
- * One row per chunk: its vector's binary code (`binary_quantize`, one bit a
- * dimension), the model that produced it, and its document; `code` is NULL
- * until the chunk is embedded. The semantic index is over the codes: ~6×
- * smaller than over the half-precision vectors, so it and these narrow rows
- * stay in memory, where the vectors' index (4.3 GB, 2026-10-21) made every
- * vector write and every search read the disk (docs/search-storage.md).
+ * One row per embedded chunk: its vector's binary code (`binary_quantize`, one
+ * bit a dimension), the model that produced it, and its document. A chunk gets
+ * its row once it is embedded, never before (a chunk still owed one is in
+ * {@link searchChunkBacklog}), so the table is insert-only: an update would
+ * leave a dead tuple, and every vacuum that finds one walks the whole HNSW
+ * index (docs/search-storage.md, "Insert-only codes"). The semantic index is
+ * over the codes: ~6× smaller than over the half-precision vectors, so it and
+ * these narrow rows stay in memory, where the vectors' index (4.3 GB,
+ * 2026-10-21) made every vector write and every search read the disk.
  */
 export const searchChunkEmbeddings = pgTable(
   'clarity_search_chunk_embeddings',
@@ -857,26 +860,32 @@ export const searchChunkEmbeddings = pgTable(
       .primaryKey()
       .references(() => searchChunks.id, { onDelete: 'cascade' }),
     documentId: text('document_id').notNull(),
-    code: bit('code', { dimensions: 1024 }),
-    model: text('model'),
+    code: bit('code', { dimensions: 1024 }).notNull(),
+    model: text('model').notNull(),
   },
   (table) => [
-    check(
-      'clarity_search_chunk_embeddings_model_check',
-      sql`(${table.code} IS NULL) = (${table.model} IS NULL)`,
-    ),
     index('clarity_search_chunk_embeddings_code_hnsw_idx').using(
       'hnsw',
       sql`${table.code} bit_hamming_ops`,
     ),
-    // The chunks still owed a vector, in id order: the backlog sweep reads
-    // them without scanning (search/chunking.ts `queueEmbeddingBacklog`), and
-    // the index shrinks as they are embedded.
-    index('clarity_search_chunk_embeddings_unembedded_idx')
-      .on(table.chunkId)
-      .where(sql`${table.code} IS NULL`),
   ],
 );
+
+/**
+ * The chunks still owed a current embedding, one row each, swept in id order
+ * by the worker (search/chunking.ts `queueEmbeddingBacklog`). A chunk is
+ * written here, not as an embeddings row with a NULL code, so that
+ * `clarity_search_chunk_embeddings` is only ever inserted into: an update there
+ * leaves a dead tuple, and every vacuum that finds one walks the whole HNSW
+ * index (docs/search-storage.md, "Insert-only codes"). Small: it drains as the
+ * chunks are embedded.
+ */
+export const searchChunkBacklog = pgTable('clarity_search_chunk_backlog', {
+  chunkId: text('chunk_id')
+    .primaryKey()
+    .references(() => searchChunks.id, { onDelete: 'cascade' }),
+  documentId: text('document_id').notNull(),
+});
 
 /**
  * A chunk's vector at half precision, stored inline (`STORAGE PLAIN`, set by

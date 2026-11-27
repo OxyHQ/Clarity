@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { eq, sql } from 'drizzle-orm';
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
-import { searchChunks, searchDocuments } from '../../db/schema/index.js';
+import { searchChunkBacklog, searchChunks, searchDocuments } from '../../db/schema/index.js';
 import { replaceDocumentChunks, storeChunkEmbeddings } from '../chunking.js';
 import { halfVectorText } from '../half-precision.js';
 
@@ -97,6 +97,17 @@ suite('half-precision vector text on Postgres', () => {
       );
       return row;
     };
+    const owed = async () =>
+      (
+        await getDb()
+          .select({ id: searchChunkBacklog.chunkId })
+          .from(searchChunkBacklog)
+          .where(eq(searchChunkBacklog.documentId, document.id))
+      ).map((row) => row.id);
+    // The chunk stored without a vector waits in the backlog, with no
+    // embeddings row: that table is only ever inserted into.
+    expect(await owed()).toEqual([chunks[1].id]);
+    expect(await version(chunks[1].id)).toBeUndefined();
     const embeddedBefore = await version(chunks[0].id);
     await storeChunkEmbeddings(
       chunks.map((chunk) => ({ id: chunk.id, text: '' })),
@@ -105,6 +116,7 @@ suite('half-precision vector text on Postgres', () => {
     // Already embedded with the current model: not rewritten.
     expect(await version(chunks[0].id)).toEqual(embeddedBefore);
     expect((await version(chunks[1].id)).embedded).toBe(true);
+    expect(await owed()).toEqual([]);
     await getDb().delete(searchDocuments).where(eq(searchDocuments.id, document.id));
   });
 });

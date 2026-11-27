@@ -63,11 +63,13 @@ EXCLUSIVE lock, so the table is copied online into
 
 ## Vectors
 
-A chunk's vector lives beside it, in two narrow tables, not in the chunk row:
+A chunk's vector lives beside it, in two narrow tables, not in the chunk row;
+the chunks still owed one wait in a third:
 
 | Table | Row | Read by |
 |---|---|---|
-| `clarity_search_chunk_embeddings` | the chunk's document, its vector's **binary code** (`binary_quantize`, one bit a dimension, 128 bytes) and model; NULL until embedded | the HNSW index over the codes, and the backlog sweep (partial index on `code is null`) |
+| `clarity_search_chunk_embeddings` | the chunk's document, its vector's **binary code** (`binary_quantize`, one bit a dimension, 128 bytes) and model; written once the chunk is embedded, never before | the HNSW index over the codes |
+| `clarity_search_chunk_backlog` | a chunk still owed a current embedding, and its document | the backlog sweep (`queueEmbeddingBacklog`, in id order through the primary key) |
 | `clarity_search_chunk_vectors` | the half-precision vector, inline (`STORAGE PLAIN`) | the exact reordering of a search's candidates |
 
 **Why.** Measured in production (2026-10-21), with the vector in the chunk row
@@ -97,6 +99,67 @@ with 150 held-out short chunks as queries, against the exact nearest chunks:
 | half-precision HNSW (before) | 0.962 | 0.988 | 0.970 | 0.994 |
 | codes ×8, reordered exactly | 0.972 | 0.994 | 0.972 | — |
 | codes ×6, reordered exactly | 0.959 | 0.993 | 0.961 | 0.994 |
+
+### Insert-only codes
+
+`clarity_search_chunk_embeddings` is only ever inserted into. A chunk stored
+without its embedding goes into `clarity_search_chunk_backlog`
+(`replaceDocumentChunks`); `storeChunkEmbeddings` inserts its embeddings row and
+vector and deletes its backlog row in one statement. An embeddings row is
+rewritten only when a different model embeds the chunk.
+
+**Why.** Measured on production (2026-11-27, `pg_monitor`): the table had
+15.1M rows (heap 4.0 GiB) under a 5.8 GiB HNSW index
+(`clarity_search_chunk_embeddings_code_hnsw_idx`), 16.9M inserts, **14.56M
+updates** (every embedding turned a NULL code into a real one), 1.40M deletes
+(cascades from re-chunked documents), 1.42M dead tuples and 40 autovacuums.
+Every autovacuum that finds a dead tuple runs pgvector's bulk delete: three
+full passes over the HNSW index plus the graph repair, which also repairs every
+element whose layer-0 neighbour list is not full ("Vacuuming can take a while
+for HNSW indexes", pgvector's README). Those runs read ~5.2 TB in two weeks
+(1.0–1.7 TB each, 3–40 h), and each lined up with an IO collapse of the shared
+instance at its 6,000 IOPS limit. With no dead tuples PostgreSQL skips index
+vacuuming, so an insert-only table removes the update-driven runs; the deletes
+re-chunking cascades remain.
+
+**Unembedded** means: no embeddings row by the current model
+(`documentChunkState`, `queueChunkEmbeddings`, left-joined). The sweep reads
+the backlog.
+
+**The data move** (two phases, one deploy):
+
+| Migration | Phase | What it does | Locks |
+|---|---|---|---|
+| 0062 | pre | creates the backlog (chunk → `clarity_search_chunks`, cascading) | SHARE ROW EXCLUSIVE on chunks, for an empty table |
+| 0063 | pre | copies every `code is null` embeddings row (~300k) into it, through the partial index | row locks |
+| 0064 | post | copies the NULL-code rows the previous image wrote meanwhile, then deletes every NULL-code row | row locks |
+| 0065 | post | adds `CHECK (code IS NOT NULL AND model IS NOT NULL) NOT VALID` | ACCESS EXCLUSIVE, catalogue only (`lock_timeout` 2 s) |
+| 0066 | post | validates it: one read of the 4 GiB heap | SHARE UPDATE EXCLUSIVE: reads and writes go on |
+| 0067 | post | `SET NOT NULL` on both columns (proved from the check, no scan), drops the check, the old `(code IS NULL) = (model IS NULL)` check and `clarity_search_chunk_embeddings_unembedded_idx` | ACCESS EXCLUSIVE, catalogue only (`lock_timeout` 2 s) |
+
+While the two images overlap, the previous one still writes NULL-code rows and
+updates them. The new one treats such a row as unembedded and its
+`storeChunkEmbeddings` fills it; a chunk the previous image embeds after 0063
+leaves a backlog row behind, which the sweep drains by embedding the chunk once
+more without rewriting it. A chunk the new image stores goes only into the
+backlog: the previous image's worker finds nothing to update for it, and the
+sweep embeds it.
+
+**The operator checks.** Before the deploy, the NULL-code count
+(`select count(*) from clarity_search_chunk_embeddings where code is null`) and
+whether an autovacuum of the table is running (`pg_stat_progress_vacuum`):
+0065–0067 wait for their locks behind it, which cancels it (it runs again
+afterwards); an anti-wraparound vacuum is not cancelled, and they then fail
+after their retries; run the post step again once it ends. After `pre`: the
+backlog's count is about the NULL-code count. After `post`: the NULL-code count
+is 0, the backlog's count is about the NULL-code count before (less what was
+embedded meanwhile), and `n_tup_upd` of `clarity_search_chunk_embeddings` in
+`pg_stat_user_tables` stops growing (a model change is the one remaining cause).
+
+**One more HNSW vacuum, then none from updates.** Deleting the ~300k NULL-code
+rows leaves ~300k dead tuples, so one autovacuum walks the HNSW index right
+after the post migration. One was due within hours anyway (1.42M dead tuples
+against a 1.51M threshold). After it, updates no longer cause any.
 
 ### The split (one time)
 

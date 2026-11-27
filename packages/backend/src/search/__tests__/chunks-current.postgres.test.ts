@@ -2,7 +2,12 @@ import { asc, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { closePostgres, connectPostgres, getDb } from '../../db/index.js';
-import { searchChunks, searchDocuments } from '../../db/schema/index.js';
+import {
+  searchChunkBacklog,
+  searchChunkEmbeddings,
+  searchChunks,
+  searchDocuments,
+} from '../../db/schema/index.js';
 import {
   chunkText,
   documentChunkState,
@@ -24,7 +29,8 @@ const current = 'https://chunks-current.example/current';
 const neighbour = 'https://chunks-current.example/neighbour';
 const lexical = 'https://chunks-current.example/lexical';
 const writtenBack = 'https://chunks-current.example/written-back';
-const urls = [current, neighbour, lexical, writtenBack];
+const partial = 'https://chunks-current.example/partial';
+const urls = [current, neighbour, lexical, writtenBack, partial];
 const body = 'A listing body long enough to span chunks. '.repeat(100);
 const chunks = chunkText(body);
 const embedding = () => Array.from({ length: 1024 }, (_, i) => (i % 7) / 7);
@@ -120,6 +126,28 @@ suite('documentChunkState on Postgres', () => {
       .where(eq(searchChunks.documentId, documentId))
       .orderBy(asc(searchChunks.position));
     expect(after.map(({ id }) => id)).toEqual(stored.map(({ id }) => id));
+    // Embedded, the chunks leave the backlog they were stored in.
+    const owed = await getDb()
+      .select({ id: searchChunkBacklog.chunkId })
+      .from(searchChunkBacklog)
+      .where(eq(searchChunkBacklog.documentId, documentId));
+    expect(owed).toEqual([]);
+  });
+
+  it('is unembedded while one chunk is owed its embedding', async () => {
+    const documentId = await indexDocument(partial, true);
+    const [first] = await getDb()
+      .select({ id: searchChunks.id })
+      .from(searchChunks)
+      .where(eq(searchChunks.documentId, documentId))
+      .orderBy(asc(searchChunks.position))
+      .limit(1);
+    // As a chunk stored unembedded is: in the backlog, with no embeddings row.
+    await getDb().delete(searchChunkEmbeddings).where(eq(searchChunkEmbeddings.chunkId, first.id));
+    await getDb().insert(searchChunkBacklog).values({ chunkId: first.id, documentId });
+    await expect(
+      documentChunkState(getDb(), partial, body, chunks.length, EXTRACTOR),
+    ).resolves.toBe('unembedded');
   });
 
   it('is stale when the document is not indexed', async () => {
