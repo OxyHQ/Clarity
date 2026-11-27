@@ -425,7 +425,7 @@ async function refreshClusterOf(tx: ClarityExecutor, jobPostingId: string): Prom
 }
 
 /** Elects the copy Clarity shows for a cluster; all members stay retrievable. */
-async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<void> {
+export async function electCanonical(tx: ClarityExecutor, clusterId: string): Promise<void> {
   const members = await tx
     .select({
       id: jobPostings.id,
