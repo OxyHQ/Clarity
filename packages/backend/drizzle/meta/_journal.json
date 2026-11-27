@@ -456,27 +456,6 @@
       "when": 1795819986329,
       "tag": "0064_search_chunk_embeddings_move_unembedded",
       "breakpoints": true
-    },
-    {
-      "idx": 65,
-      "version": "7",
-      "when": 1795819988896,
-      "tag": "0065_search_chunk_embeddings_code_check",
-      "breakpoints": true
-    },
-    {
-      "idx": 66,
-      "version": "7",
-      "when": 1795819992487,
-      "tag": "0066_search_chunk_embeddings_validate_code_check",
-      "breakpoints": true
-    },
-    {
-      "idx": 67,
-      "version": "7",
-      "when": 1795820007394,
-      "tag": "0067_search_chunk_embeddings_not_null",
-      "breakpoints": true
     }
   ]
 }

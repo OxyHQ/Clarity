@@ -126,16 +126,29 @@ re-chunking cascades remain.
 (`documentChunkState`, `queueChunkEmbeddings`, left-joined). The sweep reads
 the backlog.
 
-**The data move** (two phases, one deploy):
+**The data move**, in two releases. A deploy whose post step fails rolls the
+services back to the image it replaced (`.github/scripts/deploy-ecs-service.sh`)
+without undoing the migrations that step already committed. The image before
+this change writes NULL-code rows, so no release it can be rolled back to may
+make them invalid:
 
-| Migration | Phase | What it does | Locks |
-|---|---|---|---|
-| 0062 | pre | creates the backlog (chunk → `clarity_search_chunks`, cascading) | SHARE ROW EXCLUSIVE on chunks, for an empty table |
-| 0063 | pre | copies every `code is null` embeddings row (~300k) into it, through the partial index | row locks |
-| 0064 | post | copies the NULL-code rows the previous image wrote meanwhile, then deletes every NULL-code row | row locks |
-| 0065 | post | adds `CHECK (code IS NOT NULL AND model IS NOT NULL) NOT VALID` | ACCESS EXCLUSIVE, catalogue only (`lock_timeout` 2 s) |
-| 0066 | post | validates it: one read of the 4 GiB heap | SHARE UPDATE EXCLUSIVE: reads and writes go on |
-| 0067 | post | `SET NOT NULL` on both columns (proved from the check, no scan), drops the check, the old `(code IS NULL) = (model IS NULL)` check and `clarity_search_chunk_embeddings_unembedded_idx` | ACCESS EXCLUSIVE, catalogue only (`lock_timeout` 2 s) |
+| Release | Migration | Phase | What it does | Locks |
+|---|---|---|---|---|
+| 1 | 0062 | pre | creates the backlog (chunk → `clarity_search_chunks`, cascading) | SHARE ROW EXCLUSIVE on chunks, for an empty table |
+| 1 | 0063 | pre | copies every `code is null` embeddings row (~300k) into it, through the partial index | KEY SHARE on each copied chunk |
+| 1 | 0064 | post | copies the NULL-code rows the previous image wrote meanwhile, then deletes the NULL-code rows the backlog holds | KEY SHARE on each copied chunk, row locks |
+| 2 | next | post | `code`/`model` NOT NULL without a scan under ACCESS EXCLUSIVE: a `CHECK (code IS NOT NULL AND model IS NOT NULL) NOT VALID`, validated in its own migration (SHARE UPDATE EXCLUSIVE, one read of the 4 GiB heap), then `SET NOT NULL` (proved from the check), and the old checks and `clarity_search_chunk_embeddings_unembedded_idx` dropped | ACCESS EXCLUSIVE twice, catalogue only |
+
+Release 2 is deployed only once release 1 is serving: the image it can roll
+back to then writes no NULL-code row. Release 1's one post migration is one
+transaction: if it fails, nothing of it is committed, and the previous image
+runs on against the NULL-code rows it reads (the backlog beside them is
+unused until release 1 is deployed again).
+
+0063 and 0064 lock each chunk (KEY SHARE, in id order) as they copy it: the
+statement's snapshot can still show a NULL-code row whose chunk a concurrent
+re-chunk has just deleted, and copying it would fail the backlog's foreign key
+and abort the deploy. Locked, such a chunk drops out of the copy.
 
 While the two images overlap, the previous one still writes NULL-code rows and
 updates them. The new one treats such a row as unembedded and its
@@ -145,21 +158,22 @@ more without rewriting it. A chunk the new image stores goes only into the
 backlog: the previous image's worker finds nothing to update for it, and the
 sweep embeds it.
 
-**The operator checks.** Before the deploy, the NULL-code count
-(`select count(*) from clarity_search_chunk_embeddings where code is null`) and
-whether an autovacuum of the table is running (`pg_stat_progress_vacuum`):
-0065–0067 wait for their locks behind it, which cancels it (it runs again
-afterwards); an anti-wraparound vacuum is not cancelled, and they then fail
-after their retries; run the post step again once it ends. After `pre`: the
-backlog's count is about the NULL-code count. After `post`: the NULL-code count
-is 0, the backlog's count is about the NULL-code count before (less what was
-embedded meanwhile), and `n_tup_upd` of `clarity_search_chunk_embeddings` in
-`pg_stat_user_tables` stops growing (a model change is the one remaining cause).
+**The operator checks.** Before release 1, the NULL-code count
+(`select count(*) from clarity_search_chunk_embeddings where code is null`).
+After its `pre`: the backlog's count is about the NULL-code count. After its
+`post`: the NULL-code count is 0, the backlog's count is about the NULL-code
+count before (less what was embedded meanwhile), and `n_tup_upd` of
+`clarity_search_chunk_embeddings` in `pg_stat_user_tables` stops growing (a
+model change is the one remaining cause). Before release 2, whether an
+autovacuum of the table is running (`pg_stat_progress_vacuum`): its lock waits
+cancel it (it runs again afterwards); an anti-wraparound vacuum is not
+cancelled, and the migrations then fail after their retries; run the post step
+again once it ends.
 
 **One more HNSW vacuum, then none from updates.** Deleting the ~300k NULL-code
 rows leaves ~300k dead tuples, so one autovacuum walks the HNSW index right
-after the post migration. One was due within hours anyway (1.42M dead tuples
-against a 1.51M threshold). After it, updates no longer cause any.
+after release 1's post migration. One was due within hours anyway (1.42M
+dead tuples against a 1.51M threshold). After it, updates no longer cause any.
 
 ### The split (one time)
 
