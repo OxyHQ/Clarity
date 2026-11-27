@@ -852,11 +852,6 @@ export const searchChunks = pgTable(
  * over the codes: ~6× smaller than over the half-precision vectors, so it and
  * these narrow rows stay in memory, where the vectors' index (4.3 GB,
  * 2026-10-21) made every vector write and every search read the disk.
- *
- * `code` and `model` stay nullable, with the partial index over NULL codes,
- * until the next release makes them NOT NULL: the image this one replaces wrote
- * NULL-code rows, and a deploy whose post step fails rolls back to it.
- * Migration 0064 removed the rows themselves.
  */
 export const searchChunkEmbeddings = pgTable(
   'clarity_search_chunk_embeddings',
@@ -865,21 +860,14 @@ export const searchChunkEmbeddings = pgTable(
       .primaryKey()
       .references(() => searchChunks.id, { onDelete: 'cascade' }),
     documentId: text('document_id').notNull(),
-    code: bit('code', { dimensions: 1024 }),
-    model: text('model'),
+    code: bit('code', { dimensions: 1024 }).notNull(),
+    model: text('model').notNull(),
   },
   (table) => [
-    check(
-      'clarity_search_chunk_embeddings_model_check',
-      sql`(${table.code} IS NULL) = (${table.model} IS NULL)`,
-    ),
     index('clarity_search_chunk_embeddings_code_hnsw_idx').using(
       'hnsw',
       sql`${table.code} bit_hamming_ops`,
     ),
-    index('clarity_search_chunk_embeddings_unembedded_idx')
-      .on(table.chunkId)
-      .where(sql`${table.code} IS NULL`),
   ],
 );
 

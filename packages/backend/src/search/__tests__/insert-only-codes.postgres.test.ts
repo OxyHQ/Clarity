@@ -356,8 +356,10 @@ suite('insert-only embedding codes on Postgres', () => {
 
   it('fills a NULL-code row the previous image left, and takes it off the backlog', async () => {
     await rolledBack(async (tx) => {
-      // A chunk as the previous image stored it once 0063 had copied it into
-      // the backlog.
+      // The schema before migrations 0065–0067, and a chunk as the previous
+      // image stored it once 0063 had copied it into the backlog.
+      await tx.execute(sql`alter table clarity_search_chunk_embeddings
+        alter column code drop not null, alter column model drop not null`);
       const { url, documentId, chunkIds } = await indexDocument(tx);
       await tx.execute(sql`insert into clarity_search_chunk_embeddings (chunk_id, document_id)
         values (${chunkIds[0]}, ${documentId})`);
@@ -432,5 +434,21 @@ suite('insert-only embedding codes on Postgres', () => {
     await expect(documentChunkState(getDb(), url, body, chunks.length, EXTRACTOR)).resolves.toBe(
       'current',
     );
+  });
+
+  it('keeps no index over NULL codes, and no NULL code', async () => {
+    const [table] = await getDb().execute<{
+      nullable: number;
+      partial: number;
+      checks: number;
+    }>(sql`
+      select
+        (select count(*) from pg_attribute where attrelid = 'clarity_search_chunk_embeddings'::regclass
+          and attname in ('code', 'model') and not attnotnull)::int as nullable,
+        (select count(*) from pg_index where indrelid = 'clarity_search_chunk_embeddings'::regclass
+          and indpred is not null)::int as partial,
+        (select count(*) from pg_constraint where conrelid = 'clarity_search_chunk_embeddings'::regclass
+          and contype = 'c')::int as checks`);
+    expect(table).toEqual({ nullable: 0, partial: 0, checks: 0 });
   });
 });

@@ -137,7 +137,9 @@ make them invalid:
 | 1 | 0062 | pre | creates the backlog (chunk → `clarity_search_chunks`, cascading) | SHARE ROW EXCLUSIVE on chunks, for an empty table |
 | 1 | 0063 | pre | copies every `code is null` embeddings row (~300k) into it, through the partial index | KEY SHARE on each copied chunk |
 | 1 | 0064 | post | copies the NULL-code rows the previous image wrote meanwhile, then deletes the NULL-code rows the backlog holds | KEY SHARE on each copied chunk, row locks |
-| 2 | next | post | `code`/`model` NOT NULL without a scan under ACCESS EXCLUSIVE: a `CHECK (code IS NOT NULL AND model IS NOT NULL) NOT VALID`, validated in its own migration (SHARE UPDATE EXCLUSIVE, one read of the 4 GiB heap), then `SET NOT NULL` (proved from the check), and the old checks and `clarity_search_chunk_embeddings_unembedded_idx` dropped | ACCESS EXCLUSIVE twice, catalogue only |
+| 2 | 0065 | post | adds `CHECK (code IS NOT NULL AND model IS NOT NULL) NOT VALID` | ACCESS EXCLUSIVE, catalogue only (`lock_timeout` 2 s) |
+| 2 | 0066 | post | validates it: one read of the 4 GiB heap | SHARE UPDATE EXCLUSIVE: reads and writes go on |
+| 2 | 0067 | post | `SET NOT NULL` on both columns (proved from the check, no scan), drops the check, the old `(code IS NULL) = (model IS NULL)` check and `clarity_search_chunk_embeddings_unembedded_idx` | ACCESS EXCLUSIVE, catalogue only (`lock_timeout` 2 s) |
 
 Release 2 is deployed only once release 1 is serving: the image it can roll
 back to then writes no NULL-code row. Release 1's one post migration is one
