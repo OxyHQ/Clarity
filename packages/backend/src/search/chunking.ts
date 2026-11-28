@@ -28,7 +28,8 @@ import {
 import { createLogger } from '../lib/logger.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
 import { EmbeddingQueue, type PendingChunk } from './embedding-queue.js';
-import { halfVectorText } from './half-precision.js';
+import { halfVectorText, toHalf } from './half-precision.js';
+import { int8Vector, storesChunkVectors } from './semantic-rerank.js';
 import { textFromChunks } from './page-text.js';
 
 const CHUNK_STRIDE = 1600;
@@ -68,7 +69,9 @@ export function chunkText(text: string): TextChunk[] {
  *    image left, until migration 0064 moves those) is updated, so the table
  *    under the HNSW index stays insert-only (docs/search-storage.md,
  *    "Insert-only codes");
- * 3. writes the vectors of the rows actually written;
+ * 3. writes the int8 vectors of the rows actually written, and their
+ *    half-precision vectors unless the reorder reads none
+ *    (`storesChunkVectors`, semantic-rerank.ts);
  * 4. deletes the chunks' backlog rows.
  *
  * Vectors go as the halves the column stores (half-precision.ts), not Kaana's
@@ -79,15 +82,19 @@ export async function storeChunkEmbeddings(
   embeddings: readonly number[][],
   /** A test seam: the cycle is measured inside one transaction. */
   executor: ClarityExecutor = getDb(),
+  /** A test seam; `storesChunkVectors()` otherwise (semantic-rerank.ts). */
+  storeVectors: boolean = storesChunkVectors(),
 ): Promise<void> {
   const rows = chunks.map(({ id }, index) => ({
     id,
     embedding: halfVectorText(embeddings[index]),
+    int8: int8Base64(embeddings[index]),
   }));
   await executor.execute(sql`
     with embedded as (
-      select distinct on (id) id, embedding::halfvec(1024) as embedding
-      from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as embedded(id text, embedding text)
+      select distinct on (id) id, embedding::halfvec(1024) as embedding,
+        decode(int8, 'base64') as int8
+      from jsonb_to_recordset(${JSON.stringify(rows)}::jsonb) as embedded(id text, embedding text, int8 text)
       order by id
     ), owed as materialized (
       select chunk.id, chunk.document_id
@@ -110,12 +117,30 @@ export async function storeChunkEmbeddings(
       delete from clarity_search_chunk_backlog as owing
       using owed
       where owing.chunk_id = owed.id
+    ), quantized as (
+      insert into clarity_search_chunk_int8_vectors (chunk_id, vector)
+      select embedded.id, embedded.int8 from embedded
+      inner join coded on coded.chunk_id = embedded.id
+      on conflict (chunk_id) do update set vector = excluded.vector
     )
-    insert into clarity_search_chunk_vectors (chunk_id, embedding)
+    ${
+      storeVectors
+        ? sql`insert into clarity_search_chunk_vectors (chunk_id, embedding)
     select embedded.id, embedded.embedding from embedded
     inner join coded on coded.chunk_id = embedded.id
-    on conflict (chunk_id) do update set embedding = excluded.embedding
+    on conflict (chunk_id) do update set embedding = excluded.embedding`
+        : sql`select count(*) from coded`
+    }
   `);
+}
+
+/**
+ * A vector's int8 form (semantic-rerank.ts `int8Vector`), quantized from the
+ * halves the half-precision column stores, so a backfill from that column
+ * writes the same bytes. Base64, for `jsonb_to_recordset`.
+ */
+function int8Base64(values: readonly number[]): string {
+  return int8Vector(values.map(toHalf)).toString('base64');
 }
 
 /** The backlog sweep tops the queue up only while it holds fewer chunks than this. */
@@ -374,12 +399,23 @@ export async function replaceDocumentChunks(
     await tx.insert(searchChunkBacklog).values(owed.map(({ id }) => ({ chunkId: id, documentId })));
   const vectors = rows.filter((row) => row.embedding !== null);
   if (vectors.length === 0) return;
-  const embedded = JSON.stringify(vectors.map(({ id, embedding }) => ({ id, embedding })));
+  const embedded = JSON.stringify(
+    vectors.map(({ id, embedding, position }) => ({
+      id,
+      embedding,
+      int8: int8Base64(embeddings?.[position] ?? []),
+    })),
+  );
   await tx.execute(sql`
     insert into clarity_search_chunk_embeddings (chunk_id, document_id, code, model)
     select coded.id, ${documentId},
       binary_quantize(coded.embedding::halfvec(1024))::bit(1024), ${CLARITY_EMBEDDING_MODEL}
     from jsonb_to_recordset(${embedded}::jsonb) as coded(id text, embedding text)`);
+  await tx.execute(sql`
+    insert into clarity_search_chunk_int8_vectors (chunk_id, vector)
+    select quantized.id, decode(quantized.int8, 'base64')
+    from jsonb_to_recordset(${embedded}::jsonb) as quantized(id text, int8 text)`);
+  if (!storesChunkVectors()) return;
   await tx.execute(sql`
     insert into clarity_search_chunk_vectors (chunk_id, embedding)
     select vector.id, vector.embedding::halfvec(1024)
