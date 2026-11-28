@@ -456,6 +456,13 @@
       "when": 1795819986329,
       "tag": "0064_search_chunk_embeddings_move_unembedded",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1795844880475,
+      "tag": "0065_sweep_partial_indexes",
+      "breakpoints": true
     }
   ]
 }
