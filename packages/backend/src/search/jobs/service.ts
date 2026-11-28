@@ -44,6 +44,7 @@ import {
   type NearestChunks,
 } from '../nearest-chunks.js';
 import { isStatementTimeout, SEARCH_STATEMENT_TIMEOUT_MS } from '../search-timeout.js';
+import { semanticSearchEnabled } from '../semantic-search-switch.js';
 import { QUERY_EMBEDDING_TIMEOUT_MS } from '../document-search.js';
 import {
   canonicalizePublicUrl,
@@ -508,7 +509,17 @@ export async function searchJobs(input: JobSearchInput): Promise<JobSearchRespon
   const timing = new SearchTiming();
   let embedding: number[] | undefined;
   let degraded: JobSearchResponse['degraded'];
-  if (input.query && input.mode !== 'lexical') {
+  // Off (semantic-search-switch.ts), the query is not embedded, so no
+  // nearest-chunk read runs in `rankJobs`.
+  if (input.query && input.mode !== 'lexical' && !semanticSearchEnabled()) {
+    if (input.mode === 'semantic')
+      throw new JobsError(
+        503,
+        'semantic_unavailable',
+        'Semantic job search is temporarily unavailable',
+      );
+    degraded = { from: 'hybrid', to: 'lexical', reason: 'semantic_off' };
+  } else if (input.query && input.mode !== 'lexical') {
     embedding = await timing.phase('embeddingMs', () =>
       embedQuery(input.query ?? '', AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS)),
     );
