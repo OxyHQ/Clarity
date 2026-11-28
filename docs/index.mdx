@@ -71,6 +71,15 @@ that question; the setting does.
   timed-out chunks stay at the head of the queue and are sent again after the
   back-off; chunks of any other failure are dropped and stay unembedded. The
   SDK does not retry queued calls: the queue's back-off is the only one.
+- **Pace and heavy hours** (`packages/backend/src/lib/work-knobs.ts`, read once
+  at start-up; unset or unreadable values keep the defaults):
+  `EMBED_MAX_IN_FLIGHT` (2, at most 8), `EMBED_MIN_REQUEST_INTERVAL_MS` (2000,
+  never below 1000), `EMBED_BACKLOG_BATCH` (2048, at most 3072),
+  `SLOW_STORE_MS` (2000) and `MAX_STORE_REST_MS` (60000) set the queue's pace
+  and its rest after a slow vector store. `CLARITY_HEAVY_HOURS_UTC` (for
+  example `1-6`, `22-4` or `1-6,13-14`; UTC hours, end exclusive) limits the
+  embedding backlog sweep and the job retention prune to those hours; unset,
+  they run around the clock. Freshly indexed chunks are embedded at any hour.
 - **Turning it on later, or a restart:** chunks without a current embedding are
   `unembedded` (`documentChunkState`), so the next recrawl or feed delivery of
   each document queues them again without rewriting anything else.

@@ -5,6 +5,7 @@ import type { IncomingHttpHeaders } from 'node:http';
 import { startPlatformActivity } from './lib/platform-activity.js';
 import { createLivenessBeat } from './lib/liveness.js';
 import { createLogger } from './lib/logger.js';
+import { heavyHoursState, inHeavyHours } from './lib/work-knobs.js';
 import { and, eq, gt, gte, inArray, isNotNull, lt, ne, notInArray, or, sql } from 'drizzle-orm';
 import { safeFetch } from '@oxy.so/core/server';
 
@@ -1101,7 +1102,9 @@ async function runJobMaintenance(): Promise<void> {
   try {
     const sweep = await sweepJobLifecycle();
     const recrawls = await enqueueJobRecrawls();
-    const pruned = await pruneInactiveJobDocuments();
+    // Retention deletes cascade through chunks, vectors and their indexes: the
+    // heaviest write of the pass, so it waits for CLARITY_HEAVY_HOURS_UTC.
+    const pruned = inHeavyHours() ? await pruneInactiveJobDocuments() : 'deferred';
     log.info({ ...sweep, recrawls, pruned }, 'Job corpus maintenance completed');
   } catch (error) {
     log.error({ err: error }, 'Job corpus maintenance failed');
@@ -1252,6 +1255,15 @@ async function main() {
   const feedLoop = runFeedLoop(() => stopping);
   const iconRefreshLoop = runIconRefreshLoop(() => stopping);
   const productFeedLoop = runProductFeedLoop(() => stopping);
+  if (heavyHoursState === 'invalid')
+    log.error(
+      'CLARITY_HEAVY_HOURS_UTC does not parse (expected e.g. 1-6 or 22-4,13-14); heavy work runs around the clock',
+    );
+  else if (heavyHoursState === 'ranges')
+    log.info(
+      { heavyHoursUtc: process.env.CLARITY_HEAVY_HOURS_UTC },
+      'Embedding backlog and job retention run only in the heavy hours',
+    );
   const embeddingBacklogLoop = runEmbeddingBacklogLoop(() => stopping);
   await runCrawlSlots({
     concurrency: crawlConcurrency,

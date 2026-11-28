@@ -29,23 +29,34 @@
  */
 import { KaanaConnectionError, KaanaError } from '@kaana.ai/sdk';
 
+import { integerKnob } from '../lib/work-knobs.js';
+
 /** Inputs per request: what Kaana's pilot embeds per request for Clarity. */
 export const MAX_BATCH_INPUTS = 128;
 /** Estimated tokens per request: the pilot's `maxInputTokens`. */
 export const MAX_BATCH_ESTIMATED_TOKENS = 65_536;
 /** The longest a pending chunk waits for a batch to fill. */
 export const MAX_WAIT_MS = 10_000;
-/** The shortest gap between two requests. */
-export const MIN_REQUEST_INTERVAL_MS = 2_000;
+/**
+ * The shortest gap between two requests (`EMBED_MIN_REQUEST_INTERVAL_MS`,
+ * default 2 s). Never below 1 s: 60 a minute is the credential's whole limit,
+ * which search queries share.
+ */
+export const MIN_REQUEST_INTERVAL_MS = integerKnob(
+  process.env,
+  'EMBED_MIN_REQUEST_INTERVAL_MS',
+  2_000,
+  { min: 1_000, max: 10 * 60_000 },
+);
 /**
  * Requests in flight at once. Kaana answers a full batch in 5–12 s, so one at a
  * time embedded ~38k chunks an hour against ~9k new ones, and the 2.4M-chunk
  * backlog would have taken 3.4 days (production, 2026-10-21). Two at a time,
  * still at most 30 requests a minute, roughly double it; vector writes are two
  * narrow rows each (search/chunking.ts), ~0.02 average active sessions at the
- * old pace.
+ * old pace. `EMBED_MAX_IN_FLIGHT` (1–8) overrides it.
  */
-export const MAX_IN_FLIGHT = 2;
+export const MAX_IN_FLIGHT = integerKnob(process.env, 'EMBED_MAX_IN_FLIGHT', 2, { min: 1, max: 8 });
 /** Chunks held at most; more are left unembedded until their document is indexed again. */
 export const MAX_PENDING_CHUNKS = 4_096;
 /**
@@ -55,11 +66,17 @@ export const MAX_PENDING_CHUNKS = 4_096;
  * time writing into an index that is already starved for disk reads. Production
  * on 2026-11-26: 341 stores in 90 minutes averaged 22 s each while the disk sat
  * at its throughput ceiling, and they slowed every other app's queries on the
- * instance (crawl leases 19 s, identity locks 8 s).
+ * instance (crawl leases 19 s, identity locks 8 s). `SLOW_STORE_MS` overrides it.
  */
-export const SLOW_STORE_MS = 2_000;
-/** The longest the queue rests after one slow store. */
-export const MAX_STORE_REST_MS = 60_000;
+export const SLOW_STORE_MS = integerKnob(process.env, 'SLOW_STORE_MS', 2_000, {
+  min: 0,
+  max: 10 * 60_000,
+});
+/** The longest the queue rests after one slow store (`MAX_STORE_REST_MS`; 0 never rests). */
+export const MAX_STORE_REST_MS = integerKnob(process.env, 'MAX_STORE_REST_MS', 60_000, {
+  min: 0,
+  max: 60 * 60_000,
+});
 /** The back-off after a first failure, doubled by each consecutive one up to the maximum. */
 export const FAILURE_BACKOFF_MS = 5_000;
 export const MAX_FAILURE_BACKOFF_MS = 5 * 60_000;
@@ -77,6 +94,14 @@ export interface PendingChunk {
   text: string;
 }
 
+/** The pacing knobs one queue runs with; the module's constants by default. */
+export interface EmbeddingQueueLimits {
+  maxInFlight: number;
+  minRequestIntervalMs: number;
+  slowStoreMs: number;
+  maxStoreRestMs: number;
+}
+
 export interface EmbeddingQueueOptions {
   /** One vector per text, in order. */
   embed: (texts: readonly string[]) => Promise<number[][]>;
@@ -84,6 +109,8 @@ export interface EmbeddingQueueOptions {
   store: (chunks: readonly PendingChunk[], embeddings: number[][]) => Promise<void>;
   /** Called when storing fails; the chunks stay unembedded. */
   onStoreFailure?: (error: unknown, chunks: number) => void;
+  /** Overrides of the pacing knobs (tests); unset ones use the constants. */
+  limits?: Partial<EmbeddingQueueLimits>;
 }
 
 /** Whether a failure is worth sending the same chunks again once the queue has backed off. */
@@ -102,6 +129,7 @@ interface Entry {
 
 export class EmbeddingQueue {
   readonly #options: EmbeddingQueueOptions;
+  readonly #limits: EmbeddingQueueLimits;
   /** Pending chunks by id, oldest first. */
   #pending = new Map<string, Entry>();
   #timer: ReturnType<typeof setTimeout> | undefined;
@@ -113,6 +141,13 @@ export class EmbeddingQueue {
 
   constructor(options: EmbeddingQueueOptions) {
     this.#options = options;
+    this.#limits = {
+      maxInFlight: MAX_IN_FLIGHT,
+      minRequestIntervalMs: MIN_REQUEST_INTERVAL_MS,
+      slowStoreMs: SLOW_STORE_MS,
+      maxStoreRestMs: MAX_STORE_REST_MS,
+      ...options.limits,
+    };
   }
 
   /** How many chunks are waiting. */
@@ -160,7 +195,7 @@ export class EmbeddingQueue {
   }
 
   #schedule(): void {
-    if (this.#inFlight >= MAX_IN_FLIGHT) return; // a request in flight schedules the next one
+    if (this.#inFlight >= this.#limits.maxInFlight) return; // a request in flight schedules the next one
     clearTimeout(this.#timer);
     this.#timer = undefined;
     const batch = this.#nextBatch();
@@ -168,7 +203,7 @@ export class EmbeddingQueue {
     // Full when a bound stopped it: the inputs, or a chunk that did not fit.
     const full = batch.length === MAX_BATCH_INPUTS || batch.length < this.#pending.size;
     const ready = Math.max(
-      this.#lastRequestAt + MIN_REQUEST_INTERVAL_MS,
+      this.#lastRequestAt + this.#limits.minRequestIntervalMs,
       this.#backoffUntil,
       this.#storeRestUntil,
       full ? Number.NEGATIVE_INFINITY : batch[0][1].queuedAt + MAX_WAIT_MS,
@@ -215,10 +250,10 @@ export class EmbeddingQueue {
 
   /** Rests as long as a slow store took, so a struggling database is written to at most half the time. */
   #restAfterStore(storeMs: number): void {
-    if (storeMs <= SLOW_STORE_MS) return;
+    if (storeMs <= this.#limits.slowStoreMs) return;
     this.#storeRestUntil = Math.max(
       this.#storeRestUntil,
-      Date.now() + Math.min(storeMs, MAX_STORE_REST_MS),
+      Date.now() + Math.min(storeMs, this.#limits.maxStoreRestMs),
     );
   }
 
