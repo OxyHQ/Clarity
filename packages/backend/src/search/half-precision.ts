@@ -39,3 +39,26 @@ export function toHalf(value: number): number {
 export function halfVectorText(values: readonly number[]): string {
   return `[${values.map((value) => Number(toHalf(value).toPrecision(5))).join(',')}]`;
 }
+
+/** The number a half's bits (IEEE 754 binary16) stand for. */
+export function fromHalfBits(bits: number): number {
+  const sign = bits & 0x8000 ? -1 : 1;
+  const exponent = (bits >> 10) & 0x1f;
+  const fraction = bits & 0x3ff;
+  if (exponent === 0) return sign * fraction * 2 ** -24;
+  if (exponent === 0x1f) return fraction ? Number.NaN : sign * Number.POSITIVE_INFINITY;
+  return sign * (1 + fraction / 1024) * 2 ** (exponent - 15);
+}
+
+/**
+ * A `halfvec` from its binary form (`halfvec_send`): a big-endian int16
+ * dimension, an unused int16, then each element's half, big-endian.
+ */
+export function halvesFromSend(bytes: Uint8Array): number[] {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const dimension = view.getInt16(0);
+  if (bytes.byteLength !== 4 + 2 * dimension) throw new Error('A halfvec is the wrong length');
+  return Array.from({ length: dimension }, (_, index) =>
+    fromHalfBits(view.getUint16(4 + 2 * index)),
+  );
+}

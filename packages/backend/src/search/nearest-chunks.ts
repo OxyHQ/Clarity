@@ -14,11 +14,24 @@
  * at least as often as the HNSW index over the half-precision vectors did
  * (recall@400 0.972 against 0.962), which read up to 8,624 pages a search
  * from an index the cache could not hold.
+ *
+ * `CLARITY_SEMANTIC_RERANK` (semantic-rerank.ts) picks what step 2 reads:
+ * the half-precision vectors (`vectors`, the default), the int8 vectors
+ * (`int8`: half the bytes, the same nearest documents), or nothing (`codes`:
+ * the candidates are ordered by the query against their codes' signs)
+ * (docs/adr/0001-search-storage-diet.md).
  */
 import { sql } from 'drizzle-orm';
 
 import type { ClarityExecutor } from '../db/index.js';
 import { isStatementTimeout, SEARCH_STATEMENT_TIMEOUT_MS } from './search-timeout.js';
+import {
+  codeDistance,
+  int8Distance,
+  type SemanticRerank,
+  semanticRerank,
+  vectorNorm,
+} from './semantic-rerank.js';
 
 /** Candidates read from the codes' index for each chunk kept. */
 export const CANDIDATE_OVERSAMPLING = 8;
@@ -42,6 +55,8 @@ export async function nearestChunks(
   tx: ClarityExecutor,
   embedding: readonly number[],
   count: number,
+  /** A test seam; the deployment's `CLARITY_SEMANTIC_RERANK` otherwise. */
+  rerank: SemanticRerank = semanticRerank(),
 ): Promise<NearestChunks> {
   const query = JSON.stringify(embedding);
   const pool = count * CANDIDATE_OVERSAMPLING;
@@ -49,35 +64,73 @@ export async function nearestChunks(
   // derived from one.
   await tx.execute(sql.raw(`set local hnsw.ef_search = ${Math.min(pool, EF_SEARCH_CEILING)}`));
   // A pool past `ef_search` is read by resuming the scan, in approximately
-  // ascending order; the exact distance reorders it below anyway.
+  // ascending order; the rerank below reorders it anyway.
   await tx.execute(sql.raw(`set local hnsw.iterative_scan = relaxed_order`));
-  const candidates = await tx.execute<{ chunkId: string; documentId: string }>(sql`
+  // The `codes` rerank reads each candidate's code with it (`varbit_send`,
+  // 132 bytes, from the row the index scan fetches anyway) and nothing else.
+  const candidates = await tx.execute<{
+    chunkId: string;
+    documentId: string;
+    code?: Uint8Array;
+  }>(sql`
     select chunk_id as "chunkId", document_id as "documentId"
+      ${rerank === 'codes' ? sql`, varbit_send(code) as code` : sql``}
     from clarity_search_chunk_embeddings
     order by code <~> binary_quantize(${query}::halfvec(1024))::bit(1024)
     limit ${pool}`);
   if (candidates.length === 0) return { documentIds: [], distances: [] };
 
   const documentOf = new Map(candidates.map((row) => [row.chunkId, row.documentId]));
-  // An index scan would read the vectors one page at a time, in candidate
-  // order; the bitmap scan reads them in physical order and ahead.
-  await tx.execute(sql.raw(`set local enable_indexscan = off`));
-  await tx.execute(sql.raw(`set local effective_io_concurrency = ${VECTOR_READ_CONCURRENCY}`));
-  const nearest = await tx.execute<{ chunkId: string; distance: number }>(sql`
-    select chunk_id as "chunkId", embedding <=> ${query}::halfvec(1024) as distance
-    from clarity_search_chunk_vectors
-    where chunk_id = any(${sql.param(candidates.map((row) => row.chunkId))}::text[])
-    order by distance, chunk_id
-    limit ${count}`);
-  await tx.execute(sql.raw(`set local enable_indexscan = on`));
+  const norm = vectorNorm(embedding);
+  let scored: { chunkId: string; distance: number }[];
+  if (rerank === 'codes') {
+    scored = candidates.map((row) => ({
+      chunkId: row.chunkId,
+      distance: codeDistance(embedding, norm, row.code as Uint8Array),
+    }));
+  } else {
+    // An index scan would read the vectors one page at a time, in candidate
+    // order; the bitmap scan reads them in physical order and ahead.
+    await tx.execute(sql.raw(`set local enable_indexscan = off`));
+    await tx.execute(sql.raw(`set local effective_io_concurrency = ${VECTOR_READ_CONCURRENCY}`));
+    let owed = candidates.map((row) => row.chunkId);
+    scored = [];
+    if (rerank === 'int8') {
+      const quantized = await tx.execute<{ chunkId: string; vector: Uint8Array }>(sql`
+        select chunk_id as "chunkId", vector
+        from clarity_search_chunk_int8_vectors
+        where chunk_id = any(${sql.param(owed)}::text[])`);
+      for (const row of quantized)
+        scored.push({ chunkId: row.chunkId, distance: int8Distance(embedding, norm, row.vector) });
+      // A chunk the backfill has not reached yet is ordered by its half.
+      const found = new Set(quantized.map((row) => row.chunkId));
+      owed = owed.filter((chunkId) => !found.has(chunkId));
+    }
+    if (owed.length > 0) {
+      const halves = await tx.execute<{ chunkId: string; distance: number }>(sql`
+        select chunk_id as "chunkId", embedding <=> ${query}::halfvec(1024) as distance
+        from clarity_search_chunk_vectors
+        where chunk_id = any(${sql.param(owed)}::text[])
+        order by distance, chunk_id
+        limit ${count}`);
+      for (const row of halves)
+        scored.push({ chunkId: row.chunkId, distance: Number(row.distance) });
+    }
+    await tx.execute(sql.raw(`set local enable_indexscan = on`));
+  }
+  scored.sort(
+    (left, right) =>
+      left.distance - right.distance ||
+      (left.chunkId < right.chunkId ? -1 : left.chunkId > right.chunkId ? 1 : 0),
+  );
 
   const documentIds: string[] = [];
   const distances: number[] = [];
-  for (const row of nearest) {
+  for (const row of scored.slice(0, count)) {
     const documentId = documentOf.get(row.chunkId);
     if (documentId === undefined) continue;
     documentIds.push(documentId);
-    distances.push(Number(row.distance));
+    distances.push(row.distance);
   }
   return { documentIds, distances };
 }

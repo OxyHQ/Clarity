@@ -91,6 +91,16 @@ vectors are read with a bitmap scan, which the disk serves in parallel
 (`effective_io_concurrency`: 6,000 random rows in 0.1 s instead of 2.7 s), and
 ordered by their exact cosine distance.
 
+**What the reorder reads** is `CLARITY_SEMANTIC_RERANK` (`search/semantic-rerank.ts`,
+[ADR 0001](adr/0001-search-storage-diet.md)): the half-precision vectors
+(`vectors`, the default); their int8 form in `clarity_search_chunk_int8_vectors`
+(`int8`: 1 KiB instead of 2 KiB, the same nearest documents, nDCG@10 0.998; a
+chunk the backfill `db/backfill-chunk-int8` has not reached is ordered by its
+half); or nothing (`codes`: the query against the codes' signs, nDCG@10 0.78, a
+lever for an instance short of IO). Every new embedding writes its int8 vector;
+`CLARITY_STORE_CHUNK_VECTORS=false` stops the half-precision writes, and only
+while the reorder reads none.
+
 **Ranking is not worse.** Measured on 346,800 production vectors (a 20% sample)
 with 150 held-out short chunks as queries, against the exact nearest chunks:
 

@@ -1,0 +1,3528 @@
+{
+ "whoami.ms": 68,
+ "tables": [
+  {
+   "relname": "clarity_search_chunk_vectors",
+   "rows": "14824087",
+   "heap": "41377751040",
+   "toast": "1532821504",
+   "idx": "1114292224",
+   "total": "44036186112",
+   "dead": "1675",
+   "ins": "11495",
+   "upd": "0",
+   "del": "1675"
+  },
+  {
+   "relname": "clarity_search_chunks",
+   "rows": "15326173",
+   "heap": "22832971776",
+   "toast": "284753920",
+   "idx": "12229828608",
+   "total": "35353804800",
+   "dead": "2255",
+   "ins": "43948",
+   "upd": "0",
+   "del": "2255"
+  },
+  {
+   "relname": "clarity_search_documents",
+   "rows": "5034525",
+   "heap": "6239944704",
+   "toast": "10012721152",
+   "idx": "3376062464",
+   "total": "19630473216",
+   "dead": "14094",
+   "ins": "12302",
+   "upd": "14084",
+   "del": "8"
+  },
+  {
+   "relname": "clarity_job_search_vectors",
+   "rows": "2460288",
+   "heap": "10953359360",
+   "toast": "2133819392",
+   "idx": "3268116480",
+   "total": "16358293504",
+   "dead": "344",
+   "ins": "2333",
+   "upd": "344",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_postings",
+   "rows": "2527914",
+   "heap": "4320968704",
+   "toast": "8598355968",
+   "idx": "1390231552",
+   "total": "14310776832",
+   "dead": "13034",
+   "ins": "2333",
+   "upd": "13034",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_search_chunk_embeddings",
+   "rows": "15122912",
+   "heap": "4289028096",
+   "toast": "8192",
+   "idx": "7587102720",
+   "total": "11877351424",
+   "dead": "1676",
+   "ins": "11495",
+   "upd": "0",
+   "del": "1676"
+  },
+  {
+   "relname": "clarity_search_usage_events",
+   "rows": "8704611",
+   "heap": "2198274048",
+   "toast": "8192",
+   "idx": "2799542272",
+   "total": "4998447104",
+   "dead": "0",
+   "ins": "33517",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_crawl_pages",
+   "rows": "5205869",
+   "heap": "1434009600",
+   "toast": "180224",
+   "idx": "2860818432",
+   "total": "4295434240",
+   "dead": "47634",
+   "ins": "5250",
+   "upd": "47634",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_posting_signatures",
+   "rows": "7649201",
+   "heap": "1402609664",
+   "toast": "8192",
+   "idx": "2873311232",
+   "total": "4276338688",
+   "dead": "222",
+   "ins": "6913",
+   "upd": "0",
+   "del": "222"
+  },
+  {
+   "relname": "clarity_crawl_jobs",
+   "rows": "3205176",
+   "heap": "1494589440",
+   "toast": "11821056",
+   "idx": "849207296",
+   "total": "2356051968",
+   "dead": "40085",
+   "ins": "4218",
+   "upd": "46132",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_fetch_attempts",
+   "rows": "5916482",
+   "heap": "1211015168",
+   "toast": "8192",
+   "idx": "1015021568",
+   "total": "2226405376",
+   "dead": "13715",
+   "ins": "21022",
+   "upd": "21021",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_term_bands",
+   "rows": "2451644",
+   "heap": "1536212992",
+   "toast": "245760",
+   "idx": "664330240",
+   "total": "2201231360",
+   "dead": "340",
+   "ins": "2333",
+   "upd": "344",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_headlines",
+   "rows": "2435141",
+   "heap": "332144640",
+   "toast": "8192",
+   "idx": "1169317888",
+   "total": "1501585408",
+   "dead": "139",
+   "ins": "2333",
+   "upd": "139",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_search_document_urls",
+   "rows": "3369679",
+   "heap": "531390464",
+   "toast": "73728",
+   "idx": "610828288",
+   "total": "1142456320",
+   "dead": "1540",
+   "ins": "14949",
+   "upd": "4021",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_feed_listings",
+   "rows": "2296590",
+   "heap": "296321024",
+   "toast": "8192",
+   "idx": "529096704",
+   "total": "825532416",
+   "dead": "9713",
+   "ins": "2426",
+   "upd": "11976",
+   "del": "151"
+  },
+  {
+   "relname": "clarity_image_references",
+   "rows": "869083",
+   "heap": "187138048",
+   "toast": "8192",
+   "idx": "315416576",
+   "total": "502636544",
+   "dead": "5061",
+   "ins": "1369",
+   "upd": "5057",
+   "del": "16"
+  },
+  {
+   "relname": "clarity_image_cache",
+   "rows": "748333",
+   "heap": "225042432",
+   "toast": "32768",
+   "idx": "218251264",
+   "total": "443408384",
+   "dead": "4611",
+   "ins": "1327",
+   "upd": "4443",
+   "del": "181"
+  },
+  {
+   "relname": "clarity_search_hosts",
+   "rows": "310119",
+   "heap": "84238336",
+   "toast": "3481600",
+   "idx": "38338560",
+   "total": "126107648",
+   "dead": "6490",
+   "ins": "676",
+   "upd": "6710",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_search_chunk_backlog",
+   "rows": "633009",
+   "heap": "74145792",
+   "toast": "8192",
+   "idx": "44802048",
+   "total": "119005184",
+   "dead": "29790",
+   "ins": "43948",
+   "upd": "0",
+   "del": "12074"
+  },
+  {
+   "relname": "clarity_product_feed_records",
+   "rows": "28621",
+   "heap": "72450048",
+   "toast": "15687680",
+   "idx": "7569408",
+   "total": "95756288",
+   "dead": "0",
+   "ins": "7",
+   "upd": "20477",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_search_rate_limit_buckets",
+   "rows": "325861",
+   "heap": "38543360",
+   "toast": "8192",
+   "idx": "51773440",
+   "total": "90365952",
+   "dead": "38902",
+   "ins": "290",
+   "upd": "174436",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_clusters",
+   "rows": "235534",
+   "heap": "33505280",
+   "toast": "8192",
+   "idx": "18423808",
+   "total": "51978240",
+   "dead": "24",
+   "ins": "170",
+   "upd": "313",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_places",
+   "rows": "37982",
+   "heap": "13434880",
+   "toast": "57344",
+   "idx": "28925952",
+   "total": "42450944",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_feeds",
+   "rows": "12556",
+   "heap": "2654208",
+   "toast": "8192",
+   "idx": "2646016",
+   "total": "5341184",
+   "dead": "305",
+   "ins": "0",
+   "upd": "305",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_search_usage_rollups",
+   "rows": "36",
+   "heap": "1761280",
+   "toast": "8192",
+   "idx": "16384",
+   "total": "1818624",
+   "dead": "6823",
+   "ins": "0",
+   "upd": "33517",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_oxy_file_reference_outbox",
+   "rows": "5",
+   "heap": "90112",
+   "toast": "8192",
+   "idx": "1335296",
+   "total": "1466368",
+   "dead": "155",
+   "ins": "1427",
+   "upd": "0",
+   "del": "1429"
+  },
+  {
+   "relname": "clarity_suggestions",
+   "rows": "6",
+   "heap": "8192",
+   "toast": "8192",
+   "idx": "180224",
+   "total": "229376",
+   "dead": "1",
+   "ins": "0",
+   "upd": "1",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_product_feeds",
+   "rows": "27",
+   "heap": "90112",
+   "toast": "8192",
+   "idx": "49152",
+   "total": "180224",
+   "dead": "28",
+   "ins": "0",
+   "upd": "28",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_reports",
+   "rows": "1",
+   "heap": "8192",
+   "toast": "8192",
+   "idx": "49152",
+   "total": "98304",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_oxy_file_jobs",
+   "rows": "4",
+   "heap": "16384",
+   "toast": "8192",
+   "idx": "16384",
+   "total": "73728",
+   "dead": "34",
+   "ins": "0",
+   "upd": "416",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_runtime_state",
+   "rows": "1",
+   "heap": "8192",
+   "toast": "8192",
+   "idx": "16384",
+   "total": "65536",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_experience_erasures",
+   "rows": "47",
+   "heap": "8192",
+   "toast": "8192",
+   "idx": "16384",
+   "total": "65536",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_account_event_cursors",
+   "rows": "1",
+   "heap": "8192",
+   "toast": "8192",
+   "idx": "16384",
+   "total": "65536",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_legacy_image_reads",
+   "rows": "8",
+   "heap": "8192",
+   "toast": "8192",
+   "idx": "16384",
+   "total": "65536",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_job_term_bands_backfill",
+   "rows": "1",
+   "heap": "8192",
+   "toast": "0",
+   "idx": "16384",
+   "total": "57344",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_subscriptions",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "40960",
+   "total": "49152",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_plans",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "32768",
+   "total": "40960",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_feedback",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "32768",
+   "total": "40960",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_notifications",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "24576",
+   "total": "32768",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_features",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "24576",
+   "total": "32768",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_search_sites",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "24576",
+   "total": "32768",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_credit_packages",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "24576",
+   "total": "32768",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_push_tokens",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "24576",
+   "total": "32768",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_capability_effect_receipts",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "24576",
+   "total": "32768",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  },
+  {
+   "relname": "clarity_plan_features",
+   "rows": "0",
+   "heap": "0",
+   "toast": "8192",
+   "idx": "24576",
+   "total": "32768",
+   "dead": "0",
+   "ins": "0",
+   "upd": "0",
+   "del": "0"
+  }
+ ],
+ "tables.ms": 53,
+ "indexes": [
+  {
+   "tbl": "clarity_search_chunks",
+   "idx": "clarity_search_chunks_text_fts_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "9724878848",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_chunk_embeddings",
+   "idx": "clarity_search_chunk_embeddings_code_hnsw_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "6218465280",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_search_vectors",
+   "idx": "clarity_job_search_vectors_search_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "3052371968",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_posting_signatures",
+   "idx": "clarity_job_posting_signatures_pk",
+   "scans": "20662",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "18425",
+   "bytes": "1661788160",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_usage_events",
+   "idx": "clarity_search_usage_idempotency_unique",
+   "scans": "33520",
+   "last_scan": "2026-11-28T02:08:33.044Z",
+   "tup_read": "0",
+   "bytes": "1557438464",
+   "uniq": true,
+   "pk": false,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_chunks",
+   "idx": "clarity_search_chunks_document_position_unique",
+   "scans": "128151",
+   "last_scan": "2026-11-28T02:08:33.457Z",
+   "tup_read": "342346",
+   "bytes": "1416388608",
+   "uniq": true,
+   "pk": false,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_chunk_embeddings",
+   "idx": "clarity_search_chunk_embeddings_pkey",
+   "scans": "136388",
+   "last_scan": "2026-11-28T02:08:33.049Z",
+   "tup_read": "77275",
+   "bytes": "1224851456",
+   "uniq": true,
+   "pk": true,
+   "cons": "2"
+  },
+  {
+   "tbl": "clarity_job_posting_signatures",
+   "idx": "clarity_job_posting_signatures_signature_idx",
+   "scans": "20662",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "22001",
+   "bytes": "1211342848",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_chunk_vectors",
+   "idx": "clarity_search_chunk_vectors_pkey",
+   "scans": "13171",
+   "last_scan": "2026-11-28T02:07:43.143Z",
+   "tup_read": "1675",
+   "bytes": "1114292224",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_chunks",
+   "idx": "clarity_search_chunks_pkey",
+   "scans": "110573",
+   "last_scan": "2026-11-28T02:08:33.049Z",
+   "tup_read": "110573",
+   "bytes": "1086013440",
+   "uniq": true,
+   "pk": true,
+   "cons": "3"
+  },
+  {
+   "tbl": "clarity_crawl_pages",
+   "idx": "clarity_crawl_pages_job_url_unique",
+   "scans": "184536",
+   "last_scan": "2026-11-28T02:08:33.042Z",
+   "tup_read": "497104",
+   "bytes": "993034240",
+   "uniq": true,
+   "pk": false,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_title_trgm_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "833372160",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_canonical_unique",
+   "scans": "137832",
+   "last_scan": "2026-11-28T02:08:33.049Z",
+   "tup_read": "95994",
+   "bytes": "750518272",
+   "uniq": true,
+   "pk": false,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_requested_url_idx",
+   "scans": "50105",
+   "last_scan": "2026-11-28T02:08:33.042Z",
+   "tup_read": "27469",
+   "bytes": "730759168",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_usage_events",
+   "idx": "clarity_search_usage_events_pkey",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "702767104",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_crawl_pages",
+   "idx": "clarity_crawl_pages_url_status_idx",
+   "scans": "16447",
+   "last_scan": "2026-11-28T02:08:32.954Z",
+   "tup_read": "73695",
+   "bytes": "632356864",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_crawl_jobs",
+   "idx": "clarity_crawl_jobs_idempotency_unique",
+   "scans": "4215",
+   "last_scan": "2026-11-28T02:08:32.290Z",
+   "tup_read": "0",
+   "bytes": "549814272",
+   "uniq": true,
+   "pk": false,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_fetch_attempts",
+   "idx": "clarity_fetch_attempts_page_attempt_unique",
+   "scans": "6",
+   "last_scan": "2026-11-28T00:54:13.172Z",
+   "tup_read": "9",
+   "bytes": "543653888",
+   "uniq": true,
+   "pk": false,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_usage_events",
+   "idx": "clarity_search_usage_account_time_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "539336704",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_fetch_attempts",
+   "idx": "clarity_fetch_attempts_pkey",
+   "scans": "21017",
+   "last_scan": "2026-11-28T02:08:32.807Z",
+   "tup_read": "21017",
+   "bytes": "471367680",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_job_headlines",
+   "idx": "clarity_job_headlines_title_knn_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "465657856",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_canonical_url_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "420413440",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_crawl_pages",
+   "idx": "clarity_crawl_pages_priority_idx",
+   "scans": "126722",
+   "last_scan": "2026-11-28T02:08:33.049Z",
+   "tup_read": "49942880",
+   "bytes": "418594816",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_document_urls",
+   "idx": "clarity_search_document_urls_pkey",
+   "scans": "95941",
+   "last_scan": "2026-11-28T02:08:33.042Z",
+   "tup_read": "39331",
+   "bytes": "416620544",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_pkey",
+   "scans": "203695",
+   "last_scan": "2026-11-28T02:08:33.042Z",
+   "tup_read": "208514",
+   "bytes": "413425664",
+   "uniq": true,
+   "pk": true,
+   "cons": "7"
+  },
+  {
+   "tbl": "clarity_crawl_pages",
+   "idx": "clarity_crawl_pages_pkey",
+   "scans": "68486",
+   "last_scan": "2026-11-28T02:08:33.049Z",
+   "tup_read": "124199",
+   "bytes": "412459008",
+   "uniq": true,
+   "pk": true,
+   "cons": "2"
+  },
+  {
+   "tbl": "clarity_job_feed_listings",
+   "idx": "clarity_job_feed_listings_feed_id_document_id_pk",
+   "scans": "14511",
+   "last_scan": "2026-11-28T02:06:08.086Z",
+   "tup_read": "24448",
+   "bytes": "350027776",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_final_url_idx",
+   "scans": "48714",
+   "last_scan": "2026-11-28T02:08:33.042Z",
+   "tup_read": "23785",
+   "bytes": "345915392",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_crawl_pages",
+   "idx": "clarity_crawl_pages_lease_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "317603840",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_term_bands",
+   "idx": "clarity_job_term_bands_tf3_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "316293120",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_document_source_unique",
+   "scans": "584134",
+   "last_scan": "2026-11-28T02:08:33.044Z",
+   "tup_read": "73532",
+   "bytes": "304021504",
+   "uniq": true,
+   "pk": false,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_crawl_jobs",
+   "idx": "clarity_crawl_jobs_pkey",
+   "scans": "421005",
+   "last_scan": "2026-11-28T02:08:33.044Z",
+   "tup_read": "821388",
+   "bytes": "257679360",
+   "uniq": true,
+   "pk": true,
+   "cons": "2"
+  },
+  {
+   "tbl": "clarity_job_headlines",
+   "idx": "clarity_job_headlines_employer_knn_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "247685120",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_headlines",
+   "idx": "clarity_job_headlines_title_trgm_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "246210560",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_search_vectors",
+   "idx": "clarity_job_search_vectors_pkey",
+   "scans": "3019",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "700",
+   "bytes": "214974464",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_job_term_bands",
+   "idx": "clarity_job_term_bands_pkey",
+   "scans": "2677",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "357",
+   "bytes": "209797120",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_job_headlines",
+   "idx": "clarity_job_headlines_pkey",
+   "scans": "2472",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "233",
+   "bytes": "209682432",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_pkey",
+   "scans": "42178",
+   "last_scan": "2026-11-28T02:08:33.044Z",
+   "tup_read": "44445",
+   "bytes": "203153408",
+   "uniq": true,
+   "pk": true,
+   "cons": "6"
+  },
+  {
+   "tbl": "clarity_search_document_urls",
+   "idx": "clarity_search_document_urls_document_idx",
+   "scans": "10",
+   "last_scan": "2026-11-28T02:06:07.906Z",
+   "tup_read": "10",
+   "bytes": "194207744",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_feed_listings",
+   "idx": "clarity_job_feed_listings_document_idx",
+   "scans": "155",
+   "last_scan": "2026-11-28T02:06:07.906Z",
+   "tup_read": "154",
+   "bytes": "178987008",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_chunk_embeddings",
+   "idx": "clarity_search_chunk_embeddings_unembedded_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "143728640",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_status_published_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "115843072",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_published_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "111239168",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_job_retention_idx",
+   "scans": "5",
+   "last_scan": "2026-11-28T01:56:07.331Z",
+   "tup_read": "0",
+   "bytes": "108503040",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_image_cache",
+   "idx": "clarity_image_cache_pkey",
+   "scans": "26441",
+   "last_scan": "2026-11-28T02:08:33.890Z",
+   "tup_read": "21216",
+   "bytes": "97280000",
+   "uniq": true,
+   "pk": true,
+   "cons": "2"
+  },
+  {
+   "tbl": "clarity_image_references",
+   "idx": "clarity_image_references_image_key_idx",
+   "scans": "206",
+   "last_scan": "2026-11-28T02:07:55.607Z",
+   "tup_read": "26",
+   "bytes": "96485376",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_image_references",
+   "idx": "clarity_image_references_entity_type_entity_id_pk",
+   "scans": "22981",
+   "last_scan": "2026-11-28T02:08:32.954Z",
+   "tup_read": "96694",
+   "bytes": "94806016",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_job_term_bands",
+   "idx": "clarity_job_term_bands_tf6_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "94740480",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_crawl_pages",
+   "idx": "clarity_crawl_pages_claim_idx",
+   "scans": "21140",
+   "last_scan": "2026-11-28T02:08:33.042Z",
+   "tup_read": "33260260",
+   "bytes": "86327296",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_status_last_seen_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "71991296",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_image_references",
+   "idx": "clarity_image_references_last_used_idx",
+   "scans": "10",
+   "last_scan": "2026-11-28T01:56:07.018Z",
+   "tup_read": "5",
+   "bytes": "69779456",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_site_status_idx",
+   "scans": "5",
+   "last_scan": "2026-11-28T01:55:46.363Z",
+   "tup_read": "503128",
+   "bytes": "66150400",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_image_cache",
+   "idx": "clarity_image_cache_last_accessed_idx",
+   "scans": "10",
+   "last_scan": "2026-11-28T01:56:07.335Z",
+   "tup_read": "10",
+   "bytes": "64946176",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_image_references",
+   "idx": "clarity_image_references_file_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "54296576",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_source_domain_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "53059584",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_employer_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "52641792",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_cluster_idx",
+   "scans": "2692",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "11280",
+   "bytes": "49881088",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_image_cache",
+   "idx": "clarity_image_cache_oxy_file_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "47800320",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_chunk_backlog",
+   "idx": "clarity_search_chunk_backlog_pkey",
+   "scans": "13930",
+   "last_scan": "2026-11-28T02:07:43.143Z",
+   "tup_read": "12255",
+   "bytes": "44802048",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_crawl_jobs",
+   "idx": "clarity_crawl_jobs_account_status_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "41680896",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_rate_limit_buckets",
+   "idx": "clarity_search_rate_limit_buckets_pk",
+   "scans": "374055",
+   "last_scan": "2026-11-28T02:08:33.464Z",
+   "tup_read": "32669388",
+   "bytes": "37052416",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_valid_through_idx",
+   "scans": "5",
+   "last_scan": "2026-11-28T01:55:53.185Z",
+   "tup_read": "516830",
+   "bytes": "33087488",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_seniority_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "31039488",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_term_bands",
+   "idx": "clarity_job_term_bands_tf12_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "31039488",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_skills_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "28794880",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_places",
+   "idx": "clarity_places_match_names_idx",
+   "scans": "2200",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "5155",
+   "bytes": "19431424",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_clusters",
+   "idx": "clarity_job_clusters_pkey",
+   "scans": "3136",
+   "last_scan": "2026-11-28T02:08:31.283Z",
+   "tup_read": "3192",
+   "bytes": "18423808",
+   "uniq": true,
+   "pk": true,
+   "cons": "2"
+  },
+  {
+   "tbl": "clarity_search_hosts",
+   "idx": "clarity_search_hosts_pkey",
+   "scans": "114203",
+   "last_scan": "2026-11-28T02:08:33.890Z",
+   "tup_read": "121940",
+   "bytes": "16277504",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_search_rate_limit_buckets",
+   "idx": "clarity_search_rate_limit_buckets_expiry_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "14671872",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_countries_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "14327808",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_hosts",
+   "idx": "clarity_search_hosts_icon_oxy_file_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "13074432",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_term_bands",
+   "idx": "clarity_job_term_bands_tf24_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "12271616",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_job_postings",
+   "idx": "clarity_job_postings_employment_types_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "11681792",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_news_recent_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "9035776",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_hosts",
+   "idx": "clarity_search_hosts_icon_due_idx",
+   "scans": "1310",
+   "last_scan": "2026-11-28T02:08:31.222Z",
+   "tup_read": "325212",
+   "bytes": "8962048",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_image_cache",
+   "idx": "clarity_image_cache_rendition_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "8183808",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_search_documents",
+   "idx": "clarity_search_documents_job_recrawl_due_idx",
+   "scans": "5",
+   "last_scan": "2026-11-28T01:56:06.315Z",
+   "tup_read": "136",
+   "bytes": "6627328",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_places",
+   "idx": "clarity_places_search_name_trgm_idx",
+   "scans": "0",
+   "last_scan": null,
+   "tup_read": "0",
+   "bytes": "5373952",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  },
+  {
+   "tbl": "clarity_product_feed_records",
+   "idx": "clarity_product_feed_records_feed_id_external_id_pk",
+   "scans": "20490",
+   "last_scan": "2026-11-28T01:42:31.893Z",
+   "tup_read": "22863",
+   "bytes": "3891200",
+   "uniq": true,
+   "pk": true,
+   "cons": "1"
+  },
+  {
+   "tbl": "clarity_product_feed_records",
+   "idx": "clarity_product_feed_records_seen_idx",
+   "scans": "28",
+   "last_scan": "2026-11-28T02:06:24.765Z",
+   "tup_read": "38508",
+   "bytes": "3629056",
+   "uniq": false,
+   "pk": false,
+   "cons": "0"
+  }
+ ],
+ "indexes.ms": 13,
+ "idxdefs": [
+  {
+   "indexname": "clarity_search_chunks_text_fts_idx",
+   "indexdef": "CREATE INDEX clarity_search_chunks_text_fts_idx ON public.clarity_search_chunks USING gin (to_tsvector('simple'::regconfig, text))"
+  },
+  {
+   "indexname": "clarity_suggestions_trigger_words_idx",
+   "indexdef": "CREATE INDEX clarity_suggestions_trigger_words_idx ON public.clarity_suggestions USING gin (trigger_words)"
+  },
+  {
+   "indexname": "clarity_suggestions_text_search_idx",
+   "indexdef": "CREATE INDEX clarity_suggestions_text_search_idx ON public.clarity_suggestions USING gin (to_tsvector('simple'::regconfig, ((COALESCE(title, ''::text) || ' '::text) || COALESCE(text, ''::text))))"
+  },
+  {
+   "indexname": "clarity_job_headlines_title_trgm_idx",
+   "indexdef": "CREATE INDEX clarity_job_headlines_title_trgm_idx ON public.clarity_job_headlines USING gin (title gin_trgm_ops)"
+  },
+  {
+   "indexname": "clarity_job_headlines_employer_knn_idx",
+   "indexdef": "CREATE INDEX clarity_job_headlines_employer_knn_idx ON public.clarity_job_headlines USING gist (employer_name gist_trgm_ops)"
+  },
+  {
+   "indexname": "clarity_job_headlines_title_knn_idx",
+   "indexdef": "CREATE INDEX clarity_job_headlines_title_knn_idx ON public.clarity_job_headlines USING gist (title gist_trgm_ops)"
+  },
+  {
+   "indexname": "clarity_job_term_bands_tf3_idx",
+   "indexdef": "CREATE INDEX clarity_job_term_bands_tf3_idx ON public.clarity_job_term_bands USING gin (tf3)"
+  },
+  {
+   "indexname": "clarity_job_term_bands_tf6_idx",
+   "indexdef": "CREATE INDEX clarity_job_term_bands_tf6_idx ON public.clarity_job_term_bands USING gin (tf6)"
+  },
+  {
+   "indexname": "clarity_job_term_bands_tf12_idx",
+   "indexdef": "CREATE INDEX clarity_job_term_bands_tf12_idx ON public.clarity_job_term_bands USING gin (tf12)"
+  },
+  {
+   "indexname": "clarity_job_term_bands_tf24_idx",
+   "indexdef": "CREATE INDEX clarity_job_term_bands_tf24_idx ON public.clarity_job_term_bands USING gin (tf24)"
+  },
+  {
+   "indexname": "clarity_search_sites_account_origin_unique",
+   "indexdef": "CREATE UNIQUE INDEX clarity_search_sites_account_origin_unique ON public.clarity_search_sites USING btree (owner_account_id, origin)"
+  },
+  {
+   "indexname": "clarity_search_chunk_embeddings_code_hnsw_idx",
+   "indexdef": "CREATE INDEX clarity_search_chunk_embeddings_code_hnsw_idx ON public.clarity_search_chunk_embeddings USING hnsw (code bit_hamming_ops)"
+  },
+  {
+   "indexname": "clarity_places_search_name_trgm_idx",
+   "indexdef": "CREATE INDEX clarity_places_search_name_trgm_idx ON public.clarity_places USING gin (search_name gin_trgm_ops)"
+  },
+  {
+   "indexname": "clarity_places_match_names_idx",
+   "indexdef": "CREATE INDEX clarity_places_match_names_idx ON public.clarity_places USING gin (match_names)"
+  },
+  {
+   "indexname": "clarity_search_documents_title_trgm_idx",
+   "indexdef": "CREATE INDEX clarity_search_documents_title_trgm_idx ON public.clarity_search_documents USING gin (title gin_trgm_ops)"
+  },
+  {
+   "indexname": "clarity_job_postings_countries_idx",
+   "indexdef": "CREATE INDEX clarity_job_postings_countries_idx ON public.clarity_job_postings USING gin (location_countries)"
+  },
+  {
+   "indexname": "clarity_job_postings_employment_types_idx",
+   "indexdef": "CREATE INDEX clarity_job_postings_employment_types_idx ON public.clarity_job_postings USING gin (employment_types)"
+  },
+  {
+   "indexname": "clarity_job_postings_skills_idx",
+   "indexdef": "CREATE INDEX clarity_job_postings_skills_idx ON public.clarity_job_postings USING gin (skills)"
+  },
+  {
+   "indexname": "clarity_job_search_vectors_search_idx",
+   "indexdef": "CREATE INDEX clarity_job_search_vectors_search_idx ON public.clarity_job_search_vectors USING gin (search_vector)"
+  }
+ ],
+ "idxdefs.ms": 21,
+ "colstorage": [
+  {
+   "relname": "clarity_search_chunks",
+   "attname": "id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_chunks",
+   "attname": "document_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_chunks",
+   "attname": "text",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_chunks",
+   "attname": "extractor_version",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_chunk_vectors",
+   "attname": "chunk_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_term_bands",
+   "attname": "job_posting_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_term_bands",
+   "attname": "tf3",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_term_bands",
+   "attname": "tf6",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_term_bands",
+   "attname": "tf12",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_term_bands",
+   "attname": "tf24",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "site_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "requested_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "final_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "canonical_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "status",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "document_type",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "content_hash",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "etag",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "last_modified",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "content_type",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "language",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "title",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "description",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "main_content",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "structured_data",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "field_evidence",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "publisher_name",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "image_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "favicon_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "tags",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_search_documents",
+   "attname": "authors",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "document_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "source_key",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "cluster_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "canonical_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "apply_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "title",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "normalized_title",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "description",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "description_fingerprint",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "employer_name",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "employer_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "employer_domain",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "employer_logo_url",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "employer_key",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "locations",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "location_countries",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "location_regions",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "location_localities",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "applicant_location_requirements",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "workplace_type",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "employment_types",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "salary_currency",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "salary_interval",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "skills",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "qualifications",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "responsibilities",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "education_requirements",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "experience_requirements",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "industry",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "occupational_category",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "identifier",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "status",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "closure_reason",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "source_type",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "source_domain",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "submitted_by_application_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "field_evidence",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "seniority",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "department",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "benefits",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_postings",
+   "attname": "content_hash",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_search_vectors",
+   "attname": "job_posting_id",
+   "attstorage": "x",
+   "attcompression": ""
+  },
+  {
+   "relname": "clarity_job_search_vectors",
+   "attname": "search_vector",
+   "attstorage": "m",
+   "attcompression": ""
+  }
+ ],
+ "colstorage.ms": 7,
+ "pgstats": [
+  {
+   "tablename": "clarity_job_clusters",
+   "attname": "canonical_job_posting_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_clusters",
+   "attname": "id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_clusters",
+   "attname": "updated_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": -0.9995117
+  },
+  {
+   "tablename": "clarity_job_clusters",
+   "attname": "created_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_clusters",
+   "attname": "member_count",
+   "avg_width": 4,
+   "null_frac": 0,
+   "n_distinct": 47
+  },
+  {
+   "tablename": "clarity_job_headlines",
+   "attname": "title",
+   "avg_width": 40,
+   "null_frac": 0,
+   "n_distinct": 159253
+  },
+  {
+   "tablename": "clarity_job_headlines",
+   "attname": "job_posting_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_headlines",
+   "attname": "employer_name",
+   "avg_width": 16,
+   "null_frac": 0,
+   "n_distinct": 19299
+  },
+  {
+   "tablename": "clarity_job_posting_signatures",
+   "attname": "signature",
+   "avg_width": 90,
+   "null_frac": 0,
+   "n_distinct": -0.5581549
+  },
+  {
+   "tablename": "clarity_job_posting_signatures",
+   "attname": "job_posting_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": 631457
+  },
+  {
+   "tablename": "clarity_job_posting_signatures",
+   "attname": "kind",
+   "avg_width": 10,
+   "null_frac": 0,
+   "n_distinct": 3
+  },
+  {
+   "tablename": "clarity_job_posting_signatures",
+   "attname": "created_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 637046
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "field_evidence",
+   "avg_width": 448,
+   "null_frac": 0,
+   "n_distinct": 218894
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "qualifications",
+   "avg_width": 146,
+   "null_frac": 0.9575667,
+   "n_distinct": 8584
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "locations",
+   "avg_width": 108,
+   "null_frac": 0,
+   "n_distinct": 24509
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "responsibilities",
+   "avg_width": 105,
+   "null_frac": 0.9804,
+   "n_distinct": 7299
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "employer_logo_url",
+   "avg_width": 102,
+   "null_frac": 0.8945,
+   "n_distinct": 5953
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "benefits",
+   "avg_width": 93,
+   "null_frac": 0.98146665,
+   "n_distinct": 627
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "apply_url",
+   "avg_width": 89,
+   "null_frac": 0.00026666667,
+   "n_distinct": -0.9725663
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "canonical_url",
+   "avg_width": 86,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "description",
+   "avg_width": 77,
+   "null_frac": 0.0150666665,
+   "n_distinct": -0.68595606
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "content_hash",
+   "avg_width": 65,
+   "null_frac": 0.087466665,
+   "n_distinct": -0.91253334
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "description_fingerprint",
+   "avg_width": 65,
+   "null_frac": 0.053966668,
+   "n_distinct": -0.22662361
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "title",
+   "avg_width": 40,
+   "null_frac": 0,
+   "n_distinct": 160754
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "normalized_title",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": 137557
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "document_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "cluster_id",
+   "avg_width": 37,
+   "null_frac": 0.7709,
+   "n_distinct": 104378
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "employer_url",
+   "avg_width": 32,
+   "null_frac": 0.8587,
+   "n_distinct": 4345
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "employment_types",
+   "avg_width": 30,
+   "null_frac": 0,
+   "n_distinct": 35
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "location_countries",
+   "avg_width": 27,
+   "null_frac": 0,
+   "n_distinct": 277
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "source_key",
+   "avg_width": 25,
+   "null_frac": 0,
+   "n_distinct": -0.7407942
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "skills",
+   "avg_width": 24,
+   "null_frac": 0,
+   "n_distinct": 3135
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "location_localities",
+   "avg_width": 23,
+   "null_frac": 0,
+   "n_distinct": 5760
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "location_regions",
+   "avg_width": 22,
+   "null_frac": 0,
+   "n_distinct": 1782
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "education_requirements",
+   "avg_width": 21,
+   "null_frac": 0.95876664,
+   "n_distinct": 135
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "industry",
+   "avg_width": 21,
+   "null_frac": 0.9449667,
+   "n_distinct": 354
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "occupational_category",
+   "avg_width": 20,
+   "null_frac": 0.9074,
+   "n_distinct": 1229
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "identifier",
+   "avg_width": 20,
+   "null_frac": 0.0532,
+   "n_distinct": -0.69734967
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "employer_key",
+   "avg_width": 20,
+   "null_frac": 0.0051666666,
+   "n_distinct": 18100
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "source_domain",
+   "avg_width": 19,
+   "null_frac": 0,
+   "n_distinct": 1965
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "experience_requirements",
+   "avg_width": 17,
+   "null_frac": 0.9834333,
+   "n_distinct": 165
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "department",
+   "avg_width": 16,
+   "null_frac": 0.8155,
+   "n_distinct": 4435
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "employer_name",
+   "avg_width": 16,
+   "null_frac": 0,
+   "n_distinct": 19402
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "employer_domain",
+   "avg_width": 15,
+   "null_frac": 0.8587,
+   "n_distinct": 3086
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "closure_reason",
+   "avg_width": 14,
+   "null_frac": 0.90686667,
+   "n_distinct": 2
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "applicant_location_requirements",
+   "avg_width": 13,
+   "null_frac": 0,
+   "n_distinct": 81
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "valid_through",
+   "avg_width": 8,
+   "null_frac": 0.9241667,
+   "n_distinct": 1946
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "closed_at",
+   "avg_width": 8,
+   "null_frac": 0.90686667,
+   "n_distinct": 210207
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "last_seen_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 16097
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "created_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "salary_annual_max",
+   "avg_width": 8,
+   "null_frac": 0.91513336,
+   "n_distinct": 1236
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "salary_annual_min",
+   "avg_width": 8,
+   "null_frac": 0.91503334,
+   "n_distinct": 1146
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "published_at",
+   "avg_width": 8,
+   "null_frac": 0.036233332,
+   "n_distinct": 58097
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "salary_max",
+   "avg_width": 8,
+   "null_frac": 0.91513336,
+   "n_distinct": 1249
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "salary_min",
+   "avg_width": 8,
+   "null_frac": 0.91503334,
+   "n_distinct": 1158
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "updated_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 45896
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "first_seen_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 16466
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "workplace_type",
+   "avg_width": 7,
+   "null_frac": 0.0251,
+   "n_distinct": 3
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "status",
+   "avg_width": 6,
+   "null_frac": 0,
+   "n_distinct": 5
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "seniority",
+   "avg_width": 5,
+   "null_frac": 0.9504667,
+   "n_distinct": 7
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "salary_interval",
+   "avg_width": 5,
+   "null_frac": 0.91463333,
+   "n_distinct": 5
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "source_type",
+   "avg_width": 4,
+   "null_frac": 0,
+   "n_distinct": 2
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "salary_currency",
+   "avg_width": 4,
+   "null_frac": 0.91463333,
+   "n_distinct": 23
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "direct_apply",
+   "avg_width": 1,
+   "null_frac": 0.97653335,
+   "n_distinct": 2
+  },
+  {
+   "tablename": "clarity_job_postings",
+   "attname": "submitted_by_application_id",
+   "avg_width": 0,
+   "null_frac": 1,
+   "n_distinct": 0
+  },
+  {
+   "tablename": "clarity_job_search_vectors",
+   "attname": "search_vector",
+   "avg_width": 3707,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_search_vectors",
+   "attname": "job_posting_id",
+   "avg_width": 21,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_term_bands",
+   "attname": "tf3",
+   "avg_width": 357,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_term_bands",
+   "attname": "tf6",
+   "avg_width": 101,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_term_bands",
+   "attname": "job_posting_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_term_bands",
+   "attname": "tf12",
+   "avg_width": 32,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_job_term_bands",
+   "attname": "tf24",
+   "avg_width": 12,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_chunk_embeddings",
+   "attname": "code",
+   "avg_width": 136,
+   "null_frac": 0.0197,
+   "n_distinct": -0.12897067
+  },
+  {
+   "tablename": "clarity_search_chunk_embeddings",
+   "attname": "document_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": 222495
+  },
+  {
+   "tablename": "clarity_search_chunk_embeddings",
+   "attname": "chunk_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_chunk_embeddings",
+   "attname": "model",
+   "avg_width": 24,
+   "null_frac": 0.0197,
+   "n_distinct": 1
+  },
+  {
+   "tablename": "clarity_search_chunk_vectors",
+   "attname": "embedding",
+   "avg_width": 2056,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_chunk_vectors",
+   "attname": "chunk_id",
+   "avg_width": 18,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "text",
+   "avg_width": 1226,
+   "null_frac": 0,
+   "n_distinct": -0.13014501
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "document_id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": 115753
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "extractor_version",
+   "avg_width": 18,
+   "null_frac": 0,
+   "n_distinct": 2
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "updated_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 107206
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "created_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 115753
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "end_offset",
+   "avg_width": 4,
+   "null_frac": 0,
+   "n_distinct": 7084
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "start_offset",
+   "avg_width": 4,
+   "null_frac": 0,
+   "n_distinct": 485
+  },
+  {
+   "tablename": "clarity_search_chunks",
+   "attname": "position",
+   "avg_width": 4,
+   "null_frac": 0,
+   "n_distinct": 485
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "field_evidence",
+   "avg_width": 344,
+   "null_frac": 0,
+   "n_distinct": 499681
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "main_content",
+   "avg_width": 219,
+   "null_frac": 0.9878333,
+   "n_distinct": 3088
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "description",
+   "avg_width": 193,
+   "null_frac": 0.052,
+   "n_distinct": -0.16571414
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "image_url",
+   "avg_width": 105,
+   "null_frac": 0.57643336,
+   "n_distinct": 320476
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "canonical_url",
+   "avg_width": 76,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "requested_url",
+   "avg_width": 75,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "final_url",
+   "avg_width": 70,
+   "null_frac": 0.5003,
+   "n_distinct": -0.4997
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "content_hash",
+   "avg_width": 65,
+   "null_frac": 0.0451,
+   "n_distinct": 193754
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "favicon_url",
+   "avg_width": 64,
+   "null_frac": 0.56846666,
+   "n_distinct": 9795
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "title",
+   "avg_width": 46,
+   "null_frac": 0.00053333334,
+   "n_distinct": 320554
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "etag",
+   "avg_width": 31,
+   "null_frac": 0.8939,
+   "n_distinct": 187042
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "last_modified",
+   "avg_width": 30,
+   "null_frac": 0.9047667,
+   "n_distinct": 91840
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "content_type",
+   "avg_width": 23,
+   "null_frac": 0.5003,
+   "n_distinct": 29
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "authors",
+   "avg_width": 18,
+   "null_frac": 0,
+   "n_distinct": 7288
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "publisher_name",
+   "avg_width": 16,
+   "null_frac": 0.0939,
+   "n_distinct": 19404
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "tags",
+   "avg_width": 13,
+   "null_frac": 0,
+   "n_distinct": 1
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "published_at",
+   "avg_width": 8,
+   "null_frac": 0.29006666,
+   "n_distinct": 68968
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "fetched_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 71887
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "indexed_at",
+   "avg_width": 8,
+   "null_frac": 0.0191,
+   "n_distinct": 66507
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "status",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 3
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "created_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "updated_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 75702
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "next_fetch_at",
+   "avg_width": 8,
+   "null_frac": 0.99983335,
+   "n_distinct": 10
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "modified_at",
+   "avg_width": 8,
+   "null_frac": 0.85403335,
+   "n_distinct": 254772
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "structured_data",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 1912
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "document_type",
+   "avg_width": 4,
+   "null_frac": 0,
+   "n_distinct": 10
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "http_status",
+   "avg_width": 4,
+   "null_frac": 0.50413334,
+   "n_distinct": 16
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "language",
+   "avg_width": 3,
+   "null_frac": 0.5671667,
+   "n_distinct": 132
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "noindex",
+   "avg_width": 1,
+   "null_frac": 0,
+   "n_distinct": 2
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "nofollow",
+   "avg_width": 1,
+   "null_frac": 0,
+   "n_distinct": 2
+  },
+  {
+   "tablename": "clarity_search_documents",
+   "attname": "site_id",
+   "avg_width": 0,
+   "null_frac": 1,
+   "n_distinct": 0
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "idempotency_key",
+   "avg_width": 57,
+   "null_frac": 6.666667e-05,
+   "n_distinct": -0.99993336
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "id",
+   "avg_width": 37,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "credential_id",
+   "avg_width": 27,
+   "null_frac": 0,
+   "n_distinct": 4
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "owner_account_id",
+   "avg_width": 25,
+   "null_frac": 0,
+   "n_distinct": 1
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "application_id",
+   "avg_width": 25,
+   "null_frac": 0,
+   "n_distinct": 3
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "operation",
+   "avg_width": 13,
+   "null_frac": 0,
+   "n_distinct": 3
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "occurred_at",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": -1
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "caller_kind",
+   "avg_width": 8,
+   "null_frac": 0,
+   "n_distinct": 2
+  },
+  {
+   "tablename": "clarity_search_usage_events",
+   "attname": "quantity",
+   "avg_width": 4,
+   "null_frac": 0,
+   "n_distinct": 1
+  }
+ ],
+ "pgstats.ms": 5,
+ "backlog": [
+  {
+   "count": "646712"
+  }
+ ],
+ "backlog.ms": 145,
+ "chunks_sample": [
+  {
+   "t": "job",
+   "status": "indexed",
+   "noindex": false,
+   "n": "6982",
+   "len": 1538,
+   "oct": 1558,
+   "stored": 1263,
+   "short": "767",
+   "nonfirst": "4533",
+   "old30": "3260",
+   "unembedded": "145"
+  },
+  {
+   "t": "page",
+   "status": "indexed",
+   "noindex": false,
+   "n": "6324",
+   "len": 1600,
+   "oct": 1637,
+   "stored": 1157,
+   "short": "868",
+   "nonfirst": "4618",
+   "old30": "1260",
+   "unembedded": "359"
+  },
+  {
+   "t": "news",
+   "status": "indexed",
+   "noindex": false,
+   "n": "1301",
+   "len": 1708,
+   "oct": 1753,
+   "stored": 1371,
+   "short": "80",
+   "nonfirst": "1002",
+   "old30": "264",
+   "unembedded": "69"
+  },
+  {
+   "t": "article",
+   "status": "indexed",
+   "noindex": false,
+   "n": "618",
+   "len": 1865,
+   "oct": 1961,
+   "stored": 1466,
+   "short": "16",
+   "nonfirst": "544",
+   "old30": "147",
+   "unembedded": "26"
+  },
+  {
+   "t": "video",
+   "status": "indexed",
+   "noindex": false,
+   "n": "58",
+   "len": 1062,
+   "oct": 1089,
+   "stored": 716,
+   "short": "26",
+   "nonfirst": "30",
+   "old30": "9",
+   "unembedded": "4"
+  },
+  {
+   "t": "product",
+   "status": "indexed",
+   "noindex": false,
+   "n": "54",
+   "len": 1416,
+   "oct": 1458,
+   "stored": 1064,
+   "short": "6",
+   "nonfirst": "30",
+   "old30": "14",
+   "unembedded": "0"
+  },
+  {
+   "t": "profile",
+   "status": "indexed",
+   "noindex": false,
+   "n": "51",
+   "len": 1220,
+   "oct": 1234,
+   "stored": 900,
+   "short": "18",
+   "nonfirst": "28",
+   "old30": "12",
+   "unembedded": "0"
+  },
+  {
+   "t": "event",
+   "status": "indexed",
+   "noindex": false,
+   "n": "25",
+   "len": 1500,
+   "oct": 1513,
+   "stored": 921,
+   "short": "4",
+   "nonfirst": "15",
+   "old30": "7",
+   "unembedded": "2"
+  },
+  {
+   "t": "recipe",
+   "status": "indexed",
+   "noindex": false,
+   "n": "13",
+   "len": 1607,
+   "oct": 1616,
+   "stored": 1338,
+   "short": "2",
+   "nonfirst": "11",
+   "old30": "1",
+   "unembedded": "0"
+  }
+ ],
+ "chunks_sample.ms": 23773,
+ "jobchunks_by_status": [
+  {
+   "active": true,
+   "sts": "active",
+   "chunks": "3365",
+   "unseen30": "43"
+  },
+  {
+   "active": false,
+   "sts": "stale",
+   "chunks": "2777",
+   "unseen30": "1363"
+  },
+  {
+   "active": false,
+   "sts": "closed",
+   "chunks": "645",
+   "unseen30": "165"
+  },
+  {
+   "active": false,
+   "sts": "expired",
+   "chunks": "186",
+   "unseen30": "106"
+  },
+  {
+   "active": true,
+   "sts": "active,closed",
+   "chunks": "9",
+   "unseen30": "0"
+  }
+ ],
+ "jobchunks_by_status.ms": 5823,
+ "docs_sample": [
+  {
+   "t": "job",
+   "status": "indexed",
+   "noindex": false,
+   "n": "7183",
+   "row_bytes": 3095,
+   "main": 0,
+   "main_n": "0",
+   "descr": 1327,
+   "sd": 5,
+   "fe": 304,
+   "au": 6,
+   "tags": 13,
+   "urls_title": 212,
+   "nochunks": "0",
+   "old30": "2336"
+  },
+  {
+   "t": "page",
+   "status": "indexed",
+   "noindex": false,
+   "n": "5343",
+   "row_bytes": 1300,
+   "main": 7,
+   "main_n": "5",
+   "descr": 192,
+   "sd": 5,
+   "fe": 408,
+   "au": 22,
+   "tags": 13,
+   "urls_title": 239,
+   "nochunks": "561",
+   "old30": "826"
+  },
+  {
+   "t": "news",
+   "status": "indexed",
+   "noindex": false,
+   "n": "999",
+   "row_bytes": 6200,
+   "main": 0,
+   "main_n": "0",
+   "descr": 163,
+   "sd": 2483,
+   "fe": 319,
+   "au": 63,
+   "tags": 13,
+   "urls_title": 403,
+   "nochunks": "27",
+   "old30": "183"
+  },
+  {
+   "t": "video",
+   "status": "indexed",
+   "noindex": false,
+   "n": "465",
+   "row_bytes": 911,
+   "main": 0,
+   "main_n": "0",
+   "descr": 32,
+   "sd": 5,
+   "fe": 281,
+   "au": 85,
+   "tags": 13,
+   "urls_title": 198,
+   "nochunks": "388",
+   "old30": "13"
+  },
+  {
+   "t": "page",
+   "status": "blocked",
+   "noindex": true,
+   "n": "247",
+   "row_bytes": 3143,
+   "main": 1095,
+   "main_n": "154",
+   "descr": 176,
+   "sd": 5,
+   "fe": 327,
+   "au": 11,
+   "tags": 13,
+   "urls_title": 239,
+   "nochunks": "247",
+   "old30": "46"
+  },
+  {
+   "t": "article",
+   "status": "indexed",
+   "noindex": false,
+   "n": "237",
+   "row_bytes": 1468,
+   "main": 0,
+   "main_n": "0",
+   "descr": 176,
+   "sd": 5,
+   "fe": 433,
+   "au": 58,
+   "tags": 13,
+   "urls_title": 293,
+   "nochunks": "7",
+   "old30": "45"
+  },
+  {
+   "t": "profile",
+   "status": "indexed",
+   "noindex": false,
+   "n": "135",
+   "row_bytes": 1240,
+   "main": 0,
+   "main_n": "0",
+   "descr": 162,
+   "sd": 5,
+   "fe": 475,
+   "au": 7,
+   "tags": 13,
+   "urls_title": 165,
+   "nochunks": "48",
+   "old30": "10"
+  },
+  {
+   "t": "other",
+   "status": "indexed",
+   "noindex": false,
+   "n": "61",
+   "row_bytes": 674,
+   "main": 0,
+   "main_n": "0",
+   "descr": 0,
+   "sd": 5,
+   "fe": 90,
+   "au": 5,
+   "tags": 13,
+   "urls_title": 301,
+   "nochunks": "61",
+   "old30": "0"
+  },
+  {
+   "t": "event",
+   "status": "indexed",
+   "noindex": false,
+   "n": "53",
+   "row_bytes": 1399,
+   "main": 0,
+   "main_n": "0",
+   "descr": 224,
+   "sd": 5,
+   "fe": 418,
+   "au": 12,
+   "tags": 13,
+   "urls_title": 277,
+   "nochunks": "8",
+   "old30": "11"
+  },
+  {
+   "t": "product",
+   "status": "indexed",
+   "noindex": false,
+   "n": "34",
+   "row_bytes": 1286,
+   "main": 0,
+   "main_n": "0",
+   "descr": 164,
+   "sd": 5,
+   "fe": 427,
+   "au": 12,
+   "tags": 13,
+   "urls_title": 244,
+   "nochunks": "1",
+   "old30": "4"
+  },
+  {
+   "t": "profile",
+   "status": "blocked",
+   "noindex": true,
+   "n": "9",
+   "row_bytes": 3989,
+   "main": 1655,
+   "main_n": "2",
+   "descr": 56,
+   "sd": 5,
+   "fe": 377,
+   "au": 8,
+   "tags": 13,
+   "urls_title": 196,
+   "nochunks": "9",
+   "old30": "1"
+  },
+  {
+   "t": "event",
+   "status": "blocked",
+   "noindex": true,
+   "n": "8",
+   "row_bytes": 2312,
+   "main": 723,
+   "main_n": "8",
+   "descr": 109,
+   "sd": 5,
+   "fe": 302,
+   "au": 5,
+   "tags": 13,
+   "urls_title": 357,
+   "nochunks": "8",
+   "old30": "1"
+  },
+  {
+   "t": "video",
+   "status": "blocked",
+   "noindex": true,
+   "n": "4",
+   "row_bytes": 2797,
+   "main": 507,
+   "main_n": "4",
+   "descr": 413,
+   "sd": 5,
+   "fe": 291,
+   "au": 17,
+   "tags": 13,
+   "urls_title": 538,
+   "nochunks": "4",
+   "old30": "0"
+  },
+  {
+   "t": "article",
+   "status": "blocked",
+   "noindex": true,
+   "n": "3",
+   "row_bytes": 28077,
+   "main": 13066,
+   "main_n": "3",
+   "descr": 578,
+   "sd": 5,
+   "fe": 327,
+   "au": 49,
+   "tags": 13,
+   "urls_title": 219,
+   "nochunks": "3",
+   "old30": "1"
+  },
+  {
+   "t": "page",
+   "status": "discovered",
+   "noindex": false,
+   "n": "2",
+   "row_bytes": 577,
+   "main": 0,
+   "main_n": "0",
+   "descr": 169,
+   "sd": 5,
+   "fe": 5,
+   "au": 8,
+   "tags": 13,
+   "urls_title": 271,
+   "nochunks": "2",
+   "old30": "2"
+  },
+  {
+   "t": "news",
+   "status": "blocked",
+   "noindex": true,
+   "n": "2",
+   "row_bytes": 18507,
+   "main": 4202,
+   "main_n": "2",
+   "descr": 162,
+   "sd": 6261,
+   "fe": 260,
+   "au": 115,
+   "tags": 13,
+   "urls_title": 333,
+   "nochunks": "2",
+   "old30": "0"
+  },
+  {
+   "t": "recipe",
+   "status": "indexed",
+   "noindex": false,
+   "n": "2",
+   "row_bytes": 1469,
+   "main": 0,
+   "main_n": "0",
+   "descr": 144,
+   "sd": 5,
+   "fe": 506,
+   "au": 37,
+   "tags": 13,
+   "urls_title": 296,
+   "nochunks": "0",
+   "old30": "0"
+  },
+  {
+   "t": "job",
+   "status": "blocked",
+   "noindex": true,
+   "n": "2",
+   "row_bytes": 4257,
+   "main": 2378,
+   "main_n": "2",
+   "descr": 75,
+   "sd": 5,
+   "fe": 298,
+   "au": 5,
+   "tags": 13,
+   "urls_title": 199,
+   "nochunks": "2",
+   "old30": "0"
+  },
+  {
+   "t": "job",
+   "status": "removed",
+   "noindex": false,
+   "n": "1",
+   "row_bytes": 909,
+   "main": 0,
+   "main_n": "0",
+   "descr": 0,
+   "sd": 5,
+   "fe": 254,
+   "au": 5,
+   "tags": 13,
+   "urls_title": 338,
+   "nochunks": "0",
+   "old30": "0"
+  }
+ ],
+ "docs_sample.ms": 17476,
+ "postings_sample": [
+  {
+   "status": "active",
+   "n": "3498",
+   "row_bytes": 6334,
+   "descr": 2819,
+   "sections": 93,
+   "fe": 466,
+   "loc": 117,
+   "unseen14": "105",
+   "unseen30": "38",
+   "clustered": "823"
+  },
+  {
+   "status": "stale",
+   "n": "2907",
+   "row_bytes": 5567,
+   "descr": 2490,
+   "sections": 12,
+   "fe": 445,
+   "loc": 95,
+   "unseen14": "2907",
+   "unseen30": "1494",
+   "clustered": "611"
+  },
+  {
+   "status": "closed",
+   "n": "670",
+   "row_bytes": 6870,
+   "descr": 3017,
+   "sections": 177,
+   "fe": 417,
+   "loc": 133,
+   "unseen14": "430",
+   "unseen30": "187",
+   "clustered": "235"
+  },
+  {
+   "status": "expired",
+   "n": "222",
+   "row_bytes": 6193,
+   "descr": 2236,
+   "sections": 63,
+   "fe": 295,
+   "loc": 193,
+   "unseen14": "195",
+   "unseen30": "139",
+   "clustered": "49"
+  },
+  {
+   "status": "removed",
+   "n": "1",
+   "row_bytes": 5761,
+   "descr": 2870,
+   "sections": 0,
+   "fe": 922,
+   "loc": 117,
+   "unseen14": "1",
+   "unseen30": "0",
+   "clustered": "0"
+  }
+ ],
+ "postings_sample.ms": 8640,
+ "clusters": [
+  {
+   "clusters": "2385",
+   "members": "5977",
+   "multi": "2385",
+   "extra": "3592"
+  }
+ ],
+ "clusters.ms": 30,
+ "vec_sample": [
+  {
+   "n": "1553",
+   "emb": 2056,
+   "id": 36
+  }
+ ],
+ "vec_sample.ms": 342,
+ "emb_sample": [
+  {
+   "model": "qwen/qwen3-embedding-8b",
+   "n": "13161",
+   "doc": 37,
+   "code": 136
+  }
+ ],
+ "emb_sample.ms": 280,
+ "usage_sample": [
+  {
+   "operation": "page_indexed",
+   "n": "30161",
+   "old30": "4858",
+   "old14": "13508",
+   "idem": "30161",
+   "row_bytes": 232
+  },
+  {
+   "operation": "search",
+   "n": "14",
+   "old30": "7",
+   "old14": "12",
+   "idem": "0",
+   "row_bytes": 177
+  },
+  {
+   "operation": "fetch_started",
+   "n": "59492",
+   "old30": "13463",
+   "old14": "31800",
+   "idem": "59492",
+   "row_bytes": 232
+  }
+ ],
+ "usage_sample.ms": 1466,
+ "chunks_per_doc": [
+  {
+   "t": "job",
+   "docs": "7435",
+   "chunks": "21154"
+  },
+  {
+   "t": "page",
+   "docs": "5675",
+   "chunks": "19371"
+  },
+  {
+   "t": "news",
+   "docs": "1050",
+   "chunks": "4096"
+  },
+  {
+   "t": "article",
+   "docs": "293",
+   "chunks": "2200"
+  },
+  {
+   "t": "event",
+   "docs": "43",
+   "chunks": "335"
+  },
+  {
+   "t": "product",
+   "docs": "61",
+   "chunks": "166"
+  },
+  {
+   "t": "profile",
+   "docs": "134",
+   "chunks": "141"
+  },
+  {
+   "t": "video",
+   "docs": "482",
+   "chunks": "89"
+  },
+  {
+   "t": "recipe",
+   "docs": "2",
+   "chunks": "8"
+  },
+  {
+   "t": "other",
+   "docs": "35",
+   "chunks": "0"
+  }
+ ],
+ "chunks_per_doc.ms": 12173,
+ "done": true
+}

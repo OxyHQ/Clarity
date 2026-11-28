@@ -912,6 +912,20 @@ export const searchChunkVectors = pgTable('clarity_search_chunk_vectors', {
 });
 
 /**
+ * A chunk's vector as 1,024 signed bytes (search/semantic-rerank.ts
+ * `int8Vector`), the store `CLARITY_SEMANTIC_RERANK=int8` reorders a search's
+ * candidates by: 1 KiB against the half-precision vector's 2 KiB, for the same
+ * nearest documents (docs/adr/0001-search-storage-diet.md). Insert-only, like
+ * the codes; no index but the key.
+ */
+export const searchChunkInt8Vectors = pgTable('clarity_search_chunk_int8_vectors', {
+  chunkId: text('chunk_id')
+    .primaryKey()
+    .references(() => searchChunkEmbeddings.chunkId, { onDelete: 'cascade' }),
+  vector: bytea('vector').notNull(),
+});
+
+/**
  * A chunk's full-text vector, computed from its text: the expression
  * `clarity_search_chunks_text_fts_idx` holds. Matching (`@@`) on it uses the
  * index; ranking (`ts_rank_cd`) computes it for the matched chunks only, the
