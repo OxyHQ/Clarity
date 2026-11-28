@@ -27,7 +27,8 @@ import {
 } from '../lib/kaana-embeddings.js';
 import { createLogger } from '../lib/logger.js';
 import { getRedisClient, withRedisTimeout } from '../lib/redis.js';
-import { EmbeddingQueue, type PendingChunk } from './embedding-queue.js';
+import { inHeavyHours, integerKnob } from '../lib/work-knobs.js';
+import { EmbeddingQueue, MAX_PENDING_CHUNKS, type PendingChunk } from './embedding-queue.js';
 import { halfVectorText } from './half-precision.js';
 import { textFromChunks } from './page-text.js';
 
@@ -123,9 +124,13 @@ const BACKLOG_IDLE_PENDING = 1_024;
 /**
  * Chunks the backlog sweep queues at a time, once a minute: more than the
  * queue embeds in a minute (embedding-queue.ts `MAX_IN_FLIGHT`), so Kaana's
- * pace — not the sweep's — sets the backlog's.
+ * pace — not the sweep's — sets the backlog's. `EMBED_BACKLOG_BATCH` overrides
+ * it, up to what the queue can still hold once the sweep tops it up.
  */
-export const BACKLOG_BATCH = 2_048;
+export const BACKLOG_BATCH = integerKnob(process.env, 'EMBED_BACKLOG_BATCH', 2_048, {
+  min: 1,
+  max: MAX_PENDING_CHUNKS - BACKLOG_IDLE_PENDING,
+});
 /** Where the sweep resumes; a random start keeps several workers apart. */
 let backlogCursor: string | null = crypto.randomUUID();
 
@@ -134,10 +139,13 @@ let backlogCursor: string | null = crypto.randomUUID();
  * backlog's primary key (no scan): the backlog is embedded at a steady pace
  * instead of whenever its documents are indexed again — which made every feed
  * poll re-project each listing still owed a vector. Freshly indexed documents
- * keep the queue first: the sweep waits while it is busy.
+ * keep the queue first: the sweep waits while it is busy. Outside
+ * `CLARITY_HEAVY_HOURS_UTC` (lib/work-knobs.ts) it queues nothing; freshly
+ * indexed documents are still embedded at once.
  */
 export async function queueEmbeddingBacklog(): Promise<number> {
   if (!embeddingsEnabled()) return 0;
+  if (!inHeavyHours()) return 0;
   if (chunkEmbeddingQueue().pending >= BACKLOG_IDLE_PENDING) return 0;
   const after = backlogCursor;
   // The ids first, then their text by key. Joined in one statement, the

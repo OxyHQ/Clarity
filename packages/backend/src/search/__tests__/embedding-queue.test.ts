@@ -292,5 +292,48 @@ describe('EmbeddingQueue', () => {
       await run(SLOW_STORE_MS + MIN_REQUEST_INTERVAL_MS + MARGIN_MS);
       expect(embed).toHaveBeenCalledTimes(3);
     });
+
+    it('rests only past the configured threshold, up to the configured cap', async () => {
+      const embed = vi.fn(async (texts: readonly string[]) => texts.map(() => [0.5]));
+      const store = vi.fn(() => new Promise<void>((resolve) => setTimeout(resolve, 20_000)));
+      const queue = new EmbeddingQueue({
+        embed,
+        store,
+        limits: { slowStoreMs: 10_000, maxStoreRestMs: 5_000 },
+      });
+      for (let batch = 0; batch < 3; batch += 1) {
+        queue.enqueue(documentChunks(batch, MAX_BATCH_INPUTS, 100));
+      }
+
+      // The second request's store (started at the 2 s interval) ends at 22 s,
+      // then a 5 s rest, not its own 20 s, before the third request.
+      await run(MIN_REQUEST_INTERVAL_MS + 20_000 + 5_000 - MARGIN_MS);
+      expect(embed).toHaveBeenCalledTimes(2);
+      await run(2 * MARGIN_MS);
+      expect(embed).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  it('runs at the configured in-flight limit and interval', async () => {
+    const embed = vi.fn(() => new Promise<number[][]>(() => undefined)); // never answers
+    const queue = new EmbeddingQueue({
+      embed,
+      store: vi.fn(async () => undefined),
+      limits: { maxInFlight: 3, minRequestIntervalMs: 5_000 },
+    });
+    for (let batch = 0; batch < 5; batch += 1) {
+      queue.enqueue(documentChunks(batch, MAX_BATCH_INPUTS, 100));
+    }
+
+    await advance(0);
+    expect(embed).toHaveBeenCalledTimes(1);
+    await advance(4_999);
+    expect(embed).toHaveBeenCalledTimes(1);
+    await advance(1);
+    expect(embed).toHaveBeenCalledTimes(2);
+    await advance(5_000);
+    expect(embed).toHaveBeenCalledTimes(3);
+    await advance(50_000);
+    expect(embed).toHaveBeenCalledTimes(3);
   });
 });
