@@ -1014,6 +1014,16 @@ export const crawlPages = pgTable(
     index('clarity_crawl_pages_claim_idx')
       .on(table.priority.desc(), table.availableAt, table.createdAt, table.id)
       .where(sql`${table.status} in ('queued', 'retry')`),
+    // The pages being fetched — a handful at a time — for the expired-lease
+    // recovery and each claim's per-owner concurrency count (`leaseNextPage`).
+    // Both read `status = 'fetching'` through `clarity_crawl_pages_priority_idx`,
+    // where every page that WAS fetching leaves a dead entry under that key until
+    // vacuum: on the fresh PlanetScale copy the recovery read 2,861 buffers to
+    // find 0 rows, and on RDS the three lease statements read ~535M buffers in
+    // 4 h (2026-11-28). Partial, so it holds only the live leases.
+    index('clarity_crawl_pages_fetching_lease_idx')
+      .on(table.leaseExpiresAt, table.jobId)
+      .where(sql`${table.status} = 'fetching'`),
   ],
 );
 
@@ -1286,6 +1296,14 @@ export const jobPostings = pgTable(
     index('clarity_job_postings_status_published_idx').on(table.status, table.publishedAt),
     index('clarity_job_postings_status_last_seen_idx').on(table.status, table.lastSeenAt),
     index('clarity_job_postings_valid_through_idx').on(table.validThrough),
+    // The lifecycle sweep's expiry (`sweepJobLifecycle`: active listings whose
+    // `valid_through` has passed). Through the unpartial index it walked every
+    // listing ever past its date — 100k, almost all already expired, stale or
+    // closed — to find a handful: 91k buffers, 10.9 s cold on PlanetScale, every
+    // 15 minutes (2026-11-28). Partial on `active`, it holds only candidates.
+    index('clarity_job_postings_active_valid_through_idx')
+      .on(table.validThrough)
+      .where(sql`${table.status} = 'active' and ${table.validThrough} is not null`),
     index('clarity_job_postings_cluster_idx').on(table.clusterId),
     index('clarity_job_postings_employer_idx').on(table.employerKey),
     index('clarity_job_postings_source_domain_idx').on(table.sourceDomain),
