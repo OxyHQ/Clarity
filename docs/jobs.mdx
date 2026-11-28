@@ -322,9 +322,11 @@ Authorization: Bearer <oxy_sk credential>   # scope clarity:search
 Free text runs lexical, semantic or hybrid (reciprocal-rank fusion, the default)
 relevance, so `frontend engineer working on React Native mobile apps` can match
 a role titled *Mobile Software Engineer*. Omitting `query` browses by filters
-and freshness. When embeddings are off or the call fails, or the semantic arm
-runs past 4 s, hybrid degrades to lexical and says so in `degraded` (`reason`
-`embedding_route_unavailable` or `semantic_timeout`): a semantic failure never
+and freshness. When embeddings are off or the call fails, the semantic arm
+runs past 4 s, or an operator turned semantic search off
+(`CLARITY_SEMANTIC_SEARCH=off`), hybrid degrades to lexical and says so in
+`degraded` (`reason` `embedding_route_unavailable`, `semantic_timeout` or
+`semantic_off`): a semantic failure never
 fails a hybrid search. Explicit `semantic` fails with `503`
 ([embeddings capability](index#embeddings-capability)). The semantic arm finds
 the 1,000 nearest chunks — 8,000 candidates from the HNSW index over their

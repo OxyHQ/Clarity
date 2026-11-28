@@ -20,6 +20,7 @@ import {
   type NearestChunks,
 } from './nearest-chunks.js';
 import { isStatementTimeout, SEARCH_STATEMENT_TIMEOUT_MS } from './search-timeout.js';
+import { semanticSearchEnabled } from './semantic-search-switch.js';
 import { withPageText } from './page-text.js';
 import {
   iconHostsOf,
@@ -98,9 +99,24 @@ export const QUERY_EMBEDDING_TIMEOUT_MS = 2_500;
 export async function searchIndex(input: SearchInput) {
   let queryEmbedding: number[] | undefined;
   let degraded:
-    | { from: 'hybrid'; to: 'lexical'; reason: 'embedding_route_unavailable' | 'semantic_timeout' }
+    | {
+        from: 'hybrid';
+        to: 'lexical';
+        reason: 'embedding_route_unavailable' | 'semantic_timeout' | 'semantic_off';
+      }
     | undefined;
-  if (input.mode !== 'lexical') {
+  // Off (semantic-search-switch.ts), the query is not embedded, so no
+  // nearest-chunk read runs below.
+  if (input.mode !== 'lexical' && !semanticSearchEnabled()) {
+    if (input.mode === 'semantic') {
+      throw new SearchError(
+        503,
+        'semantic_unavailable',
+        'Semantic search is temporarily unavailable',
+      );
+    }
+    degraded = { from: 'hybrid', to: 'lexical', reason: 'semantic_off' };
+  } else if (input.mode !== 'lexical') {
     queryEmbedding = await embedQuery(input.query, AbortSignal.timeout(QUERY_EMBEDDING_TIMEOUT_MS));
     if (!queryEmbedding) {
       if (input.mode === 'semantic') {
