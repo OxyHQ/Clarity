@@ -271,7 +271,8 @@ vectors in place gets most of the bytes back for a fraction of the work.
 ## Decision
 
 Diet in four phases, each reversible. All of them run after the PlanetScale
-cutover; phase 2's code can merge before it, but not its migration.
+cutover: phases 1 and 3 delete or change the schema, and phase 2's PR carries
+its migration (DDL), so it is held too.
 
 | Phase | What | Saves | Quality | Reversible by | Needs |
 |---|---|---|---|---|---|
